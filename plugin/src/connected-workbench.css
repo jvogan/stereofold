@@ -1,0 +1,11 @@
+[data-connected-workbench] { margin-top: .6rem; width: 100%; }
+/* The panel's one primary Mol* action, weighted so it
+   reads before the secondary "Other viewers" button in the header. */
+[data-connected-workbench][data-primary="true"] { min-height: 44px; font-weight: 650; border: 1px solid #65e4d2; background: #14343a; color: #eafbf7; cursor: pointer; }
+.connected-workbench { border: 1px solid #38505a; border-radius: 14px; background: #0c171c; color: #e8f2f3; width: min(34rem, calc(100vw - 2rem)); max-width: none; max-height: calc(100vh - 2rem); overflow: auto; margin: 1rem 1rem 1rem auto; padding: 1.1rem; }
+.connected-workbench::backdrop { background: rgb(2 8 11 / .18); }
+.connected-workbench form { display: flex; justify-content: flex-end; }
+.connected-workbench-note { color: #b8ced2; max-width: 38rem; }
+.connected-workbench [data-stock-molstar-structure-tools] { border-top: 1px solid #294048; margin-top: .9rem; padding-top: .8rem; }
+.connected-workbench [data-stock-molstar-selection-tools] { margin-top: .9rem; }
+.connected-workbench .msp-section-header { margin-top: .3rem; }

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b16" />
+    <meta name="description" content="How Stereofold processes structures, voice, pairing, local storage, and website visits." />
+    <link rel="canonical" href="https://jvogan.github.io/stereofold/privacy.html" />
+    <meta property="og:title" content="Privacy — Stereofold" />
+    <meta property="og:description" content="How Stereofold processes structures, voice, pairing, local storage, and website visits." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stereofold" />
+    <meta property="og:url" content="https://jvogan.github.io/stereofold/privacy.html" />
+    <title>Privacy — Stereofold</title>
+    <link rel="icon" href="./artwork/icon.png" />
+    <style>
+      body { margin: 0; background: #080b16; color: #e8edf7; font: 18px/1.6 sans-serif; }
+      main { max-width: 740px; margin: 60px auto; padding: 0 24px; }
+      h1 { font-size: 36px; letter-spacing: -0.04em; line-height: 1.2; }
+      h2 { font-size: 23px; margin-top: 38px; }
+      a { color: #94e8f5; text-underline-offset: 4px; overflow-wrap: anywhere; }
+      p, li { color: #b8c5d9; }
+      li { margin-block: 8px; }
+      .page-date { font-size: 14px; color: #a3aec2; }
+      footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #222a3a; }
+      footer nav { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 16px; }
+      :focus-visible { outline: 2px solid #94e8f5; outline-offset: 5px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="./index.html">← Stereofold</a>
+      <h1>Privacy</h1>
+      <p class="page-date">Updated <time datetime="2026-10-10">October 10, 2026</time></p>
+      <p>Stereofold is published by <a href="https://github.com/jvogan">Jacob Vogan</a>. This page covers the Stereofold 0.1.21 plugin and project website.</p>
+      <p>The plugin runs a molecular viewer and MCP server on your computer. It requires no Stereofold account and includes no publisher-operated telemetry or advertising service. Your agent host, requested source sites, optional providers, and website host have their own data policies.</p>
+      <h2>Data used by the plugin</h2>
+      <p>Stereofold processes the structures, local files, URLs, lessons, annotations, and commands you choose. It uses session identifiers, pairing credentials, browser information, rendering status, and device input to control a scene. Optional voice features process recordings, transcripts, and reply text.</p>
+      <p>Your selected agent host receives conversations and tool inputs and results, which can include file paths, annotations, transcripts, and diagnostics. Coordinates pasted into chat follow that host's policies. Direct file loading reads coordinates through the local server.</p>
+      <h2>Network destinations</h2>
+      <ul>
+        <li>Public PDB and AlphaFold requests contact RCSB or EMBL-EBI. The destination receives the requested identifier and your network IP address. A supplied URL contacts its destination; uncached lesson stages contact their declared source.</li>
+        <li>The local inspector serves your scene to a browser or host panel. Private Wi-Fi sharing sends coordinates and edits to authorized paired viewers over HTTPS. Use a network you trust.</li>
+        <li>Meta Web Launch receives the viewer link, which can contain a one-time pairing code. An explicitly requested Cloudflare relay carries coordinates and scene traffic. Protect complete viewer links: a valid link can grant access to that share.</li>
+        <li>Optional screenshots, exports, and recordings can contain the scene or surrounding visible information. Review them before sharing.</li>
+      </ul>
+      <h2>Voice routes</h2>
+      <p>Controller push-to-talk uses the supplied on-device Apple recognizer or local Whisper. Recognized text can reach your desktop agent. With its separately configured OAuth helper, headset Talk sends audio to OpenAI Realtime for transcription.</p>
+      <p>OAuth narration sends reply text to its configured external helper and provider. The macOS system-speech route renders replies locally. Agent-host dictation follows the host's policies.</p>
+      <h2>Storage and retention</h2>
+      <p>Your computer stores configuration, certificates, remembered-device records, and optional bridge state. Remembered records contain a browser label, identifiers, timestamps, and a key digest; the headset browser stores its device key. Credentials have a 30-day validity limit and can expire earlier under the idle setting. Expiry limits access; stored copies can remain.</p>
+      <p>Public coordinates and lesson stages can remain in local caches. The public-source cache excludes pasted coordinates, local-file contents, and arbitrary URL sources. Saved exports, recordings, and other files remain until you delete them.</p>
+      <p>Push-to-talk attempts to remove temporary audio after processing and cleanup; an interruption can leave files. Optional transcript logging and shell-command or bridge delivery follow your configuration.</p>
+      <p>OAuth reply-audio cache entries expire after seven days. When new audio is cached, the cache attempts to remove expired entries and keep at most 64 entries. Hosts, helpers, operating systems, backups, and external providers can retain their own records.</p>
+      <h2>Your controls</h2>
+      <p>Use typed requests to avoid microphone capture. Choose local transcription and system speech for local voice routes, and private Wi-Fi for sharing without a public relay. Ask your agent to stop sharing, revoke a viewer, or forget a remembered headset. Clear companion-site browser data to remove its device key.</p>
+      <p>Delete caches, saved files, optional transcript logs, and bridge files you no longer need. Closing a share does not erase those files or other services' records.</p>
+      <h2>Website and contact</h2>
+      <p>The static GitHub Pages website includes a bundled public-structure demo and no project-added advertising or analytics tracker. Your browser can cache its files. GitHub logs visitors' IP addresses for security, as described in its <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages">Pages documentation</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">Privacy Statement</a>.</p>
+      <p>Use <a href="https://github.com/jvogan/stereofold/issues">GitHub Issues</a> for privacy questions you can discuss publicly. Keep private data, recordings, and credentials out of public posts. An updated date identifies changes to this page.</p>
+      <footer>
+        <nav aria-label="Project policies">
+          <a href="./index.html">Stereofold</a>
+          <a href="./privacy.html">Privacy</a>
+          <a href="./support.html">Support</a>
+          <a href="./terms.html">Terms and license</a>
+          <a href="./credits.html">Credits and licenses</a>
+        </nav>
+      </footer>
+    </main>
+  </body>
+</html>

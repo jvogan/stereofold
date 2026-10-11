@@ -1,0 +1,704 @@
+{
+  "version": 1,
+  "cacheDirectory": "~/Library/Caches/Stereofold/demos",
+  "demos": [
+    {
+      "name": "daraxonrasib",
+      "title": "Daraxonrasib: a molecular glue",
+      "pdbId": "9AX6",
+      "lesson": "daraxonrasib.json",
+      "coordinates": {
+        "file": "9AX6.cif",
+        "sha256": "631d0ce3ea45229f42f2b063adccdb1a76156a122056eb9dff496c0af17d7c34",
+        "bytes": 1281002,
+        "atomSites": 3052,
+        "catalogRows": 661,
+        "assemblyId": "1",
+        "download": "https://files.rcsb.org/download/9AX6.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 9AX6",
+          "url": "https://www.rcsb.org/structure/9AX6"
+        },
+        {
+          "title": "Jiang et al., Cancer Discovery (2024)",
+          "doi": "10.1158/2159-8290.CD-24-0027",
+          "url": "https://doi.org/10.1158/2159-8290.CD-24-0027"
+        }
+      ]
+    },
+    {
+      "name": "telomerase-haca",
+      "title": "Telomerase H/ACA RNP, the RNA-protein lobe",
+      "pdbId": "8OUE",
+      "lesson": "telomerase-haca.json",
+      "coordinates": {
+        "file": "8OUE.cif",
+        "sha256": "81316a66a40c6265eba5dc03bf2116168926a8990e48c63b46dc3ea250208f7f",
+        "bytes": 1715699,
+        "atomSites": 15357,
+        "download": "https://files.rcsb.org/download/8OUE.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 8OUE",
+          "url": "https://www.rcsb.org/structure/8OUE"
+        },
+        {
+          "title": "2.7 A cryo-EM structure of human telomerase H/ACA ribonucleoprotein. Nat Commun, 2024.",
+          "doi": "10.1038/s41467-024-45002-x",
+          "url": "https://doi.org/10.1038/s41467-024-45002-x"
+        }
+      ]
+    },
+    {
+      "name": "crispr-cas9",
+      "title": "CRISPR-Cas9 holding its target DNA",
+      "pdbId": "9KJ6",
+      "lesson": "crispr-cas9.json",
+      "coordinates": {
+        "file": "9KJ6.cif",
+        "sha256": "372806b1adb43f55b6ad551752d7cf0e54cd29a5af478912af95859287ce1b59",
+        "bytes": 1664539,
+        "atomSites": 13121,
+        "download": "https://files.rcsb.org/download/9KJ6.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 9KJ6",
+          "url": "https://www.rcsb.org/structure/9KJ6"
+        },
+        {
+          "title": "Structural and functional insights into internal domain replacement in SpCas9 for protein engineering. Sci Rep, 2025.",
+          "doi": "10.1038/s41598-025-25367-9",
+          "url": "https://doi.org/10.1038/s41598-025-25367-9"
+        }
+      ]
+    },
+    {
+      "name": "microtubule-lattice",
+      "title": "A microtubule wall, three protofilaments wide",
+      "pdbId": "5SYF",
+      "lesson": "microtubule-lattice.json",
+      "coordinates": {
+        "file": "5SYF-lattice-op2-7.cif",
+        "sha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+        "bytes": 4885890,
+        "atomSites": 40908,
+        "catalogRows": 5202,
+        "download": "https://files.rcsb.org/download/5SYF-assembly1.cif",
+        "derivation": {
+          "kind": "assembly-operator-subset",
+          "operators": [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "ofOperators": 26
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 5SYF",
+          "url": "https://www.rcsb.org/structure/5SYF"
+        },
+        {
+          "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+          "doi": "10.1016/j.jmb.2017.01.001",
+          "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+        }
+      ]
+    },
+    {
+      "name": "hemoglobin",
+      "title": "Haemoglobin, four subunits and four hemes",
+      "pdbId": "4HHB",
+      "lesson": "hemoglobin.json",
+      "coordinates": {
+        "file": "4HHB.cif",
+        "sha256": "2d3ca1bf21ddff35af2e2bc5d331720f7bfc46a16c4829ea3ec1b41062d5f5a6",
+        "bytes": 772198,
+        "atomSites": 4779,
+        "download": "https://files.rcsb.org/download/4HHB.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 4HHB",
+          "url": "https://www.rcsb.org/structure/4HHB"
+        },
+        {
+          "title": "The crystal structure of human deoxyhaemoglobin at 1.74 A resolution. J Mol Biol, 1984.",
+          "doi": "10.1016/0022-2836(84)90472-8",
+          "url": "https://doi.org/10.1016/0022-2836(84)90472-8"
+        }
+      ]
+    },
+    {
+      "name": "nucleosome",
+      "title": "The nucleosome, DNA wrapped on a histone core",
+      "pdbId": "1KX5",
+      "lesson": "nucleosome.json",
+      "coordinates": {
+        "file": "1KX5.cif",
+        "sha256": "a55dc600553caf7b7b14f217768fed1566c5101ab0543dc86895224238b284a0",
+        "bytes": 2016248,
+        "atomSites": 16755,
+        "download": "https://files.rcsb.org/download/1KX5.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 1KX5",
+          "url": "https://www.rcsb.org/structure/1KX5"
+        },
+        {
+          "title": "Solvent Mediated Interactions in the Structure of the Nucleosome Core Particle at 1.9 A Resolution. J Mol Biol, 2002.",
+          "doi": "10.1016/S0022-2836(02)00386-8",
+          "url": "https://doi.org/10.1016/S0022-2836(02)00386-8"
+        }
+      ]
+    },
+    {
+      "name": "spike",
+      "title": "The SARS-CoV-2 spike, closed",
+      "pdbId": "6VXX",
+      "lesson": "spike.json",
+      "coordinates": {
+        "file": "6VXX.cif",
+        "sha256": "74ceac62dc45e34818f7c6f32fc12690f250ad803b999c1d7399a362ecd86984",
+        "bytes": 2560152,
+        "atomSites": 23694,
+        "download": "https://files.rcsb.org/download/6VXX.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 6VXX",
+          "url": "https://www.rcsb.org/structure/6VXX"
+        },
+        {
+          "title": "Structure, Function, and Antigenicity of the SARS-CoV-2 Spike Glycoprotein. Cell, 2020.",
+          "doi": "10.1016/j.cell.2020.02.058",
+          "url": "https://doi.org/10.1016/j.cell.2020.02.058"
+        }
+      ]
+    },
+    {
+      "name": "atp-synthase",
+      "title": "ATP synthase, a rotary motor",
+      "pdbId": "8H9V",
+      "lesson": "atp-synthase.json",
+      "coordinates": {
+        "file": "8H9V.cif",
+        "sha256": "06f2ab7c97c0d6d47fb81290547a4b5ce50fe78c8c95821b8dc369c9ef7c7c4c",
+        "bytes": 4073440,
+        "atomSites": 37921,
+        "download": "https://files.rcsb.org/download/8H9V.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 8H9V",
+          "url": "https://www.rcsb.org/structure/8H9V"
+        },
+        {
+          "title": "Structure of the human ATP synthase. Mol Cell, 2023.",
+          "doi": "10.1016/j.molcel.2023.04.029",
+          "url": "https://doi.org/10.1016/j.molcel.2023.04.029"
+        }
+      ]
+    },
+    {
+      "name": "tubulin-dimer",
+      "title": "One tubulin dimer, the microtubule building block",
+      "pdbId": "5SYF",
+      "lesson": "tubulin-dimer.json",
+      "coordinates": {
+        "file": "5SYF.cif",
+        "sha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
+        "bytes": 775288,
+        "atomSites": 6818,
+        "download": "https://files.rcsb.org/download/5SYF.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 5SYF",
+          "url": "https://www.rcsb.org/structure/5SYF"
+        },
+        {
+          "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+          "doi": "10.1016/j.jmb.2017.01.001",
+          "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+        }
+      ]
+    },
+    {
+      "name": "glucose-transporter",
+      "title": "GLUT1, the glucose transporter in a membrane",
+      "pdbId": "4PYP",
+      "lesson": "glucose-transporter.json",
+      "coordinates": {
+        "file": "4PYP.cif",
+        "sha256": "e9cbfc3bbb978b9cb76c8864cd40c4fc4862863a8e025918b6c19d39d9f93bc1",
+        "bytes": 726002,
+        "atomSites": 3490,
+        "download": "https://files.rcsb.org/download/4PYP.cif"
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 4PYP",
+          "url": "https://www.rcsb.org/structure/4PYP"
+        },
+        {
+          "title": "Crystal structure of the human glucose transporter GLUT1. Nature, 2014.",
+          "doi": "10.1038/nature13306",
+          "url": "https://doi.org/10.1038/nature13306"
+        }
+      ]
+    },
+    {
+      "title": "A microtubule growing above you",
+      "pdbId": "5SYF",
+      "lesson": "microtubule-growth/wall.json",
+      "coordinates": {
+        "file": "5SYF-lattice-op2-7.cif",
+        "sha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+        "bytes": 4885890,
+        "atomSites": 40908,
+        "catalogRows": 5202,
+        "download": "https://files.rcsb.org/download/5SYF-assembly1.cif",
+        "derivation": {
+          "kind": "assembly-operator-subset",
+          "operators": [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "ofOperators": 26
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 5SYF",
+          "url": "https://www.rcsb.org/structure/5SYF"
+        },
+        {
+          "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+          "doi": "10.1016/j.jmb.2017.01.001",
+          "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+        }
+      ],
+      "name": "microtubule-growth",
+      "defaultStage": "wall",
+      "stages": [
+        {
+          "id": "monomer",
+          "order": "A",
+          "title": "One tubulin monomer",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/monomer.json",
+          "coordinates": {
+            "file": "5SYF-monomer-alpha.cif",
+            "sha256": "ffe500b8f9efe3c2a15b1db5cb87ecc73c7879ca6eb15412d39f70b52ee51f46",
+            "bytes": 423766,
+            "atomSites": 3343,
+            "catalogRows": 437,
+            "download": "https://files.rcsb.org/download/5SYF.cif",
+            "derivation": {
+              "kind": "deposited-chain-subset",
+              "chains": [
+                "A"
+              ],
+              "entityIds": [
+                "1"
+              ]
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            }
+          ]
+        },
+        {
+          "id": "dimer",
+          "order": "B",
+          "title": "One tubulin dimer",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/dimer.json",
+          "coordinates": {
+            "file": "5SYF.cif",
+            "sha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
+            "bytes": 775288,
+            "atomSites": 6818,
+            "catalogRows": 867,
+            "download": "https://files.rcsb.org/download/5SYF.cif"
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            }
+          ]
+        },
+        {
+          "id": "protofilament",
+          "order": "C",
+          "title": "One protofilament, two dimers deep",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/protofilament.json",
+          "coordinates": {
+            "file": "5SYF-protofilament-op1-14.cif",
+            "sha256": "35a45abbc5f671c159707946a1190dd42ee2846a46cbbe65335418b89046df4d",
+            "bytes": 1650023,
+            "atomSites": 13636,
+            "catalogRows": 1734,
+            "download": "https://files.rcsb.org/download/5SYF-assembly1.cif",
+            "derivation": {
+              "kind": "assembly-operator-subset",
+              "operators": [
+                "1",
+                "14"
+              ],
+              "ofOperators": 26
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            }
+          ]
+        },
+        {
+          "id": "wall",
+          "order": "D",
+          "title": "A wall three protofilaments wide",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/wall.json",
+          "coordinates": {
+            "file": "5SYF-lattice-op2-7.cif",
+            "sha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+            "bytes": 4885890,
+            "atomSites": 40908,
+            "catalogRows": 5202,
+            "download": "https://files.rcsb.org/download/5SYF-assembly1.cif",
+            "derivation": {
+              "kind": "assembly-operator-subset",
+              "operators": [
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7"
+              ],
+              "ofOperators": 26
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            }
+          ]
+        },
+        {
+          "id": "filament",
+          "order": "E",
+          "title": "The whole decorated filament",
+          "pdbId": "3JAK",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/filament.json",
+          "coordinates": {
+            "file": "emd_6347-4x.map",
+            "sha256": "76040029d895758c3cad44226720685774b026fbcd706730ea5ccedb5fda152f",
+            "bytes": 8389632,
+            "atomSites": 0,
+            "download": "https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-6347/map/emd_6347.map.gz",
+            "volume": {
+              "emdbId": "EMD-6347",
+              "downloadSha256": "dfe8594e45ba29879e0120393f17887e9da23a03f3dfcfaaf7edc60c525b6ae3",
+              "downsample": 4,
+              "grid": [
+                128,
+                128,
+                128
+              ],
+              "voxelAngstroms": 5.28,
+              "contour": 3.3,
+              "depositedContour": 5,
+              "contourSigma": 5.47,
+              "triangles": 178236,
+              "structure": {
+                "file": "3JAK.cif",
+                "sha256": "dbfd7c255adf93c49515188abe4061d36b75cdf5576b49766180be98ac9132e8",
+                "bytes": 4533400,
+                "atomSites": 43066,
+                "catalogRows": 5800,
+                "download": "https://files.rcsb.org/download/3JAK.cif"
+              }
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 3JAK",
+              "url": "https://www.rcsb.org/structure/3JAK"
+            },
+            {
+              "title": "EMDB entry EMD-6347",
+              "url": "https://www.ebi.ac.uk/emdb/EMD-6347"
+            },
+            {
+              "title": "Mechanistic Origin of Microtubule Dynamic Instability and Its Modulation by EB Proteins. Cell, 2015.",
+              "doi": "10.1016/j.cell.2015.07.012",
+              "url": "https://doi.org/10.1016/j.cell.2015.07.012"
+            }
+          ]
+        },
+        {
+          "id": "tube",
+          "order": "F",
+          "title": "The complete thirteen-protofilament tube",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/tube.json",
+          "coordinates": {
+            "file": "5SYF.cif",
+            "sha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
+            "bytes": 775288,
+            "atomSites": 177268,
+            "catalogRows": 22542,
+            "assemblyId": "1",
+            "download": "https://files.rcsb.org/download/5SYF.cif"
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            }
+          ]
+        },
+        {
+          "id": "tip",
+          "order": "G",
+          "title": "EB3 bound to the lattice",
+          "pdbId": "3JAK",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-growth/tip.json",
+          "coordinates": {
+            "file": "3JAK.cif",
+            "sha256": "dbfd7c255adf93c49515188abe4061d36b75cdf5576b49766180be98ac9132e8",
+            "bytes": 4533400,
+            "atomSites": 43066,
+            "catalogRows": 5800,
+            "download": "https://files.rcsb.org/download/3JAK.cif"
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 3JAK",
+              "url": "https://www.rcsb.org/structure/3JAK"
+            },
+            {
+              "title": "Mechanistic Origin of Microtubule Dynamic Instability and Its Modulation by EB Proteins. Cell, 2015.",
+              "doi": "10.1016/j.cell.2015.07.012",
+              "url": "https://doi.org/10.1016/j.cell.2015.07.012"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pdbId": "5SYF",
+      "lesson": "microtubule-arrival/build.json",
+      "coordinates": {
+        "file": "5SYF-lattice-op2-7.cif",
+        "sha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+        "bytes": 4885890,
+        "atomSites": 40908,
+        "catalogRows": 5202,
+        "download": "https://files.rcsb.org/download/5SYF-assembly1.cif",
+        "derivation": {
+          "kind": "assembly-operator-subset",
+          "operators": [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7"
+          ],
+          "ofOperators": 26
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 5SYF",
+          "url": "https://www.rcsb.org/structure/5SYF"
+        },
+        {
+          "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+          "doi": "10.1016/j.jmb.2017.01.001",
+          "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+        }
+      ],
+      "name": "microtubule-arrival",
+      "title": "Tubulin units build a wall, then the cryo-EM tube",
+      "defaultStage": "build",
+      "stages": [
+        {
+          "id": "build",
+          "order": "A",
+          "title": "Tubulin units arrive",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-arrival/build.json",
+          "coordinates": {
+            "file": "5SYF-lattice-op2-7.cif",
+            "sha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+            "bytes": 4885890,
+            "atomSites": 40908,
+            "catalogRows": 5202,
+            "download": "https://files.rcsb.org/download/5SYF-assembly1.cif",
+            "derivation": {
+              "kind": "assembly-operator-subset",
+              "operators": [
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7"
+              ],
+              "ofOperators": 26
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures. J Mol Biol, 2017.",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            }
+          ]
+        },
+        {
+          "id": "density",
+          "order": "B",
+          "title": "The cryo-EM tube overhead",
+          "pdbId": "3JAK",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "microtubule-arrival/density.json",
+          "coordinates": {
+            "file": "emd_6347-4x.map",
+            "sha256": "76040029d895758c3cad44226720685774b026fbcd706730ea5ccedb5fda152f",
+            "bytes": 8389632,
+            "atomSites": 0,
+            "download": "https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-6347/map/emd_6347.map.gz",
+            "volume": {
+              "emdbId": "EMD-6347",
+              "downloadSha256": "dfe8594e45ba29879e0120393f17887e9da23a03f3dfcfaaf7edc60c525b6ae3",
+              "downsample": 4,
+              "grid": [
+                128,
+                128,
+                128
+              ],
+              "voxelAngstroms": 5.28,
+              "contour": 3.3,
+              "depositedContour": 5,
+              "contourSigma": 5.47,
+              "triangles": 178236,
+              "structure": {
+                "file": "3JAK.cif",
+                "sha256": "dbfd7c255adf93c49515188abe4061d36b75cdf5576b49766180be98ac9132e8",
+                "bytes": 4533400,
+                "atomSites": 43066,
+                "catalogRows": 5800,
+                "download": "https://files.rcsb.org/download/3JAK.cif"
+              }
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 3JAK",
+              "url": "https://www.rcsb.org/structure/3JAK"
+            },
+            {
+              "title": "EMDB entry EMD-6347",
+              "url": "https://www.ebi.ac.uk/emdb/EMD-6347"
+            },
+            {
+              "title": "Mechanistic Origin of Microtubule Dynamic Instability and Its Modulation by EB Proteins. Cell, 2015.",
+              "doi": "10.1016/j.cell.2015.07.012",
+              "url": "https://doi.org/10.1016/j.cell.2015.07.012"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

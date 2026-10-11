@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "recordType": "synthetic_fixture_expectations",
+  "cases": [
+    "V05"
+  ],
+  "source": {
+    "file": "voice-ligand.cif",
+    "byteLength": 3839,
+    "sha256": "62c3c01c5fac7b50121a67b24ebc16721df4393bc683ff176fea52eb21f1e7f0"
+  },
+  "molstarVersion": "5.11.0",
+  "purpose": "Test named non-polymer visibility without assigning biological meaning to the synthetic component.",
+  "modelCount": 1,
+  "modelNumber": 1,
+  "atomCount": 7,
+  "residueCount": 5,
+  "chainCount": 3,
+  "entityIds": [
+    "1",
+    "2"
+  ],
+  "entityTypes": [
+    "polymer",
+    "non-polymer"
+  ],
+  "labelChains": [
+    "A",
+    "B",
+    "L"
+  ],
+  "authorChains": [
+    "A",
+    "B",
+    "L"
+  ],
+  "chainEntities": [
+    "1",
+    "1",
+    "2"
+  ],
+  "residueLabelSequenceIds": [
+    1,
+    2,
+    1,
+    2,
+    0
+  ],
+  "residueAuthorSequenceIds": [
+    1,
+    2,
+    1,
+    2,
+    501
+  ],
+  "residueInsertionCodes": [
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "atomNames": [
+    "CA",
+    "CA",
+    "CA",
+    "CA",
+    "C1",
+    "C2",
+    "O1"
+  ],
+  "componentIds": [
+    "GLY",
+    "ALA",
+    "GLY",
+    "ALA",
+    "LIG1",
+    "LIG1",
+    "LIG1"
+  ],
+  "alternateSites": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "atomToResidue": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    4,
+    4
+  ],
+  "atomToChain": [
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    2
+  ],
+  "polymerSequence": {
+    "entityId": "1",
+    "sequence": "GA",
+    "sequenceIds": [
+      1,
+      2
+    ]
+  },
+  "assembly": {
+    "id": "1",
+    "operatorIds": [
+      "1"
+    ],
+    "atomCount": 7,
+    "unitCount": 3
+  },
+  "caseTargets": {
+    "V05": {
+      "componentId": "LIG1",
+      "entityId": "2",
+      "entityType": "non-polymer",
+      "modelNumber": 1,
+      "labelChain": "L",
+      "authorChain": "L",
+      "authorResidue": 501,
+      "sourceLabelSequenceId": null,
+      "atomNames": [
+        "C1",
+        "C2",
+        "O1"
+      ],
+      "testAtomIndices": [
+        4,
+        5,
+        6
+      ],
+      "initialVisibility": "hidden",
+      "requestedVisibility": "visible",
+      "unchangedPolymerChains": [
+        "A",
+        "B"
+      ]
+    }
+  },
+  "notes": [
+    "The CIF omits label_seq_id for non-polymer atoms. Mol* exposes a numeric placeholder 0 in its residue column; the canonical non-polymer identity must retain the absent sequence position.",
+    "Test atom indices describe this pinned fixture only and must not become persistent selection identifiers.",
+    "Ball and stick makes the explicitly supplied atoms visible. This sparse synthetic fixture does not establish a biological structure."
+  ]
+}

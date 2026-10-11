@@ -1,0 +1,922 @@
+{
+  "version": 1,
+  "id": "telomerase-haca",
+  "title": "Telomerase H/ACA RNP, the RNA-protein lobe of human telomerase",
+  "mode": "explore",
+  "presentation": {
+    "captionCard": "hidden"
+  },
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/8OUE"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/s41467-024-45002-x"
+      }
+    ],
+    "sourceSha256": "81316a66a40c6265eba5dc03bf2116168926a8990e48c63b46dc3ea250208f7f",
+    "note": "Human telomerase H/ACA RNP lobe at 2.7 Angstrom by cryo-EM (map EMD-17190): two dyskerin DKC1 (chains C 23-421, G 43-395), two GAR1 (D 66-159, H 65-161), two NHP2 (E and I 23-152), two NOP10 (F and J 1-64), one TCAB1 (K 146-522) and one hTR H/ACA RNA (B 211-450). Resolution from the deposited 8OUE record."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Wide reveal",
+      "caption": "Telomerase H/ACA lobe, entry 8OUE, at 2.7 Angstrom. Two dyskerin copies anchor the complex around its RNA.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "componentLabels": true
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit",
+        "narration": "Two dyskerin enzymes anchor telomerase RNA",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "dyskerin-c",
+              "label": "Dyskerin (DKC1), first copy",
+              "color": "#7c3aed",
+              "chain": "C",
+              "residues": {
+                "from": 23,
+                "to": 421
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "dyskerin-g",
+              "label": "Dyskerin (DKC1), second copy",
+              "color": "#7c3aed",
+              "chain": "G",
+              "residues": {
+                "from": 43,
+                "to": 395
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "nop10-f",
+              "label": "NOP10, first copy",
+              "color": "#0284c7",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nop10-j",
+              "label": "NOP10, second copy",
+              "color": "#0284c7",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nhp2-e",
+              "label": "NHP2, first copy",
+              "color": "#16a34a",
+              "chain": "E",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "nhp2-i",
+              "label": "NHP2, second copy",
+              "color": "#16a34a",
+              "chain": "I",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "gar1-d",
+              "label": "GAR1, first copy",
+              "color": "#ea580c",
+              "chain": "D",
+              "residues": {
+                "from": 66,
+                "to": 159
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "gar1-h",
+              "label": "GAR1, second copy",
+              "color": "#ea580c",
+              "chain": "H",
+              "residues": {
+                "from": 65,
+                "to": 161
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "tcab1-k",
+              "label": "TCAB1",
+              "color": "#db2777",
+              "chain": "K",
+              "residues": {
+                "from": 146,
+                "to": 522
+              },
+              "note": "Binds the CAB-box of hTR; guides telomerase to Cajal bodies."
+            },
+            {
+              "id": "htr-b",
+              "label": "Telomerase RNA H/ACA domain",
+              "color": "#dc2626",
+              "chain": "B",
+              "residues": {
+                "from": 211,
+                "to": 450
+              },
+              "note": "H/ACA domain of telomerase RNA; scaffolds both heterotetramers."
+            }
+          ],
+          "contextOpacity": 0.12
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Slow orbit",
+      "caption": "One turn around the lobe: each half sets dyskerin, NOP10, NHP2 and GAR1 on an RNA hairpin.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 1.1
+        },
+        "narration": "Each half grips one RNA hairpin",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "dyskerin-c",
+              "label": "Dyskerin (DKC1), first copy",
+              "color": "#7c3aed",
+              "chain": "C",
+              "residues": {
+                "from": 23,
+                "to": 421
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "dyskerin-g",
+              "label": "Dyskerin (DKC1), second copy",
+              "color": "#7c3aed",
+              "chain": "G",
+              "residues": {
+                "from": 43,
+                "to": 395
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "nop10-f",
+              "label": "NOP10, first copy",
+              "color": "#0284c7",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nop10-j",
+              "label": "NOP10, second copy",
+              "color": "#0284c7",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nhp2-e",
+              "label": "NHP2, first copy",
+              "color": "#16a34a",
+              "chain": "E",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "nhp2-i",
+              "label": "NHP2, second copy",
+              "color": "#16a34a",
+              "chain": "I",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "gar1-d",
+              "label": "GAR1, first copy",
+              "color": "#ea580c",
+              "chain": "D",
+              "residues": {
+                "from": 66,
+                "to": 159
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "gar1-h",
+              "label": "GAR1, second copy",
+              "color": "#ea580c",
+              "chain": "H",
+              "residues": {
+                "from": 65,
+                "to": 161
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "tcab1-k",
+              "label": "TCAB1",
+              "color": "#db2777",
+              "chain": "K",
+              "residues": {
+                "from": 146,
+                "to": 522
+              },
+              "note": "Binds the CAB-box of hTR; guides telomerase to Cajal bodies."
+            },
+            {
+              "id": "htr-b",
+              "label": "Telomerase RNA H/ACA domain",
+              "color": "#dc2626",
+              "chain": "B",
+              "residues": {
+                "from": 211,
+                "to": 450
+              },
+              "note": "H/ACA domain of telomerase RNA; scaffolds both heterotetramers."
+            }
+          ],
+          "contextOpacity": 0.12
+        },
+        "appearance": {
+          "componentLabels": true
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Highlight",
+      "caption": "Small subunits NOP10, NHP2 and GAR1 pack around each dyskerin and grip the RNA hairpins.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "componentLabels": true
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.1
+        },
+        "view": "fit",
+        "narration": "Small subunits brace every dyskerin",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "dyskerin-c",
+              "label": "Dyskerin (DKC1), first copy",
+              "color": "#7c3aed",
+              "chain": "C",
+              "residues": {
+                "from": 23,
+                "to": 421
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "dyskerin-g",
+              "label": "Dyskerin (DKC1), second copy",
+              "color": "#7c3aed",
+              "chain": "G",
+              "residues": {
+                "from": 43,
+                "to": 395
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "nop10-f",
+              "label": "NOP10, first copy",
+              "color": "#0284c7",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nop10-j",
+              "label": "NOP10, second copy",
+              "color": "#0284c7",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nhp2-e",
+              "label": "NHP2, first copy",
+              "color": "#16a34a",
+              "chain": "E",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "nhp2-i",
+              "label": "NHP2, second copy",
+              "color": "#16a34a",
+              "chain": "I",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "gar1-d",
+              "label": "GAR1, first copy",
+              "color": "#ea580c",
+              "chain": "D",
+              "residues": {
+                "from": 66,
+                "to": 159
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "gar1-h",
+              "label": "GAR1, second copy",
+              "color": "#ea580c",
+              "chain": "H",
+              "residues": {
+                "from": 65,
+                "to": 161
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "tcab1-k",
+              "label": "TCAB1",
+              "color": "#db2777",
+              "chain": "K",
+              "residues": {
+                "from": 146,
+                "to": 522
+              },
+              "note": "Binds the CAB-box of hTR; guides telomerase to Cajal bodies."
+            },
+            {
+              "id": "htr-b",
+              "label": "Telomerase RNA H/ACA domain",
+              "color": "#dc2626",
+              "chain": "B",
+              "residues": {
+                "from": 211,
+                "to": 450
+              },
+              "note": "H/ACA domain of telomerase RNA; scaffolds both heterotetramers."
+            }
+          ],
+          "contextOpacity": 0.12
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "The working part",
+      "caption": "Close on one dyskerin active site, where the enzyme would reshape a target uridine.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.6
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 10,
+          "componentLabels": true
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        },
+        "narration": "One active site, poised to modify RNA",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "dyskerin-c",
+              "label": "Dyskerin (DKC1), first copy",
+              "color": "#7c3aed",
+              "chain": "C",
+              "residues": {
+                "from": 23,
+                "to": 421
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "dyskerin-g",
+              "label": "Dyskerin (DKC1), second copy",
+              "color": "#7c3aed",
+              "chain": "G",
+              "residues": {
+                "from": 43,
+                "to": 395
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "nop10-f",
+              "label": "NOP10, first copy",
+              "color": "#0284c7",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nop10-j",
+              "label": "NOP10, second copy",
+              "color": "#0284c7",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nhp2-e",
+              "label": "NHP2, first copy",
+              "color": "#16a34a",
+              "chain": "E",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "nhp2-i",
+              "label": "NHP2, second copy",
+              "color": "#16a34a",
+              "chain": "I",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "gar1-d",
+              "label": "GAR1, first copy",
+              "color": "#ea580c",
+              "chain": "D",
+              "residues": {
+                "from": 66,
+                "to": 159
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "gar1-h",
+              "label": "GAR1, second copy",
+              "color": "#ea580c",
+              "chain": "H",
+              "residues": {
+                "from": 65,
+                "to": 161
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "tcab1-k",
+              "label": "TCAB1",
+              "color": "#db2777",
+              "chain": "K",
+              "residues": {
+                "from": 146,
+                "to": 522
+              },
+              "note": "Binds the CAB-box of hTR; guides telomerase to Cajal bodies."
+            },
+            {
+              "id": "htr-b",
+              "label": "Telomerase RNA H/ACA domain",
+              "color": "#dc2626",
+              "chain": "B",
+              "residues": {
+                "from": 211,
+                "to": 450
+              },
+              "note": "H/ACA domain of telomerase RNA; scaffolds both heterotetramers."
+            }
+          ],
+          "focus": ["dyskerin-c", "dyskerin-g"],
+          "contextOpacity": 0.12
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "Step back",
+      "caption": "Back to the whole lobe: nine proteins and one RNA, the H/ACA half of telomerase.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "componentLabels": true
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit",
+        "narration": "Nine proteins and one RNA molecule",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "dyskerin-c",
+              "label": "Dyskerin (DKC1), first copy",
+              "color": "#7c3aed",
+              "chain": "C",
+              "residues": {
+                "from": 23,
+                "to": 421
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "dyskerin-g",
+              "label": "Dyskerin (DKC1), second copy",
+              "color": "#7c3aed",
+              "chain": "G",
+              "residues": {
+                "from": 43,
+                "to": 395
+              },
+              "note": "Pseudouridine synthase; the catalytic subunit of each heterotetramer."
+            },
+            {
+              "id": "nop10-f",
+              "label": "NOP10, first copy",
+              "color": "#0284c7",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nop10-j",
+              "label": "NOP10, second copy",
+              "color": "#0284c7",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 64
+              },
+              "note": "Small core subunit bracing the dyskerin catalytic domain."
+            },
+            {
+              "id": "nhp2-e",
+              "label": "NHP2, first copy",
+              "color": "#16a34a",
+              "chain": "E",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "nhp2-i",
+              "label": "NHP2, second copy",
+              "color": "#16a34a",
+              "chain": "I",
+              "residues": {
+                "from": 23,
+                "to": 152
+              },
+              "note": "RNA-binding core subunit on each H/ACA hairpin."
+            },
+            {
+              "id": "gar1-d",
+              "label": "GAR1, first copy",
+              "color": "#ea580c",
+              "chain": "D",
+              "residues": {
+                "from": 66,
+                "to": 159
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "gar1-h",
+              "label": "GAR1, second copy",
+              "color": "#ea580c",
+              "chain": "H",
+              "residues": {
+                "from": 65,
+                "to": 161
+              },
+              "note": "Binds the dyskerin thumb region; linked to substrate turnover."
+            },
+            {
+              "id": "tcab1-k",
+              "label": "TCAB1",
+              "color": "#db2777",
+              "chain": "K",
+              "residues": {
+                "from": 146,
+                "to": 522
+              },
+              "note": "Binds the CAB-box of hTR; guides telomerase to Cajal bodies."
+            },
+            {
+              "id": "htr-b",
+              "label": "Telomerase RNA H/ACA domain",
+              "color": "#dc2626",
+              "chain": "B",
+              "residues": {
+                "from": 211,
+                "to": 450
+              },
+              "note": "H/ACA domain of telomerase RNA; scaffolds both heterotetramers."
+            }
+          ],
+          "contextOpacity": 0.12
+        }
+      }
+    }
+  ]
+}

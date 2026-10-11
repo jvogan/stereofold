@@ -1,0 +1,30 @@
+{
+  "name": "@stereo/host-emulation-harness",
+  "license": "MIT",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright host-emulation harness for the Stereo Structure MCP App.",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "build": "tsx src/build.ts",
+    "test": "vitest run",
+    "harness": "pnpm build && tsx src/index.ts",
+    "harness:codex": "pnpm build && tsx src/index.ts --profile codex",
+    "harness:claude-science": "pnpm build && tsx src/index.ts --profile claude-science",
+    "harness:json": "pnpm build && tsx src/index.ts --json",
+    "harness:dpr1": "pnpm build && tsx src/index.ts --dpr 1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "playwright": "1.62.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "esbuild": "0.25.0",
+    "tsx": "4.20.0",
+    "typescript": "5.9.2",
+    "vitest": "4.1.11"
+  }
+}

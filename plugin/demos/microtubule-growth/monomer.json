@@ -1,0 +1,453 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-monomer",
+  "title": "A. One tubulin monomer",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      }
+    ],
+    "sourceSha256": "ffe500b8f9efe3c2a15b1db5cb87ecc73c7879ca6eb15412d39f70b52ee51f46",
+    "note": "Entity 1 of the deposited asymmetric unit of entry 5SYF, kept as its own chain: the alpha-tubulin chain, from Sus scrofa, reconstructed by cryo-electron microscopy at 3.5 Angstrom. Its sequence is 437 residues and 426 of them are modelled, in 3,343 atoms. Every retained line is a deposited line; no coordinate is altered, and nothing is added."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "One monomer",
+      "caption": "Entry 5SYF, a Taxol-stabilised microtubule by cryo-EM at 3.5 Angstrom. This is its alpha-tubulin chain alone.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Alpha-tubulin",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.6
+        },
+        "view": "fit",
+        "narration": "Blue is alpha tubulin. One chain, the starting piece.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 25,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF entity 1: alpha tubulin, 437 sequence residues, 426 modelled, Sus scrofa. This tier holds no other chain."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "One fold",
+      "caption": "One turn around it. Alpha tubulin is 437 residues; beta tubulin, which comes next, is a near-identical fold.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.6
+        },
+        "narration": "One turn round it. Beta tubulin has the same fold.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": 20,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF entity 1: alpha tubulin, 437 sequence residues, 426 modelled, Sus scrofa. This tier holds no other chain."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Wide face",
+      "caption": "As a surface, the broad face is where beta tubulin will sit. That pair is the repeating unit.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Alpha-tubulin surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.8
+        },
+        "view": "fit",
+        "narration": "This broad face is where beta tubulin will sit.",
+        "motion": {
+          "kind": "dolly",
+          "metres": 0.15,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF entity 1: alpha tubulin, 437 sequence residues, 426 modelled, Sus scrofa. This tier holds no other chain."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "Empty pocket",
+      "caption": "This file is entity 1 alone, so the nucleotide pocket it shows carries no GTP and no magnesium.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Alpha-tubulin atoms",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.4
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.8
+        },
+        "narration": "The nucleotide pocket sits empty in this alpha-only file.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": -15,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF entity 1: alpha tubulin, 437 sequence residues, 426 modelled, Sus scrofa. This tier holds no other chain."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "Half a dimer",
+      "caption": "One monomer is half a dimer. Blue stays alpha tubulin in every tier of this lesson.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Alpha-tubulin",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.6
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF entity 1: alpha tubulin, 437 sequence residues, 426 modelled, Sus scrofa. This tier holds no other chain."
+            }
+          ],
+          "focus": "alpha-tubulin",
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        },
+        "narration": "Say grow it, and beta tubulin joins in amber.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 30,
+          "seconds": 8
+        }
+      }
+    }
+  ]
+}

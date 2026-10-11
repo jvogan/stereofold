@@ -1,0 +1,685 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-dimer",
+  "title": "B. One tubulin dimer",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      }
+    ],
+    "sourceSha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
+    "note": "The deposited asymmetric unit of entry 5SYF: one alpha-tubulin chain of 437 residues and one beta-tubulin chain of 426 residues, from Sus scrofa, reconstructed by cryo-electron microscopy at 3.5 Angstrom."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "One dimer",
+      "caption": "Entry 5SYF, Taxol-stabilised cryo-EM at 3.5 Angstrom. Its asymmetric unit is one alpha-beta dimer, 6,818 atoms.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "Beta tubulin joins in amber. Alpha stays blue.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 25,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF, residues 1-437: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B of 5SYF, residues 1-436: beta tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GDP and Taxol."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the deposited GTP and the magnesium ion beside it. Blue because they belong to alpha."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: the Taxol that stabilises this lattice. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Two halves",
+      "caption": "Alpha is 437 residues, beta 426, both from Sus scrofa. Every dimer points the same way.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.2
+        },
+        "narration": "Two chains, one fold. Every dimer points the same way.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": 20,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF, residues 1-437: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B of 5SYF, residues 1-436: beta tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GDP and Taxol."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the deposited GTP and the magnesium ion beside it. Blue because they belong to alpha."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: the Taxol that stabilises this lattice. Amber because it belongs to beta."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Both faces",
+      "caption": "As a surface: one end stacks on the next dimer, and the sides meet neighbouring protofilaments.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.6
+        },
+        "view": "fit",
+        "narration": "Ends stack head to tail; flat sides meet neighbours.",
+        "motion": {
+          "kind": "dolly",
+          "metres": 0.15,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF, residues 1-437: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B of 5SYF, residues 1-436: beta tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GDP and Taxol."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the deposited GTP and the magnesium ion beside it. Blue because they belong to alpha."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: the Taxol that stabilises this lattice. Amber because it belongs to beta."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "Their cargo",
+      "caption": "GTP and a magnesium ion sit in alpha; GDP and one Taxol molecule sit in beta.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.4
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        },
+        "narration": "Alpha holds GTP; beta holds GDP and one Taxol.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": -15,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF, residues 1-437: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B of 5SYF, residues 1-436: beta tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GDP and Taxol."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the deposited GTP and the magnesium ion beside it. Blue because they belong to alpha."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: the Taxol that stabilises this lattice. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "gtp",
+            "gdp",
+            "taxol"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "The repeat",
+      "caption": "Everything that follows is copies of this dimer, placed by the 26 helical operators 5SYF deposits.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A of 5SYF, residues 1-437: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B of 5SYF, residues 1-436: beta tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GDP and Taxol."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the deposited GTP and the magnesium ion beside it. Blue because they belong to alpha."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: the Taxol that stabilises this lattice. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        },
+        "narration": "This dimer is the unit every later tier repeats.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 30,
+          "seconds": 8
+        }
+      }
+    }
+  ]
+}

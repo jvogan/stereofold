@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+  - plugin
+allowBuilds:
+  '@scarf/scarf': false
+  esbuild: true

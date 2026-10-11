@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-filament",
+  "title": "E. The whole decorated filament",
+  "mode": "explore",
+  "coordinates": {
+    "kind": "volume",
+    "ref": "emd_6347-4x.map",
+    "sha256": "76040029d895758c3cad44226720685774b026fbcd706730ea5ccedb5fda152f",
+    "contour": 3.3,
+    "downsample": 4
+  },
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/3JAK"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.ebi.ac.uk/emdb/EMD-6347"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.cell.2015.07.012"
+      }
+    ],
+    "sourceSha256": "76040029d895758c3cad44226720685774b026fbcd706730ea5ccedb5fda152f",
+    "note": "EMD-6347 is a 3.4 Angstrom cryo-EM reconstruction of a GTPgammaS microtubule co-polymerized with EB3. This is a different experimental specimen from the Taxol-stabilized 5SYF atomic stages. The session uses 3JAK as a related coordinate reference from the same study; RCSB links 3JAK to EMD-6349. Only the EMD-6347 density is drawn here, and residue queries refer to the reference coordinates, not fitted positions in this map. The prepared map averages each 4 by 4 by 4 voxel block: 512 cubed at 1.32 Angstrom voxels becomes 128 cubed at 5.28 Angstrom voxels. The origin includes the half-block shift to preserve the map frame. Contour 3.3 on the prepared map is approximately 5.47 sigma, close to the deposited contour 5.0 at 5.46 sigma. The float32 mesh has 177,604 triangles; the quantized Mol* GPU mesh draws 178,236. The original 3.4 Angstrom resolution does not describe the downsampled display. Teal inside a 135 Angstrom radius from the measured tube axis and amber outside it emphasize the wall and outer protrusions. This radial color scheme is not molecular segmentation or a per-residue assignment. The framing uses the measured density bounds."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Real density",
+      "caption": "EMD-6347: an EB3-bound microtubule, reconstructed at 3.4 Angstrom and downsampled for this display.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "isosurface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "A second experiment reveals the density of an EB3-bound microtubule.",
+        "motion": "spin"
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "13 around",
+      "caption": "Thirteen protofilament strands closed into one hollow tube; the staggered seam runs its length.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "isosurface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.2
+        },
+        "narration": "Walk around it: thirteen strands closed into one tube.",
+        "motion": "spin"
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Amber crowns",
+      "caption": "Amber highlights outer density by radius. This coloring does not identify individual proteins.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "soft",
+            "camera": {
+              "orientation": "current",
+              "zoom": 1.4
+            }
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "magnification": 1.4
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "isosurface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 20,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 2.8
+        },
+        "view": "fit",
+        "narration": "Amber highlights outer density by distance from the tube axis.",
+        "motion": "hold"
+      }
+    },
+    {
+      "id": "site",
+      "title": "Hollow tube",
+      "caption": "Look down its length: a hollow tube, not a rod; the cut rim runs all the way through.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "focus",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "magnification": 2.2
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "isosurface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 75,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            -20,
+            10,
+            0
+          ],
+          "scale": 2.6
+        },
+        "narration": "Look down the tube; the middle runs hollow.",
+        "motion": "hold"
+      }
+    },
+    {
+      "id": "wide",
+      "title": "The tube",
+      "caption": "Enlarge this hollow density tube overhead. The prepared map draws 178,236 triangles.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "isosurface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "Enlarge the tube overhead and explore its hollow shape.",
+        "motion": "spin"
+      }
+    }
+  ]
+}

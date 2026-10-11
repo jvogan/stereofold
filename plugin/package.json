@@ -1,0 +1,70 @@
+{
+  "name": "stereo-structure",
+  "version": "0.1.21",
+  "private": true,
+  "type": "module",
+  "description": "A stereoscopic Mol* viewer that runs inside Codex, Claude, and any MCP Apps host.",
+  "license": "MIT",
+  "homepage": "https://jvogan.github.io/stereofold/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jvogan/stereofold.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "tsx scripts/serve-inspection.ts",
+    "quest": "tsx scripts/quest-share.ts",
+    "headset-host": "node dist/headset-host.mjs",
+    "demo": "tsx scripts/quest-demo.ts",
+    "listen": "tsx scripts/listen-voice.ts",
+    "agent": "tsx scripts/inspection-agent.ts",
+    "converse": "tsx scripts/converse.ts",
+    "detailed": "tsx scripts/detailed-view-cli.ts open",
+    "import-detailed": "tsx scripts/detailed-view-cli.ts import",
+    "headset-log": "tsx scripts/headset-log.ts",
+    "build": "tsx scripts/build.ts",
+    "build:applespeech": "sh native/applespeech/build.sh",
+    "release": "pnpm run build && pnpm run release:stage && pnpm run release:verify",
+    "release:stage": "tsx scripts/release.ts",
+    "release:verify": "tsx scripts/verify-release.ts",
+    "test:pixel": "tsx scripts/pixel-acceptance.ts",
+    "test:tours": "tsx scripts/tour-browser.ts",
+    "test:demos": "tsx scripts/demo-browser.ts",
+    "test": "vitest run",
+    "smoke": "tsx scripts/smoke.ts",
+    "xr-gate": "tsx scripts/xr-gate.ts",
+    "test:quest": "tsx scripts/quest-browser.ts",
+    "test:lan": "tsx scripts/lan-browser.ts",
+    "test:claude-science": "tsx scripts/claude-science-browser.ts",
+    "doctor": "tsx scripts/setup-doctor.ts",
+    "setup-check": "tsx scripts/setup-check.ts",
+    "fresh-user-check": "tsx scripts/fresh-user-check.ts",
+    "test:experiences": "tsx scripts/experience-browser.ts",
+    "test:voice": "tsx scripts/voice-browser.ts",
+    "test:detailed-view": "tsx scripts/detailed-view-browser.ts",
+    "test:scene-handoff": "tsx scripts/scene-handoff-browser.ts"
+  },
+  "dependencies": {
+    "@stereo/anaglyph": "workspace:*",
+    "@stereo/geometry": "workspace:*",
+    "@stereo/motion": "workspace:*",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "molstar": "5.11.0",
+    "zod": "4.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.2",
+    "esbuild": "^0.25.0",
+    "playwright": "^1.55.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

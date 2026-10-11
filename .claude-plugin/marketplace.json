@@ -1,0 +1,33 @@
+{
+  "name": "stereofold",
+  "description": "Stereofold: an MCP plugin that lets your agent put a protein structure on a Meta Quest, Apple Vision Pro or another WebXR headset browser and change it on request.",
+  "owner": {
+    "name": "jvogan",
+    "url": "https://github.com/jvogan"
+  },
+  "plugins": [
+    {
+      "name": "stereofold",
+      "source": "./plugin",
+      "displayName": "Stereofold",
+      "description": "Put molecules in your headset and keep changing them with Claude. Reveal binding pockets, highlight residues, and explore molecular lessons while your computer and headset stay connected. Includes desktop stereo viewing and a local MCP server.",
+      "version": "0.1.21",
+      "author": {
+        "name": "Jacob Vogan"
+      },
+      "homepage": "https://jvogan.github.io/stereofold/",
+      "repository": "https://github.com/jvogan/stereofold",
+      "license": "MIT",
+      "category": "science",
+      "keywords": [
+        "stereofold",
+        "molstar",
+        "stereoscopic",
+        "quest",
+        "webxr",
+        "pdb",
+        "mmcif"
+      ]
+    }
+  ]
+}

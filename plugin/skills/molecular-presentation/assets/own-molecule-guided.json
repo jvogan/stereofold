@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "id": "generic-own-molecule",
+  "title": "Explore an opened molecule",
+  "mode": "guided",
+  "provenance": {
+    "sourceRefs": [
+      { "kind": "local", "ref": "opened-source.cif" }
+    ],
+    "note": "Generic lesson; biological interpretation belongs to the supplied source and user."
+  },
+  "chapters": [
+    {
+      "id": "orient",
+      "title": "Orient",
+      "caption": "Start with the complete molecule in view.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": { "orientation": "front", "zoom": 1.1 },
+            "lighting": "studio",
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete molecule", "representation": "ball_and_stick", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": { "representation": "ball-and-stick", "color": "element-symbol", "labels": false },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "inspect",
+      "title": "Inspect",
+      "caption": "Use the whole-object view as a starting point for exploration.",
+      "durationSeconds": 4,
+      "changes": [
+        {
+          "kind": "focus",
+          "target": { "kind": "all" },
+          "durationSeconds": 2,
+          "easing": "ease_in_out"
+        },
+        {
+          "kind": "scene",
+          "durationSeconds": 2,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete molecule", "representation": "ball_and_stick", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": { "representation": "ball-and-stick", "color": "element-symbol", "labels": false },
+        "view": "reset-orientation"
+      }
+    },
+    {
+      "id": "pause",
+      "title": "Explore",
+      "caption": "Pause here and continue with the viewer controls.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete molecule surface", "representation": "surface", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": { "representation": "molecular-surface", "color": "element-symbol", "opacity": 1, "labels": false },
+        "view": "fit"
+      }
+    }
+  ]
+}

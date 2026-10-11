@@ -1,0 +1,38 @@
+# OS / editor
+.DS_Store
+._*
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node / build output
+node_modules/
+dist/
+build/
+
+# Repo-based marketplaces install without a build step, so the plugin's bundled
+# runtime is committed. `plugin/release/` stays ignored; it is staging output.
+!plugin/dist/
+!plugin/dist/**
+*.tgz
+*.log
+.npm/
+.cache/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets — never commit credentials
+.env
+.env.*
+*.pem
+*.key
+**/credentials*.json
+**/*token*.json
+
+# Agent scratch
+.claude/

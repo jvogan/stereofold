@@ -1,0 +1,200 @@
+# Stereofold
+
+> Stereofold is a plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask: a new color, highlighted residues, or another structure. Vision Pro was exercised in the visionOS simulator, not on a device.
+
+## What Stereofold is
+
+Stereofold packages two Mol* views in one plugin that speaks the Model Context
+Protocol and runs on your Mac. Ask the agent host to inspect a PDB
+entry and the molecular inspector opens: linked sequence selection, colors,
+labels, transparency, depth cutaways, slow object rotation, and independent
+movement of the molecule and the viewpoint. A separate stereo viewer renders one
+image per eye. The agent can also open the structure in a WebXR headset browser and change
+its scene there on request.
+
+## Browser demo
+
+The project page at https://jvogan.github.io/stereofold/ runs a browser demo of
+crambin (PDB 1CRN). The demo needs no install, agent, or headset. It loads the
+structure on request, switches between cartoon and ball-and-stick, links residue
+selection between the 3D view and the sequence, and pauses rendering when it is
+hidden. With the plugin, the agent makes changes like these when you ask.
+
+## Stereo modes
+
+Without a headset, the stereo viewer shows depth on an ordinary screen. It
+renders a separate image for each eye, and the desktop viewing mode sets how
+those two images appear.
+
+Parallel view places the left-eye image on the left and the right-eye image on
+the right. An observer fuses the pair by relaxing their eyes past the screen.
+Stereofold letterboxes the pair so one eye is never wider than 63 mm at the
+measured display density.
+
+Cross-eye view is the same pair with the two images exchanged. An observer
+fuses it by crossing their eyes instead.
+
+Anaglyph combines both eye images through color filters, for red-cyan glasses.
+Two compositors are selectable. The balanced default sends each filter only
+Rec.709 luma, scaled so both eyes emit the same luma. The Dubois color
+projector keeps more hue and gives the two eyes measurably unequal brightness,
+so it is always an explicit choice.
+
+Motion defaults to a slow rock, which shows depth before an observer has fused
+the pair. When the system requests reduced motion, the viewer starts with no
+motion. Motion can also be set to none, spin, or mouse parallax.
+
+Eye separation is derived from an angular disparity budget and the live camera
+distance, not from a fixed world-unit constant. The build carries numeric
+geometry checks. Those are implementation tests, not evidence about glasses,
+display crosstalk, or human stereo perception.
+
+## Install
+
+The source repository is https://github.com/jvogan/stereofold. Every host needs
+Node.js 22 or newer. The built server is committed, so there is no build step.
+
+Codex:
+
+    codex plugin marketplace add https://github.com/jvogan/stereofold
+    codex plugin add stereofold@stereofold
+
+Claude Code:
+
+    claude plugin marketplace add jvogan/stereofold
+    claude plugin install stereofold@stereofold
+
+For Claude Science, use Settings → Connectors → Add connector → Local command
+with absolute Node and `plugin/dist/server.mjs` paths. Add skills through
+Settings → Skills. The README covers environment and sandbox settings. Other
+MCP hosts can register the same stdio server, preserving existing entries.
+
+Then start a new conversation and ask the host:
+
+    Inspect PDB 1CRN in Stereofold.
+
+## With the plugin
+
+Ask for a PDB ID or local mmCIF file; obtain AlphaFold coordinates through your
+source tools when needed. A compatible MCP Apps host can show an inspection
+panel. When a panel is absent or a card does not mount, ask to open the same
+inspector in a browser and verify that connection's rendered scene:
+
+    Inspect PDB 1CRN in Stereofold and open it in my browser.
+
+Ask the agent to recolor chains, highlight residues, or start a guided tour. The
+inspector bundles ten guided tours.
+
+To put the structure on a Meta Quest on the same Wi-Fi, ask:
+
+    Open this structure on my Quest.
+
+Your Mac opens Meta's Web Launch page in a browser signed in to the headset's
+Meta account. Press Open there. With both devices on the same Wi-Fi, Quest
+Browser loads the structure from your Mac, with no developer mode or USB cable.
+Accept the certificate warning for your Mac's address and tap Enter VR. Then
+keep asking in the conversation, by typing or dictating; the assistant checks
+that each change renders on the headset. With headset voice set up, you can hold A or X on a controller and ask from inside the headset; this
+Mac transcribes the speech. Quest 2 physical observations inform its measured limits. Other models use
+capability checks and actual frame times. The quickstart at
+https://github.com/jvogan/stereofold/blob/main/plugin/QUICKSTART.md gives every
+step.
+
+On Apple Vision Pro, ask the agent to open the structure on your Vision Pro.
+The Mac copies a one-time link; paste it into Safari on the headset, accept
+the certificate warning, and tap Enter VR. The simulator exercised an opaque session; probe the physical browser's available modes.
+Stereofold has exercised this route in the visionOS 27 simulator, not on a
+physical Vision Pro. The README gives the wearer steps.
+
+For another headset browser, use `open_companion` with `connection: "lan"`,
+`headset: "auto"`, and `launch: "none"`, then open the private HTTPS address
+and pair through the connection dialog. The companion probes WebXR modes and
+input sources, prefers passthrough when available, and falls back to opaque VR.
+A launch shortcut or prior device test is not a pairing prerequisite. Simulator
+checks cannot establish physical passthrough, comfort, or perceived scale.
+
+## Standalone lessons
+
+Copy the complete `plugin/skills/molecular-presentation/` folder, including
+scripts and assets, into your host's configured skill directory. Claude Code
+reads project `.claude/skills/` and personal `~/.claude/skills/`; Codex commonly
+reads `~/.codex/skills/`; Claude Science supports upload and
+GitHub import through Settings → Skills.
+
+The Node 22 planner creates and compiles lesson files without a viewer or MCP
+server. Live desktop chapters use the separate Molecular Structure Viewer;
+headset playback uses the full Stereofold plugin. Compilation records planned
+scene changes. Live application and movie rendering need their own viewer
+validation and completion receipts.
+
+## Privacy
+
+The privacy page at https://jvogan.github.io/stereofold/privacy.html covers
+agent-host data flows, voice routes, pairing credentials, local storage,
+retention controls, and GitHub Pages hosting. Jacob Vogan publishes Stereofold.
+
+Stereofold runs on your own machine. There is no hosted Stereofold service and
+no account.
+
+Stereofold connects to other hosts only in the cases that the README's Privacy
+section lists. The main ones follow. Each coordinate fetch reveals your IP
+address and what you asked for to the host that serves it:
+
+- A PDB ID: RCSB (`files.rcsb.org`).
+- An AlphaFold model: EMBL-EBI (`alphafold.ebi.ac.uk`).
+- An `https` URL you give: the host in that URL.
+- A lesson stage that is not cached: RCSB, or EMDB (`ftp.ebi.ac.uk`) for the
+  one stage that uses a density map.
+
+Putting a structure on a Quest adds Meta Web Launch: this Mac opens
+`https://www.oculus.com/open_url/`, and Meta receives the page address, which is
+this Mac's private Wi-Fi address, and the one-time pairing code when the launch
+includes it. **Send using Meta** relays the page and the coordinates through a
+Cloudflare quick tunnel. **Connect over Wi-Fi** uses no relay. The inspector's
+optional **Talk** route, off until you configure an OAuth helper, sends each
+recording to OpenAI for transcription.
+
+The viewer bundles its own assets, so it needs no content delivery network at
+runtime. Stereofold sends no runtime telemetry to its publisher.
+
+## Support and terms
+
+Support instructions are at https://jvogan.github.io/stereofold/support.html.
+Report reproducible problems through the public GitHub issue tracker without
+private files, recordings, credentials, or complete viewer links.
+
+The existing MIT license and third-party terms are described at
+https://jvogan.github.io/stereofold/terms.html. The repository's complete license
+text remains authoritative. The project provides community support without a
+guaranteed response time.
+
+## Build from source
+
+Node.js 22 or newer, pnpm 11.19.0, and Python 3. From the repository root:
+
+    pnpm install --frozen-lockfile
+    pnpm --filter stereo-structure build
+    pnpm --filter stereo-structure test
+    pnpm --filter stereo-structure release
+
+`build` rewrites the committed `plugin/dist/`, including `plugin/dist/server.mjs`
+and the viewer assets. The stored inspector HTML and CSS companion are
+reassembled into an inline page at runtime. `release` stages a self-contained plugin
+directory and verifies it by launching the copy.
+
+## Citation
+
+Stereofold renders through Mol*. Cite the Mol* paper:
+
+Sehnal D. et al. Mol* Viewer: modern web app for 3D visualization and analysis
+of large biomolecular structures. Nucleic Acids Research, 2021.
+doi:10.1093/nar/gkab314
+
+The browser demo loads a local copy of the public 1CRN mmCIF file retrieved from
+RCSB PDB on September 7, 2026. Crambin was deposited by W. A. Hendrickson and
+M. M. Teeter. Full provenance, third-party notices, and font licenses are at
+https://jvogan.github.io/stereofold/credits.html.
+
+## License
+
+MIT.

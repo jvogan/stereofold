@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "id": "microtubule-lattice",
+  "title": "A microtubule wall, three protofilaments wide",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      }
+    ],
+    "sourceSha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+    "note": "Coordinates are RCSB biological assembly 1 of entry 5SYF, restricted to six of its 26 deposited helical operators: three neighbouring protofilaments, two tubulin dimers deep. No coordinate was altered. The complete 26-operator tube exceeds the inspector source-byte budget."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Wide reveal",
+      "caption": "A section of the wall of a Taxol-stabilized microtubule, reconstructed by cryo-electron microscopy at 3.5 Angstrom. Three neighbouring protofilaments, two alpha-beta tubulin dimers deep.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Slow orbit",
+      "caption": "The turn shows both kinds of contact at once: dimers stacked head to tail along each protofilament, and protofilaments packed side by side.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Highlight",
+      "caption": "The surface makes the lattice continuous. A whole microtubule closes thirteen of these protofilaments into a tube.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.1
+        },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "site",
+      "title": "The working part",
+      "caption": "Inside, every dimer holds the same bound molecules: GTP and magnesium in the alpha subunit, GDP in the beta subunit, and Taxol on beta.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.6
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "element-symbol",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "Step back",
+      "caption": "Six of the 26 deposited assembly operators are shown here. The complete assembly closes thirteen protofilaments into a tube.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit"
+      }
+    }
+  ]
+}

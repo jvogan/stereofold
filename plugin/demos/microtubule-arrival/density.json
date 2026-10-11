@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "id": "microtubule-arrival-density",
+  "title": "The cryo-EM tube overhead",
+  "mode": "explore",
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
+  "coordinates": {
+    "kind": "volume",
+    "ref": "emd_6347-4x.map",
+    "sha256": "76040029d895758c3cad44226720685774b026fbcd706730ea5ccedb5fda152f",
+    "contour": 3.3,
+    "downsample": 4
+  },
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/3JAK"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.ebi.ac.uk/emdb/EMD-6347"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.cell.2015.07.012"
+      }
+    ],
+    "sourceSha256": "76040029d895758c3cad44226720685774b026fbcd706730ea5ccedb5fda152f",
+    "note": "EMD-6347 is a 3.4 Angstrom cryo-EM reconstruction of a GTPgammaS microtubule co-polymerized with EB3. This is a different experimental specimen from the Taxol-stabilized 5SYF atomic stages. The session uses 3JAK as a related coordinate reference from the same study; RCSB links 3JAK to EMD-6349. Only the EMD-6347 density is drawn here, and residue queries refer to the reference coordinates, not fitted positions in this map. The prepared map averages each 4 by 4 by 4 voxel block: 512 cubed at 1.32 Angstrom voxels becomes 128 cubed at 5.28 Angstrom voxels. The origin includes the half-block shift to preserve the map frame. Contour 3.3 on the prepared map is approximately 5.47 sigma, close to the deposited contour 5.0 at 5.46 sigma. The float32 mesh has 177,604 triangles; the quantized Mol* GPU mesh draws 178,236. The original 3.4 Angstrom resolution does not describe the downsampled display. Teal inside a 135 Angstrom radius from the measured tube axis and amber outside it emphasize the wall and outer protrusions. This radial color scheme is not molecular segmentation or a per-residue assignment. The source is normalized using measured density bounds. Source replacement begins from the prior displayed center and diameter. An active opening chapter can fit the density when no wearer placement is held. After loading settles, choose Above us for the deliberate overhead enlargement."
+  },
+  "chapters": [
+    {
+      "id": "density",
+      "title": "A different experiment",
+      "caption": "A different specimen: EMD-6347 shows a GTPgammaS microtubule decorated with EB3 in cryo-EM density.",
+      "durationSeconds": 7,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 7
+        }
+      ],
+      "immersive": {
+        "narration": "A different experiment reveals a whole tube in cryo-EM density.",
+        "motion": "hold",
+        "appearance": {
+          "representation": "isosurface",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 30
+        }
+      }
+    },
+    {
+      "id": "overhead",
+      "title": "Make the tube overhead",
+      "caption": "Choose Above us after loading settles. Teal and amber highlight inner and outer density, not individual proteins.",
+      "durationSeconds": 15,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 15
+        }
+      ],
+      "immersive": {
+        "narration": "Choose Above us when the tube settles. Teal and amber show inner and outer density.",
+        "motion": "hold",
+        "appearance": {
+          "clipping": 0,
+          "opacity": 1
+        }
+      }
+    }
+  ]
+}

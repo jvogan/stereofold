@@ -1,0 +1,444 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "id": "1CRN",
+    "file": "1CRN.cif",
+    "format": "mmcif",
+    "sha256": "23787562c427d7c1abe5420e86d5f1d0a6c7007dec1e8ce85645a6d69c32e8ba",
+    "byteLength": 69506
+  },
+  "generatedWith": {
+    "parser": "Mol*",
+    "version": "5.11.0",
+    "sequence": "model.sequence; matched by entityId and labelSequenceId",
+    "identity": "mmCIF atom_site and pdbx_poly_seq_scheme"
+  },
+  "modelNumber": 1,
+  "assemblyId": "1",
+  "chains": [
+    {
+      "labelChain": "A",
+      "authorChain": "A",
+      "entityId": "1",
+      "sequence": "TTCCPSIVARSNFNVCRLPGTPEAICATYTGCIIIPGATCPGDYAN",
+      "residueCount": 46,
+      "atomCount": 327,
+      "residues": [
+        {
+          "labelSequenceId": 1,
+          "authorResidue": 1,
+          "insertionCode": "",
+          "componentId": "THR",
+          "oneLetterCode": "T",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 2,
+          "authorResidue": 2,
+          "insertionCode": "",
+          "componentId": "THR",
+          "oneLetterCode": "T",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 3,
+          "authorResidue": 3,
+          "insertionCode": "",
+          "componentId": "CYS",
+          "oneLetterCode": "C",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 4,
+          "authorResidue": 4,
+          "insertionCode": "",
+          "componentId": "CYS",
+          "oneLetterCode": "C",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 5,
+          "authorResidue": 5,
+          "insertionCode": "",
+          "componentId": "PRO",
+          "oneLetterCode": "P",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 6,
+          "authorResidue": 6,
+          "insertionCode": "",
+          "componentId": "SER",
+          "oneLetterCode": "S",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 7,
+          "authorResidue": 7,
+          "insertionCode": "",
+          "componentId": "ILE",
+          "oneLetterCode": "I",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 8,
+          "authorResidue": 8,
+          "insertionCode": "",
+          "componentId": "VAL",
+          "oneLetterCode": "V",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 9,
+          "authorResidue": 9,
+          "insertionCode": "",
+          "componentId": "ALA",
+          "oneLetterCode": "A",
+          "coordinateState": "resolved",
+          "atomCount": 5
+        },
+        {
+          "labelSequenceId": 10,
+          "authorResidue": 10,
+          "insertionCode": "",
+          "componentId": "ARG",
+          "oneLetterCode": "R",
+          "coordinateState": "resolved",
+          "atomCount": 11
+        },
+        {
+          "labelSequenceId": 11,
+          "authorResidue": 11,
+          "insertionCode": "",
+          "componentId": "SER",
+          "oneLetterCode": "S",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 12,
+          "authorResidue": 12,
+          "insertionCode": "",
+          "componentId": "ASN",
+          "oneLetterCode": "N",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 13,
+          "authorResidue": 13,
+          "insertionCode": "",
+          "componentId": "PHE",
+          "oneLetterCode": "F",
+          "coordinateState": "resolved",
+          "atomCount": 11
+        },
+        {
+          "labelSequenceId": 14,
+          "authorResidue": 14,
+          "insertionCode": "",
+          "componentId": "ASN",
+          "oneLetterCode": "N",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 15,
+          "authorResidue": 15,
+          "insertionCode": "",
+          "componentId": "VAL",
+          "oneLetterCode": "V",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 16,
+          "authorResidue": 16,
+          "insertionCode": "",
+          "componentId": "CYS",
+          "oneLetterCode": "C",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 17,
+          "authorResidue": 17,
+          "insertionCode": "",
+          "componentId": "ARG",
+          "oneLetterCode": "R",
+          "coordinateState": "resolved",
+          "atomCount": 11
+        },
+        {
+          "labelSequenceId": 18,
+          "authorResidue": 18,
+          "insertionCode": "",
+          "componentId": "LEU",
+          "oneLetterCode": "L",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 19,
+          "authorResidue": 19,
+          "insertionCode": "",
+          "componentId": "PRO",
+          "oneLetterCode": "P",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 20,
+          "authorResidue": 20,
+          "insertionCode": "",
+          "componentId": "GLY",
+          "oneLetterCode": "G",
+          "coordinateState": "resolved",
+          "atomCount": 4
+        },
+        {
+          "labelSequenceId": 21,
+          "authorResidue": 21,
+          "insertionCode": "",
+          "componentId": "THR",
+          "oneLetterCode": "T",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 22,
+          "authorResidue": 22,
+          "insertionCode": "",
+          "componentId": "PRO",
+          "oneLetterCode": "P",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 23,
+          "authorResidue": 23,
+          "insertionCode": "",
+          "componentId": "GLU",
+          "oneLetterCode": "E",
+          "coordinateState": "resolved",
+          "atomCount": 9
+        },
+        {
+          "labelSequenceId": 24,
+          "authorResidue": 24,
+          "insertionCode": "",
+          "componentId": "ALA",
+          "oneLetterCode": "A",
+          "coordinateState": "resolved",
+          "atomCount": 5
+        },
+        {
+          "labelSequenceId": 25,
+          "authorResidue": 25,
+          "insertionCode": "",
+          "componentId": "ILE",
+          "oneLetterCode": "I",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 26,
+          "authorResidue": 26,
+          "insertionCode": "",
+          "componentId": "CYS",
+          "oneLetterCode": "C",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 27,
+          "authorResidue": 27,
+          "insertionCode": "",
+          "componentId": "ALA",
+          "oneLetterCode": "A",
+          "coordinateState": "resolved",
+          "atomCount": 5
+        },
+        {
+          "labelSequenceId": 28,
+          "authorResidue": 28,
+          "insertionCode": "",
+          "componentId": "THR",
+          "oneLetterCode": "T",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 29,
+          "authorResidue": 29,
+          "insertionCode": "",
+          "componentId": "TYR",
+          "oneLetterCode": "Y",
+          "coordinateState": "resolved",
+          "atomCount": 12
+        },
+        {
+          "labelSequenceId": 30,
+          "authorResidue": 30,
+          "insertionCode": "",
+          "componentId": "THR",
+          "oneLetterCode": "T",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 31,
+          "authorResidue": 31,
+          "insertionCode": "",
+          "componentId": "GLY",
+          "oneLetterCode": "G",
+          "coordinateState": "resolved",
+          "atomCount": 4
+        },
+        {
+          "labelSequenceId": 32,
+          "authorResidue": 32,
+          "insertionCode": "",
+          "componentId": "CYS",
+          "oneLetterCode": "C",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 33,
+          "authorResidue": 33,
+          "insertionCode": "",
+          "componentId": "ILE",
+          "oneLetterCode": "I",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 34,
+          "authorResidue": 34,
+          "insertionCode": "",
+          "componentId": "ILE",
+          "oneLetterCode": "I",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 35,
+          "authorResidue": 35,
+          "insertionCode": "",
+          "componentId": "ILE",
+          "oneLetterCode": "I",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 36,
+          "authorResidue": 36,
+          "insertionCode": "",
+          "componentId": "PRO",
+          "oneLetterCode": "P",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 37,
+          "authorResidue": 37,
+          "insertionCode": "",
+          "componentId": "GLY",
+          "oneLetterCode": "G",
+          "coordinateState": "resolved",
+          "atomCount": 4
+        },
+        {
+          "labelSequenceId": 38,
+          "authorResidue": 38,
+          "insertionCode": "",
+          "componentId": "ALA",
+          "oneLetterCode": "A",
+          "coordinateState": "resolved",
+          "atomCount": 5
+        },
+        {
+          "labelSequenceId": 39,
+          "authorResidue": 39,
+          "insertionCode": "",
+          "componentId": "THR",
+          "oneLetterCode": "T",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 40,
+          "authorResidue": 40,
+          "insertionCode": "",
+          "componentId": "CYS",
+          "oneLetterCode": "C",
+          "coordinateState": "resolved",
+          "atomCount": 6
+        },
+        {
+          "labelSequenceId": 41,
+          "authorResidue": 41,
+          "insertionCode": "",
+          "componentId": "PRO",
+          "oneLetterCode": "P",
+          "coordinateState": "resolved",
+          "atomCount": 7
+        },
+        {
+          "labelSequenceId": 42,
+          "authorResidue": 42,
+          "insertionCode": "",
+          "componentId": "GLY",
+          "oneLetterCode": "G",
+          "coordinateState": "resolved",
+          "atomCount": 4
+        },
+        {
+          "labelSequenceId": 43,
+          "authorResidue": 43,
+          "insertionCode": "",
+          "componentId": "ASP",
+          "oneLetterCode": "D",
+          "coordinateState": "resolved",
+          "atomCount": 8
+        },
+        {
+          "labelSequenceId": 44,
+          "authorResidue": 44,
+          "insertionCode": "",
+          "componentId": "TYR",
+          "oneLetterCode": "Y",
+          "coordinateState": "resolved",
+          "atomCount": 12
+        },
+        {
+          "labelSequenceId": 45,
+          "authorResidue": 45,
+          "insertionCode": "",
+          "componentId": "ALA",
+          "oneLetterCode": "A",
+          "coordinateState": "resolved",
+          "atomCount": 5
+        },
+        {
+          "labelSequenceId": 46,
+          "authorResidue": 46,
+          "insertionCode": "",
+          "componentId": "ASN",
+          "oneLetterCode": "N",
+          "coordinateState": "resolved",
+          "atomCount": 9
+        }
+      ]
+    }
+  ]
+}

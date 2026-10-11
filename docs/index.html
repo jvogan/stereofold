@@ -1,0 +1,1928 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b16" />
+    <meta
+      name="description"
+      content="Stereofold is a plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask. Try the crambin demo in your browser."
+    />
+    <meta property="og:title" content="Stereofold — Claude and Codex show proteins in your headset" />
+    <meta
+      property="og:description"
+      content="A plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stereofold" />
+    <meta property="og:url" content="https://jvogan.github.io/stereofold/" />
+    <link rel="canonical" href="https://jvogan.github.io/stereofold/" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://jvogan.github.io/stereofold/artwork/stereofold-social-1280x640.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta
+      property="og:image:alt"
+      content="A protein drawn flat in blue neon on a magenta grid, and the same protein standing above it in chrome, beside the wordmark Stereofold and the line &quot;See proteins in real depth.&quot;"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Stereofold — Claude and Codex show proteins in your headset" />
+    <meta
+      name="twitter:description"
+      content="A plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask."
+    />
+    <meta name="twitter:image" content="https://jvogan.github.io/stereofold/artwork/stereofold-social-1280x640.jpg" />
+    <meta
+      name="twitter:image:alt"
+      content="A protein drawn flat in blue neon on a magenta grid, and the same protein standing above it in chrome, beside the wordmark Stereofold and the line &quot;See proteins in real depth.&quot;"
+    />
+    <title>Stereofold — Claude and Codex show proteins in your headset</title>
+    <link rel="icon" type="image/png" href="./artwork/icon.png" />
+    <link
+      rel="preload"
+      href="./fonts/sora.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./fonts/source-sans-3.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <style>
+      @font-face {
+        font-family: Sora;
+        src: url("./fonts/sora.woff2") format("woff2");
+        font-weight: 100 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Source Sans 3";
+        src: url("./fonts/source-sans-3.woff2") format("woff2");
+        font-weight: 200 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("./fonts/ibm-plex-mono.woff2") format("woff2");
+        font-weight: 400;
+        font-display: swap;
+      }
+    </style>
+    <link rel="stylesheet" href="./assets/app.css" />
+    <script type="module" src="./assets/app.js"></script>
+    <style>
+      .install-section {
+        border-top: 1px solid var(--line);
+        background: #0a0e19;
+      }
+      .install-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 26px;
+        margin-top: 34px;
+      }
+      .install-card {
+        border: 1px solid #2b3549;
+        border-radius: 8px;
+        padding: 26px 24px;
+        background: var(--panel);
+        min-width: 0;
+      }
+      .install-card h3 {
+        font-size: 21px;
+      }
+      .install-card p {
+        margin-top: 12px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #a4afc3;
+      }
+      .install-code {
+        margin: 18px 0 0;
+        padding: 14px 16px;
+        border: 1px solid #26303f;
+        border-radius: 5px;
+        background: var(--panel-deep);
+        overflow-x: auto;
+      }
+      .install-code code {
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.8;
+        color: #c7d4e6;
+        white-space: pre;
+      }
+      .install-note {
+        margin: 22px 0 0;
+        max-width: 760px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #a4afc3;
+      }
+      .install-note code {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: #c7d4e6;
+      }
+      @media (max-width: 600px) {
+        .install-code code {
+          font-size: 11.5px;
+        }
+      }
+      .install-section .inline-link {
+        margin-top: 30px;
+      }
+      @media (max-width: 850px) {
+        .install-grid {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+      }
+    </style>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://jvogan.github.io/stereofold/#stereofold",
+            "name": "Stereofold",
+            "description": "A Mol* plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure in the host, opens it in a WebXR headset browser, and changes it on request.",
+            "applicationCategory": "Science",
+            "operatingSystem": "cross-platform",
+            "url": "https://jvogan.github.io/stereofold/",
+            "image": "https://jvogan.github.io/stereofold/artwork/stereofold-social-1280x640.jpg",
+            "license": "https://opensource.org/licenses/MIT",
+            "codeRepository": "https://github.com/jvogan/stereofold",
+            "isBasedOn": {
+              "@type": "SoftwareApplication",
+              "name": "Mol*",
+              "url": "https://molstar.org/"
+            },
+            "citation": {
+              "@id": "https://doi.org/10.1093/nar/gkab314"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://jvogan.github.io/stereofold/#website",
+            "name": "Stereofold",
+            "url": "https://jvogan.github.io/stereofold/",
+            "description": "Stereofold is a plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask. Try the crambin demo in your browser.",
+            "inLanguage": "en",
+            "about": {
+              "@id": "https://jvogan.github.io/stereofold/#stereofold"
+            }
+          },
+          {
+            "@type": "ScholarlyArticle",
+            "@id": "https://doi.org/10.1093/nar/gkab314",
+            "name": "Mol* Viewer: modern web app for 3D visualization and analysis of large biomolecular structures",
+            "headline": "Mol* Viewer: modern web app for 3D visualization and analysis of large biomolecular structures",
+            "author": {
+              "@type": "Person",
+              "name": "Sehnal, D."
+            },
+            "datePublished": "2021",
+            "isPartOf": {
+              "@type": "Periodical",
+              "name": "Nucleic Acids Research"
+            },
+            "identifier": "https://doi.org/10.1093/nar/gkab314",
+            "sameAs": "https://doi.org/10.1093/nar/gkab314",
+            "url": "https://doi.org/10.1093/nar/gkab314"
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <svg
+      class="icon-library"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <symbol id="icon-arrow" viewBox="0 0 24 24">
+        <path d="M4 12h15m-6-6 6 6-6 6" />
+      </symbol>
+      <symbol id="icon-external" viewBox="0 0 24 24">
+        <path d="M7 17 17 7M7 7h10v10" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <path d="m9 5 10 7-10 7Z" />
+      </symbol>
+      <symbol id="icon-reset" viewBox="0 0 24 24">
+        <path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" />
+      </symbol>
+      <symbol id="icon-focus" viewBox="0 0 24 24">
+        <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />
+        <circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+      </symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M6 18 18 6" />
+      </symbol>
+      <symbol id="icon-cube" viewBox="0 0 24 24">
+        <path d="m12 2 9 5v10l-9 5-9-5V7Zm0 10 9-5M12 12 3 7m9 5v10" />
+      </symbol>
+    </svg>
+
+    <header class="site-header">
+      <div class="header-inner wrap">
+        <a class="wordmark" href="#overview" aria-label="Stereofold home">
+          <span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 34 34">
+              <path d="m12 3 10 6v12l-10 6-10-6V9Z" />
+              <path d="m22 7 10 6v12l-10 6-10-6V13Z" /></svg
+          ></span>
+          Stereofold
+        </a>
+        <nav class="desktop-nav" aria-label="Main navigation">
+          <a href="#explore">Demo</a>
+          <a href="#stereo">Stereo modes</a>
+          <a href="#install">Install</a>
+          <a href="#development">Headset</a>
+        </nav>
+        <a class="header-cta" href="#explore"
+          >Open demo <svg class="icon"><use href="#icon-arrow" /></svg
+        ></a>
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+          aria-label="Open navigation"
+        >
+          <span></span><span></span>
+        </button>
+      </div>
+      <nav
+        class="mobile-nav"
+        id="mobile-nav"
+        aria-label="Mobile navigation"
+        hidden
+      >
+        <a href="#explore">Crambin demo</a><a href="#stereo">Stereo modes</a
+        ><a href="#install">Install</a><a href="#development">Headset</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="overview" aria-labelledby="hero-title">
+        <img
+          class="hero-art"
+          src="./artwork/stereofold-hero.webp"
+          width="1774"
+          height="887"
+          alt=""
+          fetchpriority="high"
+        />
+        <div class="hero-shade"></div>
+        <div class="hero-content wrap">
+          <p class="eyebrow">
+            <span class="eyebrow-line"></span> Molecular viewer plugin
+          </p>
+          <h1 id="hero-title">
+            Claude and Codex show proteins <span>in your headset.</span>
+          </h1>
+          <p class="hero-description">
+            Stereofold is a plugin for Claude Code, Claude Science, and Codex.
+            The agent opens a protein structure in a WebXR headset browser and
+            changes it when you ask: a new color, highlighted residues, or
+            another structure.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#explore"
+              >Try the browser demo <svg class="icon"><use href="#icon-arrow" /></svg
+            ></a>
+            <a class="button button-quiet" href="#install"
+              >Install the plugin <span aria-hidden="true">↘</span></a
+            >
+          </div>
+        </div>
+        <div class="hero-bottom wrap">
+          <a
+            href="https://molstar.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Built with <strong>Mol*</strong>
+            <svg class="icon"><use href="#icon-external" /></svg
+          ></a>
+          <span class="hero-art-label"
+            >Stereofold artwork <span aria-hidden="true">/</span> 01</span
+          >
+          <a class="scroll-link" href="#explore"
+            >Try the demo <span aria-hidden="true">↓</span></a
+          >
+        </div>
+      </section>
+
+      <section
+        class="explore-section section-pad"
+        id="explore"
+        aria-labelledby="explore-title"
+      >
+        <div class="wrap">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">
+                <span class="section-number">01</span> Browser demo
+              </p>
+              <h2 id="explore-title">Explore crambin’s structure.</h2>
+            </div>
+            <p>
+              This demo runs in your browser with no install, agent, or headset.
+              Rotate crambin, switch between cartoon and ball-and-stick, and
+              select a residue in the sequence or the 3D view. With the plugin,
+              the agent makes changes like these when you ask.
+            </p>
+          </div>
+          <div class="workspace" id="workspace" data-ready="false">
+            <div class="workspace-header">
+              <div class="structure-name">
+                <svg class="icon"><use href="#icon-cube" /></svg
+                ><strong>Crambin</strong><span class="pdb-tag">1CRN</span>
+              </div>
+              <div class="workspace-status">
+                <span class="status-dot" id="viewer-status-dot"></span
+                ><span id="viewer-status" role="status">Ready to open</span>
+              </div>
+            </div>
+            <div class="workspace-view-switch" hidden>
+              <div
+                class="workspace-tabs"
+                role="tablist"
+                aria-label="Workspace view"
+              >
+                <button
+                  id="structure-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="structure-pane"
+                  data-workspace-view="structure"
+                >
+                  Structure</button
+                ><button
+                  id="sequence-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="sequence-pane"
+                  data-workspace-view="sequence"
+                  tabindex="-1"
+                >
+                  Sequence
+                </button>
+              </div>
+              <span id="mobile-selection" class="mono">Chain A</span>
+            </div>
+            <div class="workspace-body">
+              <div class="structure-pane" id="structure-pane">
+                <div class="viewer-toolbar">
+                  <div
+                    class="segmented-control"
+                    role="group"
+                    aria-label="Molecular representation"
+                  >
+                    <button
+                      type="button"
+                      data-representation="cartoon"
+                      aria-pressed="true"
+                      disabled
+                    >
+                      Cartoon
+                    </button>
+                    <button
+                      type="button"
+                      data-representation="ball-and-stick"
+                      aria-pressed="false"
+                      disabled
+                    >
+                      Ball and stick
+                    </button>
+                  </div>
+                  <div class="view-tools">
+                    <button
+                      class="tool-button"
+                      id="fit-view"
+                      type="button"
+                      aria-label="Fit structure"
+                      disabled
+                    >
+                      <svg class="icon"><use href="#icon-focus" /></svg
+                      ><span>Fit</span></button
+                    ><button
+                      class="tool-button"
+                      id="reset-view"
+                      type="button"
+                      aria-label="Reset view"
+                      disabled
+                    >
+                      <svg class="icon"><use href="#icon-reset" /></svg
+                      ><span>Reset</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="viewer-stage" id="viewer-stage">
+                  <div
+                    id="molecular-canvas"
+                    class="molecular-canvas"
+                    role="group"
+                    aria-label="Crambin structure"
+                  ></div>
+                  <div class="viewer-placeholder" id="viewer-placeholder">
+                    <div class="specimen-preview">
+                      <img
+                        src="./artwork/crambin-preview.webp"
+                        width="595"
+                        height="421"
+                        alt="Still render of the crambin backbone as a teal cartoon ribbon on a near-black background, shown before the interactive viewer loads."
+                        loading="lazy"
+                      />
+                    </div>
+                    <span class="preview-label mono">PDB 1CRN · CRAMBIN</span>
+                    <button
+                      class="button button-primary"
+                      id="load-viewer"
+                      type="button"
+                    >
+                      <svg class="icon"><use href="#icon-play" /></svg>Open
+                      interactive structure
+                    </button>
+                    <p id="load-message" role="status">
+                      Loads on request. Drag to rotate; scroll to zoom.
+                    </p>
+                  </div>
+                  <span class="canvas-label mono" id="canvas-label" hidden
+                    >1CRN / CHAIN A</span
+                  >
+                  <span class="canvas-hint" id="canvas-hint" hidden
+                    >Drag to rotate <span>·</span> Scroll to zoom</span
+                  >
+                </div>
+              </div>
+              <div class="sequence-pane" id="sequence-pane">
+                <div class="sequence-heading">
+                  <div>
+                    <span class="small-label">Sequence</span
+                    ><span class="chain-label mono">CHAIN A</span>
+                  </div>
+                  <span class="sequence-tip"
+                    >Select a letter to inspect a residue</span
+                  >
+                </div>
+                <div
+                  class="sequence-scroll"
+                  id="sequence-scroll"
+                  aria-label="Crambin sequence"
+                >
+                  <p class="sequence-fallback mono">
+                    TTCCPSIVARSNFNVCRLPGTPEAICATYTGCIIIPGATCPGDYAN
+                  </p>
+                </div>
+                <div class="sequence-footer">
+                  <span class="mono">1–46 <span> / 46 residues</span></span
+                  ><span
+                    >Selection highlights a residue. Focus changes the
+                    view.</span
+                  >
+                </div>
+              </div>
+              <aside class="details-pane" aria-labelledby="details-title">
+                <div class="details-block">
+                  <p class="small-label" id="details-title">
+                    Structure details
+                  </p>
+                  <dl class="structure-facts">
+                    <div>
+                      <dt>Protein</dt>
+                      <dd>Crambin</dd>
+                    </div>
+                    <div>
+                      <dt>PDB entry</dt>
+                      <dd class="mono">1CRN</dd>
+                    </div>
+                    <div>
+                      <dt>Chain</dt>
+                      <dd class="mono">A</dd>
+                    </div>
+                    <div>
+                      <dt>Residues</dt>
+                      <dd class="mono">46</dd>
+                    </div>
+                    <div>
+                      <dt>Atom sites</dt>
+                      <dd class="mono">327</dd>
+                    </div>
+                    <div>
+                      <dt>Model / assembly</dt>
+                      <dd class="mono">1 / 1</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div class="details-block selection-block">
+                  <p class="small-label">
+                    <span class="selection-swatch"></span> Selection
+                  </p>
+                  <p
+                    class="selection-title"
+                    id="selection-title"
+                    aria-live="polite"
+                  >
+                    No residue selected
+                  </p>
+                  <p class="selection-description" id="selection-description">
+                    Select a residue in the sequence or 3D view.
+                  </p>
+                  <button
+                    class="button button-small button-outline"
+                    id="focus-selection"
+                    type="button"
+                    disabled
+                  >
+                    <svg class="icon"><use href="#icon-focus" /></svg>Focus
+                    selection
+                  </button>
+                  <button
+                    class="text-button"
+                    id="clear-selection"
+                    type="button"
+                    disabled
+                  >
+                    Clear selection
+                  </button>
+                </div>
+                <a
+                  class="source-link"
+                  href="https://www.rcsb.org/structure/1CRN"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >View entry at RCSB PDB
+                  <svg class="icon"><use href="#icon-external" /></svg
+                ></a>
+              </aside>
+            </div>
+            <div class="workspace-footer">
+              <span
+                ><span class="tiny-dot"></span> Runs in your browser</span
+              ><a href="./fixtures/1CRN.cif" download="1CRN.cif"
+                ><svg class="icon"><use href="#icon-download" /></svg>Download
+                mmCIF</a
+              >
+            </div>
+          </div>
+          <p class="workspace-help">
+            Keyboard: use Tab to reach the sequence, then arrow keys to move
+            between residues. Press Enter to select. In the 3D view, arrow keys
+            rotate and + / − zoom.
+          </p>
+          <noscript
+            ><p class="noscript-message">
+              Enable JavaScript to open the interactive viewer. You can read the
+              page and download the crambin structure without it.
+            </p></noscript
+          >
+        </div>
+      </section>
+
+      <section
+        class="stereo-section section-pad"
+        id="stereo"
+        aria-labelledby="stereo-title"
+      >
+        <div class="wrap stereo-layout">
+          <div class="stereo-copy">
+            <p class="eyebrow">
+              <span class="section-number">02</span> Desktop stereo
+            </p>
+            <h2 id="stereo-title">How desktop <br />stereo works.</h2>
+            <p class="section-description">
+              Without a headset, the plugin’s stereo viewer shows depth on an
+              ordinary screen. It renders a separate image for each eye, and
+              the viewing mode sets how the two images appear.
+            </p>
+            <div
+              class="mode-options"
+              role="group"
+              aria-label="Explain a desktop stereo mode"
+            >
+              <button
+                class="mode-option"
+                type="button"
+                data-stereo-mode="parallel"
+                aria-pressed="true"
+              >
+                <span class="mode-index mono">01</span
+                ><span
+                  ><strong>Parallel view</strong
+                  ><span>Left-eye image on the left side.</span></span
+                ><svg class="icon"><use href="#icon-arrow" /></svg>
+              </button>
+              <button
+                class="mode-option"
+                type="button"
+                data-stereo-mode="cross"
+                aria-pressed="false"
+              >
+                <span class="mode-index mono">02</span
+                ><span
+                  ><strong>Cross-eye view</strong
+                  ><span>Right-eye image on the left side.</span></span
+                ><svg class="icon"><use href="#icon-arrow" /></svg>
+              </button>
+              <button
+                class="mode-option"
+                type="button"
+                data-stereo-mode="anaglyph"
+                aria-pressed="false"
+              >
+                <span class="mode-index mono">03</span
+                ><span
+                  ><strong>Anaglyph</strong
+                  ><span>Both images in one frame, for red-cyan glasses.</span></span
+                ><svg class="icon"><use href="#icon-arrow" /></svg>
+              </button>
+            </div>
+          </div>
+          <figure class="stereo-figure" data-mode="parallel" id="stereo-figure">
+            <div class="figure-heading">
+              <span class="mono">STEREO RENDERING</span
+              ><span class="figure-key"><i></i> Left <i></i> Right</span>
+            </div>
+            <svg
+              class="stereo-paths"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 600 420"
+              width="600"
+              height="420"
+              role="img"
+              aria-labelledby="stereo-diagram-title stereo-diagram-desc"
+            >
+              <title id="stereo-diagram-title">
+                Two viewpoints of one model
+              </title>
+              <desc id="stereo-diagram-desc">
+                Two separated cameras form left-eye and right-eye images of the
+                same wireframe cube. Both images use one shared focus point.
+                Cyan identifies the left view; magenta identifies the right
+                view.
+              </desc>
+              <g
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                font-family="Source Sans 3, Source Sans Pro, Segoe UI, Arial, sans-serif"
+              >
+                <polyline
+                  points="246,105 150,208 359,134"
+                  stroke="#75e4f5"
+                  stroke-width="1.25"
+                  opacity="0.17"
+                  fill="none"
+                />
+                <polyline
+                  points="150,208 300,100"
+                  stroke="#75e4f5"
+                  stroke-width="1.45"
+                  opacity="0.57"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="246,105 450,208 359,134"
+                  stroke="#ed79cf"
+                  stroke-width="1.25"
+                  opacity="0.17"
+                  fill="none"
+                />
+                <polyline
+                  points="450,208 300,100"
+                  stroke="#ed79cf"
+                  stroke-width="1.45"
+                  opacity="0.57"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="306.58,156.48 320.71,84.14"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="253.83,56.7 320.71,84.14"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="369.43,64.21 320.71,84.14"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="232.87,134.61 306.58,156.48"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="232.87,134.61 253.83,56.7"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="356.16,152.68 306.58,156.48"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="291.52,27.25 253.83,56.7"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="356.16,152.68 369.43,64.21"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="291.52,27.25 369.43,64.21"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="268.49,124.12 232.87,134.61"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="268.49,124.12 356.16,152.68"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="268.49,124.12 291.52,27.25"
+                  stroke="#e9edf8"
+                  stroke-width="2"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <circle
+                  cx="268.49"
+                  cy="124.12"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="232.87"
+                  cy="134.61"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="291.52"
+                  cy="27.25"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="253.83"
+                  cy="56.7"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="356.16"
+                  cy="152.68"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="306.58"
+                  cy="156.48"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="369.43"
+                  cy="64.21"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="320.71"
+                  cy="84.14"
+                  r="2.2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="300"
+                  cy="100"
+                  r="7"
+                  stroke="#e9edf8"
+                  fill="#080d18"
+                  stroke-width="1.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="300"
+                  cy="100"
+                  r="2"
+                  stroke="#e9edf8"
+                  fill="#e9edf8"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <polyline
+                  points="309,97 381,59 402,59"
+                  stroke="#a6b2c8"
+                  stroke-width="1.2"
+                  opacity="0.8"
+                  fill="none"
+                />
+                <text
+                  x="402"
+                  y="49"
+                  fill="#a6b2c8"
+                  font-size="22"
+                  text-anchor="start"
+                >
+                  Shared focus
+                </text>
+                <rect
+                  x="141"
+                  y="208"
+                  width="18"
+                  height="12"
+                  rx="2"
+                  stroke="#75e4f5"
+                  fill="#080d18"
+                  stroke-width="1.7"
+                  opacity="1"
+                />
+                <rect
+                  x="126"
+                  y="220"
+                  width="48"
+                  height="27"
+                  rx="5"
+                  stroke="#75e4f5"
+                  fill="#080d18"
+                  stroke-width="1.7"
+                  opacity="1"
+                />
+                <polyline
+                  points="135,229 165,229"
+                  stroke="#75e4f5"
+                  stroke-width="1"
+                  opacity="0.5"
+                  fill="none"
+                />
+                <circle
+                  cx="165"
+                  cy="239"
+                  r="1.5"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <polyline
+                  points="150,251 150,268"
+                  stroke="#75e4f5"
+                  stroke-width="1.5"
+                  opacity="0.6"
+                  fill="none"
+                />
+                <polyline
+                  points="146,264 150,269 154,264"
+                  stroke="#75e4f5"
+                  stroke-width="1.5"
+                  opacity="0.8"
+                  fill="none"
+                />
+                <text
+                  x="150"
+                  y="293"
+                  fill="#75e4f5"
+                  font-size="24"
+                  text-anchor="middle"
+                >
+                  Left eye
+                </text>
+                <rect
+                  x="40"
+                  y="308"
+                  width="220"
+                  height="98"
+                  rx="8"
+                  stroke="#75e4f5"
+                  fill="#080d18"
+                  stroke-width="1.25"
+                  opacity="0.8"
+                />
+                <polyline
+                  points="50,318 63,318"
+                  stroke="#75e4f5"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="50,318 50,329"
+                  stroke="#75e4f5"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="250,318 237,318"
+                  stroke="#75e4f5"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="250,318 250,329"
+                  stroke="#75e4f5"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="152.14,390.06 159.5,347.72"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="121.62,331.65 159.5,347.72"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="190.9,336.05 159.5,347.72"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="110.46,377.25 152.14,390.06"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="110.46,377.25 121.62,331.65"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="184.53,387.83 152.14,390.06"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="147.24,314.42 121.62,331.65"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="184.53,387.83 190.9,336.05"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="147.24,314.42 190.9,336.05"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="135.55,371.12 110.46,377.25"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="135.55,371.12 184.53,387.83"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="135.55,371.12 147.24,314.42"
+                  stroke="#75e4f5"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <circle
+                  cx="135.55"
+                  cy="371.12"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="110.46"
+                  cy="377.25"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="147.24"
+                  cy="314.42"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="121.62"
+                  cy="331.65"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="184.53"
+                  cy="387.83"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="152.14"
+                  cy="390.06"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="190.9"
+                  cy="336.05"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="159.5"
+                  cy="347.72"
+                  r="2.2"
+                  stroke="#75e4f5"
+                  fill="#75e4f5"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <rect
+                  x="441"
+                  y="208"
+                  width="18"
+                  height="12"
+                  rx="2"
+                  stroke="#ed79cf"
+                  fill="#080d18"
+                  stroke-width="1.7"
+                  opacity="1"
+                />
+                <rect
+                  x="426"
+                  y="220"
+                  width="48"
+                  height="27"
+                  rx="5"
+                  stroke="#ed79cf"
+                  fill="#080d18"
+                  stroke-width="1.7"
+                  opacity="1"
+                />
+                <polyline
+                  points="435,229 465,229"
+                  stroke="#ed79cf"
+                  stroke-width="1"
+                  opacity="0.5"
+                  fill="none"
+                />
+                <circle
+                  cx="465"
+                  cy="239"
+                  r="1.5"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <polyline
+                  points="450,251 450,268"
+                  stroke="#ed79cf"
+                  stroke-width="1.5"
+                  opacity="0.6"
+                  fill="none"
+                />
+                <polyline
+                  points="446,264 450,269 454,264"
+                  stroke="#ed79cf"
+                  stroke-width="1.5"
+                  opacity="0.8"
+                  fill="none"
+                />
+                <text
+                  x="450"
+                  y="293"
+                  fill="#ed79cf"
+                  font-size="24"
+                  text-anchor="middle"
+                >
+                  Right eye
+                </text>
+                <rect
+                  x="340"
+                  y="308"
+                  width="220"
+                  height="98"
+                  rx="8"
+                  stroke="#ed79cf"
+                  fill="#080d18"
+                  stroke-width="1.25"
+                  opacity="0.8"
+                />
+                <polyline
+                  points="350,318 363,318"
+                  stroke="#ed79cf"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="350,318 350,329"
+                  stroke="#ed79cf"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="550,318 537,318"
+                  stroke="#ed79cf"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="550,318 550,329"
+                  stroke="#ed79cf"
+                  stroke-width="1"
+                  opacity="0.33"
+                  fill="none"
+                />
+                <polyline
+                  points="455.56,390.06 464.75,347.72"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="424.34,331.65 464.75,347.72"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="490.37,336.05 464.75,347.72"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="410.96,377.25 455.56,390.06"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="410.96,377.25 424.34,331.65"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.34"
+                  fill="none"
+                  stroke-dasharray="4 6"
+                />
+                <polyline
+                  points="481.21,387.83 455.56,390.06"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="442.83,314.42 424.34,331.65"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="481.21,387.83 490.37,336.05"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="442.83,314.42 490.37,336.05"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="427.57,371.12 410.96,377.25"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="427.57,371.12 481.21,387.83"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <polyline
+                  points="427.57,371.12 442.83,314.42"
+                  stroke="#ed79cf"
+                  stroke-width="1.8"
+                  opacity="0.95"
+                  fill="none"
+                />
+                <circle
+                  cx="427.57"
+                  cy="371.12"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="410.96"
+                  cy="377.25"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="442.83"
+                  cy="314.42"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="424.34"
+                  cy="331.65"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="481.21"
+                  cy="387.83"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="455.56"
+                  cy="390.06"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+                <circle
+                  cx="490.37"
+                  cy="336.05"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="1"
+                />
+                <circle
+                  cx="464.75"
+                  cy="347.72"
+                  r="2.2"
+                  stroke="#ed79cf"
+                  fill="#ed79cf"
+                  stroke-width="0.5"
+                  opacity="0.42"
+                />
+              </g>
+            </svg>
+            <div class="output-label mono">Screen arrangement</div>
+            <div class="output-preview" aria-hidden="true">
+              <div class="eye-preview eye-left">
+                <svg viewBox="0 0 140 100">
+                  <g transform="translate(-80 -307)">
+                    <polyline
+                      points="152.14,390.06 159.5,347.72"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="121.62,331.65 159.5,347.72"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="190.9,336.05 159.5,347.72"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="110.46,377.25 152.14,390.06"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="110.46,377.25 121.62,331.65"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="184.53,387.83 152.14,390.06"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="147.24,314.42 121.62,331.65"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="184.53,387.83 190.9,336.05"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="147.24,314.42 190.9,336.05"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="135.55,371.12 110.46,377.25"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="135.55,371.12 184.53,387.83"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="135.55,371.12 147.24,314.42"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <circle
+                      cx="135.55"
+                      cy="371.12"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="110.46"
+                      cy="377.25"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="147.24"
+                      cy="314.42"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="121.62"
+                      cy="331.65"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="0.42"
+                    />
+                    <circle
+                      cx="184.53"
+                      cy="387.83"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="152.14"
+                      cy="390.06"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="0.42"
+                    />
+                    <circle
+                      cx="190.9"
+                      cy="336.05"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="159.5"
+                      cy="347.72"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="0.42"
+                    />
+                  </g></svg
+                ><span>Left-eye image</span>
+              </div>
+              <div class="eye-preview eye-right">
+                <svg viewBox="0 0 140 100">
+                  <g transform="translate(-380 -307)">
+                    <polyline
+                      points="455.56,390.06 464.75,347.72"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="424.34,331.65 464.75,347.72"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="490.37,336.05 464.75,347.72"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="410.96,377.25 455.56,390.06"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="410.96,377.25 424.34,331.65"
+                      stroke-width="1.8"
+                      opacity="0.34"
+                      fill="none"
+                      stroke-dasharray="4 6"
+                    />
+                    <polyline
+                      points="481.21,387.83 455.56,390.06"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="442.83,314.42 424.34,331.65"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="481.21,387.83 490.37,336.05"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="442.83,314.42 490.37,336.05"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="427.57,371.12 410.96,377.25"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="427.57,371.12 481.21,387.83"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <polyline
+                      points="427.57,371.12 442.83,314.42"
+                      stroke-width="1.8"
+                      opacity="0.95"
+                      fill="none"
+                    />
+                    <circle
+                      cx="427.57"
+                      cy="371.12"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="410.96"
+                      cy="377.25"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="442.83"
+                      cy="314.42"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="424.34"
+                      cy="331.65"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="0.42"
+                    />
+                    <circle
+                      cx="481.21"
+                      cy="387.83"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="455.56"
+                      cy="390.06"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="0.42"
+                    />
+                    <circle
+                      cx="490.37"
+                      cy="336.05"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="1"
+                    />
+                    <circle
+                      cx="464.75"
+                      cy="347.72"
+                      r="2.2"
+                      fill="currentColor"
+                      stroke-width="0.5"
+                      opacity="0.42"
+                    />
+                  </g></svg
+                ><span>Right-eye image</span>
+              </div>
+            </div>
+            <figcaption id="mode-caption" aria-live="polite">
+              Parallel view places the left-eye image on the left and the
+              right-eye image on the right.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section
+        class="install-section section-pad"
+        id="install"
+        aria-labelledby="install-title"
+      >
+        <div class="wrap">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">
+                <span class="section-number">03</span> Install the plugin
+              </p>
+              <h2 id="install-title">Run Stereofold in your own agent host.</h2>
+            </div>
+            <p>
+              The plugin runs on your Mac, inside the agent host you
+              already use. It needs Node.js 22 or newer. The built server is
+              committed to the repository, so there is no build step.
+            </p>
+          </div>
+          <div class="install-grid">
+            <article class="install-card">
+              <h3>Codex</h3>
+              <p>Register the repository as a marketplace, then add the plugin.</p>
+              <pre class="install-code"><code>codex plugin marketplace add \
+  https://github.com/jvogan/stereofold
+codex plugin add stereofold@stereofold</code></pre>
+            </article>
+            <article class="install-card">
+              <h3>Claude Code</h3>
+              <p>Add the marketplace, then install the plugin by name.</p>
+              <pre class="install-code"><code>claude plugin marketplace add jvogan/stereofold
+claude plugin install stereofold@stereofold</code></pre>
+            </article>
+          </div>
+          <p class="install-note">
+            For Claude Science, add a local-command connector in Settings using Node
+            and <code>plugin/dist/server.mjs</code>. Install skills through
+            Settings → Skills. The README covers paths and sandbox permissions.
+            In any host, start
+            a new conversation after installing and ask: “Inspect PDB 1CRN in
+            Stereofold.”
+          </p>
+          <p class="install-note">
+            For lesson files alone, copy the complete
+            <code>plugin/skills/molecular-presentation/</code> folder into your
+            host’s skill directory. Claude Code reads <code>.claude/skills/</code>
+            or <code>~/.claude/skills/</code>; Claude Science supports skill upload
+            and GitHub import. The Node 22 planner needs no viewer or server.
+            Live desktop chapters use Molecular Structure Viewer; headset playback
+            uses the Stereofold plugin.
+          </p>
+          <a
+            class="inline-link"
+            href="https://github.com/jvogan/stereofold"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Open the repository
+            <svg class="icon"><use href="#icon-external" /></svg
+          ></a>
+        </div>
+      </section>
+
+      <section
+        class="development-section section-pad"
+        id="development"
+        aria-labelledby="development-title"
+      >
+        <div class="wrap">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">
+                <span class="section-number">04</span> With the plugin
+              </p>
+              <h2 id="development-title">
+                Open a structure, then put it in your headset.
+              </h2>
+            </div>
+          </div>
+          <div class="development-grid">
+            <article class="development-item">
+              <span class="development-status"
+                ><span class="tiny-dot"></span> In your agent host</span
+              >
+              <h3>Open PDB and<br />mmCIF structures.</h3>
+              <p>
+                Ask for a PDB ID or local mmCIF file; obtain AlphaFold coordinates
+                through your source tools when needed. A compatible MCP Apps host
+                can show an inspection panel. If your host has no panel or its
+                card does not mount, ask to open the same inspector in a browser.
+                Confirm the rendered scene in your actual connection. Ask
+                the agent to recolor chains, highlight
+                residues, or start a guided tour. A separate stereo viewer shows
+                depth on your screen.
+              </p>
+              <a href="#stereo" class="inline-link"
+                >Compare the stereo modes
+                <svg class="icon"><use href="#icon-arrow" /></svg
+              ></a>
+            </article>
+            <article class="development-item">
+              <span class="development-status"
+                ><span class="tiny-dot"></span> WebXR headset browsers</span
+              >
+              <h3>Put it in<br />your headset.</h3>
+              <p>
+                <strong>Claude Science:</strong> (1) From the clone root in a Mac terminal, run
+                <code>node plugin/dist/headset-host.mjs 4HHB</code> for Quest, or
+                add <code>--vision-pro</code> for Vision Pro. (2) Pair the headset
+                as the terminal directs; keep the terminal and browser tab open.
+                (3) Ask Claude Science to join the Stereofold scene on this Mac
+                and change it. It calls <code>continue_session</code>. See the
+                <a href="https://github.com/jvogan/stereofold#claude-science">README’s Claude Science setup</a>.
+              </p>
+              <p>
+                <strong>In Claude Code or Codex, ask:</strong> “Open this structure on my Quest.” Your Mac opens Meta’s Web
+                Launch page in a browser signed in to the headset’s Meta account.
+                Press Open there. With both devices on the same Wi-Fi, Quest
+                Browser loads the structure from your Mac, with no developer
+                mode or USB cable. Accept the certificate warning for your Mac’s
+                address and tap Enter VR. Then keep asking in the conversation,
+                by typing or dictating; the assistant checks that each change
+                renders on the headset. Physical Quest 2 observations inform its
+                performance limits; other models use capability checks and actual
+                frame times.
+              </p>
+              <p>
+                <strong>In Claude Code or Codex on Apple Vision Pro, ask:</strong> “Open this structure on my Vision
+                Pro.” Your Mac prepares a one-time Safari link. Universal Clipboard
+                is optional. The visionOS simulator exercised opaque VR and pinch
+                controls; verify physical Vision Pro behavior on the current device.
+              </p>
+              <p>
+                <strong>Other headset browsers</strong> use the private HTTPS address and pairing
+                dialog. The companion probes WebXR modes and input sources,
+                prefers passthrough when available, and falls back to opaque VR.
+                A missing launch shortcut leaves manual pairing available.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="closing-section" aria-label="Open the browser example">
+        <div class="wrap closing-content">
+          <div>
+            <p class="eyebrow">Try it in your browser</p>
+            <h2>Open the crambin demo.</h2>
+          </div>
+          <a class="button button-primary" href="#explore"
+            >Open crambin <svg class="icon"><use href="#icon-arrow" /></svg
+          ></a>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <a class="wordmark footer-wordmark" href="#overview"
+          >Stereofold<span class="footer-description"
+            >A Mol* plugin for Claude and Codex.</span
+          ></a
+        >
+        <div class="footer-links" style="flex-wrap: wrap">
+          <a
+            href="https://molstar.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Mol*</a
+          ><a
+            href="https://www.rcsb.org/structure/1CRN"
+            target="_blank"
+            rel="noopener noreferrer"
+            >RCSB PDB · 1CRN</a
+          ><a
+            href="https://github.com/jvogan/stereofold"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub</a
+          ><a href="./credits.html">Credits &amp; licenses</a>
+          <a href="./privacy.html">Privacy</a>
+          <a href="./support.html">Support</a>
+          <a href="./terms.html">Terms</a>
+        </div>
+        <span class="footer-date mono">2026</span>
+      </div>
+    </footer>
+  </body>
+</html>

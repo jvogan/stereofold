@@ -1,0 +1,1189 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-wall",
+  "title": "D. A wall three protofilaments wide",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      }
+    ],
+    "sourceSha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
+    "note": "Coordinates are RCSB biological assembly 1 of entry 5SYF, restricted to six of its 26 deposited helical operators: three neighbouring protofilaments at 166.20, 138.50 and 110.80 degrees, each two tubulin dimers deep. No coordinate was altered."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Three wide",
+      "caption": "Six copies of the Taxol-stabilised 5SYF dimer: three neighbouring protofilaments, each two dimers deep. 40,908 atoms.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "A third strand joins beside them, same two colours.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 25,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 2, author chain A-2: the alpha tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 2, author chain B-2: the beta tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "alpha-above",
+              "label": "Alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 3, author chain A-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "beta-above",
+              "label": "Beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 3, author chain B-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "middle-alpha",
+              "label": "Alpha tubulin, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-beta",
+              "label": "Beta tubulin, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-alpha-above",
+              "label": "Alpha tubulin, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 5, author chain A-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "middle-beta-above",
+              "label": "Beta tubulin, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 5, author chain B-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-alpha-above",
+              "label": "The new alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "new-beta-above",
+              "label": "The new beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 2, author chain A-2 residues 501 and 502: the deposited GTP and magnesium. All six copies carry their own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill",
+          "strandShades": true
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Two contacts",
+      "caption": "Dimers stack head to tail along each strand; the strands pack side by side across the wall.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.2
+        },
+        "narration": "Length from longitudinal joints, width from lateral ones.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": 20,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 2, author chain A-2: the alpha tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 2, author chain B-2: the beta tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "alpha-above",
+              "label": "Alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 3, author chain A-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "beta-above",
+              "label": "Beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 3, author chain B-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "middle-alpha",
+              "label": "Alpha tubulin, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-beta",
+              "label": "Beta tubulin, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-alpha-above",
+              "label": "Alpha tubulin, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 5, author chain A-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "middle-beta-above",
+              "label": "Beta tubulin, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 5, author chain B-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-alpha-above",
+              "label": "The new alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "new-beta-above",
+              "label": "The new beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 2, author chain A-2 residues 501 and 502: the deposited GTP and magnesium. All six copies carry their own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill",
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin",
+            "alpha-above",
+            "beta-above"
+          ]
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Open sheet",
+      "caption": "As a surface, the new strand binds along the side: a patch of wall, not a closed tube.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.6
+        },
+        "view": "fit",
+        "narration": "This neighbour binds sideways; the sheet stays open.",
+        "motion": {
+          "kind": "dolly",
+          "metres": 0.15,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 2, author chain A-2: the alpha tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 2, author chain B-2: the beta tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "alpha-above",
+              "label": "Alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 3, author chain A-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "beta-above",
+              "label": "Beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 3, author chain B-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "middle-alpha",
+              "label": "Alpha tubulin, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-beta",
+              "label": "Beta tubulin, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-alpha-above",
+              "label": "Alpha tubulin, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 5, author chain A-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "middle-beta-above",
+              "label": "Beta tubulin, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 5, author chain B-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-alpha-above",
+              "label": "The new alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "new-beta-above",
+              "label": "The new beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 2, author chain A-2 residues 501 and 502: the deposited GTP and magnesium. All six copies carry their own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill",
+          "focus": [
+            "new-alpha",
+            "new-beta",
+            "new-alpha-above",
+            "new-beta-above"
+          ]
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "Same cargo",
+      "caption": "Every dimer carries the same cargo: GTP and magnesium in alpha, GDP and Taxol in beta.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.6
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        },
+        "narration": "Every dimer keeps GTP in alpha, GDP and Taxol in beta.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": -15,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 2, author chain A-2: the alpha tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 2, author chain B-2: the beta tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "alpha-above",
+              "label": "Alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 3, author chain A-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "beta-above",
+              "label": "Beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 3, author chain B-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "middle-alpha",
+              "label": "Alpha tubulin, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-beta",
+              "label": "Beta tubulin, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-alpha-above",
+              "label": "Alpha tubulin, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 5, author chain A-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "middle-beta-above",
+              "label": "Beta tubulin, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 5, author chain B-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-alpha-above",
+              "label": "The new alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "new-beta-above",
+              "label": "The new beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 2, author chain A-2 residues 501 and 502: the deposited GTP and magnesium. All six copies carry their own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin",
+            "alpha-above",
+            "beta-above",
+            "gtp",
+            "taxol"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "Six of many",
+      "caption": "Three strands of the wall, side by side. Many more like them close the tube.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 2, author chain A-2: the alpha tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 2, author chain B-2: the beta tubulin of the strand you already know, at 166.20 degrees."
+            },
+            {
+              "id": "alpha-above",
+              "label": "Alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 3, author chain A-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "beta-above",
+              "label": "Beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 3, author chain B-3: the same strand, one dimer step of 81.50 Angstrom higher."
+            },
+            {
+              "id": "middle-alpha",
+              "label": "Alpha tubulin, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-beta",
+              "label": "Beta tubulin, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+            },
+            {
+              "id": "middle-alpha-above",
+              "label": "Alpha tubulin, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 5, author chain A-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "middle-beta-above",
+              "label": "Beta tubulin, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 5, author chain B-5: the middle strand, one dimer step higher."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+            },
+            {
+              "id": "new-alpha-above",
+              "label": "The new alpha tubulin above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "new-beta-above",
+              "label": "The new beta tubulin above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A-2",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 2, author chain A-2 residues 501 and 502: the deposited GTP and magnesium. All six copies carry their own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill",
+          "strandShades": true
+        },
+        "narration": "Three strands side by side; thirteen close the tube.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 30,
+          "seconds": 8
+        }
+      }
+    }
+  ]
+}

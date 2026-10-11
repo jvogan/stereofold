@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b16" />
+    <meta name="description" content="Watch Stereofold open public molecular structures, apply live scene changes and step through a bundled lesson." />
+    <link rel="canonical" href="https://jvogan.github.io/stereofold/walkthrough.html" />
+    <link rel="icon" href="./artwork/icon.png" />
+    <title>Desktop walkthrough — Stereofold</title>
+    <style>
+      body { margin: 0; background: #080b16; color: #e8edf7; font: 18px/1.6 sans-serif; }
+      main { max-width: 1100px; margin: 48px auto; padding: 0 24px; }
+      h1 { font-size: 36px; letter-spacing: -0.04em; }
+      h2 { font-size: 23px; margin-top: 32px; }
+      a { color: #94e8f5; text-underline-offset: 4px; }
+      p, li { color: #b8c5d9; }
+      video { display: block; width: 100%; aspect-ratio: 8 / 5; background: #071015; border: 1px solid #324357; border-radius: 12px; }
+      :focus-visible { outline: 2px solid #94e8f5; outline-offset: 5px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="./index.html">← Stereofold</a>
+      <h1>Desktop walkthrough</h1>
+      <p>A scripted recording of the shipped inspector, driven by the real local
+        Stereofold MCP server. Each scene change is checked against its rendered
+        receipt. The recording has on-screen explanations and no audio.</p>
+      <video controls playsinline preload="metadata" poster="./artwork/stereofold-desktop-walkthrough-poster.jpg" aria-label="Stereofold desktop inspector walkthrough">
+        <source src="./artwork/stereofold-desktop-walkthrough.mp4" type="video/mp4" />
+        <a href="./artwork/stereofold-desktop-walkthrough.mp4">Download the walkthrough</a>.
+      </video>
+      <h2>What it shows</h2>
+      <ol>
+        <li>Open crambin, PDB 1CRN; color residues 10–15 orange and inspect atomic detail.</li>
+        <li>Replace the molecule with hemoglobin, PDB 4HHB, in the same session; highlight its hemes.</li>
+        <li>Open the bundled daraxonrasib lesson, PDB 9AX6 assembly 1; advance to the interface chapter and return to the overview.</li>
+      </ol>
+      <p>This recording uses a controlled browser host for the desktop inspector.
+        It demonstrates desktop rendering and MCP operations. Headset pairing,
+        physical device behavior and the surrounding Codex or Claude chat
+        interface require their own checks.</p>
+      <p>Recorded September 30, 2026. Coordinates are public RCSB PDB entries.
+        Lesson contacts show measured distances; they do not establish chemical
+        bond assignments. See <a href="./credits.html">credits and licenses</a>
+        and the <a href="https://github.com/jvogan/stereofold">source repository</a>.</p>
+      <p><a href="./support.html">Support</a> · <a href="./privacy.html">Privacy</a> · <a href="./terms.html">License terms</a></p>
+    </main>
+  </body>
+</html>

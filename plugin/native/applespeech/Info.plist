@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>dev.stereofold.applespeech</string>
+  <key>CFBundleName</key>
+  <string>applespeech</string>
+  <key>CFBundleExecutable</key>
+  <string>applespeech</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Stereofold transcribes a headset push-to-talk recording on this Mac so the molecular viewer can act on what you said. Audio stays on this Mac.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Stereofold does not record from this Mac's microphone; it only reads audio files the headset already sent.</string>
+</dict>
+</plist>

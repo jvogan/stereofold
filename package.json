@@ -1,0 +1,21 @@
+{
+  "name": "stereofold",
+  "version": "0.1.21",
+  "license": "MIT",
+  "homepage": "https://jvogan.github.io/stereofold/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jvogan/stereofold.git"
+  },
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "test": "pnpm run test:workspace && pnpm run test:lab && pnpm run test:harness",
+    "test:workspace": "pnpm -r --if-present test",
+    "test:lab": "node --test --test-concurrency=1 \"lab/**/*.test.mjs\" \"lab/**/*.test.cjs\"",
+    "test:harness": "pnpm --dir harness test",
+    "build": "pnpm -r --if-present build"
+  },
+  "devDependencies": {
+    "molstar": "5.11.0"
+  }
+}

@@ -1,0 +1,1239 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-tip",
+  "title": "F. EB3 bound to the lattice",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/3JAK"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.cell.2015.07.012"
+      }
+    ],
+    "sourceSha256": "dbfd7c255adf93c49515188abe4061d36b75cdf5576b49766180be98ac9132e8",
+    "note": "Entry 3JAK, a GTPgammaS-microtubule co-polymerized with EB3, reconstructed by cryo-electron microscopy at 3.3 Angstrom. Twelve tubulin chains from Sus scrofa and two chains of human microtubule-associated protein RP/EB family member 3. This is an EB3-bound lattice, not EB1 and not a resolved growing plus end."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "EB3 arrives",
+      "caption": "A separate entry, 3JAK, at 3.3 Angstrom: a GTPgammaS microtubule co-polymerised with EB3, 43,066 atoms.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "Green is EB3, landed on the outside of the lattice.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 25,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain A of 3JAK, residues 1-441: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain B of 3JAK, residues 1-439: beta tubulin, Sus scrofa. Residue 501 of the same chain is its GTPgammaS."
+            },
+            {
+              "id": "alpha-tubulin-c",
+              "label": "Alpha tubulin, chain C",
+              "color": "#4a90e2",
+              "chain": "C",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain C of 3JAK: a second alpha tubulin of the same six."
+            },
+            {
+              "id": "beta-tubulin-d",
+              "label": "Beta tubulin, chain D",
+              "color": "#f5a623",
+              "chain": "D",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain D of 3JAK: a second beta tubulin of the same six."
+            },
+            {
+              "id": "alpha-tubulin-e",
+              "label": "Alpha tubulin, chain E",
+              "color": "#4a90e2",
+              "chain": "E",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain E of 3JAK: a third alpha tubulin."
+            },
+            {
+              "id": "beta-tubulin-f",
+              "label": "Beta tubulin, chain F",
+              "color": "#f5a623",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain F of 3JAK: a third beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-g",
+              "label": "Beta tubulin, chain G",
+              "color": "#f5a623",
+              "chain": "G",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain G of 3JAK: a fourth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-h",
+              "label": "Beta tubulin, chain H",
+              "color": "#f5a623",
+              "chain": "H",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain H of 3JAK: a fifth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-i",
+              "label": "Beta tubulin, chain I",
+              "color": "#f5a623",
+              "chain": "I",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain I of 3JAK: a sixth beta tubulin."
+            },
+            {
+              "id": "alpha-tubulin-j",
+              "label": "Alpha tubulin, chain J",
+              "color": "#4a90e2",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain J of 3JAK: a fourth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-k",
+              "label": "Alpha tubulin, chain K",
+              "color": "#4a90e2",
+              "chain": "K",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain K of 3JAK: a fifth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-l",
+              "label": "Alpha tubulin, chain L",
+              "color": "#4a90e2",
+              "chain": "L",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain L of 3JAK: a sixth alpha tubulin."
+            },
+            {
+              "id": "eb3",
+              "label": "EB3",
+              "color": "#35c46a",
+              "chain": "M",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain M of 3JAK, label chain L, entity 3: human microtubule-associated protein RP/EB family member 3, 203 residues in the entity and 1-131 modelled here. Always shown with the second chain."
+            },
+            {
+              "id": "eb3-second",
+              "label": "The second EB3",
+              "color": "#35c46a",
+              "chain": "N",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain N of 3JAK, label chain C, entity 3: the second copy of the same human protein, 1-131 modelled. Always shown with the first."
+            },
+            {
+              "id": "gtpgammas",
+              "label": "GTP gamma S",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501, ligand GSP: GTPgammaS, the slowly hydrolysed GTP analogue this lattice was co-polymerised with. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "eb3",
+            "eb3-second"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Outside",
+      "caption": "The two EB3 chains, M and N, are human and 203 residues; the twelve tubulin chains are pig.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.2
+        },
+        "narration": "Two EB3 chains ride the outside, never the lumen.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": 20,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain A of 3JAK, residues 1-441: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain B of 3JAK, residues 1-439: beta tubulin, Sus scrofa. Residue 501 of the same chain is its GTPgammaS."
+            },
+            {
+              "id": "alpha-tubulin-c",
+              "label": "Alpha tubulin, chain C",
+              "color": "#4a90e2",
+              "chain": "C",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain C of 3JAK: a second alpha tubulin of the same six."
+            },
+            {
+              "id": "beta-tubulin-d",
+              "label": "Beta tubulin, chain D",
+              "color": "#f5a623",
+              "chain": "D",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain D of 3JAK: a second beta tubulin of the same six."
+            },
+            {
+              "id": "alpha-tubulin-e",
+              "label": "Alpha tubulin, chain E",
+              "color": "#4a90e2",
+              "chain": "E",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain E of 3JAK: a third alpha tubulin."
+            },
+            {
+              "id": "beta-tubulin-f",
+              "label": "Beta tubulin, chain F",
+              "color": "#f5a623",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain F of 3JAK: a third beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-g",
+              "label": "Beta tubulin, chain G",
+              "color": "#f5a623",
+              "chain": "G",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain G of 3JAK: a fourth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-h",
+              "label": "Beta tubulin, chain H",
+              "color": "#f5a623",
+              "chain": "H",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain H of 3JAK: a fifth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-i",
+              "label": "Beta tubulin, chain I",
+              "color": "#f5a623",
+              "chain": "I",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain I of 3JAK: a sixth beta tubulin."
+            },
+            {
+              "id": "alpha-tubulin-j",
+              "label": "Alpha tubulin, chain J",
+              "color": "#4a90e2",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain J of 3JAK: a fourth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-k",
+              "label": "Alpha tubulin, chain K",
+              "color": "#4a90e2",
+              "chain": "K",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain K of 3JAK: a fifth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-l",
+              "label": "Alpha tubulin, chain L",
+              "color": "#4a90e2",
+              "chain": "L",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain L of 3JAK: a sixth alpha tubulin."
+            },
+            {
+              "id": "eb3",
+              "label": "EB3",
+              "color": "#35c46a",
+              "chain": "M",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain M of 3JAK, label chain L, entity 3: human microtubule-associated protein RP/EB family member 3, 203 residues in the entity and 1-131 modelled here. Always shown with the second chain."
+            },
+            {
+              "id": "eb3-second",
+              "label": "The second EB3",
+              "color": "#35c46a",
+              "chain": "N",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain N of 3JAK, label chain C, entity 3: the second copy of the same human protein, 1-131 modelled. Always shown with the first."
+            },
+            {
+              "id": "gtpgammas",
+              "label": "GTP gamma S",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501, ligand GSP: GTPgammaS, the slowly hydrolysed GTP analogue this lattice was co-polymerised with. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "eb3",
+            "eb3-second"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Four corners",
+      "caption": "The surface makes the extra chains obvious: EB3 binds where four tubulin subunits meet, reading the lattice.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.6
+        },
+        "view": "fit",
+        "narration": "EB3 reads the corner where four tubulin subunits meet.",
+        "motion": {
+          "kind": "dolly",
+          "metres": 0.15,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain A of 3JAK, residues 1-441: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain B of 3JAK, residues 1-439: beta tubulin, Sus scrofa. Residue 501 of the same chain is its GTPgammaS."
+            },
+            {
+              "id": "alpha-tubulin-c",
+              "label": "Alpha tubulin, chain C",
+              "color": "#4a90e2",
+              "chain": "C",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain C of 3JAK: a second alpha tubulin of the same six."
+            },
+            {
+              "id": "beta-tubulin-d",
+              "label": "Beta tubulin, chain D",
+              "color": "#f5a623",
+              "chain": "D",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain D of 3JAK: a second beta tubulin of the same six."
+            },
+            {
+              "id": "alpha-tubulin-e",
+              "label": "Alpha tubulin, chain E",
+              "color": "#4a90e2",
+              "chain": "E",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain E of 3JAK: a third alpha tubulin."
+            },
+            {
+              "id": "beta-tubulin-f",
+              "label": "Beta tubulin, chain F",
+              "color": "#f5a623",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain F of 3JAK: a third beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-g",
+              "label": "Beta tubulin, chain G",
+              "color": "#f5a623",
+              "chain": "G",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain G of 3JAK: a fourth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-h",
+              "label": "Beta tubulin, chain H",
+              "color": "#f5a623",
+              "chain": "H",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain H of 3JAK: a fifth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-i",
+              "label": "Beta tubulin, chain I",
+              "color": "#f5a623",
+              "chain": "I",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain I of 3JAK: a sixth beta tubulin."
+            },
+            {
+              "id": "alpha-tubulin-j",
+              "label": "Alpha tubulin, chain J",
+              "color": "#4a90e2",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain J of 3JAK: a fourth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-k",
+              "label": "Alpha tubulin, chain K",
+              "color": "#4a90e2",
+              "chain": "K",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain K of 3JAK: a fifth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-l",
+              "label": "Alpha tubulin, chain L",
+              "color": "#4a90e2",
+              "chain": "L",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain L of 3JAK: a sixth alpha tubulin."
+            },
+            {
+              "id": "eb3",
+              "label": "EB3",
+              "color": "#35c46a",
+              "chain": "M",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain M of 3JAK, label chain L, entity 3: human microtubule-associated protein RP/EB family member 3, 203 residues in the entity and 1-131 modelled here. Always shown with the second chain."
+            },
+            {
+              "id": "eb3-second",
+              "label": "The second EB3",
+              "color": "#35c46a",
+              "chain": "N",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain N of 3JAK, label chain C, entity 3: the second copy of the same human protein, 1-131 modelled. Always shown with the first."
+            },
+            {
+              "id": "gtpgammas",
+              "label": "GTP gamma S",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501, ligand GSP: GTPgammaS, the slowly hydrolysed GTP analogue this lattice was co-polymerised with. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "eb3",
+            "eb3-second"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "A stand-in",
+      "caption": "Beta here holds GTPgammaS, a slowly hydrolysed GTP analogue, instead of the GDP the Taxol entry carries.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.6
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        },
+        "narration": "Beta holds a GTP stand-in here, marking young lattice.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": -15,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain A of 3JAK, residues 1-441: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain B of 3JAK, residues 1-439: beta tubulin, Sus scrofa. Residue 501 of the same chain is its GTPgammaS."
+            },
+            {
+              "id": "alpha-tubulin-c",
+              "label": "Alpha tubulin, chain C",
+              "color": "#4a90e2",
+              "chain": "C",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain C of 3JAK: a second alpha tubulin of the same six."
+            },
+            {
+              "id": "beta-tubulin-d",
+              "label": "Beta tubulin, chain D",
+              "color": "#f5a623",
+              "chain": "D",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain D of 3JAK: a second beta tubulin of the same six."
+            },
+            {
+              "id": "alpha-tubulin-e",
+              "label": "Alpha tubulin, chain E",
+              "color": "#4a90e2",
+              "chain": "E",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain E of 3JAK: a third alpha tubulin."
+            },
+            {
+              "id": "beta-tubulin-f",
+              "label": "Beta tubulin, chain F",
+              "color": "#f5a623",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain F of 3JAK: a third beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-g",
+              "label": "Beta tubulin, chain G",
+              "color": "#f5a623",
+              "chain": "G",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain G of 3JAK: a fourth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-h",
+              "label": "Beta tubulin, chain H",
+              "color": "#f5a623",
+              "chain": "H",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain H of 3JAK: a fifth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-i",
+              "label": "Beta tubulin, chain I",
+              "color": "#f5a623",
+              "chain": "I",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain I of 3JAK: a sixth beta tubulin."
+            },
+            {
+              "id": "alpha-tubulin-j",
+              "label": "Alpha tubulin, chain J",
+              "color": "#4a90e2",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain J of 3JAK: a fourth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-k",
+              "label": "Alpha tubulin, chain K",
+              "color": "#4a90e2",
+              "chain": "K",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain K of 3JAK: a fifth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-l",
+              "label": "Alpha tubulin, chain L",
+              "color": "#4a90e2",
+              "chain": "L",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain L of 3JAK: a sixth alpha tubulin."
+            },
+            {
+              "id": "eb3",
+              "label": "EB3",
+              "color": "#35c46a",
+              "chain": "M",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain M of 3JAK, label chain L, entity 3: human microtubule-associated protein RP/EB family member 3, 203 residues in the entity and 1-131 modelled here. Always shown with the second chain."
+            },
+            {
+              "id": "eb3-second",
+              "label": "The second EB3",
+              "color": "#35c46a",
+              "chain": "N",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain N of 3JAK, label chain C, entity 3: the second copy of the same human protein, 1-131 modelled. Always shown with the first."
+            },
+            {
+              "id": "gtpgammas",
+              "label": "GTP gamma S",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501, ligand GSP: GTPgammaS, the slowly hydrolysed GTP analogue this lattice was co-polymerised with. Amber because it belongs to beta."
+            }
+          ],
+          "focus": "gtpgammas",
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "EB3, not EB1",
+      "caption": "This is EB3, not EB1, on a lattice held in a GTP-like state, not a filmed growing end.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain A of 3JAK, residues 1-441: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same chain are its GTP and magnesium."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain B of 3JAK, residues 1-439: beta tubulin, Sus scrofa. Residue 501 of the same chain is its GTPgammaS."
+            },
+            {
+              "id": "alpha-tubulin-c",
+              "label": "Alpha tubulin, chain C",
+              "color": "#4a90e2",
+              "chain": "C",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain C of 3JAK: a second alpha tubulin of the same six."
+            },
+            {
+              "id": "beta-tubulin-d",
+              "label": "Beta tubulin, chain D",
+              "color": "#f5a623",
+              "chain": "D",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain D of 3JAK: a second beta tubulin of the same six."
+            },
+            {
+              "id": "alpha-tubulin-e",
+              "label": "Alpha tubulin, chain E",
+              "color": "#4a90e2",
+              "chain": "E",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain E of 3JAK: a third alpha tubulin."
+            },
+            {
+              "id": "beta-tubulin-f",
+              "label": "Beta tubulin, chain F",
+              "color": "#f5a623",
+              "chain": "F",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain F of 3JAK: a third beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-g",
+              "label": "Beta tubulin, chain G",
+              "color": "#f5a623",
+              "chain": "G",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain G of 3JAK: a fourth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-h",
+              "label": "Beta tubulin, chain H",
+              "color": "#f5a623",
+              "chain": "H",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain H of 3JAK: a fifth beta tubulin."
+            },
+            {
+              "id": "beta-tubulin-i",
+              "label": "Beta tubulin, chain I",
+              "color": "#f5a623",
+              "chain": "I",
+              "residues": {
+                "from": 1,
+                "to": 439
+              },
+              "note": "Author chain I of 3JAK: a sixth beta tubulin."
+            },
+            {
+              "id": "alpha-tubulin-j",
+              "label": "Alpha tubulin, chain J",
+              "color": "#4a90e2",
+              "chain": "J",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain J of 3JAK: a fourth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-k",
+              "label": "Alpha tubulin, chain K",
+              "color": "#4a90e2",
+              "chain": "K",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain K of 3JAK: a fifth alpha tubulin."
+            },
+            {
+              "id": "alpha-tubulin-l",
+              "label": "Alpha tubulin, chain L",
+              "color": "#4a90e2",
+              "chain": "L",
+              "residues": {
+                "from": 1,
+                "to": 441
+              },
+              "note": "Author chain L of 3JAK: a sixth alpha tubulin."
+            },
+            {
+              "id": "eb3",
+              "label": "EB3",
+              "color": "#35c46a",
+              "chain": "M",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain M of 3JAK, label chain L, entity 3: human microtubule-associated protein RP/EB family member 3, 203 residues in the entity and 1-131 modelled here. Always shown with the second chain."
+            },
+            {
+              "id": "eb3-second",
+              "label": "The second EB3",
+              "color": "#35c46a",
+              "chain": "N",
+              "residues": {
+                "from": 1,
+                "to": 131
+              },
+              "note": "Author chain N of 3JAK, label chain C, entity 3: the second copy of the same human protein, 1-131 modelled. Always shown with the first."
+            },
+            {
+              "id": "gtpgammas",
+              "label": "GTP gamma S",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501, ligand GSP: GTPgammaS, the slowly hydrolysed GTP analogue this lattice was co-polymerised with. Amber because it belongs to beta."
+            }
+          ],
+          "focus": [
+            "eb3",
+            "eb3-second"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        },
+        "narration": "This is EB3, not EB1, on a GTP-like lattice.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 30,
+          "seconds": 8
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,461 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Public experimentally determined mmCIF fixtures for large-complex headset preview tests.",
+  "fixture_directory": "fixtures generated into a temporary directory by the preview run",
+  "fixtures": [
+    {
+      "pdb_id": "9QB3",
+      "title": "Dimer structure of H/ACA RNP lobe of human telomerase",
+      "release_date": "2025-07-16",
+      "release_year": 2025,
+      "experimental_method": "electron microscopy",
+      "resolution_angstrom": 3.9,
+      "rcsb_url": "https://www.rcsb.org/structure/9QB3",
+      "source_citations": [
+        {
+          "title": "Cryo-EM structure of human telomerase dimer reveals H/ACA RNP-mediated dimerization",
+          "year": 2025,
+          "doi": "https://doi.org/10.1126/science.adr5817",
+          "pubmed": "40638752"
+        }
+      ],
+      "mmcif": {
+        "filename": "9QB3.cif",
+        "download_url": "https://files.rcsb.org/download/9QB3.cif",
+        "bytes": 3728985,
+        "sha256": "7341a83a8c37ca4d32da0173b0bcec5bc1d6f742f5bb689dfd5ce734ba86c903"
+      },
+      "structure_counts": {
+        "total_weight_kda": 830.12,
+        "atom_count": 34722,
+        "modeled_residue_count": 3720,
+        "deposited_residue_count": 5790,
+        "unique_protein_chains": 5,
+        "unique_nucleic_acid_chains": 1
+      },
+      "assembly": {
+        "biological_assembly_id": "1",
+        "raw_cif_operator_expression": "1",
+        "raw_cif_oligomeric_details": "20-meric",
+        "raw_cif_oligomeric_count": 20,
+        "label_asym_ids": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O",
+          "P",
+          "Q",
+          "R",
+          "S",
+          "T"
+        ],
+        "coordinate_entry_label_asym_ids": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O",
+          "P",
+          "Q",
+          "R",
+          "S",
+          "T"
+        ],
+        "coordinate_record_count": 34722,
+        "coordinate_entry_and_assembly_same_chain_set": true,
+        "coordinate_entry_and_assembly_same_atom_count": true,
+        "note": "The raw mmCIF assembly applies operator 1 to every deposited chain. The RCSB page displays protein stoichiometry A4B4C4D4E2 (18 protein chains); the raw assembly also includes two hTR chains, for 20 total polymer chains. This is the H/ACA lobe portion of the dimer study, not the complete TERT-containing holoenzyme."
+      },
+      "components": [
+        {
+          "entity_id": 1,
+          "name": "DKC1/dyskerin",
+          "type": "protein",
+          "sequence_length": 514,
+          "copies": 4,
+          "label_asym_ids": [
+            "A",
+            "E",
+            "J",
+            "N"
+          ],
+          "auth_asym_ids": [
+            "C",
+            "G",
+            "c",
+            "g"
+          ]
+        },
+        {
+          "entity_id": 2,
+          "name": "GAR1",
+          "type": "protein",
+          "sequence_length": 217,
+          "copies": 4,
+          "label_asym_ids": [
+            "B",
+            "F",
+            "K",
+            "O"
+          ],
+          "auth_asym_ids": [
+            "D",
+            "H",
+            "d",
+            "h"
+          ]
+        },
+        {
+          "entity_id": 3,
+          "name": "NHP2",
+          "type": "protein",
+          "sequence_length": 153,
+          "copies": 4,
+          "label_asym_ids": [
+            "C",
+            "G",
+            "L",
+            "P"
+          ],
+          "auth_asym_ids": [
+            "E",
+            "I",
+            "e",
+            "i"
+          ]
+        },
+        {
+          "entity_id": 4,
+          "name": "NOP10",
+          "type": "protein",
+          "sequence_length": 64,
+          "copies": 4,
+          "label_asym_ids": [
+            "D",
+            "H",
+            "M",
+            "Q"
+          ],
+          "auth_asym_ids": [
+            "F",
+            "J",
+            "f",
+            "j"
+          ]
+        },
+        {
+          "entity_id": 5,
+          "name": "TCAB1",
+          "type": "protein",
+          "sequence_length": 548,
+          "copies": 2,
+          "label_asym_ids": [
+            "I",
+            "R"
+          ],
+          "auth_asym_ids": [
+            "K",
+            "k"
+          ]
+        },
+        {
+          "entity_id": 6,
+          "name": "hTR, human telomerase RNA",
+          "type": "RNA",
+          "sequence_length": 451,
+          "copies": 2,
+          "label_asym_ids": [
+            "S",
+            "T"
+          ],
+          "auth_asym_ids": [
+            "B",
+            "b"
+          ]
+        }
+      ],
+      "non_polymer_components": []
+    },
+    {
+      "pdb_id": "9SI0",
+      "title": "Cryo-EM structure of the catalytic core of human telomerase at the pre-termination state of the repeat addition cycle",
+      "release_date": "2026-01-28",
+      "release_year": 2026,
+      "experimental_method": "electron microscopy",
+      "resolution_angstrom": 3.8,
+      "rcsb_url": "https://www.rcsb.org/structure/9SI0",
+      "source_citations": [
+        {
+          "title": "Structures of nucleotide-bound human telomerase at several steps of its telomeric DNA repeat addition cycle",
+          "year": 2026,
+          "doi": "https://doi.org/10.1038/s41467-026-68560-8",
+          "pubmed": "41565648"
+        }
+      ],
+      "mmcif": {
+        "filename": "9SI0.cif",
+        "download_url": "https://files.rcsb.org/download/9SI0.cif",
+        "bytes": 1818718,
+        "sha256": "9bdd123bed0b762c35ac7c0371002a1ef53b1bdbc65b90bf4b916d3b85e3eaf6"
+      },
+      "structure_counts": {
+        "total_weight_kda": 364.83,
+        "atom_count": 15563,
+        "modeled_residue_count": 1510,
+        "deposited_residue_count": 2370,
+        "unique_protein_chains": 4,
+        "unique_nucleic_acid_chains": 2
+      },
+      "assembly": {
+        "biological_assembly_id": "1",
+        "raw_cif_operator_expression": "1",
+        "raw_cif_oligomeric_details": "hexameric",
+        "raw_cif_oligomeric_count": 6,
+        "label_asym_ids": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G"
+        ],
+        "coordinate_entry_label_asym_ids": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G"
+        ],
+        "coordinate_record_count": 15563,
+        "coordinate_entry_and_assembly_same_chain_set": true,
+        "coordinate_entry_and_assembly_same_atom_count": true,
+        "note": "The six polymer chains are H2A, H2B, DNA, ACD, hTR, and TERT. Label chain G is the deposited non-polymer nucleotide ligand 1GC on auth chain A; it is included in the seven label asym IDs and atom count. The raw mmCIF assembly applies operator 1 to all deposited labels."
+      },
+      "components": [
+        {
+          "entity_id": 1,
+          "name": "Histone H2A",
+          "type": "protein",
+          "sequence_length": 130,
+          "copies": 1,
+          "label_asym_ids": [
+            "A"
+          ],
+          "auth_asym_ids": [
+            "L"
+          ]
+        },
+        {
+          "entity_id": 2,
+          "name": "Histone H2B",
+          "type": "protein",
+          "sequence_length": 166,
+          "copies": 1,
+          "label_asym_ids": [
+            "B"
+          ],
+          "auth_asym_ids": [
+            "M"
+          ]
+        },
+        {
+          "entity_id": 3,
+          "name": "Telomeric DNA substrate",
+          "type": "DNA",
+          "sequence_length": 33,
+          "copies": 1,
+          "label_asym_ids": [
+            "C"
+          ],
+          "auth_asym_ids": [
+            "N"
+          ]
+        },
+        {
+          "entity_id": 4,
+          "name": "Adrenocortical dysplasia protein homolog/ACD",
+          "type": "protein",
+          "sequence_length": 458,
+          "copies": 1,
+          "label_asym_ids": [
+            "D"
+          ],
+          "auth_asym_ids": [
+            "O"
+          ]
+        },
+        {
+          "entity_id": 5,
+          "name": "hTR, human telomerase RNA",
+          "type": "RNA",
+          "sequence_length": 451,
+          "copies": 1,
+          "label_asym_ids": [
+            "E"
+          ],
+          "auth_asym_ids": [
+            "B"
+          ]
+        },
+        {
+          "entity_id": 6,
+          "name": "Telomerase reverse transcriptase/TERT",
+          "type": "protein",
+          "sequence_length": 1132,
+          "copies": 1,
+          "label_asym_ids": [
+            "F"
+          ],
+          "auth_asym_ids": [
+            "A"
+          ]
+        }
+      ],
+      "non_polymer_components": [
+        {
+          "entity_id": 7,
+          "name": "1GC nucleotide ligand",
+          "type": "non-polymer",
+          "label_asym_ids": [
+            "G"
+          ],
+          "auth_asym_ids": [
+            "A"
+          ]
+        }
+      ]
+    },
+    {
+      "pdb_id": "9KJ6",
+      "title": "Crystal Structure of SpCas9 ternary complex, amino acids (1242-1263) replaced with Gly-Ser linker",
+      "release_date": "2025-11-12",
+      "release_year": 2025,
+      "experimental_method": "X-ray diffraction",
+      "resolution_angstrom": 3.59,
+      "rcsb_url": "https://www.rcsb.org/structure/9KJ6",
+      "source_citations": [
+        {
+          "title": "Structural and functional insights into internal domain replacement in SpCas9 for protein engineering",
+          "year": 2025,
+          "doi": "https://doi.org/10.1038/s41598-025-25367-9",
+          "pubmed": "41285890"
+        }
+      ],
+      "mmcif": {
+        "filename": "9KJ6.cif",
+        "download_url": "https://files.rcsb.org/download/9KJ6.cif",
+        "bytes": 1664539,
+        "sha256": "372806b1adb43f55b6ad551752d7cf0e54cd29a5af478912af95859287ce1b59"
+      },
+      "structure_counts": {
+        "total_weight_kda": 211.17,
+        "atom_count": 13121,
+        "modeled_residue_count": 1479,
+        "deposited_residue_count": 1529,
+        "unique_protein_chains": 1,
+        "unique_nucleic_acid_chains": 3
+      },
+      "assembly": {
+        "biological_assembly_id": "1",
+        "raw_cif_operator_expression": "1",
+        "raw_cif_oligomeric_details": "tetrameric",
+        "raw_cif_oligomeric_count": 4,
+        "label_asym_ids": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "coordinate_entry_label_asym_ids": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "coordinate_record_count": 13121,
+        "coordinate_entry_and_assembly_same_chain_set": true,
+        "coordinate_entry_and_assembly_same_atom_count": true,
+        "note": "The raw mmCIF assembly applies operator 1 to all four deposited polymer chains: Cas9, guide RNA, target DNA, and non-target DNA."
+      },
+      "components": [
+        {
+          "entity_id": 1,
+          "name": "CRISPR-associated endonuclease Cas9/Csn1 (SpCas9 variant)",
+          "type": "protein",
+          "sequence_length": 1357,
+          "copies": 1,
+          "label_asym_ids": [
+            "A"
+          ],
+          "auth_asym_ids": [
+            "A"
+          ]
+        },
+        {
+          "entity_id": 2,
+          "name": "single-guide RNA",
+          "type": "RNA",
+          "sequence_length": 102,
+          "copies": 1,
+          "label_asym_ids": [
+            "B"
+          ],
+          "auth_asym_ids": [
+            "B"
+          ]
+        },
+        {
+          "entity_id": 3,
+          "name": "Target strand of double-stranded DNA",
+          "type": "DNA",
+          "sequence_length": 43,
+          "copies": 1,
+          "label_asym_ids": [
+            "C"
+          ],
+          "auth_asym_ids": [
+            "C"
+          ]
+        },
+        {
+          "entity_id": 4,
+          "name": "Non-target strand of double-stranded DNA",
+          "type": "DNA",
+          "sequence_length": 27,
+          "copies": 1,
+          "label_asym_ids": [
+            "D"
+          ],
+          "auth_asym_ids": [
+            "D"
+          ]
+        }
+      ],
+      "non_polymer_components": []
+    }
+  ]
+}

@@ -1,0 +1,1889 @@
+{
+  "version": 1,
+  "id": "crispr-cas9",
+  "title": "CRISPR-Cas9 holding its target DNA",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/9KJ6"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/s41598-025-25367-9"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.cell.2014.02.001"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/nature13579"
+      }
+    ],
+    "sourceSha256": "372806b1adb43f55b6ad551752d7cf0e54cd29a5af478912af95859287ce1b59",
+    "note": "X-ray structure of an engineered SpCas9 ternary complex at 3.59 Angstrom: one Cas9 chain (A, author residues 2-1351), one 97-nucleotide single-guide RNA (B), and separate target (C, 41 nt) and non-target (D, 25 nt) DNA strands. The deposited coordinates carry D10A and H840A, so both nuclease sites are alanine and this complex cannot cut. There are no metals, ligands or waters in the entry. SpCas9 residues 1242-1263 are replaced by a Gly-Ser linker, so author residue numbers after 1241 run 15 below the canonical SpCas9 numbering; the PAM-reading arginines usually written R1333 and R1335 are author residues 1318 and 1320 here. Every chain, residue range and distance below was measured in this entry rather than assumed. Domain boundaries are canonical SpCas9 (Nishimasu et al. 2014) and all of them fall below author residue 1241, where author and canonical numbering still agree. Measured here: guide nucleotides 3-20 pair target nucleotides 24-41, so 18 of the 20 spacer pairs are resolved; the PAM is T-G-G at D:5-7; Arg1318 and Arg1320 read dG D:6 and dG D:7 through O6 and N7 at 3.01 and 2.80 Angstrom. Both nuclease sites are not merely mutated but undocked: residue 840 lies 32-33 Angstrom from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation, and only two nucleotides of the non-target strand protospacer are modelled, so the RuvC cut site is absent from the entry entirely."
+  },
+  "chapters": [
+    {
+      "id": "complex",
+      "title": "CAS9 COMPLEX",
+      "caption": "Entry 9KJ6, X-ray at 3.59 Angstrom. Four chains, and one colour for each of them for the rest of this lesson: Cas9 grey, guide RNA orange, target DNA magenta, non-target DNA blue.",
+      "durationSeconds": 40,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 20,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 20,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "narration": "Cas9 in grey, its guide RNA in orange, and the two DNA strands it holds.",
+        "motion": "spin",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.5
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "guide-rna",
+      "title": "GUIDE RNA",
+      "caption": "Only the guide RNA is opaque; the rest of the complex stays faintly visible so you can see where it sits. Chain B, 97 nucleotides. Its first twenty choose the target, and its PAM-proximal end is the seed that has to match.",
+      "durationSeconds": 45,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 15,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 15,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "chain",
+            "chain": "B"
+          }
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 15
+        }
+      ],
+      "immersive": {
+        "narration": "Orange is the guide RNA. Its first twenty bases choose which DNA gets cut.",
+        "motion": "spin",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.4
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "focus": "guide",
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "target-dna",
+      "title": "DNA + PAM",
+      "caption": "The magenta target strand and, in yellow, the PAM, labelled on the molecule as T 5, G 6 and G 7. Cas9 reads 5-prime-N-G-G on the blue non-target strand, not on the target strand: here that is T-G-G at chain D residues 5 to 7, sitting inside the amber band that marks where to look. Eighteen of the twenty target bases are paired with the guide RNA in this model.",
+      "durationSeconds": 48,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 18,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 15,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "chain",
+            "chain": "C"
+          }
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 15
+        }
+      ],
+      "immersive": {
+        "narration": "Magenta is the target strand. The three labelled yellow bases are the PAM.",
+        "motion": "hold",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": true,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "focus": [
+            "target",
+            "pam_flank",
+            "pam"
+          ],
+          "framing": "fill"
+        },
+        "selection": {
+          "chain": "D",
+          "residues": {
+            "from": 5,
+            "to": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "rec-lobe",
+      "title": "REC LOBE",
+      "caption": "The recognition lobe in purple, canonical residues 60 to 713: one large insertion into the nuclease lobe. It closes around the RNA-DNA hybrid, and its PAM-distal part is what senses whether the match is good enough to license cutting.",
+      "durationSeconds": 42,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 14,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 14,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "chain",
+            "chain": "A"
+          }
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 14
+        }
+      ],
+      "immersive": {
+        "narration": "Purple is the recognition lobe. It grips the RNA-DNA hybrid and checks the match.",
+        "motion": "spin",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.2
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "focus": "rec",
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "nucleases",
+      "title": "NUCLEASES",
+      "caption": "Both nucleases in green, with their two active sites in red. HNH is one compact domain, canonical residues 775 to 908, and it cuts the target strand. RuvC is one active site built from three separate stretches of the same chain. Neither works here: both catalytic residues are alanine, HNH sits 32 Angstrom from the target-strand phosphate it would cut, and the piece of non-target strand RuvC would cut is not in the model.",
+      "durationSeconds": 48,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 16.0,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 16.0,
+          "easing": "ease_in_out",
+          "magnification": 1.2
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 16.0
+        }
+      ],
+      "immersive": {
+        "narration": "Green marks both nucleases, red both cut sites. HNH cuts magenta, RuvC cuts blue.",
+        "motion": "spin",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": true,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.2
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "focus": [
+            "hnh",
+            "ruvc_i",
+            "ruvc_ii",
+            "ruvc_iii",
+            "site_hnh",
+            "site_ruvc"
+          ],
+          "framing": "fill"
+        },
+        "selection": {
+          "chain": "A",
+          "residues": {
+            "from": 838,
+            "to": 842
+          }
+        }
+      }
+    },
+    {
+      "id": "recap-guide",
+      "title": "RECAP: RNA",
+      "caption": "One of four. The guide RNA in orange, chain B, 97 nucleotides. Its first twenty bases are what chose this target.",
+      "durationSeconds": 14,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 4.667,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4.667,
+          "easing": "ease_in_out",
+          "magnification": 1.2
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 4.666
+        }
+      ],
+      "immersive": {
+        "narration": "One. The guide RNA, in orange.",
+        "motion": "hold",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.3
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "focus": "guide",
+          "contextOpacity": 0.35,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "recap-dna",
+      "title": "RECAP: PAM",
+      "caption": "Two of four. The magenta target strand, and the yellow PAM that Cas9 read first on the blue non-target strand.",
+      "durationSeconds": 14,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 4.667,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4.667,
+          "easing": "ease_in_out",
+          "magnification": 1.2
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 4.666
+        }
+      ],
+      "immersive": {
+        "narration": "Two. The target DNA in magenta, and its PAM in yellow.",
+        "motion": "hold",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": true,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.3
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "focus": [
+            "target",
+            "pam_flank",
+            "pam"
+          ],
+          "contextOpacity": 0.35,
+          "framing": "fill"
+        },
+        "selection": {
+          "chain": "D",
+          "residues": {
+            "from": 5,
+            "to": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "recap-rec",
+      "title": "RECAP: REC",
+      "caption": "Three of four. The REC lobe in purple, canonical residues 60 to 713, closed around the RNA-DNA hybrid.",
+      "durationSeconds": 14,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 4.667,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4.667,
+          "easing": "ease_in_out",
+          "magnification": 1.2
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 4.666
+        }
+      ],
+      "immersive": {
+        "narration": "Three. The recognition lobe, in purple.",
+        "motion": "hold",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.3
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "focus": "rec",
+          "contextOpacity": 0.35,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "recap-nucleases",
+      "title": "RECAP: CUTS",
+      "caption": "Four of four. Both nucleases in green and both would-be cut sites in red. That is the whole colour key: grey Cas9, orange guide RNA, magenta target DNA, blue non-target DNA, yellow PAM, purple REC, green nucleases, red cut sites. Point at one part and say what it is.",
+      "durationSeconds": 20,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6.667,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 6.667,
+          "easing": "ease_in_out",
+          "magnification": 1.2
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 6.666
+        }
+      ],
+      "immersive": {
+        "narration": "Four. Both nucleases in green, both cut sites in red. Point at one part and name it.",
+        "motion": "hold",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": true,
+          "clipping": 0,
+          "fog": 25
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1.3
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "cas9",
+              "label": "Cas9 protein",
+              "color": "#9aa5b0",
+              "chain": "A",
+              "note": "Chain A, author residues 2-1351, one SpCas9 polypeptide."
+            },
+            {
+              "id": "rec",
+              "label": "REC recognition lobe",
+              "color": "#5f35c4",
+              "chain": "A",
+              "residues": {
+                "from": 60,
+                "to": 713
+              },
+              "note": "REC lobe 60-713, a single insertion into the NUC lobe; includes the arginine-rich bridge helix 60-93 (Nishimasu 2014)."
+            },
+            {
+              "id": "ruvc_i",
+              "label": "RuvC, first segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              },
+              "note": "RuvC-I 1-59 (Nishimasu 2014). The three RuvC segments form one active site."
+            },
+            {
+              "id": "ruvc_ii",
+              "label": "RuvC, second segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              },
+              "note": "RuvC-II 718-769 (Nishimasu 2014); author residues 766-772 are unmodelled here."
+            },
+            {
+              "id": "ruvc_iii",
+              "label": "RuvC, third segment",
+              "color": "#1f8f52",
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              },
+              "note": "RuvC-III 909-1098 (Nishimasu 2014); author residues 1014-1028 are unmodelled here."
+            },
+            {
+              "id": "hnh",
+              "label": "HNH nuclease domain",
+              "color": "#35c46a",
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              },
+              "note": "HNH 775-908 (Nishimasu 2014). Catalytic residues D839, H840, N863."
+            },
+            {
+              "id": "guide",
+              "label": "Single-guide RNA",
+              "color": "#ff8a1f",
+              "chain": "B",
+              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+            },
+            {
+              "id": "target",
+              "label": "Target DNA strand",
+              "color": "#e0479e",
+              "chain": "C",
+              "note": "Chain C, 41 nt. Author residues 24-41 pair the guide; 1-23 stay duplexed with chain D."
+            },
+            {
+              "id": "nontarget",
+              "label": "Non-target DNA strand",
+              "color": "#3fa9f5",
+              "chain": "D",
+              "note": "Chain D, 25 nt, author residues 3-27. Carries the PAM."
+            },
+            {
+              "id": "pam_flank",
+              "label": "PAM flank, non-target strand",
+              "color": "#c9a227",
+              "chain": "D",
+              "residues": {
+                "from": 3,
+                "to": 14
+              },
+              "note": "A marker, not a fact about the PAM: non-target residues 3-14, the band the T-G-G sits inside. The three-base PAM is painted inside a wider marker band so the wearer can find it and read its label."
+            },
+            {
+              "id": "pam",
+              "label": "The PAM, 5-prime T-G-G",
+              "color": "#ffd21f",
+              "chain": "D",
+              "residues": {
+                "from": 5,
+                "to": 7
+              },
+              "note": "Measured in the deposited coordinates: Arg1318 hydrogen-bonds O6/N7 of dG D:6 (3.01/3.26 A) and Arg1320 O6/N7 of dG D:7 (2.80/3.20 A). These are canonical R1333/R1335 (Anders et al. 2014, doi:10.1038/nature13579)."
+            },
+            {
+              "id": "site_ruvc",
+              "label": "RuvC active site, around D10A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 8,
+                "to": 12
+              },
+              "note": "The catalytic loop around residue 10, which is alanine in this entry. Nearest DNA atom is 17.9 A away; the non-target strand it would cut is not modelled."
+            },
+            {
+              "id": "site_hnh",
+              "label": "HNH active site, around H840A",
+              "color": "#ff3b30",
+              "chain": "A",
+              "residues": {
+                "from": 838,
+                "to": 842
+              },
+              "note": "The catalytic loop around residue 840, which is alanine in this entry, and 32-33 A from the target-strand phosphate it would cut (C:26/C:27), the inactive checkpoint conformation."
+            }
+          ],
+          "focus": [
+            "hnh",
+            "ruvc_i",
+            "ruvc_ii",
+            "ruvc_iii",
+            "site_hnh",
+            "site_ruvc"
+          ],
+          "contextOpacity": 0.35,
+          "framing": "fill"
+        },
+        "selection": {
+          "chain": "A",
+          "residues": {
+            "from": 838,
+            "to": 842
+          }
+        }
+      }
+    }
+  ]
+}

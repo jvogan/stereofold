@@ -1,0 +1,2102 @@
+{
+  "schemaVersion": 1,
+  "fixtureDefinitions": {
+    "public_1crn": {
+      "bytesPath": "1CRN.cif",
+      "sha256": "23787562c427d7c1abe5420e86d5f1d0a6c7007dec1e8ce85645a6d69c32e8ba"
+    },
+    "identity_edge": {
+      "bytesPath": "identity-edge.cif",
+      "sha256": "1a70440ac7b729a3a99abe5b5f89e3894c32daebc35f15f0842117b909db130c"
+    },
+    "synthetic_ligand": {
+      "bytesPath": "voice-ligand.cif",
+      "sha256": "62c3c01c5fac7b50121a67b24ebc16721df4393bc683ff176fea52eb21f1e7f0",
+      "byteLength": 3839,
+      "definition": "voice-ligand.expected.json",
+      "requiredPreparation": [
+        "Verify the pinned bytes and expected model, entity, chain, residue, and atom outputs in voice-ligand.expected.json.",
+        "Use model 1 and assembly 1 with its single identity operator.",
+        "Use Ball and stick for visible atom-site checks. Apply the initial visibility, selection, and numbering preferences specified by the case."
+      ]
+    },
+    "synthetic_voice_ambiguity": {
+      "kind": "synthetic_structure",
+      "bytesPath": "voice-ambiguity.cif",
+      "sha256": "cbbf3f16d91b02976c3b0bc5925cc952bf3edad07277bc15f21fe20b524f73ee",
+      "byteLength": 5199,
+      "definition": "voice-ambiguity.expected.json",
+      "requiredPreparation": [
+        "Verify the pinned bytes and expected model, entity, chain, residue, and atom outputs in voice-ambiguity.expected.json.",
+        "Use model 1 and assembly 1 with its single identity operator.",
+        "Use Ball and stick for visible atom-site checks. Apply the initial visibility, selection, and numbering preferences specified by the case."
+      ]
+    },
+    "public_4hhb": {
+      "kind": "public_structure",
+      "sourceId": "4HHB",
+      "bytesPath": "4HHB.cif",
+      "sha256": "2d3ca1bf21ddff35af2e2bc5d331720f7bfc46a16c4829ea3ec1b41062d5f5a6",
+      "requiredPreparation": "Use the pinned bytes and independently record the selected model, assembly and author residue mapping before each trial. Chain A runs to author residue 141, which is what the residue cases name.",
+      "byteLength": 772198
+    }
+  },
+  "environmentDefinitions": {
+    "native_codex_host": "The intended actual Codex task and installed plugin, with native live-voice availability recorded.",
+    "quest_2_companion": "The wearer's Quest 2 running the implemented pinned companion in an explicitly entered immersive session.",
+    "qualified_mac_audio": "The input/output route observed in Q24; no assumption that Quest USB, casting, or Browser microphone access supplies desktop audio.",
+    "public_or_synthetic_fixture": "Pinned public data or a validated synthetic fixture with expected identities recorded before the run.",
+    "controlled_transport_faults": "A bounded test hook in the owned test channel for delayed, duplicated, disconnected, or stale messages.",
+    "native_voice_interruption": "An actual-host spoken reply whose interruption can be heard and recorded as an operator observation.",
+    "two_codex_tasks": "Two separately bound test tasks with public scenes and recorded target permissions.",
+    "native_voice_failure_condition": "An actual supported failure condition or supported actual-host test mechanism; do not invent one.",
+    "native_permission_condition": "An actual microphone-denied host condition with setup and restoration recorded.",
+    "controlled_audio_route_loss": "An operator-controlled loss of the declared test input route, with recognition and restoration observed."
+  },
+  "observationTemplate": {
+    "status": "not_run",
+    "corpusSha256": null,
+    "caseId": null,
+    "attemptId": null,
+    "inputMode": null,
+    "fixtureSha256": null,
+    "environmentRefs": [],
+    "initialStateRef": null,
+    "faultMechanism": null,
+    "recognizedWordsRedacted": null,
+    "microphoneRecognitionStatus": null,
+    "replyAudibilityStatus": null,
+    "semanticTargetCorrect": null,
+    "commandOutcome": null,
+    "renderedRevision": null,
+    "wearerObservation": null,
+    "appropriateOutcome": null,
+    "wrongTargetMutation": null,
+    "unintendedDuplicateMutation": null,
+    "falseCompletionClaim": null,
+    "timings": null,
+    "actualOutcome": null,
+    "restoreStatus": null,
+    "artifactRefs": []
+  },
+  "retention": [
+    "Retain redacted transcripts, fixture hashes, semantic outcomes, and timing records.",
+    "Do not collect raw audio, room imagery, credentials, account identifiers, or device serials by default.",
+    "Keep live session credentials outside committed records; use test aliases."
+  ],
+  "cases": [
+    {
+      "id": "V01",
+      "group": "routine",
+      "title": "Fit the loaded molecule",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The intended scene is loaded in the named Quest session.",
+        "The molecule is deliberately framed too tightly and no local grab is active."
+      ],
+      "setup": [
+        "Record the initial scene revision and deliberate view.",
+        "Confirm that the intended panel and headset binding are visible."
+      ],
+      "utterance": "Fit the molecule in Quest.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The target headset fits the loaded molecule, keeps room placement and scientific coordinates unchanged, and returns its rendered revision.",
+      "forbiddenOutcomes": [
+        "Clarification or refusal counts as command success.",
+        "A different scene, panel, or device changes.",
+        "Codex reports completion before the rendered result."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 7,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V02",
+      "group": "routine",
+      "title": "Reset object orientation",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The object has a recorded non-home orientation.",
+        "Scale and room placement have recorded values."
+      ],
+      "setup": [
+        "Rotate the object deliberately.",
+        "Record the defined home orientation."
+      ],
+      "utterance": "Reset the molecule's orientation.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The object returns to its defined home orientation while scale, selection, and room placement remain unchanged; the headset confirms the rendered revision.",
+      "forbiddenOutcomes": [
+        "Fit or recenter substitutes for orientation reset.",
+        "Head pose becomes the object orientation.",
+        "Unrelated scientific state changes."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 3,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V03",
+      "group": "routine",
+      "title": "Set an absolute display scale",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The interface defines 100 percent as the recorded baseline display scale.",
+        "125 percent is inside the declared scale limits.",
+        "Initial display scale is 100 percent."
+      ],
+      "setup": [
+        "Record the scientific coordinates and baseline display transform."
+      ],
+      "utterance": "Set the molecule's display scale to one hundred twenty-five percent.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The display scale becomes 125 percent of the defined baseline once, with a rendered result and unchanged scientific coordinates.",
+      "forbiddenOutcomes": [
+        "125 percent is treated as an additional 125 percent increase.",
+        "A scale outside the declared limits is applied.",
+        "Scientific coordinates are rescaled."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 2,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V04",
+      "group": "routine",
+      "title": "Hide one explicit chain",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chains X and Y are both visible.",
+        "Author numbering is the declared interface convention.",
+        "Each chain has one assembly copy."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record chain visibility and target identity."
+      ],
+      "utterance": "Hide author chain X.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Only author chain X becomes hidden in the target scene; author chain Y retains its prior visibility.",
+      "forbiddenOutcomes": [
+        "The entire structure disappears.",
+        "Chain Y changes.",
+        "The system asks for clarification despite the unique declared chain."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "unsupported",
+        "appropriate": false,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V05",
+      "group": "routine",
+      "title": "Show the named ligand",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "synthetic_ligand"
+      ],
+      "preconditions": [
+        "The synthetic non-polymer component LIG1 is the only component with that name.",
+        "LIG1 is hidden and both polymer chains are visible."
+      ],
+      "setup": [
+        "Load voice-ligand.cif in model 1, assembly 1, using Ball and stick; verify its pinned targets against voice-ligand.expected.json.",
+        "Record component identity and visibility."
+      ],
+      "utterance": "Show ligand LIG1.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "LIG1 becomes visible without changing polymer visibility or assigning a biological role to the synthetic component.",
+      "forbiddenOutcomes": [
+        "All non-polymer components are substituted for LIG1.",
+        "A fabricated ligand is added.",
+        "Codex assigns an unsupported biological function."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "unsupported",
+        "appropriate": false,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V06",
+      "group": "routine",
+      "title": "Change supported representation",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The companion declares Ball and stick support for this fixture.",
+        "The current representation is Cartoon."
+      ],
+      "setup": [
+        "Record the current representation, selection, and deliberate view."
+      ],
+      "utterance": "Show this molecule as ball and stick.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The already-loaded target scene changes to Ball and stick and confirms its rendered revision; source identity and selection remain intact.",
+      "forbiddenOutcomes": [
+        "Only the retained desktop state changes.",
+        "A new headset or desktop scene is mounted for the routine command.",
+        "Unsupported geometry is reported as rendered."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 2,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V07",
+      "group": "routine",
+      "title": "Select a uniquely identified residue",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chain X residue 15 with no insertion code has one resolved identity in the current model and assembly.",
+        "No conflicting selection exists."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record the fixture's expected canonical residue key."
+      ],
+      "utterance": "Select author residue fifteen with no insertion code in chain X.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The structure and sequence pane select the expected canonical residue and display its identity without automatically focusing it.",
+      "forbiddenOutcomes": [
+        "Sequence position 15 substitutes for author residue 15.",
+        "A different assembly copy is selected.",
+        "Selection alone changes the deliberate view."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 2,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V08",
+      "group": "routine",
+      "title": "Focus a known selection",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "The explicitly selected residue has resolved coordinates.",
+        "The selection is fresh and belongs to the current target scene.",
+        "No local grab is active."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Select author chain X residue 15 with no insertion code through the interface.",
+        "Record its canonical key and selection event."
+      ],
+      "utterance": "Focus the selected residue.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The target headset focuses the selected residue through the defined view operation and returns the rendered revision without changing residue identity.",
+      "forbiddenOutcomes": [
+        "A stale hover overrides the explicit selection.",
+        "Room placement changes as an undocumented side effect.",
+        "Coordinates or selection identity change."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V09",
+      "group": "routine",
+      "title": "Save a named object-relative view",
+      "classification": "clear_command",
+      "expectedOutcomeType": "committed_state",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The scene has a deliberate orientation and selection.",
+        "No saved view is named Inspection start."
+      ],
+      "setup": [
+        "Record the object-relative view and selected residue."
+      ],
+      "utterance": "Save this view as Inspection start.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "One saved view named Inspection start records the deliberate object-relative view and selection; the result confirms storage without claiming a new render.",
+      "forbiddenOutcomes": [
+        "Raw tracked eye matrices become the saved desktop view.",
+        "An existing unrelated view is overwritten.",
+        "The system claims the wearer saw a new frame from a storage acknowledgment."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 2,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V10",
+      "group": "routine",
+      "title": "Restore a named view",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "Inspection start exists with a recorded view and selection.",
+        "The current view differs from the saved view.",
+        "No local grab is active."
+      ],
+      "setup": [
+        "Move to a different deliberate view.",
+        "Record the expected saved state."
+      ],
+      "utterance": "Restore Inspection start.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The headset restores the saved object-relative view and defined saved selection once, with a rendered revision; room placement follows the declared local policy.",
+      "forbiddenOutcomes": [
+        "A similarly named view substitutes for the exact name.",
+        "The current head pose overwrites the saved view.",
+        "A rendered result is claimed from an enqueue acknowledgment."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V11",
+      "group": "semantic_context",
+      "title": "Point and say this with fresh context",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "A deliberate pointer event identifies one resolved residue in the current scene.",
+        "The event meets the declared freshness rule.",
+        "The pointer target differs from the previous selection."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Point at the designated fixture residue.",
+        "Record the pointer event's canonical key, scene, revision, and time."
+      ],
+      "utterance": "Select this residue.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The structure and sequence select the fresh pointer target and display its canonical identity.",
+      "forbiddenOutcomes": [
+        "The previous selection wins over the fresh pointer context.",
+        "A screenshot or guessed spatial location supplies the residue.",
+        "Clarification on this unambiguous fresh context counts as execution success."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V12",
+      "group": "semantic_context",
+      "title": "Clarify chain A versus eight",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "synthetic_voice_ambiguity"
+      ],
+      "preconditions": [
+        "Author chains A and 8 both exist.",
+        "The utterance explicitly leaves the chain unresolved."
+      ],
+      "setup": [
+        "Load voice-ambiguity.cif in model 1, assembly 1, using Ball and stick; verify its pinned targets against voice-ambiguity.expected.json.",
+        "Clear pointer context and chain-specific selection.",
+        "Record the two candidate chain keys."
+      ],
+      "utterance": "Select residue fifteen in author chain A or eight.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex asks which of the two author chains is intended, displays the candidates, and leaves the selection unchanged until a clear answer.",
+      "forbiddenOutcomes": [
+        "Either chain is selected before clarification.",
+        "Letter A and digit 8 are treated as equivalent identifiers.",
+        "A mutation is counted as an appropriate ambiguity outcome."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V13",
+      "group": "semantic_context",
+      "title": "Clarify fifteen versus fifty",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chain X has distinct resolved residues 15 and 50.",
+        "No selection or annotation chooses one of them."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Clear selection and pointer context.",
+        "Record both expected residue keys."
+      ],
+      "utterance": "In author chain X, select residue fifteen or fifty.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex asks whether author residue 15 or 50 is intended and performs no selection mutation before the answer.",
+      "forbiddenOutcomes": [
+        "The first number is selected automatically.",
+        "Speech transcription quality is substituted for scientific target resolution.",
+        "An arbitrary mutation is counted as clarification."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V14",
+      "group": "semantic_context",
+      "title": "Preserve an explicit insertion code",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chain X contains residue 15 and the distinct residue 15 with insertion code A.",
+        "The current model and assembly copy are uniquely bound."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record the canonical key for author residue 15, insertion code A."
+      ],
+      "utterance": "Select author chain X, residue fifteen, insertion code A.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Both viewers select the residue whose author number is 15 and insertion code is A; the displayed identity includes the insertion code.",
+      "forbiddenOutcomes": [
+        "Residue 15 without the insertion code is selected.",
+        "The insertion code is interpreted as another chain.",
+        "The sequence highlight loses the insertion code identity."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V15",
+      "group": "semantic_context",
+      "title": "Clarify author number versus sequence position",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "synthetic_voice_ambiguity"
+      ],
+      "preconditions": [
+        "Author residue 15 and sequence position 15 refer to different resolved residues.",
+        "No numbering preference is active for this trial."
+      ],
+      "setup": [
+        "Load voice-ambiguity.cif in model 1, assembly 1, using Ball and stick; verify its pinned targets against voice-ambiguity.expected.json.",
+        "Clear the numbering preference and record the two candidate mappings."
+      ],
+      "utterance": "Select position fifteen in author chain A.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex asks whether position 15 means the author residue number or the sequence position and leaves the selection unchanged.",
+      "forbiddenOutcomes": [
+        "The display's last numbering convention silently determines the target.",
+        "The two positions are merged.",
+        "A correct guess is counted as a clarification pass."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V16",
+      "group": "semantic_context",
+      "title": "Clarify a repeated assembly copy",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "The displayed assembly contains two copies of author chain X residue 15.",
+        "No copy is selected, pointed at, or named as the active copy."
+      ],
+      "setup": [
+        "Use identity-edge model 1, assembly 1, with both operators 1 and 2 and no active copy.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record both assembly operator keys.",
+        "Clear copy-specific context."
+      ],
+      "utterance": "Focus author chain X, residue fifteen with no insertion code.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex asks which assembly copy is intended, identifies the alternatives, and preserves the current view.",
+      "forbiddenOutcomes": [
+        "The first loaded copy is focused.",
+        "A transient pick index identifies the persistent copy.",
+        "Both copies are collapsed into one scientific identity."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V17",
+      "group": "semantic_context",
+      "title": "Request an active site without an annotation",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "The synthetic scene has no active-site annotation or biological claim.",
+        "No residue set has been designated as an active site."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record that the annotation collection is empty."
+      ],
+      "utterance": "Show the active site.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex explains that the scene has no active-site annotation and asks for a residue set or source; the scene remains unchanged.",
+      "forbiddenOutcomes": [
+        "Visual appearance determines an active site.",
+        "A geometric neighbor set is labeled as an active site.",
+        "The synthetic ligand receives an invented catalytic role."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V18",
+      "group": "semantic_context",
+      "title": "Select a sequence position without coordinates",
+      "classification": "clear_command",
+      "expectedOutcomeType": "selection_with_unresolved_notice",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Sequence position 3 in author chain X exists without resolved coordinates.",
+        "The sequence-to-author mapping is independently verified."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record the canonical sequence key and absence of atom coordinates."
+      ],
+      "utterance": "Select sequence position three in author chain X and focus it.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The sequence selects position 3, displays No resolved coordinates, and explains that spatial focus is unavailable; the molecular view remains unchanged.",
+      "forbiddenOutcomes": [
+        "A nearby residue substitutes for the missing position.",
+        "The viewer fabricates a focus point.",
+        "Codex claims the unresolved residue was focused in 3D."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V19",
+      "group": "semantic_context",
+      "title": "Reject stale deictic context",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "The only prior pointer event has exceeded the declared freshness limit.",
+        "No fresh explicit selection exists."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record the configured freshness rule.",
+        "Expire the pointer event through a controlled clock or a measured wait."
+      ],
+      "utterance": "Focus this.",
+      "action": null,
+      "injectedFault": "Stale pointer context; preserve its original scene, revision, and timestamp in the test record.",
+      "allowedOutcome": "Codex asks the wearer to point at or select the target again and preserves the current view.",
+      "forbiddenOutcomes": [
+        "The expired pointer target is focused.",
+        "A stale screenshot supplies a replacement target.",
+        "A missing event timestamp is treated as fresh."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V20",
+      "group": "semantic_context",
+      "title": "Clarify alternate sites",
+      "classification": "deliberate_ambiguity",
+      "expectedOutcomeType": "clarification",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chain X residue 15 with insertion code A has two explicit alternate sites, A and B.",
+        "No alternate-site preference or fresh atom pick is active."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record both alternate-site identifiers.",
+        "Clear atom-specific context."
+      ],
+      "utterance": "Select the alternate site for author chain X residue fifteen, insertion code A.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex asks whether alternate site A or B is intended and performs no atom-level selection mutation.",
+      "forbiddenOutcomes": [
+        "One alternate site is chosen without a stated rule or answer.",
+        "Alternate sites are merged into a fabricated atom.",
+        "A residue-level highlight is reported as the requested alternate-site selection."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "clarification",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V21",
+      "group": "command_lifecycle",
+      "title": "Interrupt the spoken reply",
+      "classification": "clear_interruption",
+      "expectedOutcomeType": "speech_interrupted",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "A representation change has already committed and rendered.",
+        "Native Codex is speaking the result.",
+        "The host's actual interruption path is available for observation."
+      ],
+      "setup": [
+        "Record the committed representation and start of the spoken reply."
+      ],
+      "utterance": "Stop speaking.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The spoken reply stops through the native host's observed interruption behavior; the completed representation change remains intact.",
+      "forbiddenOutcomes": [
+        "The completed mutation is undone without an undo request.",
+        "Plugin state is used to fabricate a native voice interruption event.",
+        "A stopped transcript animation alone is reported as stopped audio."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "native_voice_interruption"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V22",
+      "group": "command_lifecycle",
+      "title": "Correct a pending target",
+      "classification": "clear_correction",
+      "expectedOutcomeType": "superseded_then_rendered",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chains X and Y are visible.",
+        "The first hide command is held before commit.",
+        "The coordinator declares cancellation and replacement of this pending operation."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Say Hide author chain X.",
+        "Hold its command before commit and record the command ID.",
+        "Then speak the correction."
+      ],
+      "utterance": "No, hide author chain Y instead.",
+      "action": null,
+      "injectedFault": "Delay the first command before commit using the controlled transport test hook.",
+      "allowedOutcome": "The pending hide-X command is cancelled, chain X remains visible, and a new validated command hides only chain Y with a rendered result.",
+      "forbiddenOutcomes": [
+        "Both chains become hidden.",
+        "A delayed hide-X command commits after the correction.",
+        "A completed first mutation is mislabeled as a pending cancellation."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V23",
+      "group": "command_lifecycle",
+      "title": "Cancel an incomplete transfer",
+      "classification": "clear_cancellation",
+      "expectedOutcomeType": "cancelled_pending",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn",
+        "identity_edge"
+      ],
+      "preconditions": [
+        "A replacement scene is staged but has not committed.",
+        "The last good public scene remains available."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Start the replacement transfer.",
+        "Pause delivery before staging completes and record the transfer ID."
+      ],
+      "utterance": "Cancel that transfer.",
+      "action": null,
+      "injectedFault": "Pause an incomplete scene transfer before atomic commit.",
+      "allowedOutcome": "The pending transfer is cancelled, its remaining chunks cannot commit, and the last good scene remains inspectable.",
+      "forbiddenOutcomes": [
+        "The completed last good scene is undone or cleared.",
+        "Late chunks replace the molecule after cancellation.",
+        "Cancellation is claimed while the transfer remains eligible to commit."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V24",
+      "group": "command_lifecycle",
+      "title": "Undo a completed change",
+      "classification": "clear_undo",
+      "expectedOutcomeType": "rendered_undo",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The wearer's last eligible change switched Cartoon to Ball and stick.",
+        "That change committed and rendered.",
+        "No other actor has changed the relevant state afterward."
+      ],
+      "setup": [
+        "Record the completed operation ID, prior style, and current revision."
+      ],
+      "utterance": "Undo my last change.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The coordinator reverses that committed representation change to Cartoon, preserves unrelated state, and reports the rendered undo result.",
+      "forbiddenOutcomes": [
+        "Only a pending queue entry is cancelled.",
+        "Another actor's work is undone.",
+        "A generic reset substitutes for reversing the recorded change."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 2,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V25",
+      "group": "command_lifecycle",
+      "title": "Repeat an absolute command",
+      "classification": "clear_repetition",
+      "expectedOutcomeType": "idempotent_result",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "Display scale starts at 100 percent of the defined baseline.",
+        "125 percent is within bounds.",
+        "The two utterances produce distinct command IDs."
+      ],
+      "setup": [
+        "Record the initial display transform.",
+        "Speak the same complete utterance twice after the first result."
+      ],
+      "utterance": "Set display scale to one hundred twenty-five percent.",
+      "action": "Repeat the utterance once as a separate request.",
+      "injectedFault": null,
+      "allowedOutcome": "Final scale remains 125 percent; the second absolute assignment produces a no-op or equivalent acknowledged state without an additional scale mutation.",
+      "forbiddenOutcomes": [
+        "The repeated request compounds the scale.",
+        "A second request is falsely described as transport deduplication under the first ID.",
+        "Scientific coordinates change."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 0,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V26",
+      "group": "command_lifecycle",
+      "title": "Deduplicate a delivered rotation",
+      "classification": "delivery_fault",
+      "expectedOutcomeType": "single_rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The companion declares the tested object-relative rotation axis and direction.",
+        "The requested rotation is within bounds.",
+        "Both deliveries use the identical command ID and payload."
+      ],
+      "setup": [
+        "Record the starting orientation.",
+        "Capture one valid rotation envelope and deliver it twice within the declared deduplication lifetime."
+      ],
+      "utterance": "Rotate the molecule fifteen degrees around its vertical axis.",
+      "action": null,
+      "injectedFault": "Deliver the same validated non-idempotent rotation command twice.",
+      "allowedOutcome": "The object rotates once and both deliveries resolve to the same committed operation or its cached result.",
+      "forbiddenOutcomes": [
+        "The second delivery applies another fifteen degrees.",
+        "Deduplication silently accepts a changed payload under the same ID.",
+        "A successful enqueue is reported as a rendered frame."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 3,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V27",
+      "group": "command_lifecycle",
+      "title": "Handle a missing rendered acknowledgment",
+      "classification": "delivery_fault",
+      "expectedOutcomeType": "uncertain_then_reconciled",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "A hide-chain operation can commit while its rendered acknowledgment is withheld.",
+        "The command ID and requested scene revision are recorded."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Send Hide author chain X.",
+        "Withhold the rendered acknowledgment after the receiver applies the change.",
+        "Ask for status before releasing or reconciling the result."
+      ],
+      "utterance": "Did that reach the headset?",
+      "action": null,
+      "injectedFault": "Withhold the rendered acknowledgment after apply.",
+      "allowedOutcome": "Codex reports that rendered confirmation is missing, then reports the correlated receiver result after reconciliation; the operation is not applied twice.",
+      "forbiddenOutcomes": [
+        "Accepted or applied state is described as a confirmed render.",
+        "The delayed result is attached to another command.",
+        "A second hide or inverse operation is issued to guess the state."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V28",
+      "group": "command_lifecycle",
+      "title": "Reject a target outside the active task",
+      "classification": "target_mismatch",
+      "expectedOutcomeType": "refusal",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge",
+        "public_1crn"
+      ],
+      "preconditions": [
+        "Inspection A belongs to task A.",
+        "Task B is active and owns inspection B only.",
+        "Task B has no binding or authority for inspection A."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Open the two test tasks and record their aliases and bindings.",
+        "Select task B without granting access to A."
+      ],
+      "utterance": "Hide author chain X in inspection A.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex identifies that inspection A is unavailable to the active task and changes neither inspection.",
+      "forbiddenOutcomes": [
+        "Inspection B changes because its task is active.",
+        "Task B mutates A through a guessed or stale binding.",
+        "A missing target is silently replaced with the newest panel."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "two_codex_tasks"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "refusal",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V29",
+      "group": "command_lifecycle",
+      "title": "Reject a command after scene replacement",
+      "classification": "revision_fault",
+      "expectedOutcomeType": "refusal",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge",
+        "public_1crn"
+      ],
+      "preconditions": [
+        "A command for scene A has been dispatched but not committed.",
+        "The wearer replaces A with scene B through an authorized local action."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Hold the command for A before commit.",
+        "Commit scene B and record its revision.",
+        "Then release the held command."
+      ],
+      "utterance": "Focus the selected residue.",
+      "action": null,
+      "injectedFault": "Deliver the old-scene command after a new scene revision commits.",
+      "allowedOutcome": "The old-scene command is rejected as stale; scene B keeps its selection and view, and the response identifies the stale request.",
+      "forbiddenOutcomes": [
+        "A residue with a matching number in B substitutes for A's target.",
+        "B's view changes.",
+        "A stale result is reported as the current headset result."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "refusal",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V30",
+      "group": "command_lifecycle",
+      "title": "Keep inspection usable when native voice is unavailable",
+      "classification": "voice_unavailable",
+      "expectedOutcomeType": "unavailable_without_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The headset scene is loaded.",
+        "A supported test mechanism or an actual observed failure makes native voice unavailable.",
+        "No complete command has been dispatched for this trial."
+      ],
+      "setup": [
+        "Record the actual host failure and mechanism.",
+        "Attempt the utterance through native live voice.",
+        "Use a local controller afterward."
+      ],
+      "utterance": "Fit the molecule.",
+      "action": "Perform a local controller rotation after the failed voice attempt.",
+      "injectedFault": "Native voice service unavailable; do not exhaust a real allowance or change accounts to create the condition.",
+      "allowedOutcome": "The host's observable unavailable state is recorded, no plugin mutation is invented, and local controller inspection remains usable.",
+      "forbiddenOutcomes": [
+        "A separate assistant is presented as the same native conversation.",
+        "Dictation substitutes for native live voice evidence.",
+        "Codex claims the unissued command changed the headset."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "native_voice_failure_condition"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V31",
+      "group": "audio_connection",
+      "title": "Speak while facing away from the Mac",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The established Mac audio route is selected.",
+        "The wearer wears Quest at the recorded standing inspection position and faces away from the Mac.",
+        "The fixture begins in Cartoon."
+      ],
+      "setup": [
+        "Record microphone and output-route descriptions.",
+        "Record the position and facing direction without room imagery."
+      ],
+      "utterance": "Change the molecule to ball and stick.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Native voice invokes the intended command, the headset renders Ball and stick, and recognition and reply audibility are recorded separately.",
+      "forbiddenOutcomes": [
+        "A desktop-only change is reported as a headset change.",
+        "Successful transcription substitutes for audible reply evidence.",
+        "Facing-the-Mac evidence substitutes for this position."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V32",
+      "group": "audio_connection",
+      "title": "Use voice at the intended seated positions",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Two intended reachable seated inspection positions are named before observation.",
+        "The same declared Mac audio route is used at both.",
+        "The fixture supports the requested chain visibility change."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "At each position, restore author chain Y to hidden.",
+        "Record actual posture, position alias, and quiet/background condition.",
+        "Repeat the utterance once per position and retain both attempt records."
+      ],
+      "utterance": "Show author chain Y.",
+      "action": "Run the case at both predeclared seated positions.",
+      "injectedFault": null,
+      "allowedOutcome": "Both attempts show only chain Y in the intended headset and separately record recognition and reply audibility for each position.",
+      "forbiddenOutcomes": [
+        "One successful position hides a failure at the other.",
+        "The operator moves closer to the microphone without recording the changed condition.",
+        "A retry replaces the original failed attempt."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "unsupported",
+        "appropriate": false,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V33",
+      "group": "audio_connection",
+      "title": "Treat a quoted command as incidental speech",
+      "classification": "non_command",
+      "expectedOutcomeType": "no_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Author chain X is visible.",
+        "Native voice is active.",
+        "No operation is pending."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Use a quiet desk audio condition for the first observation.",
+        "Record the full contextual utterance rather than extracting only the quoted words."
+      ],
+      "utterance": "For my notes, the phrase is hide chain X. I am quoting it, not asking you to change the view.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex treats the utterance as a quotation and leaves the scene unchanged.",
+      "forbiddenOutcomes": [
+        "The quoted hide command is executed.",
+        "The system claims speaker identification or wake-word behavior that the host has not exposed.",
+        "A mutation is accepted because the command words appeared in the transcript."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V34",
+      "group": "audio_connection",
+      "title": "Hear a semantic reply with background sound",
+      "classification": "clear_query",
+      "expectedOutcomeType": "read_result_and_audible_reply",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "A known residue is selected.",
+        "The wearer wears Quest at the recorded inspection position.",
+        "The output route is the route intended for regular use.",
+        "A reproducible non-private background sound condition is declared before observation; its source and playback setting remain fixed."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Use the declared background condition, such as a recorded neutral synthetic sentence; retain its text or source description, not private background speech.",
+        "Record the expected canonical selected residue.",
+        "Record the background condition and output route.",
+        "Observe microphone recognition and spoken reply separately."
+      ],
+      "utterance": "Which residue is selected?",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex reports the actual selected residue and the wearer hears the reply under the declared background condition; the scene remains unchanged. Recognition and reply audibility receive separate outcomes.",
+      "forbiddenOutcomes": [
+        "Readable text substitutes for hearing the reply.",
+        "The response names a stale or other-panel selection.",
+        "Microphone recognition and reply audibility are collapsed into one unqualified pass.",
+        "Quiet-room evidence substitutes for the declared background condition."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V35",
+      "group": "audio_connection",
+      "title": "Queue voice focus during a local grab",
+      "classification": "ownership_overlap",
+      "expectedOutcomeType": "queued_then_rendered",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "A fresh resolved residue is selected.",
+        "The wearer holds the molecule with a controller.",
+        "The declared coordinator policy queues focus until release."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record the selection and start the grab.",
+        "Issue the utterance while holding the object.",
+        "Release only after the pending feedback is observed."
+      ],
+      "utterance": "Focus the selected residue.",
+      "action": "Keep the local grab active until the queued status is visible, then release.",
+      "injectedFault": null,
+      "allowedOutcome": "The operation waits without moving the held object, reports the pending state, and focuses once after release if its scene and revision remain valid.",
+      "forbiddenOutcomes": [
+        "The object jumps during the grab.",
+        "A queued operation is described as already rendered.",
+        "The focus applies after its target revision becomes stale."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "latencyMs": 1,
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V36",
+      "group": "audio_connection",
+      "title": "Reject a command while the headset is disconnected",
+      "classification": "connection_fault",
+      "expectedOutcomeType": "refusal_without_replay",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "The public scene is loaded and inspectable locally.",
+        "The headset transport is disconnected before command dispatch.",
+        "The coordinator has observed the disconnection."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Disconnect only the owned test transport.",
+        "Record the last confirmed scene revision.",
+        "Try a local controller action after the voice attempt."
+      ],
+      "utterance": "Hide author chain Y in Quest.",
+      "action": "Rotate the loaded molecule locally after the failed remote request.",
+      "injectedFault": "Disconnect the headset transport before dispatch.",
+      "allowedOutcome": "Codex reports the disconnected target, the remote mutation does not apply, and local inspection works; reconnect does not silently replay the refused command.",
+      "forbiddenOutcomes": [
+        "An enqueue is reported as success.",
+        "The local scene becomes unusable because the Mac is unavailable.",
+        "The command applies unexpectedly after reconnect."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "refusal",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V37",
+      "group": "audio_connection",
+      "title": "Reconcile after reconnect",
+      "classification": "connection_fault",
+      "expectedOutcomeType": "reconciled_without_duplicate",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "A known operation committed before transport loss.",
+        "Its final acknowledgment was lost.",
+        "The current scene remains loaded during the interruption."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Hide author chain X once, then disconnect before its result reaches Codex.",
+        "Reconnect the same valid binding.",
+        "Record the receiver's current scene and revision before asking for status."
+      ],
+      "utterance": "Reconnect and tell me whether author chain X is hidden.",
+      "action": null,
+      "injectedFault": "Lose the acknowledgment across a transport disconnect and reconnect.",
+      "allowedOutcome": "The coordinator reconciles the current receiver state, reports whether chain X is hidden, and applies no second mutation or stale queued movement.",
+      "forbiddenOutcomes": [
+        "Reconnect blindly replays prior commands.",
+        "A new scene is substituted without identifying the change.",
+        "A last-known state is reported as a fresh receiver result."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_transport_faults"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V38",
+      "group": "audio_connection",
+      "title": "Reject an unpaired device target",
+      "classification": "target_mismatch",
+      "expectedOutcomeType": "refusal",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "Quest test is the only paired test headset.",
+        "Quest other is a named test alias with no valid binding.",
+        "Author chain X is visible on Quest test."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Record the pairing aliases without credentials.",
+        "Confirm that no active target is named Quest other."
+      ],
+      "utterance": "Hide author chain X on Quest other.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Codex reports that Quest other is unavailable or unpaired and leaves Quest test unchanged.",
+      "forbiddenOutcomes": [
+        "The paired headset substitutes for the requested device.",
+        "A guessed device identifier receives a command.",
+        "Unavailable target status is reported as a completed mutation."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "refusal",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V39",
+      "group": "audio_connection",
+      "title": "Observe native microphone permission denial",
+      "classification": "permission_denied",
+      "expectedOutcomeType": "unavailable_without_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The actual native host is in a microphone-denied test condition.",
+        "No voice command has already been captured.",
+        "The loaded headset scene and controllers remain available."
+      ],
+      "setup": [
+        "Use a supported host test mechanism or a separately recorded operator-controlled permission trial.",
+        "Record the mechanism and actual host response.",
+        "Record restoration of the original permission state after the trial."
+      ],
+      "utterance": "Fit the molecule.",
+      "action": "Attempt native live voice while permission is denied, then inspect locally.",
+      "injectedFault": "Native microphone access denied in the actual host.",
+      "allowedOutcome": "The actual denial is recorded, no command or completion is fabricated, and local controller inspection remains usable.",
+      "forbiddenOutcomes": [
+        "A browser mock establishes actual native-host permission handling.",
+        "Quest Browser microphone permission is described as desktop Codex access.",
+        "Account changes or a plugin reinstall substitute for the denied-permission trial."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "native_permission_condition"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "environment-blocked",
+        "appropriate": false,
+        "coverage": "environment",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V40",
+      "group": "audio_connection",
+      "title": "Lose the microphone route before the target is spoken",
+      "classification": "input_route_loss",
+      "expectedOutcomeType": "incomplete_request_without_mutation",
+      "status": "not_run",
+      "fixture": [
+        "identity_edge"
+      ],
+      "preconditions": [
+        "The declared Mac input route is working at the start.",
+        "No complete command is pending.",
+        "The test can interrupt input after the verb and before any target."
+      ],
+      "setup": [
+        "Use identity-edge model 1 and assembly operator 1 for a unique copy unless this case explicitly changes the scene.",
+        "Use the declared Ball and stick representation for the synthetic scene so its explicit CA atom sites are visible; verify the initial image before the trial.",
+        "Start the incomplete utterance.",
+        "Interrupt the test input route before a target is spoken.",
+        "Record any actual native-host status and recognized words.",
+        "Restore the route and record the restoration."
+      ],
+      "utterance": "Hide…",
+      "action": "Remove the test input route before speaking a chain or component target.",
+      "injectedFault": "Lose the selected Mac microphone route during an incomplete request.",
+      "allowedOutcome": "No mutation occurs from the incomplete request. After recovery, any continuation requires a clear complete target; observed route status is recorded without inventing host events.",
+      "forbiddenOutcomes": [
+        "The last selected chain supplies an unstated target.",
+        "A partially captured utterance applies after reconnection.",
+        "An unavailable host event is fabricated as a detected microphone failure."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture",
+        "controlled_audio_route_loss"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": {
+        "evidence": "injected-transcript",
+        "ranAt": "2026-09-13T20:13:38.152Z",
+        "host": "synthetic",
+        "outcome": "intended",
+        "appropriate": true,
+        "coverage": "partial",
+        "note": "Supporting evidence only. This field never sets status."
+      }
+    },
+    {
+      "id": "V41",
+      "group": "semantic_context",
+      "title": "Hide a chain named by its bare letter",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The intended scene is loaded in the named Quest session and shows every chain.",
+        "The loaded model has exactly one chain whose label chain is A."
+      ],
+      "setup": [
+        "Record the scene revision and the chain identities get_inspection_state prints.",
+        "Confirm that the intended panel and headset binding are visible."
+      ],
+      "utterance": "Hide chain A.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The one chain that letter can mean is hidden, the saved scene carries the label chain and copy id pair, and the spoken line names the chain that went. A model that holds the same label chain more than once refuses instead, in a sentence naming those copies, and a letter the model does not have is refused with the chains it does.",
+      "forbiddenOutcomes": [
+        "A schema path, type name or validation code reaches the wearer or the agent transcript.",
+        "One copy of an ambiguous label chain is chosen without asking.",
+        "A refusal is reported as a hidden chain, or a hide is acknowledged before it rendered."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": null
+    },
+    {
+      "id": "V42",
+      "group": "semantic_context",
+      "title": "Ask for the surface by the word the menu row uses",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The intended scene is loaded in the named Quest session and is drawn as a cartoon.",
+        "The spatial menu shows its representation rows, one of which reads Surface."
+      ],
+      "setup": [
+        "Record the scene revision and the representation get_inspection_state prints.",
+        "Confirm that the intended panel and headset binding are visible."
+      ],
+      "utterance": "Show the surface.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The structure is redrawn as the molecular surface, the receipt says rendered before anything is acknowledged, and the spoken line uses the wearer's own word. The same holds for sticks, ball and stick, ribbon, spheres and spacefill. A word that names none of the four looks is refused in one sentence naming the four.",
+      "forbiddenOutcomes": [
+        "A schema path, type name or validation code reaches the wearer or the agent transcript.",
+        "A representation the wearer did not ask for is drawn because their word was unrecognised.",
+        "A refusal is reported as a redraw, or a redraw is acknowledged before it rendered."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": null
+    },
+    {
+      "id": "V43",
+      "group": "semantic_context",
+      "title": "Go to a numbered residue that the recognizer heard as a resident",
+      "classification": "clear_command",
+      "expectedOutcomeType": "rendered_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_4hhb"
+      ],
+      "preconditions": [
+        "The intended scene is loaded in the named Quest session and has an author residue 141.",
+        "The residue browser is open on a page that is not the one holding residue 141."
+      ],
+      "setup": [
+        "Record the residue rows the browser is drawing before the utterance.",
+        "Record the raw transcript and every normalization rule the Mac proposes for it."
+      ],
+      "utterance": "Go to residue 141.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "Residue 141 is framed and the browser draws it. A recognizer that writes resident for residue is corrected against this scene's own residue numbers and the correction is recorded as rule heard-resident beside the raw text, which is never replaced.",
+      "forbiddenOutcomes": [
+        "A residue the wearer did not name is framed because the noun was misheard.",
+        "The correction is applied without being recorded, or the raw transcript is overwritten by it.",
+        "A jump is acknowledged before the browser or the molecule drew it."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": null
+    },
+    {
+      "id": "V44",
+      "group": "recovery_and_limits",
+      "title": "Ask the loop for a structure at an insecure address",
+      "classification": "clear_command",
+      "expectedOutcomeType": "refusal_without_mutation",
+      "status": "not_run",
+      "fixture": [
+        "public_1crn"
+      ],
+      "preconditions": [
+        "The intended scene is loaded in the named Quest session.",
+        "The wearer is speaking to a conversational loop rather than pressing a menu row."
+      ],
+      "setup": [
+        "Record the headset log cursor before the utterance.",
+        "Confirm that the intended panel and headset binding are visible."
+      ],
+      "utterance": "Load the structure from http colon slash slash example dot org slash model dot pdb.",
+      "action": null,
+      "injectedFault": null,
+      "allowedOutcome": "The request is refused by name, the wearer sees the refusal drawn where they are, and read_headset_log carries one refused outcome record naming the tool and the limit. A refusal raised before the request could become a tool call is reported the same way as one raised inside it.",
+      "forbiddenOutcomes": [
+        "The refusal reaches only the agent terminal and nothing is drawn or recorded for the wearer.",
+        "The address, or any credential inside it, reaches the headset log.",
+        "The source is loaded, or a load is acknowledged."
+      ],
+      "environmentNeeded": [
+        "native_codex_host",
+        "quest_2_companion",
+        "qualified_mac_audio",
+        "public_or_synthetic_fixture"
+      ],
+      "observation": null,
+      "injectedTranscriptRun": null
+    }
+  ]
+}

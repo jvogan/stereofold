@@ -1,0 +1,8 @@
+# Generated documents are binary artifacts; preserve their bytes.
+*.pdf binary
+# Keep pinned downloads byte-for-byte, including RCSB's trailing spaces.
+docs/fixtures/*.cif -text whitespace=-blank-at-eol
+
+# Runtime build stamps identify exact bytes, including bundled Mol* shader text.
+plugin/dist/*.html -text whitespace=-blank-at-eol
+plugin/dist/server.mjs -text whitespace=-blank-at-eol

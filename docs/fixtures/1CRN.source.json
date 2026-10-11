@@ -1,0 +1,10 @@
+{
+  "id": "1CRN",
+  "file": "1CRN.cif",
+  "source": "https://files.rcsb.org/download/1CRN.cif",
+  "retrievedAt": "2026-09-07T21:18:06.426284+00:00",
+  "format": "mmcif",
+  "bytes": 69506,
+  "sha256": "23787562c427d7c1abe5420e86d5f1d0a6c7007dec1e8ce85645a6d69c32e8ba",
+  "use": "Public crambin structure for the Stereofold web viewer."
+}

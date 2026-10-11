@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "id": "atp-synthase",
+  "title": "ATP synthase, a rotary motor",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/8H9V"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.molcel.2023.04.029"
+      }
+    ],
+    "sourceSha256": "06f2ab7c97c0d6d47fb81290547a4b5ce50fe78c8c95821b8dc369c9ef7c7c4c",
+    "note": "Human mitochondrial ATP synthase, state 3b, cryo-electron microscopy at 3.02 Angstrom. Three alpha and three beta subunits, a central gamma subunit, an eight-copy c-ring, and subunit a, with ATP bound in the three alpha chains and ADP in two of the beta chains."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Wide reveal",
+      "caption": "Human mitochondrial ATP synthase, entry 8H9V, at 3.02 Angstrom. Sixteen different proteins in one machine: a catalytic head, a membrane motor, and a stalk between them.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Slow orbit",
+      "caption": "One turn around the whole enzyme. The head is three alpha and three beta subunits in alternation; the ring at the base sits in the inner mitochondrial membrane.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Highlight",
+      "caption": "The surface separates the two motors. Protons crossing the membrane at subunit a drive the eight-copy c-ring around, and the ring turns the central stalk.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.1
+        },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "site",
+      "title": "The working part",
+      "caption": "That stalk is the gamma subunit, and it runs up into the catalytic head. This state has ATP modelled in the three alpha chains and ADP in two of the beta chains.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.2
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "element-symbol",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "Step back",
+      "caption": "Back to the whole enzyme. This is one of several rotational states deposited from the same sample.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit"
+      }
+    }
+  ]
+}

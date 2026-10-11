@@ -1,0 +1,171 @@
+data_STEREOFOLD_SYNTHETIC_VOICE_AMBIGUITY
+# Synthetic coordinates for voice target-resolution tests. This is not a real protein.
+_entry.id STEREOFOLD_SYNTHETIC_VOICE_AMBIGUITY
+_struct.title 'Synthetic author-chain A or 8 and author or sequence numbering fixture'
+#
+loop_
+_entity.id
+_entity.type
+_entity.pdbx_description
+1 polymer 'Synthetic fifteen-position polymer'
+#
+loop_
+_entity_poly.entity_id
+_entity_poly.type
+_entity_poly.pdbx_seq_one_letter_code
+_entity_poly.pdbx_seq_one_letter_code_can
+1 'polypeptide(L)' GGGGGGGGGGGGGGG GGGGGGGGGGGGGGG
+#
+loop_
+_entity_poly_seq.entity_id
+_entity_poly_seq.num
+_entity_poly_seq.mon_id
+_entity_poly_seq.hetero
+1 1 GLY n
+1 2 GLY n
+1 3 GLY n
+1 4 GLY n
+1 5 GLY n
+1 6 GLY n
+1 7 GLY n
+1 8 GLY n
+1 9 GLY n
+1 10 GLY n
+1 11 GLY n
+1 12 GLY n
+1 13 GLY n
+1 14 GLY n
+1 15 GLY n
+#
+loop_
+_struct_asym.id
+_struct_asym.entity_id
+X 1
+Y 1
+#
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.mon_id
+_pdbx_poly_seq_scheme.auth_seq_num
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.pdb_strand_id
+_pdbx_poly_seq_scheme.pdb_ins_code
+X 1 1 GLY 15 15 A .
+X 1 2 GLY 16 16 A .
+X 1 3 GLY 17 17 A .
+X 1 4 GLY 18 18 A .
+X 1 5 GLY 19 19 A .
+X 1 6 GLY 20 20 A .
+X 1 7 GLY 21 21 A .
+X 1 8 GLY 22 22 A .
+X 1 9 GLY 23 23 A .
+X 1 10 GLY 24 24 A .
+X 1 11 GLY 25 25 A .
+X 1 12 GLY 26 26 A .
+X 1 13 GLY 27 27 A .
+X 1 14 GLY 28 28 A .
+X 1 15 GLY 50 50 A .
+Y 1 1 GLY 15 15 8 .
+Y 1 2 GLY 16 16 8 .
+Y 1 3 GLY 17 17 8 .
+Y 1 4 GLY 18 18 8 .
+Y 1 5 GLY 19 19 8 .
+Y 1 6 GLY 20 20 8 .
+Y 1 7 GLY 21 21 8 .
+Y 1 8 GLY 22 22 8 .
+Y 1 9 GLY 23 23 8 .
+Y 1 10 GLY 24 24 8 .
+Y 1 11 GLY 25 25 8 .
+Y 1 12 GLY 26 26 8 .
+Y 1 13 GLY 27 27 8 .
+Y 1 14 GLY 28 28 8 .
+Y 1 15 GLY 50 50 8 .
+#
+loop_
+_chem_comp.id
+_chem_comp.type
+_chem_comp.name
+GLY 'peptide linking' 'Synthetic glycine position'
+#
+loop_
+_pdbx_struct_assembly.id
+_pdbx_struct_assembly.details
+1 'Synthetic identity assembly'
+#
+loop_
+_pdbx_struct_assembly_gen.assembly_id
+_pdbx_struct_assembly_gen.oper_expression
+_pdbx_struct_assembly_gen.asym_id_list
+1 '1' X,Y
+#
+loop_
+_pdbx_struct_oper_list.id
+_pdbx_struct_oper_list.type
+_pdbx_struct_oper_list.matrix[1][1]
+_pdbx_struct_oper_list.matrix[1][2]
+_pdbx_struct_oper_list.matrix[1][3]
+_pdbx_struct_oper_list.vector[1]
+_pdbx_struct_oper_list.matrix[2][1]
+_pdbx_struct_oper_list.matrix[2][2]
+_pdbx_struct_oper_list.matrix[2][3]
+_pdbx_struct_oper_list.vector[2]
+_pdbx_struct_oper_list.matrix[3][1]
+_pdbx_struct_oper_list.matrix[3][2]
+_pdbx_struct_oper_list.matrix[3][3]
+_pdbx_struct_oper_list.vector[3]
+1 'identity operation' 1 0 0 0 0 1 0 0 0 0 1 0
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 C CA . GLY X 1 1 ? 0.000 0.000 0.000 1.00 0.00 15 GLY A CA 1
+ATOM 2 C CA . GLY X 1 2 ? 3.800 0.000 0.000 1.00 0.00 16 GLY A CA 1
+ATOM 3 C CA . GLY X 1 3 ? 7.600 0.000 0.000 1.00 0.00 17 GLY A CA 1
+ATOM 4 C CA . GLY X 1 4 ? 11.400 0.000 0.000 1.00 0.00 18 GLY A CA 1
+ATOM 5 C CA . GLY X 1 5 ? 15.200 0.000 0.000 1.00 0.00 19 GLY A CA 1
+ATOM 6 C CA . GLY X 1 6 ? 19.000 0.000 0.000 1.00 0.00 20 GLY A CA 1
+ATOM 7 C CA . GLY X 1 7 ? 22.800 0.000 0.000 1.00 0.00 21 GLY A CA 1
+ATOM 8 C CA . GLY X 1 8 ? 26.600 0.000 0.000 1.00 0.00 22 GLY A CA 1
+ATOM 9 C CA . GLY X 1 9 ? 30.400 0.000 0.000 1.00 0.00 23 GLY A CA 1
+ATOM 10 C CA . GLY X 1 10 ? 34.200 0.000 0.000 1.00 0.00 24 GLY A CA 1
+ATOM 11 C CA . GLY X 1 11 ? 38.000 0.000 0.000 1.00 0.00 25 GLY A CA 1
+ATOM 12 C CA . GLY X 1 12 ? 41.800 0.000 0.000 1.00 0.00 26 GLY A CA 1
+ATOM 13 C CA . GLY X 1 13 ? 45.600 0.000 0.000 1.00 0.00 27 GLY A CA 1
+ATOM 14 C CA . GLY X 1 14 ? 49.400 0.000 0.000 1.00 0.00 28 GLY A CA 1
+ATOM 15 C CA . GLY X 1 15 ? 53.200 0.000 0.000 1.00 0.00 50 GLY A CA 1
+ATOM 16 C CA . GLY Y 1 1 ? 0.000 12.000 0.000 1.00 0.00 15 GLY 8 CA 1
+ATOM 17 C CA . GLY Y 1 2 ? 3.800 12.000 0.000 1.00 0.00 16 GLY 8 CA 1
+ATOM 18 C CA . GLY Y 1 3 ? 7.600 12.000 0.000 1.00 0.00 17 GLY 8 CA 1
+ATOM 19 C CA . GLY Y 1 4 ? 11.400 12.000 0.000 1.00 0.00 18 GLY 8 CA 1
+ATOM 20 C CA . GLY Y 1 5 ? 15.200 12.000 0.000 1.00 0.00 19 GLY 8 CA 1
+ATOM 21 C CA . GLY Y 1 6 ? 19.000 12.000 0.000 1.00 0.00 20 GLY 8 CA 1
+ATOM 22 C CA . GLY Y 1 7 ? 22.800 12.000 0.000 1.00 0.00 21 GLY 8 CA 1
+ATOM 23 C CA . GLY Y 1 8 ? 26.600 12.000 0.000 1.00 0.00 22 GLY 8 CA 1
+ATOM 24 C CA . GLY Y 1 9 ? 30.400 12.000 0.000 1.00 0.00 23 GLY 8 CA 1
+ATOM 25 C CA . GLY Y 1 10 ? 34.200 12.000 0.000 1.00 0.00 24 GLY 8 CA 1
+ATOM 26 C CA . GLY Y 1 11 ? 38.000 12.000 0.000 1.00 0.00 25 GLY 8 CA 1
+ATOM 27 C CA . GLY Y 1 12 ? 41.800 12.000 0.000 1.00 0.00 26 GLY 8 CA 1
+ATOM 28 C CA . GLY Y 1 13 ? 45.600 12.000 0.000 1.00 0.00 27 GLY 8 CA 1
+ATOM 29 C CA . GLY Y 1 14 ? 49.400 12.000 0.000 1.00 0.00 28 GLY 8 CA 1
+ATOM 30 C CA . GLY Y 1 15 ? 53.200 12.000 0.000 1.00 0.00 50 GLY 8 CA 1
+#

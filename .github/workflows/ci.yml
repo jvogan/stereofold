@@ -1,0 +1,88 @@
+# Build, typecheck and test on a hosted Linux runner with no GPU and no
+# headset. The browser checks stay manual: the plugin's Playwright scripts
+# (test:pixel, test:tours, test:demos, test:quest, test:lan,
+# test:claude-science, test:experiences, test:voice, test:detailed-view,
+# test:scene-handoff, xr-gate) and the harness run each need a downloaded
+# Chromium with WebGL, and the Quest checks need the headset.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The oldest Node the plugin supports (plugin/package.json engines).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      # The pnpm version comes from packageManager in package.json.
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+          cache_dependency_path: |
+            pnpm-lock.yaml
+            harness/pnpm-lock.yaml
+
+      - name: Install the workspace from its lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Install the harness from its lockfile
+        run: pnpm --dir harness install --frozen-lockfile
+
+      - name: Build the packages and the plugin
+        id: build
+        run: pnpm run build
+
+      # A fresh clone runs the committed bundles without building, so they
+      # have to be what this source builds.
+      - name: Check the committed build output matches the source
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          changed="$(git status --porcelain -- plugin/dist plugin/THIRD_PARTY_NOTICES.md plugin/skills)"
+          if [ -n "$changed" ]; then
+            printf '%s\n' "$changed"
+            echo "::error::The committed build output differs from the source. Run pnpm run build and commit the result."
+            exit 1
+          fi
+
+      - name: Typecheck the plugin
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm --dir plugin exec tsc --noEmit
+
+      - name: Typecheck the harness
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm --dir harness exec tsc --noEmit
+
+      - name: Smoke-test the built stdio server
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm --dir plugin run smoke
+
+      - name: Test the packages and the plugin
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm run test:workspace
+
+      - name: Test the lab
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm run test:lab
+
+      - name: Test the harness
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm run test:harness

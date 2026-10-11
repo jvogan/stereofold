@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "id": "pdb-9kj6-guided",
+  "title": "9KJ6 SpCas9 ternary-complex structure lesson",
+  "mode": "guided",
+  "provenance": {
+    "sourceRefs": [
+      { "kind": "public", "ref": "https://www.rcsb.org/structure/9KJ6" },
+      { "kind": "publication", "ref": "https://doi.org/10.1038/s41598-025-25367-9" }
+    ],
+    "sourceSha256": "372806b1adb43f55b6ad551752d7cf0e54cd29a5af478912af95859287ce1b59",
+    "note": "The deposited entry contains one engineered SpCas9 variant, one single-guide RNA, and target and non-target DNA strands."
+  },
+  "chapters": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "caption": "Begin with the deposited SpCas9 ternary-complex coordinates.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": { "camera": { "orientation": "front", "zoom": 1.1 }, "lighting": "studio", "layers": [ { "id": "lesson-layer", "name": "Complete molecule", "representation": "cartoon", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true } ] }
+        }
+      ],
+      "immersive": {
+        "appearance": { "representation": "cartoon", "color": "chain-id", "labels": false },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "inspect",
+      "title": "Inspect",
+      "caption": "Inspect the Cas9, guide-RNA, and DNA chains together.",
+      "durationSeconds": 4,
+      "changes": [
+        { "kind": "focus", "target": { "kind": "all" }, "durationSeconds": 2, "easing": "ease_in_out" },
+        { "kind": "scene", "durationSeconds": 2, "easing": "ease_in_out", "transition": "smooth", "scene": { "layers": [ { "id": "lesson-layer", "name": "Complete molecule", "representation": "cartoon", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true } ] } }
+      ],
+      "immersive": {
+        "appearance": { "representation": "cartoon", "color": "element-symbol", "labels": false },
+        "view": "reset-orientation"
+      }
+    },
+    {
+      "id": "surface",
+      "title": "Surface view",
+      "caption": "An opaque surface shows the deposited ternary-complex coordinates.",
+      "durationSeconds": 3,
+      "changes": [
+        { "kind": "scene", "durationSeconds": 3, "easing": "ease_in_out", "transition": "smooth", "scene": { "layers": [ { "id": "lesson-layer", "name": "Complete molecule surface", "representation": "surface", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true } ] } }
+      ],
+      "immersive": {
+        "appearance": { "representation": "molecular-surface", "color": "chain-id", "opacity": 1, "labels": false },
+        "view": "fit"
+      }
+    }
+  ]
+}

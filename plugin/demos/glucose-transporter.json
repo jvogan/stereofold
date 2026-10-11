@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "id": "glucose-transporter",
+  "title": "GLUT1, the glucose transporter in a membrane",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/4PYP"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/nature13306"
+      }
+    ],
+    "sourceSha256": "e9cbfc3bbb978b9cb76c8864cd40c4fc4862863a8e025918b6c19d39d9f93bc1",
+    "note": "Human glucose transporter GLUT1, entry 4PYP, solved by X-ray diffraction at 3.17 Angstrom. One 504-residue chain carrying the N45T and E329Q mutations used to crystallise it, with one nonyl beta-D-glucopyranoside molecule modelled in the central cavity."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "A single helical bundle",
+      "caption": "Human GLUT1, entry 4PYP, at 3.17 Angstrom by X-ray diffraction. One chain of 504 residues, almost entirely alpha-helical, and the protein that moves glucose across the membrane of most human cells.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Built for a membrane",
+      "caption": "One turn shows the bundle. The helices run roughly parallel, the way a protein that sits in a lipid bilayer has to: the outside faces fat, the inside faces water.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "The cavity",
+      "caption": "As a surface it stops being a bundle and becomes a body with a cavity. That cavity is the route a sugar takes from one side of the membrane to the other.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.1
+        },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "site",
+      "title": "What is in it",
+      "caption": "One molecule is modelled in the cavity: nonyl beta-D-glucopyranoside, a glucose head on a nine-carbon tail. This crystal form also carries the N45T and E329Q mutations.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.8
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "element-symbol",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "One state, not a journey",
+      "caption": "Back to the whole transporter. This is one conformation caught in a crystal, an inward-open state, not a recording of a sugar crossing.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 1
+        },
+        "view": "fit"
+      }
+    }
+  ]
+}

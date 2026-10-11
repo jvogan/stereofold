@@ -1,0 +1,58 @@
+cff-version: 1.2.0
+message: "If you use Stereofold in your research, please cite it as below, and cite Mol* as well."
+title: "Stereofold"
+version: 0.1.0
+abstract: >-
+  An MCP plugin, built on Mol*, that lets an AI agent put a protein structure
+  on a Meta Quest or Apple Vision Pro over private Wi-Fi and change it on
+  request. It opens public PDB entries or mmCIF coordinates in an interactive
+  inspector that links sequence positions to 3D selections, and a separate
+  desktop viewer renders slow rock, parallel, cross-eyed, and red-cyan
+  anaglyph stereo. It is built for Claude Code, Claude Science, the Codex CLI,
+  and the Codex app.
+type: software
+authors:
+  - name: "Stereofold Contributors"
+repository-code: "https://github.com/jvogan/stereofold"
+url: "https://jvogan.github.io/stereofold/"
+license: MIT
+keywords:
+  - stereoscopic
+  - molecular visualization
+  - structural biology
+  - Mol*
+  - PDB
+  - mmCIF
+  - WebXR
+  - Model Context Protocol
+references:
+  - type: article
+    title: "Mol* Viewer: modern web app for 3D visualization and analysis of large biomolecular structures"
+    authors:
+      - family-names: Sehnal
+        given-names: David
+      - family-names: Bittrich
+        given-names: Sebastian
+      - family-names: Deshpande
+        given-names: Mandar
+      - family-names: Svobodová
+        given-names: Radka
+      - family-names: Berka
+        given-names: Karel
+      - family-names: Bazgier
+        given-names: Václav
+      - family-names: Velankar
+        given-names: Sameer
+      - family-names: Burley
+        given-names: "Stephen K."
+      - family-names: Koča
+        given-names: Jaroslav
+      - family-names: Rose
+        given-names: "Alexander S."
+    journal: "Nucleic Acids Research"
+    volume: 49
+    issue: W1
+    start: W431
+    end: W437
+    year: 2021
+    doi: "10.1093/nar/gkab314"

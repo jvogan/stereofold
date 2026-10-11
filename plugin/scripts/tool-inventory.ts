@@ -1,0 +1,80 @@
+/**
+ * The shipped tool inventory, split by the scope the smoke must prove.
+ *
+ * Keep the names in sorted order. `smoke.ts` derives both its complete-name
+ * assertion and its app-scope loop from these arrays, so adding a tool cannot
+ * update one check while silently skipping the other.
+ */
+export const APP_ONLY_TOOL_NAMES = Object.freeze([
+  'stereo_structure.acknowledge_experience_step',
+  'stereo_structure.acknowledge_voice_intent',
+  'stereo_structure.acknowledge_voice_playback',
+  'stereo_structure.attach_inspection',
+  'stereo_structure.claim_action',
+  'stereo_structure.claim_voice_intent',
+  'stereo_structure.complete_action',
+  'stereo_structure.complete_inspection',
+  'stereo_structure.detach_inspection',
+  'stereo_structure.get_inspection',
+  'stereo_structure.get_inspection_bytes',
+  'stereo_structure.get_structure',
+  'stereo_structure.poll_detailed_view',
+  'stereo_structure.poll_inspection',
+  'stereo_structure.poll_voice_transcripts',
+  'stereo_structure.push_to_talk',
+  'stereo_structure.push_to_talk_audio',
+  'stereo_structure.report_detailed_selection',
+  'stereo_structure.report_diagnostics',
+  'stereo_structure.report_source_failure',
+  'stereo_structure.resolve_scene_import',
+  'stereo_structure.return_detailed_view',
+  'stereo_structure.submit_headset_view',
+  'stereo_structure.sync_inspection',
+  'stereo_structure.sync_view',
+  'stereo_structure.voice_acknowledgement',
+  'stereo_structure.voice_command',
+] as const);
+
+export const MODEL_VISIBLE_TOOL_NAMES = Object.freeze([
+  'stereo_structure.capture_headset_view',
+  'stereo_structure.continue_session',
+  'stereo_structure.control',
+  'stereo_structure.control_tour',
+  'stereo_structure.emphasize',
+  'stereo_structure.focus_selection',
+  'stereo_structure.get_inspection_state',
+  'stereo_structure.get_readiness',
+  'stereo_structure.get_state',
+  'stereo_structure.grow_structure',
+  'stereo_structure.import_detailed_view',
+  'stereo_structure.inspect',
+  'stereo_structure.inspect_experience',
+  'stereo_structure.inspect_file',
+  'stereo_structure.inspect_lesson',
+  'stereo_structure.inspect_scene',
+  'stereo_structure.list_experiences',
+  'stereo_structure.listen_voice',
+  'stereo_structure.manage_companion',
+  'stereo_structure.manage_inspection_view',
+  'stereo_structure.navigate_experience',
+  'stereo_structure.open',
+  'stereo_structure.open_companion',
+  'stereo_structure.open_detailed_view',
+  'stereo_structure.open_inspector',
+  'stereo_structure.read_headset_browser',
+  'stereo_structure.read_headset_log',
+  'stereo_structure.recall_headset',
+  'stereo_structure.redo_last_change',
+  'stereo_structure.replace_inspection_source',
+  'stereo_structure.say_to_headset',
+  'stereo_structure.set_mode',
+  'stereo_structure.set_motion',
+  'stereo_structure.speak_to_headset',
+  'stereo_structure.switch_assistant',
+  'stereo_structure.undo_last_change',
+  'stereo_structure.update_inspection',
+] as const);
+
+export const REGISTERED_TOOL_NAMES = Object.freeze(
+  [...APP_ONLY_TOOL_NAMES, ...MODEL_VISIBLE_TOOL_NAMES].sort(),
+);

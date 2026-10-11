@@ -1,0 +1,1357 @@
+@font-face{
+  font-family:'Source Sans 3';
+  src:url('./fonts/SourceSans3.ttf') format('truetype');
+  font-weight:200 900;
+  font-display:swap}
+
+@font-face{
+  font-family:'IBM Plex Mono';
+  src:url('./fonts/IBMPlexMono-Regular.ttf') format('truetype');
+  font-weight:400;
+  font-display:swap}
+
+@font-face{
+  font-family:'IBM Plex Mono';
+  src:url('./fonts/IBMPlexMono-SemiBold.ttf') format('truetype');
+  font-weight:600;
+  font-display:swap}
+
+/* UI theme is independent of the saved molecular canvas background. */
+:root{
+  color-scheme:dark;
+  font-family:'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:14px;
+  --text:#e9eef1;
+  --page:#071015;
+  --muted:#9bb2ba;
+  --secondary:#bdcdd2;
+  --teal:#58dcc9;
+  --amber:#f2c47c;
+  --line:#34494f;
+  --surface:#0c1418;
+  --control:#142328;
+  --control-border:#58737c;
+  --hover:#20383e;
+  --hover-border:#8ba8b0;
+  --input:#101d22;
+  --on-accent:#08251f;
+  --accent-hover:#87e8db;
+  --active:#10262b;
+  --scrollbar:#58737c;
+  --notice-background:#493419;
+  --notice-text:#ffe3ac;
+  --notice-border:#a68043;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  color:var(--text);
+  background:var(--page)}
+
+:root[data-theme=light]{
+  color-scheme:light;
+  --text:#192e35;
+  --page:#ffffff;
+  --muted:#506971;
+  --secondary:#344f59;
+  --teal:#00786b;
+  --amber:#835200;
+  --line:#c7d5d9;
+  --surface:#f3f7f8;
+  --control:#ffffff;
+  --control-border:#748b92;
+  --hover:#e3efed;
+  --hover-border:#456970;
+  --input:#ffffff;
+  --on-accent:#ffffff;
+  --accent-hover:#00665b;
+  --active:#e0f2ed;
+  --scrollbar:#748b92;
+  --notice-background:#fff3d9;
+  --notice-text:#654000;
+  --notice-border:#b48022}
+
+@media(prefers-color-scheme:light){
+  :root:not([data-theme=dark]){
+  color-scheme:light;
+  --text:#192e35;
+  --page:#ffffff;
+  --muted:#506971;
+  --secondary:#344f59;
+  --teal:#00786b;
+  --amber:#835200;
+  --line:#c7d5d9;
+  --surface:#f3f7f8;
+  --control:#ffffff;
+  --control-border:#748b92;
+  --hover:#e3efed;
+  --hover-border:#456970;
+  --input:#ffffff;
+  --on-accent:#ffffff;
+  --accent-hover:#00665b;
+  --active:#e0f2ed;
+  --scrollbar:#748b92;
+  --notice-background:#fff3d9;
+  --notice-text:#654000;
+  --notice-border:#b48022}
+}
+
+*{
+  box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--text)}
+button,input,select{
+  font:inherit;
+  color:inherit}
+button,a,input,select{
+  -webkit-tap-highlight-color:transparent}
+button,select{
+  cursor:pointer}
+button{
+  background:var(--control);
+  border:1px solid var(--control-border);
+  padding:7px 10px;
+  border-radius:4px;
+  line-height:1.2;
+  min-height:34px}
+button:hover{
+  background:var(--hover);
+  border-color:var(--hover-border)}
+button:active{
+  transform:translateY(1px)}
+button:disabled{
+  opacity:.38;
+  cursor:default;
+  transform:none}
+button.primary{
+  background:var(--teal);
+  border-color:var(--teal);
+  color:var(--on-accent);
+  font-weight:600}
+button.primary:hover{
+  background:var(--accent-hover)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,canvas:focus-visible{
+  outline:2px solid var(--teal);
+  outline-offset:3px}
+input,select{
+  background:var(--input);
+  border:1px solid var(--control-border);
+  border-radius:4px;
+  min-width:0;
+  padding:7px 9px;
+  line-height:1.25;
+  min-height:36px}
+select{
+  padding-right:22px}
+input::placeholder{
+  color:var(--muted)}
+input:disabled{
+  opacity:.45}
+input[type=color]{
+  padding:3px;
+  cursor:pointer}
+input[type=checkbox]{
+  accent-color:var(--teal);
+  width:18px;
+  height:18px;
+  min-height:18px}
+input[type=range]{
+  accent-color:var(--teal);
+  height:20px;
+  min-height:20px;
+  padding:0;
+  border:0;
+  background:transparent;
+  cursor:pointer}
+input[type=number]{
+  font-family:var(--mono);
+  font-size:12px}
+h1,h2,p{
+  margin:0}
+h1{
+  font-size:32px;
+  font-weight:550;
+  line-height:1.1;
+  letter-spacing:-.035em}
+h2{
+  font-size:18px;
+  font-weight:550;
+  letter-spacing:-.015em}
+a{
+  color:inherit;
+  text-decoration:none}
+i{
+  font-style:normal;
+  color:var(--muted);
+  padding:0 7px}
+[hidden]{
+  display:none!important}
+
+#app{
+  background:var(--page);
+  color:var(--text);
+  height:100dvh;
+  min-height:650px;
+  display:flex;
+  flex-direction:column;
+  padding:0 24px}
+.app-header{
+  height:64px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--line)}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:14px;
+  letter-spacing:.12em;
+  font-weight:650;
+  white-space:nowrap}
+.brand svg{
+  width:29px;
+  height:29px;
+  fill:none;
+  stroke:var(--teal);
+  stroke-width:1.3}
+.brand>span{
+  color:var(--muted);
+  font-size:11px;
+  margin-left:5px;
+  font-weight:450;
+  letter-spacing:.1em}
+.header-actions{
+  display:flex;
+  align-items:center;
+  gap:7px}
+.header-actions button{
+  background:transparent;
+  min-width:65px}
+/* Source Sans 3 has no curved arrows, so the undo and redo glyphs fall back to
+   whatever the browser picks. Ask for the system face on those two buttons. */
+.header-actions [data-action=undo],.header-actions [data-action=redo]{
+  font-family:-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',sans-serif}
+.preview-badge{
+  color:var(--muted);
+  font:10px var(--mono);
+  letter-spacing:.07em;
+  margin-right:12px}
+.scene-heading{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  min-height:98px;
+  gap:20px}
+.eyebrow{
+  font-size:10px;
+  letter-spacing:.16em;
+  color:var(--teal);
+  font-weight:600;
+  line-height:1.4;
+  margin-bottom:8px}
+.source-code{
+  font:12px var(--mono);
+  color:var(--secondary);
+  border:1px solid var(--line);
+  padding:4px 7px;
+  vertical-align:middle;
+  letter-spacing:.02em;
+  margin-left:9px}
+.scene-facts{
+  display:flex;
+  gap:24px;
+  color:var(--muted);
+  font-size:13px}
+.scene-facts b{
+  font-family:var(--mono);
+  font-weight:400;
+  color:var(--text)}
+.workspace{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 302px;
+  grid-template-rows:minmax(270px,1fr) 150px;
+  flex:1;
+  min-height:0;
+  border:1px solid var(--line);
+  border-radius:5px;
+  overflow:hidden}
+.molecular-view{
+  min-width:0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  background:var(--page);
+  grid-column:1;
+  grid-row:1}
+.canvas-tools{
+  height:49px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 16px;
+  border-bottom:1px solid var(--line);
+  flex-shrink:0}
+.canvas-tools>div:last-child{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:6px}
+.canvas-tools button{
+  font-size:12px;
+  min-height:29px;
+  padding:5px 9px;
+  background:var(--control)}
+.view-label{
+  color:var(--muted);
+  font:10px var(--mono);
+  letter-spacing:.08em;
+  display:flex;
+  gap:8px;
+  align-items:center}
+.live-dot,.confirmation-dot{
+  width:6px;
+  height:6px;
+  background:var(--teal);
+  border-radius:50%;
+  display:inline-block;
+  flex-shrink:0}
+.stage{
+  width:100%;
+  flex:1;
+  min-height:0;
+  position:relative;
+  isolation:isolate;
+  background:#071015}
+.stage canvas{
+  width:100%;
+  height:100%;
+  display:block;
+  touch-action:none}
+.canvas-caption{
+  position:absolute;
+  left:18px;
+  right:18px;
+  bottom:13px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  font:10px var(--mono);
+  color:#c3d5db;
+  pointer-events:none}
+.canvas-caption span{
+  background:#071015cc;
+  padding:4px 6px;
+  border-radius:3px}
+.canvas-bottom{
+  height:35px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  font-size:12px;
+  color:var(--muted);
+  flex-shrink:0;
+  border-top:1px solid var(--line)}
+.selection-count{
+  color:var(--amber);
+  white-space:nowrap}
+/* Nothing selected is the resting state, not a warning. */
+.selection-count[data-empty=true]{
+  color:var(--muted)}
+.inspector{
+  grid-column:2;
+  grid-row:1/3;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  background:var(--surface);
+  border-left:1px solid var(--line)}
+.inspector-heading{
+  padding:20px 18px 16px}
+.inspector-heading .eyebrow{
+  font-size:9px;
+  margin-bottom:6px}
+.inspector-heading p{
+  font-size:13px;
+  margin-top:5px;
+  color:var(--muted)}
+.walkthrough{
+  margin:0 16px 14px;
+  padding:12px 0;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+  max-height:330px;
+  overflow:auto}
+.walkthrough p{
+  font-size:13px;
+  line-height:1.4;
+  color:var(--secondary)}
+.walkthrough:not([data-step=idle]){
+  margin-top:16px}
+.walkthrough-intro button{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  color:var(--teal);
+  background:transparent;
+  margin-top:9px}
+.emulation-link{
+  display:block;
+  color:var(--teal);
+  text-decoration:underline;
+  text-underline-offset:3px;
+  margin-top:10px;
+  font-size:13px}
+.walkthrough-intro small{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-top:3px}
+.walkthrough h3{
+  font-size:18px;
+  font-weight:550;
+  margin:0 0 7px}
+.walkthrough-result{
+  color:var(--teal)!important;
+  margin:9px 0}
+.walkthrough-result:empty{
+  display:none}
+.walkthrough-active>.primary{
+  margin-top:10px}
+.walkthrough-exit{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:9px}
+.walkthrough-exit button{
+  font-size:12px;
+  padding:6px 8px;
+  background:transparent}
+.mobile-selection{
+  display:none}
+.tool-tabs{
+  display:grid;
+  grid-template-columns:1.35fr 1fr 1fr;
+  padding:0 16px;
+  border-bottom:1px solid var(--line);
+  gap:3px}
+.tool-tabs button{
+  border:0;
+  border-bottom:2px solid transparent;
+  border-radius:0;
+  background:none;
+  color:var(--muted);
+  font-size:13px;
+  padding:10px 3px;
+  min-height:39px}
+.tool-tabs button[aria-selected=true]{
+  color:var(--teal);
+  border-bottom-color:var(--teal)}
+.tool-content{
+  overflow-y:auto;
+  min-height:0;
+  flex:1;
+  scrollbar-color:var(--scrollbar) transparent;
+  scrollbar-width:thin}
+.tool-content>section{
+  padding:16px 18px 20px}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:14px;
+  font-size:13px;
+  color:var(--secondary)}
+.field input,.field select{
+  width:100%;
+  color:var(--text)}
+.quick-looks{
+  display:flex;
+  gap:6px;
+  margin-bottom:18px}
+.quick-looks button{
+  font-size:12px;
+  flex:1;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:7px 6px}
+.preset-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  display:inline-block}
+.preset-dot.rainbow{
+  background:#d8af72;
+  box-shadow:inset -4px 0 #6ccbc4}
+.preset-dot.ghost{
+  border:1px solid #8cd6cb;
+  background:#58dcc929}
+.color-key{
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.5;
+  min-height:30px;
+  margin-top:-5px;
+  margin-bottom:10px;
+  padding-left:11px;
+  border-left:2px solid var(--teal)}
+.color-key[data-theme=residue-name]{
+  border-color:#d494c6}
+.color-key[data-theme=element-symbol]{
+  border-color:#e8727e}
+.color-field{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:12px 0;
+  font-size:13px;
+  color:var(--secondary)}
+.color-input{
+  display:flex;
+  align-items:center;
+  gap:5px}
+.color-input input[type=color]{
+  width:29px;
+  min-height:30px;
+  height:30px;
+  border:1px solid var(--control-border);
+  background:transparent;
+  border-radius:4px}
+.color-input input[type=text]{
+  font:11px var(--mono);
+  width:78px;
+  min-height:30px;
+  padding:5px 6px;
+  text-transform:uppercase}
+.slider-field{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:5px;
+  margin:16px 0;
+  color:var(--secondary);
+  font-size:13px}
+.slider-field>input[type=range]{
+  grid-column:1/3;
+  width:100%}
+.number-with-unit{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  font:11px var(--mono);
+  color:var(--muted)}
+.number-with-unit input{
+  width:65px;
+  min-height:28px;
+  height:28px;
+  padding:3px 6px}
+.number-with-unit input[data-control="scale"]{
+  width:100px}
+.section-rule{
+  height:1px;
+  background:var(--line);
+  margin:18px 0}
+.section-title{
+  font-size:11px;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--text);
+  margin:2px 0 12px;
+  font-weight:600}
+.switch-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:13px;
+  gap:14px;
+  margin:16px 0 5px}
+.switch-row small{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  margin-top:4px}
+.label-limit{
+  font-size:11px;
+  line-height:1.5;
+  color:var(--amber);
+  margin:12px 0}
+.background-presets{
+  display:flex;
+  gap:6px}
+.background-presets button{
+  flex:1;
+  font-size:11px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  padding:6px 3px;
+  min-height:30px}
+.background-presets button:before{
+  content:'';
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:var(--swatch);
+  border:1px solid var(--control-border)}
+.help{
+  font-size:12px;
+  line-height:1.5;
+  color:var(--muted);
+  margin:8px 0 16px}
+.button-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px}
+.button-grid button{
+  font-size:12px;
+  min-height:37px}
+.full{
+  width:100%;
+  font-size:13px}
+.saved-view{
+  display:flex;
+  width:100%;
+  margin-top:8px;
+  text-align:left;
+  border-left:2px solid var(--teal);
+  word-break:break-word}
+/* Host-library rows reuse the saved-view button and the
+   standard muted help sizing; no new palette or motion. */
+.saved-view-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:2px 8px;
+  align-items:center;
+  margin-top:8px}
+.saved-view-row .saved-view{
+  margin-top:0}
+.saved-view-detail,.saved-view-source{
+  grid-column:1;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--muted);
+  word-break:break-word}
+.saved-view-delete{
+  grid-column:2;
+  grid-row:1;
+  font-size:13px;
+  padding:2px 8px}
+.axes{
+  border:0;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding:0;
+  margin:20px 0 6px}
+.axes legend{
+  font-size:13px;
+  margin-bottom:9px;
+  color:var(--secondary)}
+.axes label{
+  display:flex;
+  align-items:center;
+  gap:4px}
+.axes label>span{
+  font:10px var(--mono);
+  color:var(--teal)}
+.axes input{
+  width:100%;
+  font-size:11px;
+  padding:5px}
+.spatial-note{
+  display:flex;
+  gap:9px;
+  align-items:start;
+  margin-top:18px}
+.spatial-note>.live-dot{
+  margin-top:5px}
+.spatial-note strong{
+  font-size:12px;
+  font-weight:500}
+.spatial-note p{
+  font-size:12px;
+  line-height:1.5;
+  color:var(--muted);
+  margin-top:6px}
+.inspector-foot{
+  border-top:1px solid var(--line);
+  padding:11px 18px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:11px;
+  color:var(--secondary);
+  flex-shrink:0}
+.sequence-panel{
+  grid-column:1;
+  grid-row:2;
+  min-width:0;
+  overflow:hidden;
+  background:var(--surface);
+  border-top:1px solid var(--line);
+  padding:12px 16px 8px;
+  display:flex;
+  flex-direction:column}
+.sequence-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0}
+.sequence-head h2{
+  font-size:14px;
+  white-space:nowrap}
+.chain-label{
+  font:9px var(--mono);
+  color:var(--muted);
+  margin-left:10px}
+.sequence-actions{
+  display:flex;
+  align-items:center;
+  gap:5px}
+.sequence-actions input{
+  width:151px;
+  font-size:12px;
+  min-height:28px;
+  height:28px;
+  padding:5px 7px}
+.sequence-actions select{
+  max-width:106px;
+  font-size:11px;
+  min-height:28px;
+  height:28px;
+  padding:4px 6px}
+.sequence-actions button{
+  font-size:11px;
+  min-height:28px;
+  padding:5px 7px}
+.sequence{
+  display:flex;
+  gap:4px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--scrollbar) transparent;
+  padding:9px 1px 7px;
+  min-height:61px}
+.sequence button{
+  width:34px;
+  min-width:34px;
+  height:42px;
+  min-height:42px;
+  padding:3px;
+  display:flex;
+  align-items:center;
+  flex-direction:column;
+  justify-content:center;
+  border:1px solid var(--control-border);
+  border-radius:3px;
+  background:var(--input);
+  font-family:var(--mono);
+  gap:1px}
+.sequence button b{
+  font-size:15px;
+  font-weight:400;
+  line-height:1.1}
+.sequence button span{
+  font-size:8px;
+  color:var(--muted);
+  line-height:1.2}
+.sequence button[aria-pressed=true]{
+  background:#f2c47c;
+  color:#162329;
+  border-color:#ffe0a8}
+.sequence button[aria-pressed=true] span{
+  color:#3d453a}
+.sequence button[data-coordinate=unresolved]{
+  border-style:dashed}
+.sequence button:focus-visible{
+  outline-offset:0}
+.sequence>p{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:8px}
+.selection-details{
+  font:10px var(--mono);
+  line-height:1.4;
+  color:var(--secondary);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  min-height:17px}
+.app-footer{
+  min-height:37px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  font-size:11px;
+  color:var(--muted);
+  flex-shrink:0}
+.footer-note{
+  white-space:nowrap}
+.status-slot{
+  min-width:0;
+  text-align:right}
+#status{
+  font-size:11px;
+  line-height:1.4;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--secondary)}
+#status[data-error=true]{
+  color:var(--amber)}
+.mobile-tabs{
+  display:none}
+.sheet-toggle,.sheet-close{
+  display:none}
+
+@media(min-width:1600px){
+  #app{
+  padding:0 36px}
+.workspace{
+  grid-template-columns:minmax(0,1fr) 328px}
+.scene-heading{
+  min-height:108px}
+.tool-content>section{
+  padding:20px 22px}
+}
+
+@media(max-width:1150px){
+  #app{
+  padding:0 16px}
+.workspace{
+  grid-template-columns:minmax(0,1fr) 282px;
+  grid-template-rows:minmax(240px,1fr) 171px}
+.sequence-head{
+  align-items:flex-start;
+  flex-direction:column;
+  gap:7px}
+.sequence-actions{
+  width:100%;
+  flex-wrap:wrap}
+.sequence-actions input{
+  flex:1;
+  min-width:100px}
+.scene-facts{
+  gap:14px}
+.canvas-bottom>span:first-child{
+  font-size:10px}
+.canvas-bottom i{
+  padding:0 3px}
+.canvas-caption{
+  font-size:9px}
+}
+
+@media(max-width:760px){
+  #app{
+  height:auto;
+  min-height:100dvh;
+  padding:0 12px}
+.app-header{
+  height:57px}
+.brand{
+  font-size:12px;
+  gap:7px;
+  letter-spacing:.08em}
+.brand svg{
+  width:25px;
+  height:25px}
+.brand>span,.preview-badge{
+  display:none}
+.header-actions button{
+  min-width:35px;
+  padding:6px}
+.header-actions button span{
+  display:none}
+.scene-heading{
+  min-height:100px;
+  align-items:flex-start;
+  flex-direction:column;
+  justify-content:center;
+  gap:12px}
+.scene-heading .eyebrow{
+  font-size:9px;
+  margin-bottom:5px}
+h1{
+  font-size:28px}
+.scene-facts{
+  font-size:11px;
+  gap:13px;
+  flex-wrap:wrap}
+.mobile-tabs{
+  display:flex;
+  gap:6px;
+  margin:8px 0 10px}
+.mobile-tabs button{
+  flex:1;
+  background:transparent}
+.mobile-tabs button[aria-pressed=true]{
+  border-color:var(--teal);
+  color:var(--teal);
+  background:var(--active)}
+.mobile-selection{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:9px 10px;
+  margin-bottom:10px;
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:4px}
+.mobile-selection-summary{
+  color:var(--amber);
+  font-size:12px;
+  line-height:1.4;
+  min-width:0}
+.mobile-selection>div{
+  display:flex;
+  flex-shrink:0;
+  gap:5px}
+.mobile-selection button{
+  font-size:12px;
+  padding:6px}
+.walkthrough{
+  max-height:none}
+.workspace{
+  display:flex;
+  flex-direction:column;
+  overflow:visible;
+  border-radius:4px;
+  min-height:0;
+  flex:none}
+.molecular-view{
+  height:460px;
+  flex:none;
+  border-radius:4px;
+  overflow:hidden}
+.canvas-tools{
+  height:auto;
+  min-height:48px;
+  align-items:flex-start;
+  padding:7px 10px;
+  gap:6px}
+.view-label{
+  font-size:9px;
+  min-width:86px;
+  padding-top:9px;
+  gap:5px}
+.canvas-tools button{
+  font-size:11px;
+  padding:5px 7px}
+.stage{
+  min-height:260px}
+.canvas-bottom{
+  padding:0 10px;
+  height:44px;
+  gap:5px;
+  align-items:flex-start;
+  justify-content:center;
+  flex-direction:column}
+.canvas-bottom>span:first-child{
+  font-size:10px}
+.selection-count{
+  font-size:11px}
+.canvas-caption{
+  left:8px;
+  right:8px;
+  font-size:8px}
+.inspector{
+  border-left:0;
+  border-top:1px solid var(--line);
+  min-height:0;
+  flex:none}
+.inspector-heading{
+  padding:18px 16px 14px}
+.inspector-heading h2{
+  font-size:19px}
+.tool-content{
+  max-height:none;
+  overflow:visible}
+.tool-content>section{
+  padding:16px 18px 22px}
+.tool-tabs button{
+  font-size:14px}
+.color-field,.field,.switch-row,.slider-field{
+  font-size:14px}
+.sequence-panel{
+  padding:16px 12px;
+  min-height:250px;
+  border:0}
+.sequence-head{
+  gap:12px}
+.sequence-actions{
+  gap:7px}
+.sequence-actions input{
+  min-width:120px}
+.sequence-actions button,.sequence-actions select{
+  font-size:12px;
+  min-height:34px;
+  height:34px}
+.sequence{
+  flex-wrap:wrap;
+  overflow:visible;
+  padding:16px 0;
+  gap:6px;
+  min-height:0}
+.sequence button{
+  width:37px;
+  min-width:37px;
+  height:46px}
+.sequence button b{
+  font-size:16px}
+.sequence button span{
+  font-size:9px}
+.selection-details{
+  white-space:normal;
+  font-size:11px;
+  line-height:1.6;
+  overflow:visible}
+.workspace[data-workspace=structure] .sequence-panel{
+  display:none}
+.workspace[data-workspace=sequence] .molecular-view{
+  position:absolute;
+  left:-10000px;
+  width:calc(100vw - 26px);
+  height:460px;
+  visibility:hidden}
+.workspace[data-workspace=sequence] .sequence-panel{
+  order:-1}
+.app-footer{
+  padding:14px 0;
+  align-items:flex-start;
+  flex-direction:column;
+  gap:7px;
+  font-size:10px}
+.footer-note{
+  white-space:normal}
+.status-slot{
+  text-align:left;
+  width:100%}
+#status{
+  white-space:normal;
+  font-size:11px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  button:active{
+  transform:none}
+}
+
+
+@media(max-width:760px){
+  button,input,select,.canvas-tools button,.quick-looks button,.background-presets button,.color-input input[type=text],input[type=number],.number-with-unit input,.axes input{
+  font-size:max(.75rem,12px)}
+#status{
+  font-size:max(.75rem,12px)}
+}
+
+
+/* Card mode. A host card gives this app 600 to 720 px of height and no room to
+   scroll, so every row above the structure is height the structure loses. The
+   chrome here comes to about 100 px, the workspace takes all of the rest, and
+   the side panels move over the stage as sheets the toolbar opens. A browser
+   tab taller than this keeps the desktop layout above. The headset page marks
+   itself with data-companion and is laid out by the panel's own stylesheet. */
+@media(max-height:760px){
+  body:not([data-companion=true]){
+  overflow:hidden}
+body:not([data-companion=true]) #app{
+  height:100dvh;
+  min-height:0;
+  overflow:hidden;
+  padding:0 12px}
+/* A long notice or result is worth reading, but not at the cost of the whole
+   card. Each keeps its own scroll instead of pushing the stage out. */
+body:not([data-companion=true]) .session-notice,
+body:not([data-companion=true]) .session-outcome{
+  flex:none;
+  max-height:32%;
+  overflow:auto}
+body:not([data-companion=true]) .app-header{
+  height:40px;
+  flex:none}
+body:not([data-companion=true]) .brand{
+  font-size:12px;
+  gap:8px;
+  letter-spacing:.08em}
+body:not([data-companion=true]) .brand svg{
+  width:20px;
+  height:20px}
+body:not([data-companion=true]) .brand>span,
+body:not([data-companion=true]) .preview-badge{
+  display:none}
+/* One row: the structure's name, its code, and nothing else. */
+body:not([data-companion=true]) .scene-heading{
+  flex:none;
+  min-height:0;
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:5px 0}
+body:not([data-companion=true]) .scene-heading>div:first-child{
+  flex:1;
+  min-width:0}
+body:not([data-companion=true]) .scene-heading .eyebrow{
+  display:none}
+body:not([data-companion=true]) .scene-heading h1{
+  font-size:17px;
+  letter-spacing:-.02em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis}
+body:not([data-companion=true]) .scene-heading .source-code{
+  font-size:10px;
+  padding:2px 5px;
+  margin-left:7px}
+/* A card 640 px or wider has room for the source facts beside the name. The
+   name gives way first, so the facts never wrap the heading onto a second
+   line. Narrower than that the row belongs to the name alone. */
+body:not([data-companion=true]) .scene-facts{
+  display:flex;
+  flex:none;
+  gap:12px;
+  font-size:11px;
+  white-space:nowrap}
+@media(max-width:639px){
+  body:not([data-companion=true]) .scene-facts{
+  display:none}
+}
+/* A running experience hides the facts in every layout. This sheet loads after
+   inspector.css, so its rule has to outrank the flex rule above. */
+body:not([data-companion=true])[data-experience-active=true] .scene-facts{
+  display:none}
+/* Both are phone patterns. Card mode reaches the same places from the toolbar
+   and from the sequence sheet's own actions. */
+body:not([data-companion=true]) .mobile-tabs,
+body:not([data-companion=true]) .mobile-selection{
+  display:none}
+body:not([data-companion=true]) .workspace{
+  flex:1 1 0;
+  min-height:0;
+  position:relative;
+  overflow:hidden}
+body:not([data-companion=true]) .canvas-tools{
+  height:40px;
+  min-height:0;
+  align-items:center;
+  padding:4px 10px;
+  gap:8px}
+/* One toolbar row at every card width. A card too narrow for all of it scrolls
+   the row sideways rather than growing a second one out of the stage. The row
+   packs from the left: a flex row that ends at the right overflows past its own
+   start edge, where scrolling cannot reach it. */
+body:not([data-companion=true]) .canvas-tools>div:last-child{
+  flex-wrap:nowrap;
+  justify-content:flex-start;
+  min-width:0;
+  overflow-x:auto;
+  scrollbar-width:none}
+body:not([data-companion=true]) .canvas-tools>div:last-child>button{
+  flex:none}
+body:not([data-companion=true]) .canvas-tools button{
+  font-size:11px;
+  min-height:28px;
+  padding:4px 8px;
+  white-space:nowrap}
+body:not([data-companion=true]) .stage{
+  min-height:0}
+body:not([data-companion=true]) .canvas-bottom{
+  height:22px;
+  min-height:0;
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:0 10px;
+  font-size:10px}
+body:not([data-companion=true]) .canvas-caption{
+  bottom:8px;
+  font-size:9px}
+body:not([data-companion=true]) .inspector-heading{
+  padding:12px 16px 10px}
+body:not([data-companion=true]) .inspector-heading h2{
+  font-size:16px}
+body:not([data-companion=true]) .inspector-heading p{
+  display:none}
+/* Keep the lesson's controls inside its box when a short card uses a
+   scrolling inspector. A zero flex basis let them spill over its footer. */
+body:not([data-companion=true]) .tour-player[data-selected=true]{
+  flex:1 0 auto}
+body:not([data-companion=true]) .walkthrough{
+  max-height:none}
+/* One line, and it belongs to the status message. The footer note repeats what
+   the host card already frames. */
+body:not([data-companion=true]) .app-footer{
+  flex:none;
+  min-height:22px;
+  flex-direction:row;
+  align-items:center;
+  gap:10px;
+  padding:0;
+  font-size:10px}
+body:not([data-companion=true]) .footer-note{
+  display:none}
+body:not([data-companion=true]) .status-slot{
+  flex:1;
+  text-align:left}
+body:not([data-companion=true]) #status{
+  font-size:10px;
+  white-space:nowrap}
+/* A viewer that never started says why in full. One ellipsized line is the one
+   case where the footer's height is worth more than the stage's. */
+body:not([data-companion=true])[data-ready=error] .app-footer{
+  align-items:flex-start;
+  padding:6px 0}
+body:not([data-companion=true])[data-ready=error] #status{
+  font-size:11px;
+  line-height:1.4;
+  white-space:normal}
+/* The sequence controls are compacted at every card width: a whole residue row
+   has to read inside the 96 px strip beside the stage, and inside the bottom
+   sheet a narrow card opens over it. The phone sizes for these controls would
+   otherwise apply at 700 px and leave one or two rows visible. */
+body:not([data-companion=true]) .sequence-panel{
+  min-height:0;
+  padding:6px 12px 4px;
+  overflow:auto}
+body:not([data-companion=true]) .sequence-head{
+  flex-direction:row;
+  align-items:center;
+  gap:8px}
+body:not([data-companion=true]) .sequence-head h2{
+  font-size:12px}
+body:not([data-companion=true]) .sequence-actions{
+  flex-wrap:nowrap;
+  gap:5px}
+body:not([data-companion=true]) .sequence-actions input,
+body:not([data-companion=true]) .sequence-actions select,
+body:not([data-companion=true]) .sequence-actions button{
+  height:26px;
+  min-height:26px;
+  font-size:11px;
+  padding:3px 6px}
+body:not([data-companion=true]) .sequence-actions input{
+  width:120px}
+body:not([data-companion=true]) .sequence{
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  min-height:0;
+  gap:3px;
+  padding:5px 1px 3px}
+body:not([data-companion=true]) .sequence button{
+  width:30px;
+  min-width:30px;
+  height:34px;
+  min-height:34px}
+body:not([data-companion=true]) .sequence button b{
+  font-size:13px}
+body:not([data-companion=true]) .sequence button span{
+  font-size:7px}
+body:not([data-companion=true]) .selection-details{
+  min-height:0;
+  font-size:9px}
+}
+
+/* A card wide enough for two columns keeps them. The sequence keeps a strip of
+   its own under the stage, compacted so a whole residue row is readable in it
+   without scrolling. */
+@media(max-height:760px) and (min-width:960px){
+body:not([data-companion=true]) .workspace{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 288px;
+  grid-template-rows:minmax(0,1fr) 96px}
+body:not([data-companion=true]) .inspector{
+  overflow-y:auto}
+}
+
+/* A card too narrow for two columns gives the whole workspace to the structure.
+   The inspector and the sequence ride over it as sheets, opened from the
+   toolbar and closed from their own first control, so no tool is lost and the
+   structure never leaves the frame. */
+@media(max-height:760px) and (max-width:959px){
+  body:not([data-companion=true]) .workspace{
+  display:flex;
+  flex-direction:column;
+  border-radius:5px}
+body:not([data-companion=true]) .workspace .molecular-view{
+  position:static;
+  left:auto;
+  visibility:visible;
+  flex:1 1 0;
+  width:auto;
+  height:auto;
+  min-height:0;
+  border-radius:0}
+body:not([data-companion=true]) .view-label{
+  display:none}
+body:not([data-companion=true]) .canvas-bottom>span:first-child{
+  display:none}
+body:not([data-companion=true]) .sheet-toggle{
+  display:inline-flex;
+  align-items:center;
+  color:var(--teal)}
+body:not([data-companion=true]) .sheet-toggle[aria-expanded=true]{
+  background:var(--active);
+  border-color:var(--teal)}
+body:not([data-companion=true]) .sheet-close{
+  display:block;
+  flex:none;
+  align-self:flex-end;
+  margin:8px 12px 0;
+  min-height:28px;
+  padding:4px 8px;
+  font-size:11px}
+body:not([data-companion=true]) .workspace .inspector,
+body:not([data-companion=true]) .workspace .sequence-panel{
+  position:absolute;
+  z-index:24;
+  display:none;
+  min-height:0;
+  background:var(--surface);
+  box-shadow:0 8px 28px #0006}
+body:not([data-companion=true]) .workspace .inspector{
+  inset:0 0 0 auto;
+  width:min(320px,100%);
+  border:0;
+  border-left:1px solid var(--line);
+  overflow-y:auto}
+body:not([data-companion=true]) .workspace[data-inspector-open=true] .inspector{
+  display:flex}
+body:not([data-companion=true]) .workspace .sequence-panel{
+  inset:auto 0 0 0;
+  max-height:min(58%,230px);
+  padding:0 12px 8px;
+  border:0;
+  border-top:1px solid var(--line);
+  overflow:auto}
+body:not([data-companion=true]) .workspace[data-sequence-open=true] .sequence-panel{
+  display:flex}
+/* A journey narrates the structure while it changes it, so its panel takes the
+   bottom of the frame and leaves the molecule the top. The sequence then opens
+   against the other edge, and the two never cover each other. */
+body:not([data-companion=true]) .workspace[data-journey=true] .inspector{
+  inset:auto 0 0 0;
+  width:auto;
+  max-height:45%;
+  border:0;
+  border-top:1px solid var(--line)}
+body:not([data-companion=true]) .workspace[data-journey=true] .sequence-panel{
+  inset:0 0 auto 0;
+  max-height:min(42%,190px);
+  border:0;
+  border-bottom:1px solid var(--line)}
+}

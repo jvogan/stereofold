@@ -1,0 +1,26 @@
+[
+  {
+    "package": "@fontsource-variable/sora",
+    "version": "5.3.0",
+    "file": "sora.woff2",
+    "bytes": 33652,
+    "license": "OFL-1.1",
+    "source": "https://registry.npmjs.org/@fontsource-variable/sora/-/sora-5.3.0.tgz"
+  },
+  {
+    "package": "@fontsource-variable/source-sans-3",
+    "version": "5.3.0",
+    "file": "source-sans-3.woff2",
+    "bytes": 28740,
+    "license": "OFL-1.1",
+    "source": "https://registry.npmjs.org/@fontsource-variable/source-sans-3/-/source-sans-3-5.3.0.tgz"
+  },
+  {
+    "package": "@fontsource/ibm-plex-mono",
+    "version": "5.3.0",
+    "file": "ibm-plex-mono.woff2",
+    "bytes": 14708,
+    "license": "OFL-1.1",
+    "source": "https://registry.npmjs.org/@fontsource/ibm-plex-mono/-/ibm-plex-mono-5.3.0.tgz"
+  }
+]

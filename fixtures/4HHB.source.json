@@ -1,0 +1,11 @@
+{
+  "id": "4HHB",
+  "file": "4HHB.cif",
+  "source": "https://files.rcsb.org/download/4HHB.cif",
+  "entry": "https://www.rcsb.org/structure/4HHB",
+  "retrievedAt": "2026-09-08T02:21:25.929840+00:00",
+  "bytes": 772198,
+  "sha256": "2d3ca1bf21ddff35af2e2bc5d331720f7bfc46a16c4829ea3ec1b41062d5f5a6",
+  "format": "mmcif",
+  "use": "Public medium fixture for parsing, selection and later browser performance measurements."
+}

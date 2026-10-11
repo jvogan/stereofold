@@ -1,0 +1,31 @@
+node_modules/
+.pnpm-store/
+release/
+
+# The plugin directory is itself a distributable marketplace source. The root
+# workspace ignores dist/ generally, but these bundled runtime files are
+# intentionally Git-eligible so a fresh clone can launch without building.
+!dist/
+dist/*
+!dist/server.mjs
+!dist/scene-socket-relay.mjs
+!dist/headset-host.mjs
+!dist/serve-inspection.mjs
+!dist/viewer.html
+!dist/inspector.html
+!dist/inspector.css
+!dist/inspector-host.js
+!dist/molstar/
+!dist/molstar/*
+# A clone writes plugin/src after plugin/dist, so modification times call the
+# committed bundles stale. The stamp records the source hash they were built
+# from, and the doctor believes it over the clock.
+!dist/build-inputs.json
+
+# scripts/build.ts writes the next dist beside this one and swaps it in; an
+# interrupted build can leave either sibling behind.
+/.dist-next/
+/.dist-previous/
+
+# The Swift speech tool is built on demand; a compiled Mach-O is not source.
+native/applespeech/bin/

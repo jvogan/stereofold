@@ -1,0 +1,7 @@
+[
+  {"seq":1,"at":1000,"kind":"voice-loop","detail":{"stage":"microphone-release","utteranceId":"u1"}},
+  {"seq":2,"at":1200,"kind":"voice-loop","detail":{"stage":"transcript-received","utteranceId":"u1"}},
+  {"seq":3,"at":1800,"kind":"voice-loop","detail":{"stage":"receipt-rendered","commandId":"c1","utteranceId":"u1"}},
+  {"seq":4,"at":2100,"kind":"voice-loop","detail":{"stage":"spoken-confirmation-started","commandId":"c1","utteranceId":"u1"}},
+  {"seq":5,"at":2200,"kind":"voice-loop","detail":{"stage":"microphone-release","utteranceId":"u2"}}
+]

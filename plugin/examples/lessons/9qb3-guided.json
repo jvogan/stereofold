@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "id": "pdb-9qb3-guided",
+  "title": "9QB3 H/ACA RNP lobe structure lesson",
+  "mode": "guided",
+  "provenance": {
+    "sourceRefs": [
+      { "kind": "public", "ref": "https://www.rcsb.org/structure/9QB3" },
+      { "kind": "publication", "ref": "https://doi.org/10.1126/science.adr5817" }
+    ],
+    "sourceSha256": "7341a83a8c37ca4d32da0173b0bcec5bc1d6f742f5bb689dfd5ce734ba86c903",
+    "note": "The deposited entry is the H/ACA RNP lobe portion of the dimer study: four copies each of dyskerin, GAR1, NHP2 and NOP10, two TCAB1 and two hTR chains. It is not a TERT-containing whole holoenzyme."
+  },
+  "chapters": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "caption": "Begin with the deposited H/ACA RNP lobe assembly.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": { "camera": { "orientation": "front", "zoom": 1.1 }, "lighting": "studio", "layers": [ { "id": "lesson-layer", "name": "Complete molecule", "representation": "cartoon", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true } ] }
+        }
+      ],
+      "immersive": {
+        "appearance": { "representation": "cartoon", "color": "chain-id", "labels": false },
+        "view": "fit"
+      }
+    },
+    {
+      "id": "inspect",
+      "title": "Inspect",
+      "caption": "Inspect the deposited lobe object while retaining all chains.",
+      "durationSeconds": 4,
+      "changes": [
+        { "kind": "focus", "target": { "kind": "all" }, "durationSeconds": 2, "easing": "ease_in_out" },
+        { "kind": "scene", "durationSeconds": 2, "easing": "ease_in_out", "transition": "smooth", "scene": { "layers": [ { "id": "lesson-layer", "name": "Complete molecule", "representation": "cartoon", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true } ] } }
+      ],
+      "immersive": {
+        "appearance": { "representation": "cartoon", "color": "element-symbol", "labels": false },
+        "view": "reset-orientation"
+      }
+    },
+    {
+      "id": "surface",
+      "title": "Surface view",
+      "caption": "An opaque surface shows the deposited lobe coordinates.",
+      "durationSeconds": 3,
+      "changes": [
+        { "kind": "scene", "durationSeconds": 3, "easing": "ease_in_out", "transition": "smooth", "scene": { "layers": [ { "id": "lesson-layer", "name": "Complete molecule surface", "representation": "surface", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true } ] } }
+      ],
+      "immersive": {
+        "appearance": { "representation": "molecular-surface", "color": "chain-id", "opacity": 1, "labels": false },
+        "view": "fit"
+      }
+    }
+  ]
+}

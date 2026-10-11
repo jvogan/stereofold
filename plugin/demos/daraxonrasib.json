@@ -1,0 +1,1728 @@
+{
+  "version": 1,
+  "id": "daraxonrasib",
+  "title": "Daraxonrasib: a molecular glue",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/9AX6"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1158/2159-8290.CD-24-0027"
+      }
+    ],
+    "sourceSha256": "631d0ce3ea45229f42f2b063adccdb1a76156a122056eb9dff496c0af17d7c34",
+    "note": "Explore the KRAS G12D, cyclophilin A and daraxonrasib complex from PDB 9AX6, biological assembly 1. Start with the complete assembly, then examine contacts around the ligand. Dashed lines show measured heavy-atom distances; they do not establish hydrogen bonds."
+  },
+  "presentation": {
+    "captionCard": "hidden",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "overview",
+      "title": "The complete assembly",
+      "caption": "Teal KRAS G12D, purple cyclophilin A, and yellow daraxonrasib form a three-component assembly. Coral: switch I; amber: switch II; pink: Asp12.",
+      "durationSeconds": 60,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 20,
+          "transition": "cut",
+          "scene": {
+            "antialiasing": "quality",
+            "annotations": [
+              {
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "bold": true,
+                "color": "#243744",
+                "font": "sans",
+                "fontSize": 32,
+                "id": "title",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.045,
+                  "y": 0.045
+                },
+                "shadow": false,
+                "text": "Daraxonrasib \u00b7 a molecular glue",
+                "kind": "screen",
+                "visible": true
+              },
+              {
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "bold": false,
+                "color": "#657984",
+                "font": "sans",
+                "fontSize": 17,
+                "id": "sub",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.047,
+                  "y": 0.105
+                },
+                "shadow": false,
+                "text": "KRAS G12D + Cyclophilin A \u00b7 PDB 9AX6",
+                "kind": "screen",
+                "visible": true
+              },
+              {
+                "anchor": "bottom_left",
+                "background": "#FFFFFF",
+                "bold": false,
+                "color": "#657984",
+                "font": "sans",
+                "fontSize": 16,
+                "id": "key",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.045,
+                  "y": 0.92
+                },
+                "shadow": false,
+                "text": "Coral: switch I (30\u201338)   \u00b7   Amber: switch II (60\u201376)   \u00b7   Pink: Asp12",
+                "kind": "screen",
+                "visible": true
+              },
+              {
+                "anchor": "bottom_left",
+                "background": "#FFFFFF",
+                "bold": false,
+                "color": "#7B8C93",
+                "font": "sans",
+                "fontSize": 13,
+                "id": "source",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.045,
+                  "y": 0.963
+                },
+                "shadow": false,
+                "text": "Biological assembly 1 \u00b7 1.65 \u00c5 X-ray structure \u00b7 dashed lines: selected atom distances",
+                "kind": "screen",
+                "visible": true
+              },
+              {
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "bold": true,
+                "color": "#25859B",
+                "font": "sans",
+                "fontSize": 25,
+                "id": "kras-label",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.19,
+                  "y": 0.24
+                },
+                "shadow": false,
+                "text": "KRAS G12D",
+                "kind": "screen",
+                "visible": true
+              },
+              {
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "bold": true,
+                "color": "#8756AD",
+                "font": "sans",
+                "fontSize": 25,
+                "id": "cypa-label",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.66,
+                  "y": 0.24
+                },
+                "shadow": false,
+                "text": "Cyclophilin A (CypA)",
+                "kind": "screen",
+                "visible": true
+              },
+              {
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "bold": true,
+                "color": "#9A770B",
+                "font": "sans",
+                "fontSize": 20,
+                "id": "drug-label",
+                "italic": false,
+                "opacity": 1,
+                "padding": 8,
+                "position": {
+                  "x": 0.45,
+                  "y": 0.31
+                },
+                "shadow": false,
+                "text": "Daraxonrasib",
+                "kind": "screen",
+                "visible": true
+              }
+            ],
+            "background": "#FFFFFF",
+            "camera": {
+              "clippingRadius": 100,
+              "fovDegrees": 38,
+              "mode": "perspective",
+              "nearClip": 1,
+              "orientation": "current",
+              "position": [
+                21.863847,
+                -21.841459,
+                157.34904
+              ],
+              "target": [
+                21.863847,
+                -21.841459,
+                -10.656901
+              ],
+              "up": [
+                1,
+                0,
+                0
+              ]
+            },
+            "clearExisting": true,
+            "density": [],
+            "layers": [
+              {
+                "colorOverrides": [
+                  {
+                    "color": {
+                      "kind": "uniform",
+                      "value": "#D98370"
+                    },
+                    "target": {
+                      "chain": "A",
+                      "end": 38,
+                      "kind": "residue_range",
+                      "start": 30,
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  },
+                  {
+                    "color": {
+                      "kind": "uniform",
+                      "value": "#D6AE45"
+                    },
+                    "target": {
+                      "chain": "A",
+                      "end": 76,
+                      "kind": "residue_range",
+                      "start": 60,
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  },
+                  {
+                    "color": {
+                      "kind": "uniform",
+                      "value": "#E580AB"
+                    },
+                    "target": {
+                      "chain": "A",
+                      "end": 12,
+                      "kind": "residue_range",
+                      "start": 12,
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  }
+                ],
+                "color": {
+                  "kind": "uniform",
+                  "value": "#25859B"
+                },
+                "labels": false,
+                "opacity": 1,
+                "representation": "cartoon",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "protein",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "chain": "A",
+                      "kind": "chain",
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "overview-layer-1",
+                "name": "The complete assembly cartoon 1"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#8756AD"
+                },
+                "labels": false,
+                "opacity": 1,
+                "representation": "cartoon",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "protein",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "chain": "D",
+                      "kind": "chain",
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "overview-layer-2",
+                "name": "The complete assembly cartoon 2"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#60B4C1"
+                },
+                "labels": false,
+                "opacity": 0.14,
+                "representation": "gaussian_surface",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "protein",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "chain": "A",
+                      "kind": "chain",
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "overview-layer-3",
+                "name": "The complete assembly gaussian_surface 3"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#B59BCF"
+                },
+                "labels": false,
+                "opacity": 0.14,
+                "representation": "gaussian_surface",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "protein",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "chain": "D",
+                      "kind": "chain",
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "overview-layer-4",
+                "name": "The complete assembly gaussian_surface 4"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#D6AD20"
+                },
+                "labels": false,
+                "opacity": 1,
+                "representation": "ball_and_stick",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "ligand",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "kind": "property",
+                      "operator": "eq",
+                      "property": "compId",
+                      "value": "A1AHB"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "overview-layer-5",
+                "name": "The complete assembly ball_and_stick 5"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#89969D"
+                },
+                "labels": false,
+                "opacity": 1,
+                "representation": "sticks",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "ligand",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "kind": "property",
+                      "operator": "eq",
+                      "property": "compId",
+                      "value": "GNP"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "overview-layer-6",
+                "name": "The complete assembly sticks 6"
+              }
+            ],
+            "lighting": "studio",
+            "measurements": [
+              {
+                "from": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|5352"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                },
+                "resolvedAtomIds": [
+                  "daraxonrasib-complex|ASM-1|5352",
+                  "daraxonrasib-complex|ASM-1|521"
+                ],
+                "to": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|521"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                }
+              },
+              {
+                "from": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|5366"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                },
+                "resolvedAtomIds": [
+                  "daraxonrasib-complex|ASM-1|5366",
+                  "daraxonrasib-complex|ASM-1|3496"
+                ],
+                "to": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|3496"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                }
+              }
+            ],
+            "scientificAnnotations": {
+              "quality": [],
+              "symmetry": [],
+              "guides": []
+            },
+            "viewSettings": {
+              "background": {
+                "transparent": false,
+                "style": "solid",
+                "firstColor": "#DDDDDD",
+                "secondColor": "#EEEEEE",
+                "ratio": 0.5,
+                "coverage": "viewport",
+                "image": null,
+                "skybox": null
+              },
+              "cameraHelper": {
+                "enabled": false,
+                "alpha": 0.51,
+                "scale": 0.33,
+                "colorX": "#FF0000",
+                "colorY": "#008000",
+                "colorZ": "#0000FF",
+                "location": "bottom-left",
+                "locationOffsetX": 0,
+                "locationOffsetY": 0,
+                "originColor": "#808080",
+                "radiusScale": 0.075,
+                "showPlanes": true,
+                "planeColorXY": "#808080",
+                "planeColorXZ": "#808080",
+                "planeColorYZ": "#808080",
+                "showLabels": false,
+                "labelX": "X",
+                "labelY": "Y",
+                "labelZ": "Z",
+                "labelColorX": "#808080",
+                "labelColorY": "#808080",
+                "labelColorZ": "#808080",
+                "labelOpacity": 1,
+                "labelScale": 0.25
+              },
+              "stereo": {
+                "enabled": false,
+                "eyeSeparation": 0.062,
+                "focus": 10
+              },
+              "occlusion": {
+                "enabled": true,
+                "samples": 32,
+                "radius": 5,
+                "bias": 0.8,
+                "blurKernelSize": 15,
+                "blurDepthBias": 0.5,
+                "resolutionScale": 1,
+                "color": "#000000",
+                "transparentThreshold": 0.4,
+                "multiScale": {
+                  "enabled": false,
+                  "levels": [
+                    {
+                      "radius": 2,
+                      "bias": 1
+                    },
+                    {
+                      "radius": 5,
+                      "bias": 1
+                    },
+                    {
+                      "radius": 8,
+                      "bias": 1
+                    },
+                    {
+                      "radius": 11,
+                      "bias": 1
+                    }
+                  ],
+                  "nearThreshold": 10,
+                  "farThreshold": 1500
+                }
+              },
+              "shadow": {
+                "enabled": false,
+                "steps": 1,
+                "maxDistance": 3,
+                "tolerance": 1
+              },
+              "outline": {
+                "enabled": true,
+                "scale": 1,
+                "threshold": 0.33,
+                "color": "#36516A",
+                "includeTransparent": false
+              },
+              "depthOfField": {
+                "enabled": false,
+                "blurSize": 9,
+                "blurSpread": 1,
+                "inFocus": 0,
+                "focusSize": 20,
+                "center": "camera-target",
+                "mode": "plane"
+              },
+              "fog": {
+                "enabled": false,
+                "intensity": 15
+              },
+              "clipping": {
+                "far": true
+              },
+              "illumination": {
+                "mode": "off"
+              },
+              "multiSample": {
+                "mode": "temporal",
+                "sampleLevel": 2,
+                "reduceFlicker": true,
+                "reuseOcclusion": true
+              },
+              "hiZ": {
+                "enabled": false,
+                "maxFrameLag": 10,
+                "minLevel": 3
+              },
+              "sharpening": {
+                "enabled": false,
+                "sharpness": 0.5,
+                "denoise": true
+              },
+              "bloom": {
+                "enabled": true,
+                "strength": 1,
+                "radius": 0,
+                "threshold": 0,
+                "mode": "emissive",
+                "transparency": true
+              },
+              "resolution": {
+                "mode": "auto",
+                "pixelScale": 1,
+                "transparency": "wboit"
+              }
+            }
+          }
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 20
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 20
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#FFFFFF",
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 0.02,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0,
+          "uniformColor": "#FFFFFF"
+        },
+        "placement": {
+          "rotation": [
+            0,
+            0,
+            90
+          ],
+          "scale": 1
+        },
+        "motion": "hold",
+        "figure": {
+          "layers": [
+            {
+              "id": "kras",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 1,
+                  "to": 188
+                }
+              },
+              "representation": "cartoon",
+              "color": "#25859B",
+              "opacity": 1,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 30,
+                      "to": 38
+                    }
+                  },
+                  "color": "#D98370"
+                },
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 60,
+                      "to": 76
+                    }
+                  },
+                  "color": "#D6AE45"
+                },
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 12,
+                      "to": 12
+                    }
+                  },
+                  "color": "#E580AB"
+                }
+              ]
+            },
+            {
+              "id": "cypa",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 1,
+                  "to": 165
+                }
+              },
+              "representation": "cartoon",
+              "color": "#8756AD",
+              "opacity": 1
+            },
+            {
+              "id": "drug",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "representation": "ball-and-stick",
+              "color": "#D6AD20",
+              "opacity": 1,
+              "sizeFactor": 0.23
+            },
+            {
+              "id": "nucleotide",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "GNP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#89969D",
+              "opacity": 1,
+              "sizeFactor": 0.16
+            },
+            {
+              "id": "kras-envelope",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 1,
+                  "to": 188
+                }
+              },
+              "representation": "gaussian-surface",
+              "color": "#60B4C1",
+              "opacity": 0.14
+            },
+            {
+              "id": "cypa-envelope",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 1,
+                  "to": 165
+                }
+              },
+              "representation": "gaussian-surface",
+              "color": "#B59BCF",
+              "opacity": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "kras-name",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 1,
+                  "to": 188
+                }
+              },
+              "text": "KRAS G12D",
+              "color": "#25859B",
+              "offsetX": -3,
+              "offsetY": 14,
+              "sizeFactor": 1.5
+            },
+            {
+              "id": "cypa-name",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 1,
+                  "to": 165
+                }
+              },
+              "text": "Cyclophilin A",
+              "color": "#8756AD",
+              "offsetX": 3,
+              "offsetY": 14,
+              "sizeFactor": 1.5
+            },
+            {
+              "id": "drug-name",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "text": "Daraxonrasib",
+              "color": "#9E7B13",
+              "offsetX": 0,
+              "offsetY": -9,
+              "sizeFactor": 1.2
+            }
+          ],
+          "distances": [
+            {
+              "id": "kras-contact",
+              "a": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "b": {
+                "chain": "A",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                },
+                "componentId": "TYR",
+                "atomName": "CE2"
+              },
+              "color": "#599C7D",
+              "expectedAngstrom": 3.37654,
+              "offsetY": 2.5,
+              "sizeFactor": 0.65,
+              "showText": false
+            },
+            {
+              "id": "cypa-contact",
+              "a": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "O2"
+              },
+              "b": {
+                "chain": "D",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "N"
+              },
+              "color": "#599C7D",
+              "expectedAngstrom": 2.89972,
+              "offsetY": -2.5,
+              "sizeFactor": 0.65,
+              "showText": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "interface",
+      "title": "Ligand contact close-up",
+      "caption": "Daraxonrasib contacts KRAS Tyr64 at 3.38 \u00c5 and cyclophilin A Asn102 backbone N at 2.90 \u00c5. Coral dots identify the measured atoms; dashed lines show their separations.",
+      "durationSeconds": 60,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 20,
+          "transition": "cut",
+          "scene": {
+            "antialiasing": "quality",
+            "annotations": [
+              {
+                "id": "title",
+                "text": "Daraxonrasib \u00b7 selected atom contacts",
+                "kind": "screen",
+                "position": {
+                  "x": 0.04,
+                  "y": 0.04
+                },
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "color": "#243744",
+                "fontSize": 28,
+                "bold": true,
+                "shadow": false,
+                "visible": true
+              },
+              {
+                "id": "sub",
+                "text": "Real distances from PDB 9AX6 \u00b7 close contact does not alone establish a hydrogen bond",
+                "kind": "screen",
+                "position": {
+                  "x": 0.04,
+                  "y": 0.105
+                },
+                "anchor": "top_left",
+                "background": "#FFFFFF",
+                "color": "#657984",
+                "fontSize": 16,
+                "shadow": false,
+                "visible": true
+              },
+              {
+                "id": "tyr",
+                "text": "KRAS Tyr64",
+                "kind": "selection",
+                "target": {
+                  "kind": "expression",
+                  "expression": {
+                    "kind": "residue_range",
+                    "objectId": "daraxonrasib-complex",
+                    "chain": "A",
+                    "start": 64,
+                    "end": 64
+                  }
+                },
+                "background": "#FFFFFF",
+                "color": "#25859B",
+                "fontSize": 18,
+                "shadow": false,
+                "visible": true
+              },
+              {
+                "id": "asn",
+                "text": "CypA Asn102",
+                "kind": "selection",
+                "target": {
+                  "kind": "expression",
+                  "expression": {
+                    "kind": "residue_range",
+                    "objectId": "daraxonrasib-complex",
+                    "chain": "D",
+                    "start": 102,
+                    "end": 102
+                  }
+                },
+                "background": "#FFFFFF",
+                "color": "#8756AD",
+                "fontSize": 18,
+                "shadow": false,
+                "visible": true
+              }
+            ],
+            "background": "#FFFFFF",
+            "camera": {
+              "focus": {
+                "kind": "expression",
+                "expression": {
+                  "kind": "allOf",
+                  "expressions": [
+                    {
+                      "kind": "component",
+                      "component": "ligand",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "kind": "property",
+                      "property": "compId",
+                      "operator": "eq",
+                      "value": "A1AHB"
+                    }
+                  ]
+                }
+              },
+              "orientation": "current",
+              "zoom": 1.15,
+              "clippingRadius": 100,
+              "fovDegrees": 35,
+              "mode": "orthographic",
+              "up": [
+                1,
+                0,
+                0
+              ]
+            },
+            "clearExisting": true,
+            "density": [],
+            "layers": [
+              {
+                "colorOverrides": [
+                  {
+                    "color": {
+                      "kind": "uniform",
+                      "value": "#D98370"
+                    },
+                    "target": {
+                      "chain": "A",
+                      "end": 38,
+                      "kind": "residue_range",
+                      "start": 30,
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  },
+                  {
+                    "color": {
+                      "kind": "uniform",
+                      "value": "#D6AE45"
+                    },
+                    "target": {
+                      "chain": "A",
+                      "end": 76,
+                      "kind": "residue_range",
+                      "start": 60,
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  },
+                  {
+                    "color": {
+                      "kind": "uniform",
+                      "value": "#E580AB"
+                    },
+                    "target": {
+                      "chain": "A",
+                      "end": 12,
+                      "kind": "residue_range",
+                      "start": 12,
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  }
+                ],
+                "color": {
+                  "kind": "uniform",
+                  "value": "#25859B"
+                },
+                "labels": false,
+                "opacity": 0.14,
+                "representation": "cartoon",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "protein",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "chain": "A",
+                      "kind": "chain",
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "interface-layer-1",
+                "name": "Ligand contact close-up cartoon 1"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#8756AD"
+                },
+                "labels": false,
+                "opacity": 0.14,
+                "representation": "cartoon",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "protein",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "chain": "D",
+                      "kind": "chain",
+                      "objectId": "daraxonrasib-complex"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "interface-layer-2",
+                "name": "Ligand contact close-up cartoon 2"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#D6AD20"
+                },
+                "labels": false,
+                "opacity": 1,
+                "representation": "ball_and_stick",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "ligand",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "kind": "property",
+                      "operator": "eq",
+                      "property": "compId",
+                      "value": "A1AHB"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "interface-layer-3",
+                "name": "Ligand contact close-up ball_and_stick 3"
+              },
+              {
+                "color": {
+                  "kind": "uniform",
+                  "value": "#89969D"
+                },
+                "labels": false,
+                "opacity": 1,
+                "representation": "sticks",
+                "target": {
+                  "expressions": [
+                    {
+                      "component": "ligand",
+                      "kind": "component",
+                      "objectId": "daraxonrasib-complex"
+                    },
+                    {
+                      "kind": "property",
+                      "operator": "eq",
+                      "property": "compId",
+                      "value": "GNP"
+                    }
+                  ],
+                  "kind": "allOf"
+                },
+                "visible": true,
+                "id": "interface-layer-4",
+                "name": "Ligand contact close-up sticks 4"
+              },
+              {
+                "target": {
+                  "kind": "residue_range",
+                  "objectId": "daraxonrasib-complex",
+                  "chain": "A",
+                  "start": 64,
+                  "end": 64
+                },
+                "representation": "ball_and_stick",
+                "color": {
+                  "kind": "uniform",
+                  "value": "#25859B"
+                },
+                "opacity": 1,
+                "id": "interface-layer-5",
+                "name": "Ligand contact close-up ball_and_stick 5"
+              },
+              {
+                "target": {
+                  "kind": "residue_range",
+                  "objectId": "daraxonrasib-complex",
+                  "chain": "D",
+                  "start": 102,
+                  "end": 102
+                },
+                "representation": "ball_and_stick",
+                "color": {
+                  "kind": "uniform",
+                  "value": "#8756AD"
+                },
+                "opacity": 1,
+                "id": "interface-layer-6",
+                "name": "Ligand contact close-up ball_and_stick 6"
+              },
+              {
+                "target": {
+                  "kind": "atom_ids",
+                  "atomIds": [
+                    "daraxonrasib-complex|ASM-1|5352",
+                    "daraxonrasib-complex|ASM-1|521",
+                    "daraxonrasib-complex|ASM-1|5366",
+                    "daraxonrasib-complex|ASM-1|3496"
+                  ]
+                },
+                "representation": "spheres",
+                "color": {
+                  "kind": "uniform",
+                  "value": "#F1826A"
+                },
+                "representationOptions": {
+                  "sizeFactor": 0.3
+                },
+                "opacity": 1,
+                "id": "interface-layer-7",
+                "name": "Ligand contact close-up spheres 7"
+              }
+            ],
+            "lighting": "studio",
+            "measurements": [
+              {
+                "from": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|5352"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                },
+                "resolvedAtomIds": [
+                  "daraxonrasib-complex|ASM-1|5352",
+                  "daraxonrasib-complex|ASM-1|521"
+                ],
+                "to": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|521"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                }
+              },
+              {
+                "from": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|5366"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                },
+                "resolvedAtomIds": [
+                  "daraxonrasib-complex|ASM-1|5366",
+                  "daraxonrasib-complex|ASM-1|3496"
+                ],
+                "to": {
+                  "expression": {
+                    "atomIds": [
+                      "daraxonrasib-complex|ASM-1|3496"
+                    ],
+                    "kind": "atom_ids"
+                  },
+                  "kind": "expression"
+                }
+              }
+            ],
+            "scientificAnnotations": {
+              "quality": [],
+              "symmetry": [],
+              "guides": []
+            },
+            "viewSettings": {
+              "background": {
+                "transparent": false,
+                "style": "solid",
+                "firstColor": "#DDDDDD",
+                "secondColor": "#EEEEEE",
+                "ratio": 0.5,
+                "coverage": "viewport",
+                "image": null,
+                "skybox": null
+              },
+              "cameraHelper": {
+                "enabled": false,
+                "alpha": 0.51,
+                "scale": 0.33,
+                "colorX": "#FF0000",
+                "colorY": "#008000",
+                "colorZ": "#0000FF",
+                "location": "bottom-left",
+                "locationOffsetX": 0,
+                "locationOffsetY": 0,
+                "originColor": "#808080",
+                "radiusScale": 0.075,
+                "showPlanes": true,
+                "planeColorXY": "#808080",
+                "planeColorXZ": "#808080",
+                "planeColorYZ": "#808080",
+                "showLabels": false,
+                "labelX": "X",
+                "labelY": "Y",
+                "labelZ": "Z",
+                "labelColorX": "#808080",
+                "labelColorY": "#808080",
+                "labelColorZ": "#808080",
+                "labelOpacity": 1,
+                "labelScale": 0.25
+              },
+              "stereo": {
+                "enabled": false,
+                "eyeSeparation": 0.062,
+                "focus": 10
+              },
+              "occlusion": {
+                "enabled": true,
+                "samples": 32,
+                "radius": 5,
+                "bias": 0.8,
+                "blurKernelSize": 15,
+                "blurDepthBias": 0.5,
+                "resolutionScale": 1,
+                "color": "#000000",
+                "transparentThreshold": 0.4,
+                "multiScale": {
+                  "enabled": false,
+                  "levels": [
+                    {
+                      "radius": 2,
+                      "bias": 1
+                    },
+                    {
+                      "radius": 5,
+                      "bias": 1
+                    },
+                    {
+                      "radius": 8,
+                      "bias": 1
+                    },
+                    {
+                      "radius": 11,
+                      "bias": 1
+                    }
+                  ],
+                  "nearThreshold": 10,
+                  "farThreshold": 1500
+                }
+              },
+              "shadow": {
+                "enabled": false,
+                "steps": 1,
+                "maxDistance": 3,
+                "tolerance": 1
+              },
+              "outline": {
+                "enabled": true,
+                "scale": 1,
+                "threshold": 0.33,
+                "color": "#36516A",
+                "includeTransparent": false
+              },
+              "depthOfField": {
+                "enabled": false,
+                "blurSize": 9,
+                "blurSpread": 1,
+                "inFocus": 0,
+                "focusSize": 20,
+                "center": "camera-target",
+                "mode": "plane"
+              },
+              "fog": {
+                "enabled": false,
+                "intensity": 15
+              },
+              "clipping": {
+                "far": true
+              },
+              "illumination": {
+                "mode": "off"
+              },
+              "multiSample": {
+                "mode": "temporal",
+                "sampleLevel": 2,
+                "reduceFlicker": true,
+                "reuseOcclusion": true
+              },
+              "hiZ": {
+                "enabled": false,
+                "maxFrameLag": 10,
+                "minLevel": 3
+              },
+              "sharpening": {
+                "enabled": false,
+                "sharpness": 0.5,
+                "denoise": true
+              },
+              "bloom": {
+                "enabled": true,
+                "strength": 1,
+                "radius": 0,
+                "threshold": 0,
+                "mode": "emissive",
+                "transparency": true
+              },
+              "resolution": {
+                "mode": "auto",
+                "pixelScale": 1,
+                "transparency": "wboit"
+              }
+            }
+          }
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 20
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 20
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#FFFFFF",
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 0.02,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0,
+          "uniformColor": "#FFFFFF"
+        },
+        "placement": {
+          "rotation": [
+            0,
+            0,
+            90
+          ],
+          "scale": 1
+        },
+        "motion": "hold",
+        "figure": {
+          "layers": [
+            {
+              "id": "kras",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 1,
+                  "to": 188
+                }
+              },
+              "representation": "cartoon",
+              "color": "#25859B",
+              "opacity": 0.14,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 30,
+                      "to": 38
+                    }
+                  },
+                  "color": "#D98370"
+                },
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 60,
+                      "to": 76
+                    }
+                  },
+                  "color": "#D6AE45"
+                },
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 12,
+                      "to": 12
+                    }
+                  },
+                  "color": "#E580AB"
+                }
+              ],
+              "context": true
+            },
+            {
+              "id": "cypa",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 1,
+                  "to": 165
+                }
+              },
+              "representation": "cartoon",
+              "color": "#8756AD",
+              "opacity": 0.14,
+              "context": true
+            },
+            {
+              "id": "drug",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "representation": "ball-and-stick",
+              "color": "#D6AD20",
+              "opacity": 1,
+              "sizeFactor": 0.23
+            },
+            {
+              "id": "nucleotide",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "GNP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#89969D",
+              "opacity": 1,
+              "sizeFactor": 0.16
+            },
+            {
+              "id": "tyr64",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#25859B",
+              "opacity": 1,
+              "sizeFactor": 0.22
+            },
+            {
+              "id": "asn102",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#8756AD",
+              "opacity": 1,
+              "sizeFactor": 0.22
+            },
+            {
+              "id": "contact-dot-0",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "representation": "spacefill",
+              "color": "#F1826A",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            },
+            {
+              "id": "contact-dot-1",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                },
+                "componentId": "TYR",
+                "atomName": "CE2"
+              },
+              "representation": "spacefill",
+              "color": "#F1826A",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            },
+            {
+              "id": "contact-dot-2",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "O2"
+              },
+              "representation": "spacefill",
+              "color": "#F1826A",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            },
+            {
+              "id": "contact-dot-3",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "N"
+              },
+              "representation": "spacefill",
+              "color": "#F1826A",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            }
+          ],
+          "labels": [
+            {
+              "id": "tyr64-name",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                }
+              },
+              "text": "Tyr64",
+              "color": "#25859B",
+              "offsetX": -6,
+              "offsetY": 7,
+              "sizeFactor": 0.85
+            },
+            {
+              "id": "asn102-name",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                }
+              },
+              "text": "Asn102",
+              "color": "#8756AD",
+              "offsetX": 7,
+              "offsetY": 8,
+              "sizeFactor": 0.85
+            },
+            {
+              "id": "drug-name",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "text": "Daraxonrasib",
+              "color": "#9E7B13",
+              "offsetX": 0,
+              "offsetY": -8,
+              "sizeFactor": 0.9
+            }
+          ],
+          "distances": [
+            {
+              "id": "kras-contact",
+              "a": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "b": {
+                "chain": "A",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                },
+                "componentId": "TYR",
+                "atomName": "CE2"
+              },
+              "color": "#599C7D",
+              "expectedAngstrom": 3.37654,
+              "offsetY": 2,
+              "sizeFactor": 0.55,
+              "offsetX": -2
+            },
+            {
+              "id": "cypa-contact",
+              "a": {
+                "chain": "D",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "O2"
+              },
+              "b": {
+                "chain": "D",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "N"
+              },
+              "color": "#599C7D",
+              "expectedAngstrom": 2.89972,
+              "offsetY": -2,
+              "sizeFactor": 0.55,
+              "offsetX": 1
+            }
+          ],
+          "focus": [
+            {
+              "chain": "D",
+              "residues": {
+                "from": 201,
+                "to": 201
+              },
+              "componentId": "A1AHB"
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 64,
+                "to": 64
+              }
+            },
+            {
+              "chain": "D",
+              "residues": {
+                "from": 102,
+                "to": 102
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

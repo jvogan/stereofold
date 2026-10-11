@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "stereo_structure": {
+      "command": "node",
+      "args": ["./dist/server.mjs"],
+      "cwd": "."
+    }
+  }
+}

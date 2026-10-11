@@ -1,0 +1,303 @@
+{
+  "provenance": "Device-run Row A/B state placements and selected plate-standoff records. Raw eye matrices and molecular buffers were not exported. Tests triangulate the rounded stereo silhouette bounds with a synthetic 64 mm baseline; molecular radius is normalized to 1 and cameraScale inferred from the recorded 3.6 m across / placement scale. No device render is claimed.",
+  "rows": [
+    {
+      "row": "A",
+      "preTourPlacement": {
+        "translation": [
+          1.4800915394658063,
+          0.4574827711398091,
+          1.6283568416624186
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1.9824482982278422
+      },
+      "donePlacement": {
+        "translation": [
+          -0.20673690854568416,
+          0.46597095369304276,
+          1.6491699213154716
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1.9824482982278422
+      },
+      "cameraPose": {
+        "mode": "perspective",
+        "fov": 0.7853981633974483,
+        "position": [
+          10.850736321784783,
+          13.685982772728602,
+          139.79765498771533
+        ],
+        "target": [
+          10.850736321784783,
+          13.685982772728602,
+          39.639246473675236
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ]
+      },
+      "metersAcross": 3.6,
+      "records": {
+        "entry": {
+          "seq": 1374,
+          "at": 1789426732300,
+          "kind": "plate-standoff",
+          "detail": {
+            "phase": "entry",
+            "clearanceLeft": -0.1579,
+            "clearanceRight": -0.1292,
+            "lit": true,
+            "units": "tangent",
+            "eyes": [
+              {
+                "eye": "left",
+                "lit": true,
+                "clearance": -0.1579,
+                "subjectX": 0.0193,
+                "subjectY": 0.116,
+                "subjectHalfWidth": 0.3904,
+                "subjectHalfHeight": 0.3469,
+                "menuX": -0.4673,
+                "menuY": -0.207,
+                "menuHalfWidth": 0.2541,
+                "menuHalfHeight": 0.4482
+              },
+              {
+                "eye": "right",
+                "lit": true,
+                "clearance": -0.1292,
+                "subjectX": -0.0017,
+                "subjectY": 0.116,
+                "subjectHalfWidth": 0.3886,
+                "subjectHalfHeight": 0.3469,
+                "menuX": -0.5205,
+                "menuY": -0.207,
+                "menuHalfWidth": 0.2594,
+                "menuHalfHeight": 0.4482
+              }
+            ],
+            "frame": {
+              "menu": {
+                "clear": false,
+                "outboard": 3.5,
+                "rect": {
+                  "left": -0.8312102608001407,
+                  "right": -0.2638277047436335,
+                  "bottom": -0.6526096174023699,
+                  "top": 0.24287198286941125
+                },
+                "subject": null
+              }
+            }
+          }
+        },
+        "tour-end": {
+          "seq": 1232,
+          "at": 1789426511158,
+          "kind": "plate-standoff",
+          "detail": {
+            "phase": "tour-end",
+            "clearanceLeft": -0.1616,
+            "clearanceRight": -0.1329,
+            "lit": true,
+            "units": "tangent",
+            "eyes": [
+              {
+                "eye": "left",
+                "lit": true,
+                "clearance": -0.1616,
+                "subjectX": 0.0161,
+                "subjectY": 0.117,
+                "subjectHalfWidth": 0.3908,
+                "subjectHalfHeight": 0.3477,
+                "menuX": -0.4672,
+                "menuY": -0.2067,
+                "menuHalfWidth": 0.254,
+                "menuHalfHeight": 0.4482
+              },
+              {
+                "eye": "right",
+                "lit": true,
+                "clearance": -0.1329,
+                "subjectX": -0.005,
+                "subjectY": 0.117,
+                "subjectHalfWidth": 0.389,
+                "subjectHalfHeight": 0.3477,
+                "menuX": -0.5204,
+                "menuY": -0.2067,
+                "menuHalfWidth": 0.2592,
+                "menuHalfHeight": 0.4482
+              }
+            ],
+            "frame": {
+              "menu": {
+                "clear": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "row": "B",
+      "preTourPlacement": {
+        "translation": [
+          -0.20673690854568416,
+          0.46597095369304276,
+          1.6491699213154716
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1.9824482982278422
+      },
+      "donePlacement": {
+        "translation": [
+          -0.2184166637364159,
+          0.4782977310601057,
+          1.623925975601277
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1.9824482982278422
+      },
+      "cameraPose": {
+        "mode": "perspective",
+        "fov": 0.7853981633974483,
+        "position": [
+          10.850736321784783,
+          13.685982772728602,
+          139.79765498771533
+        ],
+        "target": [
+          10.850736321784783,
+          13.685982772728602,
+          39.639246473675236
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ]
+      },
+      "metersAcross": 3.6,
+      "records": {
+        "entry": {
+          "seq": 1862,
+          "at": 1789427015740,
+          "kind": "plate-standoff",
+          "detail": {
+            "phase": "entry",
+            "clearanceLeft": -0.1619,
+            "clearanceRight": -0.1332,
+            "lit": true,
+            "units": "tangent",
+            "eyes": [
+              {
+                "eye": "left",
+                "lit": true,
+                "clearance": -0.1619,
+                "subjectX": 0.0165,
+                "subjectY": 0.117,
+                "subjectHalfWidth": 0.3915,
+                "subjectHalfHeight": 0.3476,
+                "menuX": -0.4672,
+                "menuY": -0.2069,
+                "menuHalfWidth": 0.2541,
+                "menuHalfHeight": 0.4482
+              },
+              {
+                "eye": "right",
+                "lit": true,
+                "clearance": -0.1332,
+                "subjectX": -0.0046,
+                "subjectY": 0.117,
+                "subjectHalfWidth": 0.3898,
+                "subjectHalfHeight": 0.3476,
+                "menuX": -0.5204,
+                "menuY": -0.2069,
+                "menuHalfWidth": 0.2593,
+                "menuHalfHeight": 0.4482
+              }
+            ],
+            "frame": {
+              "menu": {
+                "clear": false,
+                "outboard": 3.5,
+                "rect": {
+                  "left": -0.8312102608001408,
+                  "right": -0.26382770474363343,
+                  "bottom": -0.6526096174023698,
+                  "top": 0.2428719828694112
+                },
+                "subject": null
+              }
+            }
+          }
+        },
+        "tour-end": {
+          "seq": 1853,
+          "at": 1789427015116,
+          "kind": "plate-standoff",
+          "detail": {
+            "phase": "tour-end",
+            "clearanceLeft": -0.3645,
+            "clearanceRight": -0.3382,
+            "lit": true,
+            "units": "tangent",
+            "eyes": [
+              {
+                "eye": "left",
+                "lit": true,
+                "clearance": -0.3645,
+                "subjectX": 0.0165,
+                "subjectY": 0.117,
+                "subjectHalfWidth": 0.3915,
+                "subjectHalfHeight": 0.3476,
+                "menuX": -0.3677,
+                "menuY": -0.2015,
+                "menuHalfWidth": 0.3572,
+                "menuHalfHeight": 0.4365
+              },
+              {
+                "eye": "right",
+                "lit": true,
+                "clearance": -0.3382,
+                "subjectX": -0.0046,
+                "subjectY": 0.117,
+                "subjectHalfWidth": 0.3898,
+                "subjectHalfHeight": 0.3476,
+                "menuX": -0.4189,
+                "menuY": -0.2015,
+                "menuHalfWidth": 0.3628,
+                "menuHalfHeight": 0.4365
+              }
+            ],
+            "frame": {
+              "menu": {
+                "clear": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

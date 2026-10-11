@@ -1,0 +1,2447 @@
+{
+  "revision": "396595e",
+  "sources": {
+    "seq8-exit/A-immediate.json": "58a8db5b47d7aac91521534cca74f6ec1376cfb18cce877c64693c1d5ca39cbf",
+    "seq8-exit/A2-immediate.json": "410ea1a7a23ef38a0c1aa4e6f2e31a0135d684b5f9132963d6a26ff2aac35e63",
+    "seq8-exit/D-immediate.json": "f00308ae9c4a8c620ee397f60d2d8536e2a89b2ff9ebd73e546f4ea5a84991c2",
+    "seq8-exit/C-immediate.json": "f8a79781c817f3e926e2395d0aafc16f7bbbfbbe27016d8504f2a7a0918e377d",
+    "seq2-reentry/ring-entryB-a.json": "ceaef619f319d3b3ab3687a70f89319bedf944e6b2d7f1e67c420ab7646575c4",
+    "seq2-reentry/ring-entryC-a.json": "b944c236fc4a39f62a9301c1e20108852b495eae70bdc90be419cc4b3a1c1b6a",
+    "seq5-voice/08-open-molstar-drain-1.json": "d056ac888950345cd03324efae41de3f8dd4d8488515152eb2d69833152bcec8",
+    "overprint-replay/06-make-bigger.json": "f0b8c6e0e78f36a900a73200d356338948fc3ab4e8698992dc1bf1d8ce7674af",
+    "seq8-exit/exit-preview-dom-5s.json": "c6c37a8091495c8525e76ebdf3aae7f3e0b512f6118643206014dead1c13c436"
+  },
+  "exits": {
+    "A": {
+      "sessions": [
+        {
+          "id": 1,
+          "mode": "immersive-ar",
+          "requestedAt": 112992,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5451,
+          "grantedAt": 113400,
+          "endCalledAt": 154100,
+          "endedAt": 154100,
+          "endResolvedAt": 154100,
+          "endError": "InvalidStateError",
+          "pending": 0
+        }
+      ],
+      "cleanup": [
+        {
+          "seq": 84,
+          "at": 1789314069044,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0,
+            "cleanupNotes": [
+              {
+                "resource": "leaving-presentation",
+                "code": "xr_finalizer_timeout",
+                "error": "Timed out releasing leaving-presentation."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "A2": {
+      "sessions": [
+        {
+          "id": 1,
+          "mode": "immersive-ar",
+          "requestedAt": 112992,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5451,
+          "grantedAt": 113400,
+          "endCalledAt": 154100,
+          "endedAt": 154100,
+          "endResolvedAt": 154100,
+          "endError": "InvalidStateError",
+          "pending": 0
+        },
+        {
+          "id": 2,
+          "mode": "immersive-ar",
+          "requestedAt": 177061,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5537,
+          "grantedAt": 177469,
+          "endCalledAt": 218170,
+          "endedAt": 218170,
+          "endResolvedAt": 218170,
+          "endError": "InvalidStateError",
+          "pending": 0
+        }
+      ],
+      "cleanup": [
+        {
+          "seq": 84,
+          "at": 1789314069044,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0,
+            "cleanupNotes": [
+              {
+                "resource": "leaving-presentation",
+                "code": "xr_finalizer_timeout",
+                "error": "Timed out releasing leaving-presentation."
+              }
+            ]
+          }
+        },
+        {
+          "seq": 161,
+          "at": 1789314133160,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0
+          }
+        }
+      ]
+    },
+    "D": {
+      "sessions": [
+        {
+          "id": 1,
+          "mode": "immersive-ar",
+          "requestedAt": 112992,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5451,
+          "grantedAt": 113400,
+          "endCalledAt": 154100,
+          "endedAt": 154100,
+          "endResolvedAt": 154100,
+          "endError": "InvalidStateError",
+          "pending": 0
+        },
+        {
+          "id": 2,
+          "mode": "immersive-ar",
+          "requestedAt": 177061,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5537,
+          "grantedAt": 177469,
+          "endCalledAt": 218170,
+          "endedAt": 218170,
+          "endResolvedAt": 218170,
+          "endError": "InvalidStateError",
+          "pending": 0
+        },
+        {
+          "id": 3,
+          "mode": "immersive-ar",
+          "requestedAt": 240997,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 7199,
+          "grantedAt": 241386,
+          "endCalledAt": 292797,
+          "endedAt": 292797,
+          "endResolvedAt": 292797,
+          "endError": "InvalidStateError",
+          "pending": 0
+        }
+      ],
+      "cleanup": [
+        {
+          "seq": 84,
+          "at": 1789314069044,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0,
+            "cleanupNotes": [
+              {
+                "resource": "leaving-presentation",
+                "code": "xr_finalizer_timeout",
+                "error": "Timed out releasing leaving-presentation."
+              }
+            ]
+          }
+        },
+        {
+          "seq": 161,
+          "at": 1789314133160,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0
+          }
+        },
+        {
+          "seq": 270,
+          "at": 1789314207780,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0
+          }
+        }
+      ]
+    },
+    "C": {
+      "sessions": [
+        {
+          "id": 1,
+          "mode": "immersive-ar",
+          "requestedAt": 112992,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5451,
+          "grantedAt": 113400,
+          "endCalledAt": 154100,
+          "endedAt": 154100,
+          "endResolvedAt": 154100,
+          "endError": "InvalidStateError",
+          "pending": 0
+        },
+        {
+          "id": 2,
+          "mode": "immersive-ar",
+          "requestedAt": 177061,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5537,
+          "grantedAt": 177469,
+          "endCalledAt": 218170,
+          "endedAt": 218170,
+          "endResolvedAt": 218170,
+          "endError": "InvalidStateError",
+          "pending": 0
+        },
+        {
+          "id": 3,
+          "mode": "immersive-ar",
+          "requestedAt": 240997,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 7199,
+          "grantedAt": 241386,
+          "endCalledAt": 292797,
+          "endedAt": 292797,
+          "endResolvedAt": 292797,
+          "endError": "InvalidStateError",
+          "pending": 0
+        },
+        {
+          "id": 4,
+          "mode": "immersive-ar",
+          "requestedAt": 316126,
+          "granted": true,
+          "ends": 1,
+          "endCalls": 2,
+          "endResolved": 1,
+          "frames": 5951,
+          "grantedAt": 316527,
+          "endCalledAt": 360465,
+          "endedAt": 360465,
+          "endResolvedAt": 360465,
+          "endError": "InvalidStateError",
+          "pending": 0
+        }
+      ],
+      "cleanup": [
+        {
+          "seq": 84,
+          "at": 1789314069044,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0,
+            "cleanupNotes": [
+              {
+                "resource": "leaving-presentation",
+                "code": "xr_finalizer_timeout",
+                "error": "Timed out releasing leaving-presentation."
+              }
+            ]
+          }
+        },
+        {
+          "seq": 161,
+          "at": 1789314133160,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0
+          }
+        },
+        {
+          "seq": 270,
+          "at": 1789314207780,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0
+          }
+        },
+        {
+          "seq": 350,
+          "at": 1789314275331,
+          "kind": "xr-session-cleanup",
+          "detail": {
+            "source": "page",
+            "nativeEnded": true,
+            "pendingFrames": 0,
+            "sessionHeld": false,
+            "recordSessionHeld": false,
+            "rendererSessionHeld": false,
+            "presenting": false,
+            "audioReleaseFailures": 0
+          }
+        }
+      ]
+    }
+  },
+  "rebuilds": {
+    "seq2-reentry/ring-entryB-a.json": [
+      {
+        "seq": 91,
+        "at": 1789315057214,
+        "kind": "session-end",
+        "detail": {
+          "mode": "immersive-ar"
+        }
+      },
+      {
+        "seq": 92,
+        "at": 1789315057634,
+        "kind": "xr-session-cleanup",
+        "detail": {
+          "source": "page",
+          "nativeEnded": true,
+          "pendingFrames": 0,
+          "sessionHeld": false,
+          "recordSessionHeld": false,
+          "rendererSessionHeld": false,
+          "presenting": false,
+          "audioReleaseFailures": 0,
+          "cleanupNotes": [
+            {
+              "resource": "leaving-presentation",
+              "code": "xr_finalizer_timeout",
+              "error": "Timed out releasing leaving-presentation."
+            }
+          ]
+        }
+      },
+      {
+        "seq": 94,
+        "at": 1789315057867,
+        "kind": "appearance-cost",
+        "detail": {
+          "representation": "cartoon",
+          "built": "cartoon",
+          "recreated": false,
+          "atomSites": 15357,
+          "rebuildMs": 639,
+          "restMs": 135,
+          "totalMs": 774
+        }
+      }
+    ],
+    "seq2-reentry/ring-entryC-a.json": [
+      {
+        "seq": 171,
+        "at": 1789315133150,
+        "kind": "session-end",
+        "detail": {
+          "mode": "immersive-ar"
+        }
+      },
+      {
+        "seq": 174,
+        "at": 1789315133352,
+        "kind": "xr-session-cleanup",
+        "detail": {
+          "source": "page",
+          "nativeEnded": true,
+          "pendingFrames": 0,
+          "sessionHeld": false,
+          "recordSessionHeld": false,
+          "rendererSessionHeld": false,
+          "presenting": false,
+          "audioReleaseFailures": 0
+        }
+      }
+    ],
+    "seq5-voice/08-open-molstar-drain-1.json": [
+      {
+        "sequence": 753,
+        "clientId": "ca238885-fc74-4efd-910d-d89b2281e8a8",
+        "seq": 753,
+        "at": 1789312277559,
+        "receivedAt": 1789312277600,
+        "kind": "session-end",
+        "detail": {
+          "mode": "immersive-ar"
+        }
+      },
+      {
+        "sequence": 754,
+        "clientId": "ca238885-fc74-4efd-910d-d89b2281e8a8",
+        "seq": 754,
+        "at": 1789312277787,
+        "receivedAt": 1789312277600,
+        "kind": "xr-session-cleanup",
+        "detail": {
+          "source": "page",
+          "nativeEnded": true,
+          "pendingFrames": 0,
+          "sessionHeld": false,
+          "recordSessionHeld": false,
+          "rendererSessionHeld": false,
+          "presenting": false,
+          "audioReleaseFailures": 0,
+          "cleanupNotes": [
+            {
+              "resource": "leaving-presentation",
+              "code": "xr_finalizer_timeout",
+              "error": "Timed out releasing leaving-presentation."
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 756,
+        "clientId": "ca238885-fc74-4efd-910d-d89b2281e8a8",
+        "seq": 756,
+        "at": 1789312278020,
+        "receivedAt": 1789312277600,
+        "kind": "appearance-cost",
+        "detail": {
+          "representation": "cartoon",
+          "built": "cartoon",
+          "recreated": false,
+          "atomSites": 15357,
+          "rebuildMs": 594,
+          "restMs": 77,
+          "totalMs": 671
+        }
+      }
+    ]
+  },
+  "bigger": [
+    {
+      "seq": 579,
+      "at": 1789312151608,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "status",
+        "text": "Bigger."
+      }
+    },
+    {
+      "seq": 580,
+      "at": 1789312151719,
+      "kind": "voice-loop",
+      "detail": {
+        "stage": "action-posted",
+        "utteranceId": "hook-3"
+      }
+    },
+    {
+      "seq": 581,
+      "at": 1789312151730,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "plates",
+        "plates": 29,
+        "triangles": 1416,
+        "styles": [
+          "backing",
+          "accent",
+          "accent",
+          "action",
+          "accent",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action"
+        ]
+      }
+    },
+    {
+      "seq": 582,
+      "at": 1789312151744,
+      "kind": "talk-caption",
+      "detail": {
+        "text": "Bigger."
+      }
+    },
+    {
+      "seq": 583,
+      "at": 1789312151744,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "redraw-dispose"
+      }
+    },
+    {
+      "seq": 584,
+      "at": 1789312151745,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 21,
+        "from": 0,
+        "total": 28,
+        "labels": [
+          "Talk",
+          "Tour",
+          "Tours",
+          "Close",
+          "Mol*",
+          "Rotate",
+          "Above us",
+          "In reach"
+        ],
+        "actions": [
+          "{\"kind\":\"voice-toggle\"}",
+          "{\"kind\":\"tour-play\"}",
+          "{\"kind\":\"tour-menu\"}",
+          "{\"kind\":\"collapse\",\"value\":true}",
+          "{\"kind\":\"open-workbench\"}",
+          "{\"kind\":\"mode\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"overhead\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"front\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856
+        ],
+        "y": [
+          -0.2821757645606995,
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945
+        ]
+      }
+    },
+    {
+      "seq": 585,
+      "at": 1789312151745,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 21,
+        "from": 8,
+        "total": 28,
+        "labels": [
+          "Spin",
+          "Fit",
+          "Reset",
+          "Detail 2",
+          "Scale \u2212",
+          "Scale +",
+          "X \u2212",
+          "X +"
+        ],
+        "actions": [
+          "{\"kind\":\"toggle-motion\",\"paused\":false}",
+          "{\"kind\":\"fit\"}",
+          "{\"kind\":\"reset\"}",
+          "{\"kind\":\"render-quality\",\"level\":\"best\"}",
+          "{\"kind\":\"scale\",\"direction\":-1}",
+          "{\"kind\":\"scale\",\"direction\":1}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":1,\"mode\":\"move\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.6541757645606995,
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995,
+          -0.8866757645606995,
+          -0.9331757645606995,
+          -0.2821757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 586,
+      "at": 1789312151745,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 21,
+        "from": 16,
+        "total": 28,
+        "labels": [
+          "Y \u2212",
+          "Y +",
+          "Z \u2212",
+          "Z +",
+          "Cartoon",
+          "Surface",
+          "Atoms",
+          "Chain"
+        ],
+        "actions": [
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"cartoon\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"molecular-surface\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"ball-and-stick\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"chain-id\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995,
+          -0.6541757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 587,
+      "at": 1789312151746,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 21,
+        "from": 24,
+        "total": 28,
+        "labels": [
+          "Element",
+          "Opaque \u2212",
+          "Opaque +",
+          "Move"
+        ],
+        "actions": [
+          "{\"kind\":\"appearance\",\"preset\":\"element-symbol\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-down\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-up\"}",
+          "{\"kind\":\"recenter-menu\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 588,
+      "at": 1789312151854,
+      "kind": "component-label-layout",
+      "detail": {
+        "predicted": true,
+        "basis": "head",
+        "plates": 10,
+        "reason": "placement",
+        "seatDegrees": 52.251,
+        "seatBand": [
+          0.061,
+          0.061
+        ],
+        "unresolved": 0,
+        "degraded": false,
+        "overlapArea": 0,
+        "overlaps": 0,
+        "focusOverlaps": 0,
+        "fanned": 10,
+        "shrunk": 0,
+        "dimmed": 0,
+        "detached": 10,
+        "yielded": 0,
+        "led": 10,
+        "offGlass": 0,
+        "menu": 0,
+        "subject": 0,
+        "sides": {
+          "above": 6,
+          "below": 4,
+          "left": 0,
+          "right": 0,
+          "over": 0
+        },
+        "leaderEm": 7.81,
+        "silhouette": [
+          0.004,
+          0.041,
+          0.386,
+          0.313
+        ],
+        "rects": [
+          {
+            "id": "dyskerin-c",
+            "x": -0.074,
+            "y": -0.337,
+            "hw": 0.114,
+            "hh": 0.039
+          },
+          {
+            "id": "dyskerin-g",
+            "x": 0.094,
+            "y": 0.419,
+            "hw": 0.115,
+            "hh": 0.039
+          },
+          {
+            "id": "nop10-f",
+            "x": 0.004,
+            "y": -0.455,
+            "hw": 0.11,
+            "hh": 0.042
+          },
+          {
+            "id": "nop10-j",
+            "x": 0.228,
+            "y": -0.341,
+            "hw": 0.108,
+            "hh": 0.042
+          },
+          {
+            "id": "nhp2-e",
+            "x": -0.433,
+            "y": 0.423,
+            "hw": 0.096,
+            "hh": 0.041
+          },
+          {
+            "id": "nhp2-i",
+            "x": 0.379,
+            "y": 0.432,
+            "hw": 0.108,
+            "hh": 0.047
+          },
+          {
+            "id": "gar1-d",
+            "x": -0.275,
+            "y": -0.442,
+            "hw": 0.09,
+            "hh": 0.04
+          },
+          {
+            "id": "gar1-h",
+            "x": 0.106,
+            "y": 0.528,
+            "hw": 0.09,
+            "hh": 0.04
+          },
+          {
+            "id": "tcab1-k",
+            "x": -0.177,
+            "y": 0.431,
+            "hw": 0.098,
+            "hh": 0.046
+          },
+          {
+            "id": "htr-b",
+            "x": -0.244,
+            "y": 0.539,
+            "hw": 0.234,
+            "hh": 0.038
+          }
+        ],
+        "anchors": [
+          {
+            "id": "dyskerin-c",
+            "x": -0.074165,
+            "y": -0.020759,
+            "z": 228.370241,
+            "r": 57.372778,
+            "w": 0.114109,
+            "h": 0.038727,
+            "lines": 1,
+            "focused": true
+          },
+          {
+            "id": "dyskerin-g",
+            "x": 0.093701,
+            "y": 0.012671,
+            "z": 226.683969,
+            "r": 57.564659,
+            "w": 0.115127,
+            "h": 0.039072,
+            "lines": 1,
+            "focused": true
+          },
+          {
+            "id": "nop10-f",
+            "x": -0.087657,
+            "y": -0.009536,
+            "z": 213.096496,
+            "r": 23.663687,
+            "w": 0.109601,
+            "h": 0.042241,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "nop10-j",
+            "x": 0.112953,
+            "y": 0.007845,
+            "z": 215.869158,
+            "r": 23.866307,
+            "w": 0.107749,
+            "h": 0.041527,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "nhp2-e",
+            "x": -0.001542,
+            "y": 0.003126,
+            "z": 216.611173,
+            "r": 46.587572,
+            "w": 0.095703,
+            "h": 0.041417,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "nhp2-i",
+            "x": 0.180712,
+            "y": 0.107839,
+            "z": 196.396931,
+            "r": 41.196372,
+            "w": 0.107821,
+            "h": 0.046661,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "gar1-d",
+            "x": -0.275301,
+            "y": -0.058888,
+            "z": 220.555963,
+            "r": 23.536935,
+            "w": 0.090338,
+            "h": 0.040095,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "gar1-h",
+            "x": -0.026285,
+            "y": 0.140179,
+            "z": 222.352737,
+            "r": 27.113896,
+            "w": 0.090057,
+            "h": 0.03997,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "tcab1-k",
+            "x": 0.123534,
+            "y": 0.182381,
+            "z": 198.99795,
+            "r": 34.226455,
+            "w": 0.097548,
+            "h": 0.04585,
+            "lines": 1,
+            "focused": false
+          },
+          {
+            "id": "htr-b",
+            "x": 0.014933,
+            "y": 0.036932,
+            "z": 233.571262,
+            "r": 56.328705,
+            "w": 0.234433,
+            "h": 0.037677,
+            "lines": 1,
+            "focused": false
+          }
+        ],
+        "obstacles": [
+          {
+            "x": -0.589655,
+            "y": -0.1292,
+            "hw": 0.172316,
+            "hh": 0.283224
+          }
+        ],
+        "inputs": {
+          "characterUnits": 9.454083,
+          "minSizeScale": 1,
+          "contextAlpha": 0.35,
+          "standoff": 45.412623,
+          "fieldHalfWidth": 0.600861,
+          "fieldHalfHeight": 0.57735,
+          "subjectX": 0.004228,
+          "subjectY": 0.041195,
+          "subjectHalfWidth": 0.386245,
+          "subjectHalfHeight": 0.31318
+        }
+      }
+    },
+    {
+      "seq": 589,
+      "at": 1789312152119,
+      "kind": "plate-update",
+      "detail": {
+        "path": "relayout",
+        "reason": "placement",
+        "layers": 30,
+        "changed": 30,
+        "geometry": true,
+        "ms": 290
+      }
+    },
+    {
+      "seq": 590,
+      "at": 1789312152119,
+      "kind": "wearer-placement",
+      "detail": {
+        "event": "takeover",
+        "reason": "voice-scale",
+        "chapter": 0,
+        "moves": 2,
+        "held": true,
+        "scale": 1.15
+      }
+    },
+    {
+      "seq": 591,
+      "at": 1789312152149,
+      "kind": "voice-loop",
+      "detail": {
+        "stage": "receipt-rendered",
+        "utteranceId": "hook-3"
+      }
+    },
+    {
+      "seq": 592,
+      "at": 1789312152149,
+      "kind": "voice-command",
+      "detail": {
+        "phrase": "make it bigger",
+        "action": "scale",
+        "outcome": "applied"
+      }
+    },
+    {
+      "seq": 593,
+      "at": 1789312152149,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "status",
+        "text": "Bigger."
+      }
+    },
+    {
+      "seq": 594,
+      "at": 1789312152565,
+      "kind": "component-labels-drawn",
+      "detail": {
+        "eye": "left",
+        "plates": 10,
+        "visible": 10,
+        "overlaps": 0,
+        "offGlass": 0,
+        "subject": 1,
+        "silhouette": [
+          -0.015343307707049891,
+          -0.009264335246609634,
+          0.31535269455342496,
+          0.3026291828523211
+        ],
+        "leaderEm": 7.6488950006448135,
+        "rects": [
+          {
+            "id": "dyskerin-c",
+            "x": -0.06060788087348076,
+            "y": -0.3355543079212908,
+            "hw": 0.11399577052972129,
+            "hh": 0.03868677534539511
+          },
+          {
+            "id": "dyskerin-g",
+            "x": 0.10766396267480154,
+            "y": 0.417984698686263,
+            "hw": 0.11495075640410911,
+            "hh": 0.03901086910444285
+          },
+          {
+            "id": "nop10-f",
+            "x": 0.018773087930609583,
+            "y": -0.45338474077066354,
+            "hw": 0.10942962503549442,
+            "hh": 0.04219223779640241
+          },
+          {
+            "id": "nop10-j",
+            "x": 0.24221693479448608,
+            "y": -0.3413871894880054,
+            "hw": 0.10751542945783576,
+            "hh": 0.041454190717274186
+          },
+          {
+            "id": "nhp2-e",
+            "x": -0.4173962328858454,
+            "y": 0.4230545623152473,
+            "hw": 0.0955519008667095,
+            "hh": 0.041358283887901526
+          },
+          {
+            "id": "nhp2-i",
+            "x": 0.3957284597919689,
+            "y": 0.43031607106593883,
+            "hw": 0.10751739172366637,
+            "hh": 0.04653737642935396
+          },
+          {
+            "id": "gar1-d",
+            "x": -0.261657966325441,
+            "y": -0.4392616715960134,
+            "hw": 0.09028753207553714,
+            "hh": 0.04007660593113499
+          },
+          {
+            "id": "gar1-h",
+            "x": 0.12081223420777215,
+            "y": 0.5271447213547541,
+            "hw": 0.08988931492531119,
+            "hh": 0.039899846160347585
+          },
+          {
+            "id": "tcab1-k",
+            "x": -0.15906777130629696,
+            "y": 0.42952569970601084,
+            "hw": 0.09738685118432727,
+            "hh": 0.045727516444636906
+          },
+          {
+            "id": "htr-b",
+            "x": -0.2298495608081227,
+            "y": 0.5384449015085226,
+            "hw": 0.23442402243393462,
+            "hh": 0.03762398888932683
+          }
+        ],
+        "fov": [
+          -0.9325151580179747,
+          1.0000000719918023,
+          1.1106126135506718,
+          -1.1917536043911405
+        ]
+      }
+    },
+    {
+      "seq": 595,
+      "at": 1789312152565,
+      "kind": "component-labels-drawn",
+      "detail": {
+        "eye": "right",
+        "plates": 10,
+        "visible": 10,
+        "overlaps": 0,
+        "offGlass": 0,
+        "subject": 1,
+        "silhouette": [
+          -0.04587515425064989,
+          -0.009264335246609634,
+          0.31373385428553824,
+          0.3026291828523211
+        ],
+        "leaderEm": 7.6488950006448135,
+        "rects": [
+          {
+            "id": "dyskerin-c",
+            "x": -0.08818613034839262,
+            "y": -0.3354055330223472,
+            "hw": 0.11394130897002588,
+            "hh": 0.03866829272026362
+          },
+          {
+            "id": "dyskerin-g",
+            "x": 0.07988421872968293,
+            "y": 0.41825608010605075,
+            "hw": 0.11502683791853954,
+            "hh": 0.03903668891806478
+          },
+          {
+            "id": "nop10-f",
+            "x": -0.010841825930818366,
+            "y": -0.4530904731367523,
+            "hw": 0.10935654172599163,
+            "hh": 0.042164059437724444
+          },
+          {
+            "id": "nop10-j",
+            "x": 0.21314528516768264,
+            "y": -0.34168867290833804,
+            "hw": 0.10760956866231,
+            "hh": 0.04149048751398143
+          },
+          {
+            "id": "nhp2-e",
+            "x": -0.4464728693685557,
+            "y": 0.42305842936039145,
+            "hw": 0.09555278802442935,
+            "hh": 0.04135866789192377
+          },
+          {
+            "id": "nhp2-i",
+            "x": 0.3640016571704891,
+            "y": 0.4308541849809422,
+            "hw": 0.1076937338280563,
+            "hh": 0.04661370361873041
+          },
+          {
+            "id": "gar1-d",
+            "x": -0.2902175966288882,
+            "y": -0.43859205788463934,
+            "hw": 0.09012798529398425,
+            "hh": 0.040005786710583136
+          },
+          {
+            "id": "gar1-h",
+            "x": 0.09248558297805824,
+            "y": 0.5270852486777041,
+            "hw": 0.0898756497528808,
+            "hh": 0.03989378050722725
+          },
+          {
+            "id": "tcab1-k",
+            "x": -0.19101999167636155,
+            "y": 0.4298021669665383,
+            "hw": 0.09749356996817507,
+            "hh": 0.04577762573699484
+          },
+          {
+            "id": "htr-b",
+            "x": -0.2568391983380628,
+            "y": 0.5385066540949343,
+            "hw": 0.23445268364263516,
+            "hh": 0.03762858889174725
+          }
+        ],
+        "fov": [
+          -1.0000000719918023,
+          0.9325151580179747,
+          1.1106126135506718,
+          -1.1917536043911405
+        ]
+      }
+    },
+    {
+      "seq": 596,
+      "at": 1789312152565,
+      "kind": "component-labels",
+      "detail": {
+        "created": 10,
+        "asked": 10,
+        "sizeFactor": 11.82,
+        "characterDegrees": 1.95,
+        "gain": 1.3,
+        "placementScale": 1.8102924410352408,
+        "seatMeters": 3,
+        "visible": 10
+      }
+    },
+    {
+      "seq": 597,
+      "at": 1789312153158,
+      "kind": "frame-cost",
+      "detail": {
+        "fps": 87.6,
+        "frames": 88,
+        "seconds": 1,
+        "frameMs": 2.89,
+        "maxFrameMs": 15.7,
+        "drawMs": 2.89,
+        "overlayMs": 0,
+        "longFrames": 0
+      }
+    },
+    {
+      "seq": 598,
+      "at": 1789312155612,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "status",
+        "text": null
+      }
+    },
+    {
+      "seq": 599,
+      "at": 1789312155721,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "plates",
+        "plates": 29,
+        "triangles": 1416,
+        "styles": [
+          "backing",
+          "accent",
+          "accent",
+          "action",
+          "accent",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action"
+        ]
+      }
+    },
+    {
+      "seq": 600,
+      "at": 1789312155726,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "redraw-dispose"
+      }
+    },
+    {
+      "seq": 601,
+      "at": 1789312155727,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 24,
+        "from": 0,
+        "total": 28,
+        "labels": [
+          "Talk",
+          "Tour",
+          "Tours",
+          "Close",
+          "Mol*",
+          "Rotate",
+          "Above us",
+          "In reach"
+        ],
+        "actions": [
+          "{\"kind\":\"voice-toggle\"}",
+          "{\"kind\":\"tour-play\"}",
+          "{\"kind\":\"tour-menu\"}",
+          "{\"kind\":\"collapse\",\"value\":true}",
+          "{\"kind\":\"open-workbench\"}",
+          "{\"kind\":\"mode\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"overhead\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"front\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856
+        ],
+        "y": [
+          -0.2821757645606995,
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945
+        ]
+      }
+    },
+    {
+      "seq": 602,
+      "at": 1789312155727,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 24,
+        "from": 8,
+        "total": 28,
+        "labels": [
+          "Spin",
+          "Fit",
+          "Reset",
+          "Detail 2",
+          "Scale \u2212",
+          "Scale +",
+          "X \u2212",
+          "X +"
+        ],
+        "actions": [
+          "{\"kind\":\"toggle-motion\",\"paused\":false}",
+          "{\"kind\":\"fit\"}",
+          "{\"kind\":\"reset\"}",
+          "{\"kind\":\"render-quality\",\"level\":\"best\"}",
+          "{\"kind\":\"scale\",\"direction\":-1}",
+          "{\"kind\":\"scale\",\"direction\":1}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":1,\"mode\":\"move\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.6541757645606995,
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995,
+          -0.8866757645606995,
+          -0.9331757645606995,
+          -0.2821757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 603,
+      "at": 1789312155727,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 24,
+        "from": 16,
+        "total": 28,
+        "labels": [
+          "Y \u2212",
+          "Y +",
+          "Z \u2212",
+          "Z +",
+          "Cartoon",
+          "Surface",
+          "Atoms",
+          "Chain"
+        ],
+        "actions": [
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"cartoon\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"molecular-surface\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"ball-and-stick\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"chain-id\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995,
+          -0.6541757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 604,
+      "at": 1789312155727,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 24,
+        "from": 24,
+        "total": 28,
+        "labels": [
+          "Element",
+          "Opaque \u2212",
+          "Opaque +",
+          "Move"
+        ],
+        "actions": [
+          "{\"kind\":\"appearance\",\"preset\":\"element-symbol\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-down\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-up\"}",
+          "{\"kind\":\"recenter-menu\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 605,
+      "at": 1789312155922,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "plates",
+        "plates": 29,
+        "triangles": 1416,
+        "styles": [
+          "backing",
+          "state",
+          "accent",
+          "action",
+          "accent",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action"
+        ]
+      }
+    },
+    {
+      "seq": 606,
+      "at": 1789312155925,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "redraw-dispose"
+      }
+    },
+    {
+      "seq": 607,
+      "at": 1789312155927,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 25,
+        "from": 0,
+        "total": 28,
+        "labels": [
+          "Reply\u2026",
+          "Tour",
+          "Tours",
+          "Close",
+          "Mol*",
+          "Rotate",
+          "Above us",
+          "In reach"
+        ],
+        "actions": [
+          "{\"kind\":\"voice-toggle\"}",
+          "{\"kind\":\"tour-play\"}",
+          "{\"kind\":\"tour-menu\"}",
+          "{\"kind\":\"collapse\",\"value\":true}",
+          "{\"kind\":\"open-workbench\"}",
+          "{\"kind\":\"mode\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"overhead\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"front\"}"
+        ],
+        "targetable": [
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856
+        ],
+        "y": [
+          -0.2821757645606995,
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945
+        ]
+      }
+    },
+    {
+      "seq": 608,
+      "at": 1789312155927,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 25,
+        "from": 8,
+        "total": 28,
+        "labels": [
+          "Spin",
+          "Fit",
+          "Reset",
+          "Detail 2",
+          "Scale \u2212",
+          "Scale +",
+          "X \u2212",
+          "X +"
+        ],
+        "actions": [
+          "{\"kind\":\"toggle-motion\",\"paused\":false}",
+          "{\"kind\":\"fit\"}",
+          "{\"kind\":\"reset\"}",
+          "{\"kind\":\"render-quality\",\"level\":\"best\"}",
+          "{\"kind\":\"scale\",\"direction\":-1}",
+          "{\"kind\":\"scale\",\"direction\":1}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":1,\"mode\":\"move\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.6541757645606995,
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995,
+          -0.8866757645606995,
+          -0.9331757645606995,
+          -0.2821757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 609,
+      "at": 1789312155927,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 25,
+        "from": 16,
+        "total": 28,
+        "labels": [
+          "Y \u2212",
+          "Y +",
+          "Z \u2212",
+          "Z +",
+          "Cartoon",
+          "Surface",
+          "Atoms",
+          "Chain"
+        ],
+        "actions": [
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"cartoon\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"molecular-surface\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"ball-and-stick\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"chain-id\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995,
+          -0.6541757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 610,
+      "at": 1789312155927,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 25,
+        "from": 24,
+        "total": 28,
+        "labels": [
+          "Element",
+          "Opaque \u2212",
+          "Opaque +",
+          "Move"
+        ],
+        "actions": [
+          "{\"kind\":\"appearance\",\"preset\":\"element-symbol\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-down\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-up\"}",
+          "{\"kind\":\"recenter-menu\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 611,
+      "at": 1789312155954,
+      "kind": "voice-loop",
+      "detail": {
+        "stage": "spoken-confirmation-started",
+        "utteranceId": "hook-3",
+        "spokenText": "Bigger.",
+        "spokenWords": 1
+      }
+    },
+    {
+      "seq": 612,
+      "at": 1789312156415,
+      "kind": "frame-rate",
+      "detail": {
+        "fps": 51.4,
+        "frames": 257,
+        "seconds": 5
+      }
+    },
+    {
+      "seq": 613,
+      "at": 1789312156929,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "plates",
+        "plates": 29,
+        "triangles": 1416,
+        "styles": [
+          "backing",
+          "accent",
+          "accent",
+          "action",
+          "accent",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action",
+          "action"
+        ]
+      }
+    },
+    {
+      "seq": 614,
+      "at": 1789312156936,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "redraw-dispose"
+      }
+    },
+    {
+      "seq": 615,
+      "at": 1789312156938,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 26,
+        "from": 0,
+        "total": 28,
+        "labels": [
+          "Talk",
+          "Tour",
+          "Tours",
+          "Close",
+          "Mol*",
+          "Rotate",
+          "Above us",
+          "In reach"
+        ],
+        "actions": [
+          "{\"kind\":\"voice-toggle\"}",
+          "{\"kind\":\"tour-play\"}",
+          "{\"kind\":\"tour-menu\"}",
+          "{\"kind\":\"collapse\",\"value\":true}",
+          "{\"kind\":\"open-workbench\"}",
+          "{\"kind\":\"mode\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"overhead\"}",
+          "{\"kind\":\"room-placement\",\"target\":\"front\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856
+        ],
+        "y": [
+          -0.2821757645606995,
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945
+        ]
+      }
+    },
+    {
+      "seq": 616,
+      "at": 1789312156938,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 26,
+        "from": 8,
+        "total": 28,
+        "labels": [
+          "Spin",
+          "Fit",
+          "Reset",
+          "Detail 2",
+          "Scale \u2212",
+          "Scale +",
+          "X \u2212",
+          "X +"
+        ],
+        "actions": [
+          "{\"kind\":\"toggle-motion\",\"paused\":false}",
+          "{\"kind\":\"fit\"}",
+          "{\"kind\":\"reset\"}",
+          "{\"kind\":\"render-quality\",\"level\":\"best\"}",
+          "{\"kind\":\"scale\",\"direction\":-1}",
+          "{\"kind\":\"scale\",\"direction\":1}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"x\",\"direction\":1,\"mode\":\"move\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -1.0894024548553856,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.6541757645606995,
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995,
+          -0.8866757645606995,
+          -0.9331757645606995,
+          -0.2821757645606995
+        ],
+        "z": [
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.080201329118945,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 617,
+      "at": 1789312156938,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 26,
+        "from": 16,
+        "total": 28,
+        "labels": [
+          "Y \u2212",
+          "Y +",
+          "Z \u2212",
+          "Z +",
+          "Cartoon",
+          "Surface",
+          "Atoms",
+          "Chain"
+        ],
+        "actions": [
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"y\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":-1,\"mode\":\"move\"}",
+          "{\"kind\":\"nudge\",\"axis\":\"z\",\"direction\":1,\"mode\":\"move\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"cartoon\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"molecular-surface\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"ball-and-stick\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"chain-id\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.32867576456069947,
+          -0.3751757645606995,
+          -0.4216757645606995,
+          -0.4681757645606995,
+          -0.5146757645606995,
+          -0.5611757645606995,
+          -0.6076757645606995,
+          -0.6541757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 618,
+      "at": 1789312156938,
+      "kind": "toolbar",
+      "detail": {
+        "phase": "rows",
+        "draw": 26,
+        "from": 24,
+        "total": 28,
+        "labels": [
+          "Element",
+          "Opaque \u2212",
+          "Opaque +",
+          "Move"
+        ],
+        "actions": [
+          "{\"kind\":\"appearance\",\"preset\":\"element-symbol\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-down\"}",
+          "{\"kind\":\"appearance\",\"preset\":\"opacity-up\"}",
+          "{\"kind\":\"recenter-menu\"}"
+        ],
+        "targetable": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "x": [
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071,
+          -0.9649813346038071
+        ],
+        "y": [
+          -0.7006757645606995,
+          -0.7471757645606996,
+          -0.7936757645606995,
+          -0.8401757645606995
+        ],
+        "z": [
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366,
+          -1.265505470560366
+        ]
+      }
+    },
+    {
+      "seq": 619,
+      "at": 1789312158174,
+      "kind": "frame-cost",
+      "detail": {
+        "fps": 140.8,
+        "frames": 141,
+        "seconds": 1,
+        "frameMs": 3.58,
+        "maxFrameMs": 8.2,
+        "drawMs": 3.58,
+        "overlayMs": 0,
+        "longFrames": 0
+      }
+    },
+    {
+      "seq": 620,
+      "at": 1789312161419,
+      "kind": "frame-rate",
+      "detail": {
+        "fps": 68.5,
+        "frames": 343,
+        "seconds": 5
+      }
+    },
+    {
+      "seq": 621,
+      "at": 1789312163193,
+      "kind": "frame-cost",
+      "detail": {
+        "fps": 141.4,
+        "frames": 142,
+        "seconds": 1,
+        "frameMs": 3.32,
+        "maxFrameMs": 7.6,
+        "drawMs": 3.32,
+        "overlayMs": 0,
+        "longFrames": 0
+      }
+    },
+    {
+      "seq": 622,
+      "at": 1789312166439,
+      "kind": "frame-rate",
+      "detail": {
+        "fps": 70.5,
+        "frames": 354,
+        "seconds": 5
+      }
+    },
+    {
+      "seq": 623,
+      "at": 1789312168203,
+      "kind": "frame-cost",
+      "detail": {
+        "fps": 139.7,
+        "frames": 140,
+        "seconds": 1,
+        "frameMs": 4.06,
+        "maxFrameMs": 10.1,
+        "drawMs": 4.06,
+        "overlayMs": 0,
+        "longFrames": 0
+      }
+    },
+    {
+      "seq": 624,
+      "at": 1789312171446,
+      "kind": "frame-rate",
+      "detail": {
+        "fps": 70.5,
+        "frames": 353,
+        "seconds": 5
+      }
+    },
+    {
+      "seq": 625,
+      "at": 1789312173211,
+      "kind": "frame-cost",
+      "detail": {
+        "fps": 140,
+        "frames": 140,
+        "seconds": 1,
+        "frameMs": 4.11,
+        "maxFrameMs": 9.5,
+        "drawMs": 4.11,
+        "overlayMs": 0,
+        "longFrames": 0
+      }
+    },
+    {
+      "seq": 626,
+      "at": 1789312176458,
+      "kind": "frame-rate",
+      "detail": {
+        "fps": 70,
+        "frames": 351,
+        "seconds": 5
+      }
+    },
+    {
+      "seq": 627,
+      "at": 1789312178227,
+      "kind": "frame-cost",
+      "detail": {
+        "fps": 141.6,
+        "frames": 142,
+        "seconds": 1,
+        "frameMs": 4.01,
+        "maxFrameMs": 8.4,
+        "drawMs": 4.01,
+        "overlayMs": 0,
+        "longFrames": 0
+      }
+    }
+  ],
+  "viewport": [
+    1280,
+    474
+  ]
+}

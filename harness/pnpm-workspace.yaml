@@ -1,0 +1,5 @@
+# The harness is a workspace of its own, with its own lockfile, outside the
+# repository's workspace. pnpm 11 reads build approvals only from this file,
+# and `--ignore-workspace` skips it, so install here without that flag.
+allowBuilds:
+  esbuild: true

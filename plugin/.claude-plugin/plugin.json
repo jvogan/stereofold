@@ -1,0 +1,37 @@
+{
+  "name": "stereofold",
+  "version": "0.1.21",
+  "description": "Put molecules in your headset and keep changing them with Claude. Reveal binding pockets, highlight residues, and explore molecular lessons while your computer and headset stay connected. Includes desktop stereo viewing and a local MCP server.",
+  "author": {
+    "name": "Jacob Vogan"
+  },
+  "license": "MIT",
+  "keywords": [
+    "stereofold",
+    "molstar",
+    "quest",
+    "vision-pro",
+    "webxr",
+    "pdb",
+    "mmcif"
+  ],
+  "skills": [
+    "./skills/",
+    "./claude-code/skills/"
+  ],
+  "mcpServers": {
+    "stereo_structure": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/server.mjs"
+      ]
+    }
+  },
+  "displayName": "Stereofold",
+  "homepage": "https://jvogan.github.io/stereofold/",
+  "privacyPolicyUrl": "https://jvogan.github.io/stereofold/privacy.html",
+  "supportUrl": "https://jvogan.github.io/stereofold/support.html",
+  "documentationUrl": "https://github.com/jvogan/stereofold/blob/main/docs/install.md",
+  "termsOfServiceUrl": "https://jvogan.github.io/stereofold/terms.html",
+  "repository": "https://github.com/jvogan/stereofold"
+}

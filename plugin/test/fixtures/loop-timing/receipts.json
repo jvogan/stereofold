@@ -1,0 +1,4 @@
+{"commands":[
+  {"commandId":"c1","utteranceId":"u1","status":"rendered","actionPostedAt":1400,"acceptedAt":1420,"renderedAt":1780},
+  {"commandId":"c2","utteranceId":"u2","status":"rejected","actionPostedAt":2500,"acceptedAt":2520}
+]}

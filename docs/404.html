@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b16" />
+    <meta name="robots" content="noindex" />
+    <title>Page not found &mdash; Stereofold</title>
+    <link rel="icon" type="image/png" href="/stereofold/artwork/icon.png" />
+    <style>
+      @font-face {
+        font-family: Sora;
+        src: url("/stereofold/fonts/sora.woff2") format("woff2");
+        font-weight: 100 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Source Sans 3";
+        src: url("/stereofold/fonts/source-sans-3.woff2") format("woff2");
+        font-weight: 200 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("/stereofold/fonts/ibm-plex-mono.woff2") format("woff2");
+        font-weight: 400;
+        font-display: swap;
+      }
+      body {
+        margin: 0;
+        background: #080b16;
+        color: #eef1f8;
+        font: 17px/1.5 "Source Sans 3", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 120px 24px;
+      }
+      .brand {
+        font-family: Sora, sans-serif;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 23px;
+        font-weight: 600;
+        letter-spacing: -0.055em;
+      }
+      .brand svg {
+        width: 29px;
+        height: 32px;
+        fill: none;
+        stroke-width: 1.8;
+      }
+      .brand path:first-child {
+        stroke: #94e8f5;
+      }
+      .brand path:last-child {
+        stroke: #ec85c7;
+      }
+      .code {
+        margin-top: 56px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #a3aec2;
+      }
+      h1 {
+        margin: 16px 0 0;
+        font-family: Sora, sans-serif;
+        font-size: clamp(34px, 6vw, 52px);
+        font-weight: 500;
+        letter-spacing: -0.055em;
+        line-height: 1.16;
+      }
+      h1 span {
+        color: #a4e9fb;
+      }
+      p {
+        margin: 22px 0 0;
+        max-width: 440px;
+        color: #c5cadd;
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        margin-top: 36px;
+      }
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 12px 21px;
+        border: 1px solid #94e8f5;
+        border-radius: 5px;
+        background: #94e8f5;
+        color: #0a1420;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a.button:hover {
+        background: #b4f0f8;
+        border-color: #b4f0f8;
+      }
+      a.quiet {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        color: #e4e7f0;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      a.quiet:hover {
+        color: #94e8f5;
+      }
+      :focus-visible {
+        outline: 2px solid #94e8f5;
+        outline-offset: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="brand"
+        ><svg viewBox="0 0 34 34" aria-hidden="true">
+          <path d="m12 3 10 6v12l-10 6-10-6V9Z" />
+          <path d="m22 7 10 6v12l-10 6-10-6V13Z" /></svg
+        >Stereofold</span
+      >
+      <p class="code">Error 404</p>
+      <h1>This page <span>does not exist.</span></h1>
+      <p>
+        The address you followed is not part of the Stereofold site. The home
+        page has the crambin demo and the install commands.
+      </p>
+      <div class="actions">
+        <a class="button" href="/stereofold/">Go to the home page</a>
+        <a class="quiet" href="/stereofold/credits.html">Credits &amp; licenses</a>
+      </div>
+    </main>
+  </body>
+</html>

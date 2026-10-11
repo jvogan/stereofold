@@ -1,0 +1,7 @@
+{
+  "description": "Explore molecules with Codex and keep changing the same scene on your computer and WebXR headset.",
+  "interface": {
+    "shortDescription": "Put molecules in your headset",
+    "longDescription": "Explore your molecule in depth, with Codex changing the scene as you ask. Reveal a binding pocket. Highlight a ligand. Make the surrounding protein transparent so you can inspect what matters.\n\nStart on your laptop, then open the same scene in a WebXR headset. Rotate and enlarge the molecule, change representations, or switch structures without pairing again. Keep typing or dictating requests while the connected desktop and headset views update.\n\nBuild a guided molecular lesson, step through its chapters, and pause to investigate a detail. Continue working in the same saved scene across sessions. Desktop stereo modes also let you explore depth on a regular screen."
+  }
+}

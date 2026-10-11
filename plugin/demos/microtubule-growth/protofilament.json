@@ -1,0 +1,743 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-protofilament",
+  "title": "C. One protofilament, two dimers deep",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      }
+    ],
+    "sourceSha256": "35a45abbc5f671c159707946a1190dd42ee2846a46cbbe65335418b89046df4d",
+    "note": "Coordinates are RCSB biological assembly 1 of entry 5SYF, restricted to operators 1 and 14 of its 26 deposited helical operators. Both operators sit at the same azimuth, 81.50 Angstrom apart along the axis, so the pair is one protofilament two dimers deep. No coordinate was altered."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Two dimers",
+      "caption": "Two copies of the Taxol-stabilised 5SYF dimer, operators 1 and 14, 81.50 Angstrom apart along the axis.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "A second dimer stacks on top, same two colours.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 25,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain A, residues 1-437: the alpha tubulin of the lower dimer."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain B, residues 1-436: the beta tubulin of the lower dimer."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-14",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 14, author chain A-14: the alpha tubulin of the dimer this tier adds, 81.50 Angstrom up the axis."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-14",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 14, author chain B-14: the beta tubulin of the dimer this tier adds. It is the half that meets the lower alpha."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 1, author chain A residues 501 and 502: the deposited GTP and magnesium. Every copy carries its own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 1, author chain B residue 502, ligand TA1: Taxol. Every copy carries its own."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin",
+            "new-alpha",
+            "new-beta"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Head to tail",
+      "caption": "Turning shows the stack. Repeated head-to-tail contacts like this one give a microtubule its length.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.2
+        },
+        "narration": "This head-to-tail joint is the longitudinal contact.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": 20,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain A, residues 1-437: the alpha tubulin of the lower dimer."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain B, residues 1-436: the beta tubulin of the lower dimer."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-14",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 14, author chain A-14: the alpha tubulin of the dimer this tier adds, 81.50 Angstrom up the axis."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-14",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 14, author chain B-14: the beta tubulin of the dimer this tier adds. It is the half that meets the lower alpha."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 1, author chain A residues 501 and 502: the deposited GTP and magnesium. Every copy carries its own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 1, author chain B residue 502, ligand TA1: Taxol. Every copy carries its own."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "One strand",
+      "caption": "The surface joins the two dimers into one strand, a protofilament. Thirteen of them make the wall.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.6
+        },
+        "view": "fit",
+        "narration": "One strand: a protofilament. Thirteen of them make a tube.",
+        "motion": {
+          "kind": "dolly",
+          "metres": 0.15,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain A, residues 1-437: the alpha tubulin of the lower dimer."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain B, residues 1-436: the beta tubulin of the lower dimer."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-14",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 14, author chain A-14: the alpha tubulin of the dimer this tier adds, 81.50 Angstrom up the axis."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-14",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 14, author chain B-14: the beta tubulin of the dimer this tier adds. It is the half that meets the lower alpha."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 1, author chain A residues 501 and 502: the deposited GTP and magnesium. Every copy carries its own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 1, author chain B residue 502, ligand TA1: Taxol. Every copy carries its own."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "The joint",
+      "caption": "The joint is beta of the upper dimer against alpha of the lower, the nucleotide site buried between.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.4
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        },
+        "narration": "Alpha below meets beta above, nucleotide buried between them.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": -15,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain A, residues 1-437: the alpha tubulin of the lower dimer."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain B, residues 1-436: the beta tubulin of the lower dimer."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-14",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 14, author chain A-14: the alpha tubulin of the dimer this tier adds, 81.50 Angstrom up the axis."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-14",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 14, author chain B-14: the beta tubulin of the dimer this tier adds. It is the half that meets the lower alpha."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 1, author chain A residues 501 and 502: the deposited GTP and magnesium. Every copy carries its own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 1, author chain B residue 502, ligand TA1: Taxol. Every copy carries its own."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "new-beta"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "One of 13",
+      "caption": "These are two of the 26 deposited operators. The other 24 place this strand at twelve further azimuths.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain A, residues 1-437: the alpha tubulin of the lower dimer."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 1 of 5SYF assembly 1, author chain B, residues 1-436: the beta tubulin of the lower dimer."
+            },
+            {
+              "id": "new-alpha",
+              "label": "The new alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A-14",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Operator 14, author chain A-14: the alpha tubulin of the dimer this tier adds, 81.50 Angstrom up the axis."
+            },
+            {
+              "id": "new-beta",
+              "label": "The new beta tubulin",
+              "color": "#f5a623",
+              "chain": "B-14",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Operator 14, author chain B-14: the beta tubulin of the dimer this tier adds. It is the half that meets the lower alpha."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 1, author chain A residues 501 and 502: the deposited GTP and magnesium. Every copy carries its own."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Operator 1, author chain B residue 502, ligand TA1: Taxol. Every copy carries its own."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin",
+            "new-alpha",
+            "new-beta"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        },
+        "narration": "Twelve more strands ring this one into a tube.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 30,
+          "seconds": 8
+        }
+      }
+    }
+  ]
+}

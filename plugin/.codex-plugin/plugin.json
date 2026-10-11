@@ -1,0 +1,111 @@
+{
+  "name": "stereofold",
+  "version": "0.1.21",
+  "description": "Explore molecular structures with Codex or Claude and keep changing the same scene on your computer and WebXR headset.",
+  "author": {
+    "name": "Jacob Vogan"
+  },
+  "license": "MIT",
+  "homepage": "https://jvogan.github.io/stereofold/",
+  "repository": "https://github.com/jvogan/stereofold",
+  "keywords": [
+    "stereo",
+    "stereoscopic",
+    "molstar",
+    "protein",
+    "pdb",
+    "mmcif",
+    "headset",
+    "webxr",
+    "vision-pro",
+    "quest"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Stereofold",
+    "shortDescription": "Put molecules in your headset",
+    "longDescription": "Explore your molecule in depth, with Codex or Claude changing the scene as you ask. Reveal a binding pocket. Highlight a ligand. Make the surrounding protein transparent so you can inspect what matters.\n\nStart on your laptop, then open the same scene in a WebXR headset. Rotate and enlarge the molecule, change representations, or switch structures without pairing again. Keep typing or dictating requests while the connected desktop and headset views update.\n\nBuild a guided molecular lesson, step through its chapters, and pause to investigate a detail. Claude and Codex can join the same shared scene, so you can continue working in either host. Desktop stereo modes also let you explore depth on a regular screen.",
+    "developerName": "Jacob Vogan",
+    "websiteURL": "https://jvogan.github.io/stereofold/",
+    "category": "Education & Research",
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
+    "brandColor": "#137D70",
+    "composerIcon": "./assets/icon-256.png",
+    "logo": "./assets/logo-1024.png",
+    "defaultPrompt": [
+      "Put this molecule in my headset and keep it connected while we explore.",
+      "Highlight the ligand and make the surrounding protein transparent.",
+      "Create a guided lesson through this structure, with time to explore each chapter."
+    ],
+    "brandColorDark": "#65E4D2",
+    "supportURL": "https://jvogan.github.io/stereofold/support.html",
+    "privacyPolicyURL": "https://jvogan.github.io/stereofold/privacy.html",
+    "termsOfServiceURL": "https://jvogan.github.io/stereofold/terms.html"
+  },
+  "extensions": {
+    "com.openai": {
+      "review": {
+        "commerce": false,
+        "commerce_description": "Stereofold is a free, MIT-licensed open-source plugin. It does not sell products, take payments or execute purchases.",
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Open and inspect a public molecular structure.",
+              "prompt": "Inspect PDB 1CRN in Stereofold and open the inspector.",
+              "tools_triggered": "stereo_structure.inspect; stereo_structure.open_inspector when no embedded panel is available; stereo_structure.get_inspection_state",
+              "expected_behavior": "The inspector renders crambin and saves the scene. The agent confirms a rendered/saved state, identifies the public source, and keeps this session for subsequent requests."
+            },
+            {
+              "description": "Apply a precise change to the current scene.",
+              "prompt": "In the current crambin scene, select chain A residues 10 through 15 and color them orange.",
+              "tools_triggered": "stereo_structure.get_inspection_state; stereo_structure.update_inspection; stereo_structure.get_inspection_state",
+              "expected_behavior": "The selected residues are visible in orange in the current scene. A rendered command receipt confirms completion. The source and session remain the same."
+            },
+            {
+              "description": "Share the existing scene with a WebXR headset.",
+              "prompt": "Put this same structure on my headset over our Wi-Fi, then keep it connected while we work.",
+              "tools_triggered": "stereo_structure.get_inspection_state; stereo_structure.open_companion; stereo_structure.get_inspection_state",
+              "expected_behavior": "Stereofold supplies the private HTTPS pairing route and the appropriate device handoff. The reviewer completes browser/certificate/pairing/immersive gestures on their device. The agent distinguishes paired, rendered and in-VR states and reports the actual state."
+            },
+            {
+              "description": "Replace the molecule while retaining the paired connection.",
+              "prompt": "Switch our current scene to hemoglobin, PDB 4HHB, and keep my headset connected.",
+              "tools_triggered": "stereo_structure.get_inspection_state; stereo_structure.replace_inspection_source; stereo_structure.get_inspection_state",
+              "expected_behavior": "The current session loads 4HHB and receives a rendered source receipt. The existing paired companion receives the new molecule without requiring another pairing code."
+            },
+            {
+              "description": "Play a bundled molecular lesson.",
+              "prompt": "Open the bundled daraxonrasib lesson for PDB 9AX6 and show me both chapters, then go back to the first.",
+              "tools_triggered": "stereo_structure.inspect_lesson; stereo_structure.open_inspector when needed; stereo_structure.control_tour; stereo_structure.get_inspection_state",
+              "expected_behavior": "The agent resolves the bundled lesson and its declared coordinates/assembly. The two authored scenes and captions render. Back restores the first scene. Contact distances are described as geometry, without claiming they establish hydrogen bonds."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Stereofold visualizes supplied coordinates and does not predict a protein structure from sequence. Do not call its inspection tools as if a sequence were a coordinate model. Offer a separate structure-prediction workflow and inspect the resulting coordinates afterward.",
+              "prompt": "Use Stereofold to predict the 3D structure of this protein from its amino-acid sequence."
+            },
+            {
+              "description": "Stereofold does not calculate binding affinity. Do not convert visual contacts or distances into a measured or validated Kd, and do not invoke a Stereofold tool as an affinity calculation. Explain that an appropriate experimental or computational method is needed.",
+              "prompt": "Use Stereofold to calculate the exact binding affinity in nanomolar units for the ligand in this structure."
+            },
+            {
+              "description": "Stereofold is not a molecular dynamics engine. Do not run its visual spin or lesson playback as a simulation, and do not claim it produced a trajectory. Offer a separate simulation workflow and a compatible visualization of its outputs.",
+              "prompt": "Run a 100-nanosecond molecular dynamics simulation at 310 kelvin in Stereofold and save the trajectory."
+            }
+          ]
+        },
+        "demo_recording_url": "https://jvogan.github.io/stereofold/walkthrough.html"
+      },
+      "publication": {
+        "countries": [],
+        "release_notes": "Stereofold 0.1.21: preserve guided playback and wearer placement through manipulation, recover retained scenes after interrupted fitting, and render clearer component plates and support up to 16 authored figure labels. Includes connection recovery, privacy clarification and updated setup instructions. Combined tour behavior still needs a physical wearer check; Vision Pro immersive validation remains pending."
+      },
+      "onboardingSkill": "./skills/stereofold-setup/SKILL.md"
+    }
+  }
+}

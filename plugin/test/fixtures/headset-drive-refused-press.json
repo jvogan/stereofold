@@ -1,0 +1,314 @@
+{
+  "provenance": {
+    "report": "refused-press/report.json",
+    "ring": "refused-press-ring.json",
+    "before": "refused-press-after-start.json",
+    "after": "refused-press-after-next.json",
+    "note": "Relevant state and diagnostic fields from a device run; spatial coordinates and unrelated records omitted."
+  },
+  "step": {
+    "step": "aim:next",
+    "startedAt": "2026-09-14T23:18:59.510Z",
+    "endedAt": "2026-09-14T23:19:19.764Z",
+    "ok": false,
+    "verified": false
+  },
+  "before": {
+    "sourceToken": "00000000-0000-4000-8000-000000000001",
+    "experience": {
+      "id": "tubulin-polymerase-complex",
+      "revision": 1,
+      "stepIndex": 0,
+      "stageId": "deposited-source",
+      "applied": true
+    },
+    "pendingCommand": [],
+    "reclaimedPanels": [],
+    "panels": [
+      {
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "surface": "companion",
+        "current": true,
+        "tour": {
+          "selectedId": "tubulin-polymerase-complex",
+          "step": 0,
+          "total": 20,
+          "active": true,
+          "autoplay": true,
+          "navigating": false
+        }
+      }
+    ],
+    "commands": [
+      {
+        "commandId": "cli-0d5d9737-8114-4c64-bae4-6034b3664b06",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-8c8087ca-d173-4fb6-ab05-c6447078e22a",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-a310be68-cbda-4e55-ac6b-1a54b467a534",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-7502be16-bcc8-469c-9df0-0cc30322ca31",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-13fe90bc-17c5-4bc0-b524-00737f39bbb8",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-56d7ec92-f174-4594-a5f8-b6bc01f5eaed",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-7b27644b-0585-4a1e-8a5d-66b01f9a11b1",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-8714d49c-2a46-4df0-a614-afa20886387e",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-f38425d8-563d-4fbe-93e3-d7747a75d8b1",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "cancelled",
+        "reason": "A newer utterance dropped this earlier request. This is not a rendered confirmation."
+      },
+      {
+        "commandId": "cli-2722cb39-6566-4bc6-be2d-a1753534de18",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-2513923d-36b7-42a1-9f5e-69bd2892f830",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-be072567-ea11-4db6-9e4d-b7a101f3924b",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "superseded",
+        "reason": "A newer utterance dropped this earlier request. This is not a rendered confirmation."
+      },
+      {
+        "commandId": "cli-6e30f7db-9542-4cd5-9a82-e78a718fc4a6",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-bc5f046c-3796-4a18-87ea-1b6a4b8ca131",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      }
+    ],
+    "experienceCatalog": [
+      {
+        "id": "tubulin-polymerase-complex",
+        "deviceBudget": {
+          "chapters": [
+            {
+              "stepIndex": 0,
+              "title": "TOG\u2013tubulin complex",
+              "status": "available"
+            },
+            {
+              "stepIndex": 1,
+              "title": "Alpha tubulin",
+              "status": "refused",
+              "message": "Chapter 2 refused: 8535 atoms in ball-and-stick exceed the 260000-vertex headset limit at lowest detail. Staying on the current chapter."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "after": {
+    "sourceToken": "00000000-0000-4000-8000-000000000001",
+    "experience": {
+      "id": "tubulin-polymerase-complex",
+      "revision": 1,
+      "stepIndex": 0,
+      "stageId": "deposited-source",
+      "applied": true
+    },
+    "pendingCommand": [],
+    "reclaimedPanels": [],
+    "panels": [
+      {
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "surface": "companion",
+        "current": true,
+        "tour": {
+          "selectedId": "tubulin-polymerase-complex",
+          "step": 0,
+          "total": 20,
+          "active": true,
+          "autoplay": false,
+          "navigating": false
+        }
+      }
+    ],
+    "commands": [
+      {
+        "commandId": "cli-0d5d9737-8114-4c64-bae4-6034b3664b06",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-8c8087ca-d173-4fb6-ab05-c6447078e22a",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-a310be68-cbda-4e55-ac6b-1a54b467a534",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-7502be16-bcc8-469c-9df0-0cc30322ca31",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-13fe90bc-17c5-4bc0-b524-00737f39bbb8",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-56d7ec92-f174-4594-a5f8-b6bc01f5eaed",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-7b27644b-0585-4a1e-8a5d-66b01f9a11b1",
+        "panelId": "d644555c-cf1e-44dc-8992-38e6fd55e9bf",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-8714d49c-2a46-4df0-a614-afa20886387e",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-f38425d8-563d-4fbe-93e3-d7747a75d8b1",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "cancelled",
+        "reason": "A newer utterance dropped this earlier request. This is not a rendered confirmation."
+      },
+      {
+        "commandId": "cli-2722cb39-6566-4bc6-be2d-a1753534de18",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-2513923d-36b7-42a1-9f5e-69bd2892f830",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-be072567-ea11-4db6-9e4d-b7a101f3924b",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "superseded",
+        "reason": "A newer utterance dropped this earlier request. This is not a rendered confirmation."
+      },
+      {
+        "commandId": "cli-6e30f7db-9542-4cd5-9a82-e78a718fc4a6",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      },
+      {
+        "commandId": "cli-bc5f046c-3796-4a18-87ea-1b6a4b8ca131",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "status": "rendered"
+      }
+    ],
+    "experienceCatalog": [
+      {
+        "id": "tubulin-polymerase-complex",
+        "deviceBudget": {
+          "chapters": [
+            {
+              "stepIndex": 0,
+              "title": "TOG\u2013tubulin complex",
+              "status": "available"
+            },
+            {
+              "stepIndex": 1,
+              "title": "Alpha tubulin",
+              "status": "refused",
+              "message": "Chapter 2 refused: 8535 atoms in ball-and-stick exceed the 260000-vertex headset limit at lowest detail. Staying on the current chapter."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "entries": [
+    {
+      "seq": 3045,
+      "at": 1789427941670,
+      "kind": "toolbar-action",
+      "detail": {
+        "kind": "tour-next",
+        "locked": false
+      }
+    },
+    {
+      "seq": 3051,
+      "at": 1789427941774,
+      "kind": "journey",
+      "detail": {
+        "phase": "preparing",
+        "experienceId": "tubulin-polymerase-complex",
+        "stepIndex": 1,
+        "finish": false,
+        "commandId": null,
+        "owner": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9",
+        "panelId": "f3d6ec7c-9ae3-4b18-9406-0ecdaed44ac9"
+      }
+    },
+    {
+      "seq": 3058,
+      "at": 1789427941957,
+      "kind": "tool-refused",
+      "detail": {
+        "tool": "navigate_experience",
+        "status": 409,
+        "reason": "Chapter 2 refused: 8535 atoms in ball-and-stick exceed the 260000-vertex headset limit at lowest detail. Staying on the current chapter.",
+        "captioned": true,
+        "journeyPending": true,
+        "staleBinding": false
+      }
+    },
+    {
+      "seq": 3062,
+      "at": 1789427942591,
+      "kind": "talk-caption",
+      "detail": {
+        "text": "Chapter 2 refused: 8535 atoms in ball-and-stick exceed the 260000-vertex headset limit at"
+      }
+    },
+    {
+      "seq": 3063,
+      "at": 1789427942591,
+      "kind": "talk-caption-seat",
+      "detail": {
+        "outcome": "shown",
+        "lines": 3,
+        "holdMs": 2773
+      }
+    }
+  ]
+}

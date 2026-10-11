@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "id": "hemoglobin",
+  "title": "Haemoglobin, four subunits and four hemes",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      { "kind": "public", "ref": "https://www.rcsb.org/structure/4HHB" },
+      { "kind": "publication", "ref": "https://doi.org/10.1016/0022-2836(84)90472-8" }
+    ],
+    "sourceSha256": "2d3ca1bf21ddff35af2e2bc5d331720f7bfc46a16c4829ea3ec1b41062d5f5a6",
+    "note": "Human deoxyhaemoglobin at 1.74 Angstrom by X-ray diffraction. Two alpha subunits (chains A and C), two beta subunits (chains B and D), and one heme group in each of the four chains."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Wide reveal",
+      "caption": "Human deoxyhaemoglobin, entry 4HHB, at 1.74 Angstrom. Four chains in four colours: two alpha subunits and two beta subunits packed as one particle.",
+      "durationSeconds": 8,
+      "changes": [
+        {
+          "kind": "scene", "durationSeconds": 6, "easing": "ease_in_out", "transition": "smooth",
+          "scene": {
+            "camera": { "orientation": "front", "zoom": 1.05 },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete complex", "representation": "cartoon", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        },
+        { "kind": "zoom", "durationSeconds": 2, "easing": "ease_in_out", "magnification": 1.15 }
+      ],
+      "immersive": {
+        "narration": "Human haemoglobin, entry 4HHB: four chains in four colours, packed as one particle.",
+        "appearance": { "representation": "cartoon", "color": "chain-id", "opacity": 1, "labels": false, "clipping": 0, "fog": 30 },
+        "placement": { "translation": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1 },
+        "view": "fit",
+        "motion": { "kind": "orbit", "axis": "y", "degrees": 40, "seconds": 7 }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Slow orbit",
+      "caption": "One turn around the tetramer. The four subunits are arranged in two matching pairs around a central cavity.",
+      "durationSeconds": 10,
+      "changes": [
+        { "kind": "scene", "durationSeconds": 1, "easing": "ease_in_out", "transition": "smooth", "scene": { "lighting": "studio" } },
+        { "kind": "camera_spin", "durationSeconds": 9, "easing": "linear", "axis": [0, -1, 0], "turns": 1 }
+      ],
+      "immersive": {
+        "narration": "One turn around the tetramer: two matching pairs around a central cavity.",
+        "placement": { "translation": [0, 0, 0], "rotation": [0, 140, 0], "scale": 1.1 },
+        "motion": { "kind": "turntable", "degrees": 180, "seconds": 9 }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Highlight",
+      "caption": "The surface shows how closely the four subunits pack. Each one is built almost entirely of alpha helices, and the contacts between them change when oxygen binds.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene", "durationSeconds": 6, "easing": "ease_in_out", "transition": "smooth",
+          "scene": {
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete complex surface", "representation": "gaussian_surface", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        },
+        { "kind": "focus", "durationSeconds": 3, "easing": "ease_in_out", "target": { "kind": "all" } }
+      ],
+      "immersive": {
+        "narration": "The surface shows how tightly the four subunits pack together.",
+        "appearance": { "representation": "molecular-surface", "color": "chain-id", "opacity": 1, "labels": false, "clipping": 0 },
+        "placement": { "translation": [0, 0, 0], "rotation": [0, 220, 0], "scale": 1.1 },
+        "view": "fit",
+        "motion": { "kind": "orbit", "axis": "y", "degrees": -60, "seconds": 7 }
+      }
+    },
+    {
+      "id": "site",
+      "title": "The working part",
+      "caption": "Every chain holds one heme: an iron atom at the centre of a protoporphyrin IX ring. Oxygen binds at that iron, one molecule per subunit.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene", "durationSeconds": 3, "easing": "ease_in_out", "transition": "smooth",
+          "scene": {
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete complex", "representation": "ball_and_stick", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        },
+        { "kind": "focus", "durationSeconds": 4, "easing": "ease_in_out", "target": { "kind": "ligand" } },
+        { "kind": "zoom", "durationSeconds": 3, "easing": "ease_in_out", "magnification": 2.6 }
+      ],
+      "immersive": {
+        "narration": "Four hemes, one in every chain. Oxygen binds at each iron.",
+        "appearance": { "representation": "ball-and-stick", "color": "element-symbol", "opacity": 1, "labels": false, "clipping": 25, "fog": 10 },
+        "placement": { "translation": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1.8 },
+        "emphasis": {
+          "parts": [
+            { "id": "alpha-1", "label": "Alpha subunit 1", "aliases": ["alpha one", "chain A"], "color": "#4a90e2", "chain": "A", "note": "Chain A, author residues 1-141, one alpha globin." },
+            { "id": "beta-1", "label": "Beta subunit 1", "aliases": ["beta one", "chain B"], "color": "#f5a623", "chain": "B", "note": "Chain B, author residues 1-146, one beta globin." },
+            { "id": "alpha-2", "label": "Alpha subunit 2", "aliases": ["alpha two", "chain C"], "color": "#7fb8ff", "chain": "C", "note": "Chain C, author residues 1-141, the second alpha globin." },
+            { "id": "beta-2", "label": "Beta subunit 2", "aliases": ["beta two", "chain D"], "color": "#ffc861", "chain": "D", "note": "Chain D, author residues 1-146, the second beta globin." },
+            { "id": "heme-a", "label": "Heme in alpha 1", "aliases": ["heme A"], "color": "#e0362c", "chain": "A", "residues": { "from": 142, "to": 142 }, "note": "HEM A 142, the alpha-1 heme; its iron is the oxygen-binding site." },
+            { "id": "heme-b", "label": "Heme in beta 1", "aliases": ["heme B"], "color": "#e0362c", "chain": "B", "residues": { "from": 148, "to": 148 }, "note": "HEM B 148, the beta-1 heme." },
+            { "id": "heme-c", "label": "Heme in alpha 2", "aliases": ["heme C"], "color": "#e0362c", "chain": "C", "residues": { "from": 142, "to": 142 }, "note": "HEM C 142, the alpha-2 heme." },
+            { "id": "heme-d", "label": "Heme in beta 2", "aliases": ["heme D"], "color": "#e0362c", "chain": "D", "residues": { "from": 148, "to": 148 }, "note": "HEM D 148, the beta-2 heme." }
+          ],
+          "focus": ["heme-a", "heme-b", "heme-c", "heme-d"],
+          "contextOpacity": 0.12,
+          "framing": "fill"
+        },
+        "motion": { "kind": "orbit", "axis": "y", "degrees": 35, "seconds": 7 }
+      }
+    },
+    {
+      "id": "pocket",
+      "title": "One heme pocket",
+      "caption": "One heme pocket up close. The proximal histidine, F8 (His 87 in the alpha chain), coordinates the iron from below; oxygen would bind on the other face.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene", "durationSeconds": 3, "easing": "ease_in_out", "transition": "smooth",
+          "scene": {
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete complex", "representation": "ball_and_stick", "target": { "kind": "all" }, "color": { "kind": "element" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        },
+        { "kind": "focus", "durationSeconds": 3, "easing": "ease_in_out", "target": { "kind": "ligand" } },
+        { "kind": "zoom", "durationSeconds": 3, "easing": "ease_in_out", "magnification": 3.5 }
+      ],
+      "immersive": {
+        "narration": "One pocket up close: histidine F8 holds the iron from below.",
+        "appearance": { "representation": "ball-and-stick", "color": "element-symbol", "opacity": 1, "labels": false, "clipping": 0, "fog": 0 },
+        "placement": { "translation": [0, 0, 0], "rotation": [0, 0, 0], "scale": 2.2 },
+        "emphasis": {
+          "parts": [
+            { "id": "alpha-1", "label": "Alpha subunit 1", "aliases": ["alpha one", "chain A"], "color": "#4a90e2", "chain": "A", "note": "Chain A, author residues 1-141, one alpha globin." },
+            { "id": "heme-a", "label": "Heme in alpha 1", "aliases": ["heme A"], "color": "#e0362c", "chain": "A", "residues": { "from": 142, "to": 142 }, "note": "HEM A 142, the alpha-1 heme." },
+            { "id": "his-f8", "label": "Histidine F8", "aliases": ["proximal histidine", "His 87"], "color": "#35c46a", "chain": "A", "residues": { "from": 87, "to": 87 }, "note": "His 87 of chain A, the proximal histidine that coordinates the heme iron." }
+          ],
+          "focus": ["heme-a", "his-f8"],
+          "contextOpacity": 0.1,
+          "framing": "fill"
+        },
+        "motion": { "kind": "orbit", "axis": "x", "degrees": 25, "seconds": 6 }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "Step back",
+      "caption": "Back to the tetramer. This entry is the deoxy state, the form that has released its oxygen.",
+      "durationSeconds": 8,
+      "changes": [
+        {
+          "kind": "scene", "durationSeconds": 5, "easing": "ease_in_out", "transition": "smooth",
+          "scene": {
+            "camera": { "orientation": "front", "zoom": 1 },
+            "layers": [
+              { "id": "lesson-layer", "name": "Complete complex", "representation": "cartoon", "target": { "kind": "all" }, "color": { "kind": "chain" }, "labels": false, "opacity": 1, "visible": true }
+            ]
+          }
+        },
+        { "kind": "zoom", "durationSeconds": 3, "easing": "ease_in_out", "magnification": 1 }
+      ],
+      "immersive": {
+        "narration": "Back to the whole tetramer: the deoxy state, its oxygen released.",
+        "appearance": { "representation": "cartoon", "color": "chain-id", "opacity": 1, "labels": false, "clipping": 0, "fog": 30 },
+        "placement": { "translation": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1 },
+        "view": "fit",
+        "motion": "spin"
+      }
+    }
+  ]
+}

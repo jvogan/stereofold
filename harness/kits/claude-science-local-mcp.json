@@ -1,0 +1,20 @@
+{
+  "servers": [
+    {
+      "name": "stereofold",
+      "command": "/opt/homebrew/bin/node",
+      "args": [
+        "/absolute/path/to/stereofold/plugin/dist/server.mjs"
+      ],
+      "env": {
+        "STEREOFOLD_CLOUDFLARED": "/opt/homebrew/bin/cloudflared",
+        "STEREOFOLD_PTT_TRANSCRIBE": "1",
+        "STEREOFOLD_PTT_TRANSCRIBER": "whisper",
+        "STEREOFOLD_ADB_BIN": "/opt/homebrew/bin/adb",
+        "STEREOFOLD_BRIDGE_DIR": "/absolute/path/to/stereofold-bridge",
+        "STEREOFOLD_SCENE_SERVICE": "/absolute/path/to/home/.stereofold/scene-service.json",
+        "STEREOFOLD_SCENE_SOCKET": "/absolute/path/to/home/.stereofold/scene-service.sock"
+      }
+    }
+  ]
+}

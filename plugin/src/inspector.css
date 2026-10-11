@@ -1,0 +1,367 @@
+.session-notice { padding:12px 22px; display:flex; align-items:center; gap:12px; background:var(--notice-background); color:var(--notice-text); border-block:1px solid var(--notice-border); flex-wrap:wrap; }
+.session-notice[hidden] { display:none; }
+.session-notice span { flex:1 1 240px; }
+.session-notice button { color:var(--text); }
+.session-notice details { flex-basis:100%; font-size:12px; }
+.session-notice summary { cursor:pointer; width:fit-content; }
+.session-notice pre { white-space:pre-wrap; overflow-wrap:anywhere; font:11px var(--mono); margin:8px 0 0; }
+/* A standalone compatibility receipt has no molecular session or connection
+   to wait for. Existing bound inspections keep their workspace visible. */
+body[data-ready="preflight"] .readiness-strip,
+body[data-ready="preflight"] .workspace,
+body[data-ready="preflight"] .mobile-tabs,
+body[data-ready="preflight"] .mobile-selection,
+body[data-ready="preflight"] .scene-heading,
+body[data-ready="preflight"] .sequence-panel,
+body[data-ready="preflight"] .app-footer,
+body[data-ready="preflight"] .header-actions,
+body[data-ready="preflight"] .xr-controls,
+body[data-ready="preflight"] > #status { display:none; }
+/* In a host card, style.css lays out `.workspace`, `#app` and the body with
+   selectors as specific as the ones above, and it loads later, so these carry
+   one more part. The shell takes its natural height so the card can ask for
+   exactly the notice (panel-size.ts), and scrolls if that passes the host cap. */
+body[data-ready="preflight"]:not([data-companion="true"]) .workspace { display:none; }
+body[data-ready="preflight"]:not([data-companion="true"]) { overflow-y:auto; }
+body[data-ready="preflight"]:not([data-companion="true"]) #app { height:auto; min-height:0; overflow:visible; }
+body[data-ready="preflight"]:not([data-companion="true"]) #app > .app-header { border-bottom-color:transparent; }
+/* A check result is a title, what happened, and the next step. The checker's
+   own reasons sit collapsed below them in small monospace. */
+.session-notice[data-scene-preflight] { display:grid; gap:3px; margin:8px 0 12px; padding:12px 14px 10px;
+  color:var(--secondary); background:color-mix(in srgb,var(--amber) 8%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--amber) 40%,transparent); border-radius:8px; font-size:13px; line-height:1.45; }
+.session-notice[data-scene-preflight][data-supported="true"] { background:color-mix(in srgb,var(--teal) 6%,var(--surface));
+  border-color:color-mix(in srgb,var(--teal) 40%,transparent); }
+body:not([data-companion="true"]) .session-notice[data-scene-preflight] { max-height:none; overflow:visible; }
+.session-notice[data-scene-preflight] p { margin:0; }
+.scene-preflight-title { display:flex; align-items:center; gap:8px; margin:0 0 2px; color:var(--text); font-size:14px; font-weight:600; letter-spacing:0; line-height:1.3; }
+.scene-preflight-title::before { content:''; flex:none; width:7px; height:7px; border-radius:50%; background:var(--amber); }
+[data-supported="true"] > .scene-preflight-title::before { background:var(--teal); }
+.session-notice[data-scene-preflight] details { margin-top:7px; padding-top:7px; border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent); color:var(--muted); }
+.session-notice[data-scene-preflight] summary { display:inline-flex; align-items:center; gap:6px; list-style:none; border-radius:3px; color:var(--muted); font-size:12px; }
+.session-notice[data-scene-preflight] summary::-webkit-details-marker { display:none; }
+.session-notice[data-scene-preflight] summary::before { content:'▸'; font-size:10px; transition:transform .12s; }
+.session-notice[data-scene-preflight] details[open] > summary::before { transform:rotate(90deg); }
+.session-notice[data-scene-preflight] summary:hover { color:var(--text); }
+.session-notice[data-scene-preflight] summary:focus { outline:none; }
+.session-notice[data-scene-preflight] summary:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.session-notice[data-scene-preflight] pre { max-height:180px; overflow:auto; margin-top:6px; color:var(--muted); line-height:1.5; }
+@media (prefers-reduced-motion:reduce) { .session-notice[data-scene-preflight] summary::before { transition:none; } }
+.session-outcome { padding:8px 0; color:var(--text); background:var(--surface); border-bottom:1px solid var(--line); font-size:13px; line-height:1.35; overflow-wrap:anywhere; }
+.session-outcome[data-state="error"] { color:var(--notice-text); background:var(--notice-background); }
+/* Readiness is one line. What needs attention is named in a few words each; the
+   observed facts and the fix for each sit behind Details, so the card keeps its
+   height for the structure. A fully ready reading takes no room at all. Both
+   strips carry no side padding of their own: the app shell's padding already
+   lines them up with the header and the heading. */
+.readiness-strip { padding:0; color:var(--secondary); background:var(--surface); border-bottom:1px solid var(--line); font-size:12px; line-height:1.35; }
+.readiness-strip p { margin:0; padding:6px 0; }
+.readiness-strip[data-state="ready"] { display:none; }
+.readiness-strip summary { display:flex; align-items:center; gap:10px; min-height:28px; padding:3px 0; cursor:pointer; list-style:none; }
+.readiness-strip summary::-webkit-details-marker { display:none; }
+.readiness-strip summary::before { content:'•'; flex:none; color:var(--notice-text); font-weight:700; }
+.readiness-strip-summary { flex:1 1 auto; min-width:0; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.readiness-strip-toggle { flex:none; color:var(--teal); }
+.readiness-strip-details[open] .readiness-strip-toggle { color:var(--muted); }
+.readiness-strip button { min-height:26px; padding:3px 8px; font-size:12px; color:var(--text); white-space:nowrap; }
+.readiness-strip ul { display:grid; gap:6px; margin:0; padding:6px 0 10px; list-style:none; border-top:1px solid var(--line); }
+.readiness-strip li { display:grid; grid-template-columns:12px minmax(0,1fr) auto; column-gap:8px; row-gap:2px; align-items:start; }
+.readiness-strip li::before { content:'✓'; grid-row:1; color:var(--teal); font-weight:700; }
+.readiness-strip li[data-state="missing"]::before { content:'•'; color:var(--notice-text); }
+.readiness-strip li[data-state="not-checked"]::before { content:'○'; color:var(--muted); font-weight:400; }
+.readiness-strip li strong { grid-column:2; grid-row:1; color:var(--text); font-size:12px; }
+.readiness-strip li span,.readiness-strip li small { grid-column:2 / -1; color:var(--muted); font:inherit; }
+.readiness-strip li[data-state="missing"] span { color:var(--secondary); }
+.readiness-strip li button { grid-column:3; grid-row:1; }
+/* In a card the open list scrolls inside a fixed budget rather than pushing the stage down. */
+@media (max-height:760px) { .readiness-strip ul { max-height:150px; overflow-y:auto; } }
+.tour-player { margin:0 16px 12px; padding:10px 0 12px; color:var(--text); background:var(--surface); border-block:1px solid var(--line); display:grid; gap:8px; flex-shrink:0; }
+.tour-player-heading { display:grid; align-items:start; gap:8px; }
+.tour-player-heading h2 { font-size:16px; }
+.tour-player-heading label { display:grid; gap:3px; color:var(--muted); font-size:12px; }
+.tour-player-heading select { min-height:32px; padding:4px 24px 4px 7px; }
+.tour-player-summary,.tour-player-scene p { margin:0; font-size:13px; color:var(--secondary); }
+.tour-player-scene { display:grid; gap:4px; padding:8px 9px; border:1px solid var(--line); border-radius:5px; background:var(--page); }
+.tour-player-scene h3 { margin:0; font-size:16px; line-height:1.2; }
+.tour-player-body { line-height:1.35; }
+.tour-player-heading h2 { display:none; }
+.tour-player-heading select { width:100%; min-width:0; }
+.tour-player[data-selected="false"] .tour-player-summary,
+.tour-player[data-selected="false"] .tour-player-scene,
+.tour-player[data-selected="false"] .tour-player-actions { display:none; }
+.inspector:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) > .inspector-heading,
+.inspector:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) > .tool-tabs,
+.inspector:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) > .tool-content { display:none; }
+.tour-player[data-selected="true"] { flex:1; min-height:0; grid-template-rows:auto auto minmax(0,1fr) auto; }
+.tour-player[data-selected="true"] .tour-player-scene { min-height:0; overflow-y:auto; align-content:start; }
+.tour-player[data-active="true"] { grid-template-rows:auto minmax(0,1fr) auto; }
+.tour-player[data-active="true"] .tour-player-summary { display:none; }
+.tour-player-status { min-height:1.2em; color:var(--muted)!important; }
+.tour-player-sources { font-size:12px!important; }
+.tour-player-sources a { color:var(--teal); text-decoration:underline; text-underline-offset:2px; }
+.tour-player-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.tour-player-actions button { min-height:30px; padding:5px 8px; }
+.tour-player-pace { display:flex; align-items:center; gap:4px; color:var(--muted); font-size:12px; }
+.tour-player-pace select { min-height:30px; padding:4px 20px 4px 6px; }
+@media (max-width:1150px) { .tour-player-actions { gap:5px; } .tour-player-actions button { min-height:28px; padding:4px 6px; font-size:11px; } .tour-player-pace { font-size:11px; } .tour-player-pace select { min-height:28px; padding:3px 17px 3px 5px; } }
+@media (max-width:760px) { .tour-player { margin:0 14px 12px; } }
+.companion-link { display:block; padding:10px 22px; color:var(--teal); background:var(--surface); }
+.companion-link[hidden] { display:none; }
+.xr-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 22px; background:var(--surface); color:var(--text); }
+.xr-controls small { flex-basis:100%; color:var(--muted); }
+.xr-controls [data-enter-xr="immersive-ar"]:not(:disabled) { background:var(--teal); color:var(--page); border-color:var(--teal); font-weight:650; }
+/* The single press that finishes a blend-mode switch the browser
+   refused. It is aimed at with a controller ray from wherever the wearer is
+   standing, so it is sized for that and given the page's strongest contrast. */
+.xr-resume { display:grid; justify-items:center; gap:8px; padding:16px 22px; background:var(--surface); }
+.xr-resume[hidden] { display:none; }
+.xr-resume button { width:min(560px,100%); min-height:72px; padding:18px 24px; font-size:24px; font-weight:700;
+  border-radius:10px; background:var(--teal); color:var(--page); border:2px solid var(--teal); cursor:pointer; }
+.xr-resume button:disabled { opacity:.55; cursor:progress; }
+.xr-resume small { color:var(--muted); text-align:center; }
+
+.companion-diagnostics { position:fixed; left:8px; bottom:8px; max-width:calc(100vw - 16px); max-height:45vh; overflow:auto; padding:6px 10px; z-index:30; border-radius:6px; background:#102327; color:#e8fbfa; font:12px/1.4 system-ui; }
+.companion-diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* The headset browser is an entry surface. Reserve its entire viewport for
+   the structure and a reachable entry action, including short Quest windows. */
+body[data-companion="true"] { margin:0; overflow:hidden; }
+body[data-companion="true"] #app { height:100dvh; min-height:0; padding:0; overflow:hidden; }
+body[data-companion="true"] .app-header,
+body[data-companion="true"] .scene-facts,
+body[data-companion="true"] .scene-heading .eyebrow,
+body[data-companion="true"] .mobile-tabs,
+body[data-companion="true"] .mobile-selection,
+body[data-companion="true"] .inspector,
+body[data-companion="true"] .sequence-panel,
+body[data-companion="true"] .canvas-tools,
+body[data-companion="true"] .canvas-bottom,
+body[data-companion="true"] .app-footer,
+body[data-companion="true"] .session-outcome,
+body[data-companion="true"] > #status { display:none; }
+body[data-companion="true"] .scene-heading { flex:none; min-height:0; padding:14px 24px; margin:0; display:block; border-bottom:1px solid var(--line); }
+body[data-companion="true"] .scene-heading h1 { font-size:22px; line-height:1.3; margin:0; }
+body[data-companion="true"] .workspace { display:flex; flex:1 1 0; min-height:0; min-width:0; border:0; border-radius:0; overflow:hidden; }
+body[data-companion="true"] .molecular-view { display:flex; flex:1 1 0; width:100%; height:auto; min-height:0; position:relative; left:auto; visibility:visible; border:0; border-radius:0; }
+body[data-companion="true"] .stage { flex:1 1 0; min-height:0; --companion-voice-clearance:96px; }
+/* The Talk pill occupies the stage's lower-left corner. Lift the source/footer
+   caption into its own reserved row so neither can cross the stage edge or
+   cover the other at the default companion window size. */
+body[data-companion="true"] .canvas-caption { left:24px; right:24px; bottom:var(--companion-voice-clearance); font-size:11px; }
+body[data-companion="true"] .canvas-legend { display:none; }
+body[data-companion="true"] .session-notice { flex:none; max-height:30dvh; overflow:auto; padding:10px 24px; }
+body[data-companion="true"] .xr-controls { position:relative; flex:none; justify-content:center; padding:16px 24px; gap:12px; border-top:1px solid var(--line); }
+/* In the headset the page is a flat panel with no room to scroll, so the resume
+   press takes the top of the column and everything else keeps its place below. */
+body[data-companion="true"] .xr-resume { flex:none; padding:20px 24px; border-bottom:1px solid var(--line); }
+body[data-companion="true"] .xr-resume button { min-height:96px; font-size:32px; }
+body[data-companion="true"] .xr-resume small { font-size:15px; line-height:1.35; }
+body[data-companion="true"] .xr-controls button,
+body[data-companion="true"] .xr-options > summary { min-height:48px; padding:12px 20px; font-size:16px; cursor:pointer; }
+body[data-companion="true"] .xr-controls [data-primary="true"] { min-width:min(290px,100%); min-height:56px; font-size:20px; font-weight:650; }
+body[data-companion="true"] .xr-controls [data-enter-xr="immersive-vr"] { min-height:56px; min-width:150px; font-size:20px; font-weight:650; }
+body[data-companion="true"] .xr-controls [data-primary="true"]:not(:disabled) { background:var(--teal); color:var(--page); border-color:var(--teal); }
+body[data-companion="true"] .xr-controls small { text-align:center; font-size:14px; line-height:1.35; }
+body[data-companion="true"] .xr-controls small[data-state="error"] { color:var(--notice-text); }
+body[data-companion="true"] .xr-options-body { position:absolute; z-index:40; bottom:100%; right:16px; width:min(400px,calc(100vw - 32px)); max-height:65dvh; overflow:auto; padding:16px; display:grid; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 10px 40px #0006; }
+body[data-companion="true"] .xr-options:not([open]) > .xr-options-body { display:none; }
+body[data-companion="true"] .xr-options .companion-diagnostics { position:static; max-width:100%; max-height:none; padding:8px 0; background:transparent; color:var(--secondary); }
+body[data-companion="true"] .companion-diagnostics summary { padding:10px 0; cursor:pointer; }
+@media (max-height:450px) {
+  body[data-companion="true"] .scene-heading { padding:8px 16px; }
+  body[data-companion="true"] .xr-controls { padding:8px 16px; gap:6px 12px; }
+  body[data-companion="true"] .xr-controls small { font-size:12px; }
+}
+
+/* A failed boot must remain visible even though normal companion status is
+   hidden once the minimal landing page is ready. */
+body[data-companion="true"][data-ready="error"] > #status {
+  display:grid; gap:12px; position:fixed; inset:auto 16px 16px; z-index:60;
+  padding:20px; max-height:70dvh; overflow:auto; background:var(--surface,#102327);
+  color:var(--text,#e8fbfa); border:1px solid var(--line,#54847f); border-radius:10px;
+  font:16px/1.5 system-ui;
+}
+body[data-companion="true"][data-ready="error"] > #status button {
+  min-height:48px; padding:12px 20px; font:inherit; cursor:pointer;
+}
+
+/* One entry action; fallback and diagnostics are progressively disclosed. */
+.xr-entry-actions { display:flex; align-items:center; justify-content:center; min-width:0; }
+body[data-companion="true"] .xr-entry-actions { flex:0 1 auto; }
+body[data-companion="true"] .xr-options-body [data-enter-xr] { width:100%; min-width:0; font-size:16px; }
+.experience-player { margin:16px 0; padding:20px; border:1px solid #476d66; border-radius:16px; background:#142c2b; color:#eef8f4; }
+.experience-kicker { color:#bbdca0; font-size:10px; letter-spacing:.2em; font-weight:700; margin-bottom:14px; }
+.experience-library label { display:grid; gap:8px; font-size:13px; }
+.experience-library select { width:100%; padding:12px; color:#eef8f4; background:#102323; border:1px solid #55746a; border-radius:8px; }
+.experience-library p, .experience-readout p { font-size:15px; line-height:1.55; color:#d1e3de; }
+.experience-player button { min-height:44px; border:1px solid #63877b; border-radius:9px; padding:10px 12px; background:#1c3c37; color:#f5fbf9; cursor:pointer; }
+.experience-player button:disabled { opacity:.4; cursor:default; }
+.experience-player .experience-primary { width:100%; background:#c2e29e; color:#152617; font-weight:700; }
+.experience-readout h3 { margin:10px 0; font-family:Georgia,serif; font-size:28px; font-weight:500; line-height:1.15; }
+.experience-readout > span { color:#bbdca0; font-size:12px; }
+.experience-readout > a { color:#a8d7c8; font-size:12px; }
+.experience-transport { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; margin-top:20px; }
+.experience-transport button:nth-child(2) { background:#c2e29e; color:#152617; font-weight:700; }
+.experience-secondary,.experience-room { display:flex; gap:8px; margin-top:8px; }
+.experience-secondary button,.experience-room button { flex:1; font-size:12px; background:transparent; }
+.experience-status { font-size:12px; line-height:1.4; margin:12px 0 0; color:#b7cdc5; }
+body[data-experience-active="true"] .tour-player { display:none; }
+body:not([data-companion="true"]) .experience-room { display:none; }
+
+/* A viewport 760 px tall or shorter is a host card, and card mode in the
+   workspace stylesheet owns every row of it: the header, the scene heading,
+   the toolbar, the sequence strip and the footer. The rules that used to sit
+   here trimmed the same rows a second time and by different amounts, so they
+   are gone. */
+
+/* One transport row, with exploration and secondary actions clearly separated. */
+.tour-player { gap:12px; }
+.tour-player-actions { display:grid; gap:10px; }
+.tour-transport { display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:6px; }
+.tour-player-actions button { min-height:40px; font-size:12px; border-radius:6px; padding:8px 10px; }
+.tour-wide { width:100%; }
+.tour-explore { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding-top:10px; border-top:1px solid var(--line); }
+.tour-more summary { color:var(--muted); font-size:12px; cursor:pointer; padding:4px 0; }
+.tour-more-body { display:flex; flex-wrap:wrap; gap:6px; padding-top:8px; }
+.tour-player-scene { padding:14px; gap:8px; border-radius:8px; }
+.tour-player-scene h3 { font-size:20px; }
+.tour-player-body { line-height:1.5; }
+.tour-player[data-exploring="true"] { flex:none; grid-template-rows:auto auto auto auto; }
+.tour-player[data-exploring="true"] .tour-player-scene { max-height:130px; }
+.tour-player[data-exploring="true"] .tour-player-summary { display:none; }
+.tour-player-summary:empty { display:none; }
+/* One clear microphone action in the structure stage. Anchoring it to the
+   stage, rather than the viewport, keeps it above the footer boundary as the
+   entry controls change height. `.canvas-caption` reserves the row above it. */
+.voice-panel { position:absolute; left:18px; bottom:18px; z-index:25; display:flex; align-items:center; gap:12px; max-width:min(460px,calc(100% - 36px)); padding:10px 14px 10px 10px; border:1px solid #426661; border-radius:36px; background:#10201eed; color:#edf8f6; }
+/* Keep the stage control dark in both themes; generic button:hover uses a light page fill. */
+.voice-panel .voice-orb { display:flex; align-items:center; gap:8px; min-height:48px; padding:8px 15px; border:1px solid #87e4d3; border-radius:28px; background:#244d46; color:#effffb; font:inherit; cursor:pointer; white-space:nowrap; }
+.voice-panel .voice-orb:hover:where(:not(:disabled)) { background:#306157; border-color:#b9fff0; }
+.voice-orb span[aria-hidden] { font-size:25px; line-height:1; }
+.voice-orb:focus-visible { outline:3px solid #edf8f6; outline-offset:3px; }
+.voice-orb:disabled { opacity:.6; cursor:default; }
+.voice-panel[data-voice-state="listening"] .voice-orb { background:#824741; border-color:#ffb7a8; }
+.voice-readout { font-size:12px; line-height:1.4; }
+.voice-panel [data-voice-cancel] { padding:8px; border:0; border-radius:12px; background:#314944; color:inherit; }
+@media (max-width:600px) { .voice-readout { max-width:190px; } }
+
+/* A window tall enough to be a real browser tab keeps the desktop layout: two
+   columns and the sequence in its own scroll row under the stage. A card 760 px
+   or shorter is laid out by card mode instead. */
+@media (min-width:761px) and (not (max-height:760px)) {
+  body:not([data-companion="true"]) .workspace { grid-template-rows:minmax(240px,1fr) 108px; }
+  body:not([data-companion="true"]) .sequence-panel { padding-block:8px; overflow:auto; }
+  body:not([data-companion="true"]) .inspector { overflow-y:auto; }
+  body:not([data-companion="true"])[data-experience-active="true"] .scene-heading { min-height:80px; }
+}
+/* A journey's own panel gives its words the room, at every card size: the
+   inspector's standing heading says nothing a reader in a journey needs. */
+body[data-experience-active="true"] .inspector-heading { padding:12px 16px; }
+body[data-experience-active="true"] .inspector-heading h2,
+body[data-experience-active="true"] .inspector-heading p { display:none; }
+body[data-experience-active="true"] .experience-player { margin:0; border:0; border-radius:0; padding:16px; }
+body[data-experience-active="true"] .experience-kicker { margin-bottom:8px; }
+body[data-experience-active="true"] .experience-readout h3 { font-size:24px; }
+body[data-experience-active="true"] .experience-readout p { font-size:14px; line-height:1.45; }
+body[data-experience-active="true"] .scene-facts { display:none; }
+
+/* ------------------------------------------------------------------------
+   The desktop panel's popups on the way to a headset.
+
+   The three dialogs (Open on a headset, Manual headset pairing, Other
+   viewers), the header's More menu and the readiness strip's rows. Colours
+   come from the panel's theme tokens, so the dialogs follow the host's
+   light or dark theme. Every rule here is for desktop-panel elements; none
+   of them styles the headset page (body[data-companion="true"]).
+   ------------------------------------------------------------------------ */
+.lan-dialog { width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 48px); overflow:auto; padding:20px 22px 18px;
+  border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text);
+  font:inherit; font-size:14px; line-height:1.45; box-shadow:0 24px 64px #000b; }
+.lan-dialog::backdrop { background:rgb(2 8 10 / .72); }
+.lan-dialog > form { position:absolute; top:14px; right:14px; margin:0; }
+.lan-dialog .lan-dismiss { min-height:28px; padding:4px 10px; border-color:transparent; background:transparent; color:var(--muted); font-size:13px; }
+.lan-dialog .lan-dismiss:hover { color:var(--text); background:var(--hover); border-color:transparent; }
+.lan-dialog h2 { margin:0 72px 4px 0; font-size:18px; line-height:1.3; font-weight:650; }
+.lan-dialog p { margin:0 0 12px; }
+.lan-dialog strong { font-weight:600; }
+.lan-dialog .dialog-lead { margin-bottom:16px; color:var(--secondary); }
+.lan-dialog a { color:var(--teal); overflow-wrap:anywhere; }
+.lan-dialog button,.lan-dialog select,.lan-dialog input { font:inherit; font-size:13px; }
+
+/* One row per choice: what it is and what it does on the left, its action on the right. */
+.dialog-option { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:16px; row-gap:2px; align-items:center; padding:12px 0; border-top:1px solid var(--line); }
+.dialog-option[hidden] { display:none; }
+.dialog-option > h3 { grid-column:1; margin:0; font-size:14px; line-height:1.3; font-weight:650; }
+.dialog-option > p { grid-column:1; margin:0; color:var(--muted); font-size:13px; line-height:1.4; }
+.dialog-option > .handoff-carries { font-size:12px; }
+.dialog-option > button { grid-column:2; grid-row:1 / span 3; min-width:156px; white-space:nowrap; }
+.lan-dialog .dialog-group { margin:0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+.lan-dialog .dialog-group + .dialog-option { padding-top:6px; border-top:0; }
+
+/* Progress and results sit above the choices, where the eye already is. */
+.quest-connect-dialog [data-quest-status],.handoff-dialog [data-handoff-status] { margin:0 0 14px; padding:9px 12px; border-left:3px solid var(--teal); border-radius:4px; background:var(--active); color:var(--text); font-size:13px; }
+.quest-connect-dialog [data-quest-status]:empty,.handoff-dialog [data-handoff-status]:empty { display:none; }
+.quest-connect-dialog [data-quest-launch]:not([hidden]) { display:block; margin:-4px 0 14px; padding:9px 14px; border-radius:4px; background:var(--teal); color:var(--on-accent); font-weight:600; text-align:center; text-decoration:none; }
+.quest-connect-dialog [data-quest-launch]:hover { background:var(--accent-hover); }
+.handoff-dialog .handoff-summary { margin:-8px 0 14px; color:var(--muted); font:12px var(--mono); }
+.handoff-dialog .handoff-summary:empty { display:none; }
+
+/* Folded extras: a drawn chevron instead of the browser's triangle. */
+.lan-dialog details { border-top:1px solid var(--line); font-size:13px; }
+.lan-dialog details[open] { padding-bottom:10px; }
+.lan-dialog details > summary { display:flex; align-items:center; gap:10px; min-height:36px; padding:6px 0; color:var(--secondary); cursor:pointer; list-style:none; }
+.lan-dialog details > summary::-webkit-details-marker { display:none; }
+.lan-dialog details > summary::before { content:''; flex:none; width:6px; height:6px; margin-left:2px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-45deg); transition:transform .15s; }
+.lan-dialog details[open] > summary::before { transform:translateY(-2px) rotate(45deg); }
+.lan-dialog details > summary:hover { color:var(--text); }
+.lan-dialog details > summary:focus-visible { outline:2px solid var(--teal); outline-offset:2px; border-radius:3px; }
+.lan-dialog details p { color:var(--muted); }
+.handoff-dialog [data-handoff-native-optin] label { display:flex; align-items:center; gap:8px; min-height:36px; color:var(--secondary); }
+
+/* Manual pairing: address, code, status, then the folded certificate and network settings. */
+.lan-dialog .lan-address { display:flex; align-items:center; gap:10px; margin:0 0 16px; padding:6px 6px 6px 12px; border:1px solid var(--line); border-radius:6px; background:var(--page); }
+.lan-dialog .lan-address a { flex:1 1 auto; min-width:0; font:13px var(--mono); }
+.lan-dialog .lan-address button { flex:none; min-height:30px; padding:4px 10px; }
+.lan-dialog .lan-code { margin:0; color:var(--muted); font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+.lan-dialog [data-lan-code] { display:block; margin-top:2px; color:var(--text); font:600 30px/1.2 var(--mono); letter-spacing:.12em; text-transform:none; }
+.lan-dialog [data-lan-code][data-state] { font-family:inherit; font-size:22px; line-height:1.5; letter-spacing:0; }
+.lan-dialog [data-lan-code][data-state="paired"] { color:var(--teal); }
+.lan-dialog [data-lan-code][data-state="stopped"] { color:var(--muted); }
+.lan-dialog .lan-expiry { margin:2px 0 14px; color:var(--muted); font-size:12px; }
+.lan-dialog .lan-expiry:empty { display:none; }
+.lan-dialog [data-lan-status] { display:flex; align-items:center; gap:8px; margin:0 0 10px; font-size:13px; }
+.lan-dialog [data-lan-status]:empty { display:none; }
+.lan-dialog [data-lan-status]::before { content:''; flex:none; width:8px; height:8px; border-radius:50%; background:var(--muted); }
+.lan-dialog [data-lan-status][data-state="waiting"]::before { background:var(--amber); animation:lan-waiting 1.6s ease-in-out infinite; }
+.lan-dialog [data-lan-status][data-state="paired"]::before { background:var(--teal); }
+@keyframes lan-waiting { 50% { opacity:.3; } }
+@media (prefers-reduced-motion:reduce) { .lan-dialog [data-lan-status]::before { animation:none !important; } }
+.lan-dialog [data-lan-clients] { display:grid; gap:6px; margin:0 0 12px; padding:0; list-style:none; }
+.lan-dialog [data-lan-clients]:empty { display:none; }
+.lan-dialog [data-lan-clients] li { display:flex; align-items:center; gap:10px; padding:5px 6px 5px 12px; border:1px solid var(--line); border-radius:6px; font-size:13px; }
+.lan-dialog [data-lan-clients] li small { flex:1 1 auto; color:var(--muted); font:12px var(--mono); }
+.lan-dialog [data-lan-clients] button { min-height:28px; padding:3px 10px; font-size:12px; }
+.lan-dialog .lan-next { color:var(--muted); font-size:13px; }
+.lan-dialog .lan-next strong { color:var(--secondary); }
+.lan-dialog .lan-fingerprint-label { margin:0 0 4px; font-size:12px; }
+.lan-dialog code { display:block; padding:8px 10px; border-radius:4px; background:var(--page); color:var(--secondary); font:11px/1.5 var(--mono); overflow-wrap:anywhere; }
+.lan-dialog label { display:flex; align-items:center; gap:10px; margin:6px 0; color:var(--secondary); }
+.lan-dialog details label { display:grid; grid-template-columns:72px max-content; }
+.lan-dialog label select { min-height:32px; min-width:220px; }
+.lan-dialog [data-lan-port] { width:96px; min-height:32px; }
+.lan-dialog .lan-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:6px; padding-top:14px; border-top:1px solid var(--line); }
+
+/* More menu: a list of actions, not a stack of bordered buttons. Written one
+   step more specific than inspector-card-chrome.css, which loads later. */
+.header-actions .header-menu .header-menu-body { gap:2px; min-width:200px; padding:6px; border-radius:8px; box-shadow:0 12px 32px #0008; }
+.header-actions .header-menu .header-menu-body button { min-height:34px; padding:7px 10px; border-color:transparent; border-radius:5px; background:transparent; }
+.header-actions .header-menu .header-menu-body button:hover:not(:disabled) { background:var(--hover); border-color:transparent; }
+.header-actions .header-menu .header-menu-body button:focus-visible { outline:2px solid var(--teal); outline-offset:-2px; }
+
+/* Readiness rows: an action sits beside its label and detail instead of
+   pushing the detail a line down, and a strip with nothing missing reads calm. */
+.readiness-strip li span { grid-column:2; }
+.readiness-strip li button { grid-row:1 / span 2; align-self:center; }
+.readiness-strip li small { grid-column:2 / -1; }
+.readiness-strip[data-tone="neutral"] summary::before { color:var(--muted); }
+.readiness-strip summary:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }

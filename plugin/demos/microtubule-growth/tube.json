@@ -1,0 +1,681 @@
+{
+  "version": 1,
+  "id": "microtubule-growth-tube",
+  "title": "E. The complete thirteen-protofilament tube",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      }
+    ],
+    "sourceSha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
+    "note": "RCSB assembly 1 of entry 5SYF, built by Mol* from the 26 helical operators the entry deposits, applied to its own asymmetric unit. The 26 operators place 52 tubulin chains and 177,268 atom sites: 26 copies of the 6,818-atom deposited dimer. Only the 775,288-byte asymmetric unit travels; the repeats are instanced by the renderer."
+  },
+  "chapters": [
+    {
+      "id": "reveal",
+      "title": "Whole tube",
+      "caption": "All 26 deposited operators of Taxol-stabilised 5SYF at once: 52 tubulin chains and 177,268 atom sites.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1.05
+            },
+            "lighting": "studio",
+            "background": "#071015",
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1.15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "narration": "All thirteen strands, closed. The same blue and amber.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 25,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A, residues 1-437. Mol* builds assembly 1 from the deposited operators, so this one author chain is every alpha tubulin in all 26 copies."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B, residues 1-436. One author chain, every beta tubulin in all 26 copies of the assembly."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the GTP and magnesium, repeated by every operator."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the GDP, repeated by every operator."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: Taxol, repeated by every operator."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "Thirteen",
+      "caption": "The operators sit at thirteen azimuths, 27.70 degrees apart, two layers deep. Thirteen protofilaments.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 1,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "lighting": "studio"
+          }
+        },
+        {
+          "kind": "camera_spin",
+          "durationSeconds": 11,
+          "easing": "linear",
+          "axis": [
+            0,
+            -1,
+            0
+          ],
+          "turns": 1
+        }
+      ],
+      "immersive": {
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            140,
+            0
+          ],
+          "scale": 2.2
+        },
+        "narration": "Thirteen strands, evenly spaced, ring the hollow lumen.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": 20,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A, residues 1-437. Mol* builds assembly 1 from the deposited operators, so this one author chain is every alpha tubulin in all 26 copies."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B, residues 1-436. One author chain, every beta tubulin in all 26 copies of the assembly."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the GTP and magnesium, repeated by every operator."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the GDP, repeated by every operator."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: Taxol, repeated by every operator."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "highlight",
+      "title": "Hollow",
+      "caption": "As a surface the thirteen strands close into a hollow cylinder, open down the middle: the lumen.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 6,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex surface",
+                "representation": "gaussian_surface",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "all"
+          }
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "molecular-surface",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            220,
+            0
+          ],
+          "scale": 1.6
+        },
+        "view": "fit",
+        "narration": "Outside is lattice; the hollow middle is the lumen.",
+        "motion": {
+          "kind": "dolly",
+          "metres": 0.15,
+          "seconds": 8
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A, residues 1-437. Mol* builds assembly 1 from the deposited operators, so this one author chain is every alpha tubulin in all 26 copies."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B, residues 1-436. One author chain, every beta tubulin in all 26 copies of the assembly."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the GTP and magnesium, repeated by every operator."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the GDP, repeated by every operator."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: Taxol, repeated by every operator."
+            }
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "site",
+      "title": "Repeated",
+      "caption": "Cutting into the wall reaches the same nucleotide and Taxol sites, repeated 26 times around and along.",
+      "durationSeconds": 11,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 3,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "ball_and_stick",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "element"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "focus",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "target": {
+            "kind": "ligand"
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 2.6
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "spacefill",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 25,
+          "fog": 10,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            250,
+            0
+          ],
+          "scale": 2.4
+        },
+        "narration": "The same GTP, GDP and Taxol sites repeat throughout.",
+        "motion": {
+          "kind": "orbit",
+          "degrees": -15,
+          "seconds": 8,
+          "axis": "y"
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A, residues 1-437. Mol* builds assembly 1 from the deposited operators, so this one author chain is every alpha tubulin in all 26 copies."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B, residues 1-436. One author chain, every beta tubulin in all 26 copies of the assembly."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the GTP and magnesium, repeated by every operator."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the GDP, repeated by every operator."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: Taxol, repeated by every operator."
+            }
+          ],
+          "focus": [
+            "gtp",
+            "gdp",
+            "taxol"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "title": "One segment",
+      "caption": "This is one deposited segment, not a growing filament. A cell builds micrometres of this.",
+      "durationSeconds": 9,
+      "changes": [
+        {
+          "kind": "scene",
+          "durationSeconds": 5,
+          "easing": "ease_in_out",
+          "transition": "smooth",
+          "scene": {
+            "camera": {
+              "orientation": "front",
+              "zoom": 1
+            },
+            "layers": [
+              {
+                "id": "lesson-layer",
+                "name": "Complete complex",
+                "representation": "cartoon",
+                "target": {
+                  "kind": "all"
+                },
+                "color": {
+                  "kind": "chain"
+                },
+                "labels": false,
+                "opacity": 1,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "zoom",
+          "durationSeconds": 4,
+          "easing": "ease_in_out",
+          "magnification": 1
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "opacity": 1,
+          "labels": false,
+          "clipping": 0,
+          "fog": 30,
+          "uniformColor": "#9aa5b0"
+        },
+        "placement": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            360,
+            0
+          ],
+          "scale": 2.2
+        },
+        "view": "fit",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha-tubulin",
+              "label": "Alpha tubulin",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 437
+              },
+              "note": "Author chain A, residues 1-437. Mol* builds assembly 1 from the deposited operators, so this one author chain is every alpha tubulin in all 26 copies."
+            },
+            {
+              "id": "beta-tubulin",
+              "label": "Beta tubulin",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 1,
+                "to": 436
+              },
+              "note": "Author chain B, residues 1-436. One author chain, every beta tubulin in all 26 copies of the assembly."
+            },
+            {
+              "id": "gtp",
+              "label": "GTP",
+              "color": "#4a90e2",
+              "chain": "A",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Author chain A residues 501 and 502: the GTP and magnesium, repeated by every operator."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Author chain B residue 501: the GDP, repeated by every operator."
+            },
+            {
+              "id": "taxol",
+              "label": "Taxol",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 502,
+                "to": 502
+              },
+              "note": "Author chain B residue 502, ligand TA1: Taxol, repeated by every operator."
+            }
+          ],
+          "focus": [
+            "alpha-tubulin",
+            "beta-tubulin"
+          ],
+          "contextOpacity": 0.18,
+          "framing": "fill"
+        },
+        "narration": "One Taxol-stabilised segment, not a growing filament.",
+        "motion": {
+          "kind": "turntable",
+          "degrees": 30,
+          "seconds": 8
+        }
+      }
+    }
+  ]
+}

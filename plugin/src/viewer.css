@@ -1,0 +1,569 @@
+/*
+ * Stereofold viewer skin.
+ *
+ * The product is a stage, not a console. The Mol* stage owns the panel and
+ * every secondary control lives in a drawer that floats over the stage instead
+ * of stealing height from it, so the stage box is the same whether the drawer
+ * is open or closed and a scientist who never opens it still sees the protein
+ * at full size.
+ *
+ * Two type families only: a proportional UI face for everything a person
+ * reads, and a monospace face for the derived numbers the human-evaluation
+ * protocol asks the observer to copy. Numbers are the only monospace on the
+ * page, which is what makes them findable.
+ */
+:root {
+  color-scheme: dark light;
+
+  --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ink: #e9eef1;
+  --ink-soft: #9db0b8;
+  --ink-faint: #6d8189;
+  --line: #24343b;
+  --line-soft: #1a272d;
+  --surface: #0c1418;
+  --surface-raised: #121e23;
+  --field: #0e191e;
+  --field-line: #2c4149;
+  --accent: #58dcc9;
+  --accent-ink: #04191b;
+  --warn: #f2c47c;
+  --danger: #f08d7c;
+  --ok: #6fdf9a;
+
+  /* The stage surround is a fusion surface, not chrome. It stays dark in both
+     host themes: a bright frame around a black stereo pair raises the adapting
+     luminance and makes the pair harder to fuse and the anaglyph ghost worse. */
+  --stage-ground: #071015;
+  --stage-line: #1d2c33;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink: #10242c;
+    --ink-soft: #4a626c;
+    --ink-faint: #6d848d;
+    --line: #d3dfe4;
+    --line-soft: #e4edf0;
+    --surface: #f6fafb;
+    --surface-raised: #ffffff;
+    --field: #ffffff;
+    --field-line: #b9cbd2;
+    --accent: #0f8f7d;
+    --accent-ink: #ffffff;
+    --warn: #8a5a10;
+    --danger: #a63a25;
+    --ok: #16794a;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body, #stereo-app {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--ui-font);
+  font-size: 13px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * The app runs inside a fixed host panel with no scrollbar: Codex is
+ * 800 x 560 CSS px and Claude Science 800 x 640. A document taller than the
+ * panel clips its own controls with no way to reach them, so the shell is
+ * exactly the panel height, the toolbar keeps its natural height, and
+ * everything else is the stage.
+ */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+/*
+ * The toolbar is rows, not one line.
+ *
+ * The host card is not always 800 CSS px wide: a Codex side card measures
+ * 440 x 720. A single nowrap row of controls does not shrink, it simply runs
+ * off the panel, and the controls that fall off the right-hand end are the
+ * ones a person needs most — Settings, and with it every other setting in the
+ * drawer. So the toolbar is a column of wrapping rows: row one is identity and
+ * mode plus Settings, and row two carries the controls only a stereo pair can
+ * act on and exists only in a stereo mode. Every row may wrap again, so no
+ * width is too narrow to reach a control.
+ */
+.toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+  padding: .3rem .45rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem .3rem;
+  min-width: 0;
+}
+
+/* Row two is a settings strip, so it reads as secondary to the mode row. */
+.toolbar-row-stereo {
+  padding-top: .05rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.brand {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 .3rem 0 .15rem;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: .84rem;
+  font-weight: 650;
+  letter-spacing: -.008em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.brand b { color: var(--accent); font-weight: 650; }
+
+.spacer { flex: 1 1 .25rem; min-width: 0; }
+
+/* Segmented control. One track, four cells, the active cell filled. It is
+   allowed to wrap inside its own track at a width that cannot hold four
+   cells, which is still reachable where an overflowing row is not. */
+.modes {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: 2px;
+  border: 1px solid var(--field-line);
+  border-radius: 7px;
+  background: var(--field);
+}
+
+.mode-button {
+  padding: .26rem .5rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 500 .72rem/1.2 var(--ui-font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.mode-button:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.mode-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mode-button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 620;
+}
+
+/*
+ * The slider carries no number. Its exact value is a stimulus parameter the
+ * evaluation protocol transcribes from `#camera-status`, and a live readout
+ * beside the thumb was one more thing competing for the narrow row.
+ */
+.depth-control {
+  flex: 0 1 11rem;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  min-width: 6rem;
+}
+.depth-control label { flex: 0 0 auto; color: var(--ink-soft); font-size: .7rem; white-space: nowrap; }
+#depth-strength { flex: 1 1 4rem; min-width: 3rem; }
+
+.toolbar-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: .22rem;
+  color: var(--ink-soft);
+  font-size: .7rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toolbar-toggle input { margin: 0; }
+
+/*
+ * A text button that belongs to the stereo strip rather than to the header.
+ *
+ * Fit sits beside Swap, and the strip is a settings row: a control the weight
+ * of the Settings button would read as the primary action of the panel, which
+ * it is not. So it borrows the ghost button's shape at the strip's own type
+ * size, with padding tuned to leave the row's height where the Depth slider
+ * already set it. A toolbar that grows takes the growth out of the stage, and
+ * the stage is the thing every measurement in this plugin is about.
+ */
+.toolbar-button {
+  flex: 0 0 auto;
+  padding: .12rem .42rem;
+  border: 1px solid var(--field-line);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--ink-soft);
+  font: 500 .7rem/1.15 var(--ui-font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.toolbar-button:hover { color: var(--ink); border-color: var(--accent); }
+.toolbar-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toolbar-button:active { background: color-mix(in srgb, var(--accent) 16%, var(--field)); }
+
+.toolbar-field {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  min-width: 0;
+}
+.toolbar-field label { color: var(--ink-soft); font-size: .7rem; white-space: nowrap; }
+.toolbar-field select { flex: 0 1 auto; min-width: 0; max-width: 9rem; }
+
+.ghost {
+  flex: 0 0 auto;
+  padding: .28rem .5rem;
+  border: 1px solid var(--field-line);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--ink-soft);
+  font: 500 .72rem var(--ui-font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.ghost:hover { color: var(--ink); border-color: var(--accent); }
+.ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ghost[aria-expanded="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+
+/*
+ * Connection is a state, not a sentence. The element keeps its literal text so
+ * assistive technology and the host-emulation harness can still read the state
+ * word, and the text is collapsed to zero so a sighted reader sees only the
+ * dot and its tooltip.
+ */
+.status-dot {
+  flex: 0 0 auto;
+  width: .5rem;
+  height: .5rem;
+  margin: 0 .15rem;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  overflow: hidden;
+}
+.status-dot[data-state="connected"] { background: var(--ok); }
+.status-dot[data-state="offline"] { background: var(--danger); }
+
+/* ------------------------------------------------------------- stage area */
+
+.stage-area {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.viewer-bay {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  padding: .35rem .45rem .45rem;
+}
+
+.letterbox {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--stage-line);
+  border-radius: 8px;
+  background: var(--stage-ground);
+}
+
+.molstar-stage {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  min-height: 0;
+  background: #071015;
+}
+
+.molstar-stage canvas { outline: none; }
+
+/*
+ * The stage caption is one plain-language line and carries no readout.
+ *
+ * The stage is a stimulus. B, front and rear are stimulus parameters, not
+ * something a person reads while fusing a pair, and in a side-by-side mode
+ * this caption sits inside the left eye's viewport, so every glyph in it is
+ * monocular content. They live in `#camera-status` in the drawer, in the
+ * format the evaluation protocol transcribes.
+ *
+ * It sits top-left, not bottom-left: Mol*'s camera-axes gizmo is drawn in the
+ * bottom-left of every eye viewport (`mol-canvas3d/helper/camera-helper.js`),
+ * and a caption there covers it.
+ */
+.overlay-readout {
+  position: absolute;
+  z-index: 4;
+  top: .45rem;
+  left: .45rem;
+  max-width: 62%;
+  padding: .3rem .45rem;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 6px;
+  background: rgba(4, 10, 12, .74);
+  color: #cfe0e4;
+  font-size: .64rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.overlay-readout .caption-mode {
+  color: #fff;
+  font-weight: 620;
+  letter-spacing: .01em;
+}
+
+/*
+ * An empty stage says so.
+ *
+ * A panel Codex mounts for a tool call that carries no structure used to be a
+ * black rectangle with Mol*'s camera-axes gizmo floating in each eye, which
+ * reads as a render that failed. This is the honest version: two lines
+ * centred on the stage, in the stage's own ink, gone the moment anything
+ * loads. It is not a control, so it takes no pointer events; a drag on the
+ * empty stage still reaches Mol*.
+ */
+.empty-state {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: .35rem;
+  padding: 1rem;
+  text-align: center;
+  pointer-events: none;
+}
+.empty-state p { margin: 0; }
+/* Literal light inks, like the caption: the stage stays dark in both host
+   themes, so a token that flips with the scheme would go invisible here. */
+.empty-state-lead {
+  color: #e4eef1;
+  font-size: .92rem;
+  font-weight: 600;
+}
+.empty-state-hint {
+  max-width: 26rem;
+  color: #8ba3ac;
+  font-size: .74rem;
+  line-height: 1.45;
+}
+
+/*
+ * Load results and errors are events, not state, so they are a toast over the
+ * stage that clears itself. The old build made them a permanent header line,
+ * where a one-sentence result was truncated forever and read as a title.
+ *
+ * It is bottom-centre, not top-right: on a 440 CSS px card the top row of the
+ * stage is the caption's, and a toast there covered it. Bottom-centre is also
+ * clear of Mol*'s camera-axes gizmo, which draws at the bottom-left of each
+ * eye viewport.
+ */
+.toast {
+  position: absolute;
+  z-index: 6;
+  bottom: .8rem;
+  left: 50%;
+  transform: translate(-50%, .4rem);
+  max-width: min(20rem, 84%);
+  padding: .35rem .6rem;
+  border: 1px solid var(--field-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .38);
+  color: var(--ink);
+  font-size: .7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease, transform .18s ease, visibility .18s;
+  pointer-events: none;
+}
+.toast.is-visible { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.toast.is-error { border-color: var(--danger); color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: none; }
+}
+
+/* ----------------------------------------------------------------- drawer */
+
+/*
+ * The drawer floats over the stage rather than pushing it, which is what keeps
+ * the stage share of the panel constant. It scrolls inside itself so a long
+ * settings list can never make the document scroll, which the host panel has
+ * no scrollbar for.
+ */
+.drawer {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(21rem, 100%);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .6rem .7rem .8rem;
+  border-left: 1px solid var(--line);
+  background: var(--surface-raised);
+  box-shadow: -14px 0 30px rgba(0, 0, 0, .34);
+}
+
+.drawer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .2rem;
+}
+.drawer-head h2 { margin: 0; font-size: .82rem; font-weight: 620; }
+.drawer-head p { margin: 0; color: var(--ink-faint); font-size: .66rem; }
+
+.group { display: grid; gap: .3rem; padding: .55rem 0; border-top: 1px solid var(--line-soft); }
+.group:first-of-type { border-top: 0; }
+.group > h3 {
+  margin: 0 0 .1rem;
+  color: var(--ink-soft);
+  font-size: .66rem;
+  font-weight: 620;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.group p.hint { margin: .1rem 0 0; color: var(--ink-faint); font-size: .66rem; line-height: 1.35; }
+
+.row { display: flex; align-items: center; gap: .35rem; min-width: 0; flex-wrap: wrap; }
+.row > label { flex: 0 0 auto; color: var(--ink-soft); font-size: .68rem; white-space: nowrap; }
+.row .grow { flex: 1 1 4rem; min-width: 3rem; }
+
+/*
+ * A field whose label sits above its control, inside the same `.row` every
+ * other drawer line uses. The row is already `flex-wrap: wrap`, so two of
+ * these sit side by side while the drawer is wide enough for both bases and
+ * stack when it is not: at the 336 px drawer the narrow profile gives, two
+ * 7rem bases plus the gap fit, which is what the mockup draws.
+ */
+.row > .field { display: grid; gap: .18rem; flex: 1 1 7rem; min-width: 0; }
+.row > .field > label { color: var(--ink-soft); font-size: .68rem; }
+.row > .field > select, .row > .field > input { width: 100%; }
+
+/*
+ * The Look group is turned off while the depth fixture is on the stage: the
+ * fixture's marker colours and its enlarged ball-and-stick radius are the
+ * stimulus the evaluation protocol measures, so a colour or style change there
+ * would silently invalidate a trial. Disabled rather than hidden, so the
+ * control does not move when the fixture loads.
+ */
+.group[aria-disabled="true"] > h3, .group[aria-disabled="true"] label { color: var(--ink-faint); }
+select:disabled, input:disabled { color: var(--ink-faint); cursor: not-allowed; opacity: .7; }
+
+.check { display: inline-flex; align-items: center; gap: .3rem; color: var(--ink-soft); font-size: .68rem; }
+.check input { margin: 0; }
+
+input, select, textarea, button { font-family: var(--ui-font); font-size: .72rem; color: var(--ink); }
+
+input[type="text"], input[type="number"], select, textarea {
+  min-width: 0;
+  padding: .3rem .4rem;
+  border: 1px solid var(--field-line);
+  border-radius: 6px;
+  background: var(--field);
+}
+input[type="text"] { text-transform: uppercase; }
+textarea { width: 100%; min-height: 3rem; resize: vertical; font-family: var(--mono-font); font-size: .66rem; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+input[type="range"] { accent-color: var(--accent); }
+input[type="checkbox"] { accent-color: var(--accent); }
+
+.drawer button {
+  padding: .3rem .55rem;
+  border: 1px solid var(--field-line);
+  border-radius: 6px;
+  background: var(--field);
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.drawer button:hover { border-color: var(--accent); }
+.drawer button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.drawer button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.note { color: var(--ink-faint); font-size: .64rem; white-space: nowrap; }
+.note.warning { color: var(--warn); }
+
+/*
+ * The derived line is the one thing in the drawer a person is asked to
+ * transcribe, so it is monospace, selectable, and allowed to wrap in full
+ * rather than being clipped.
+ */
+.readout-panel {
+  min-width: 0;
+  padding: .35rem .45rem;
+  border: 1px solid var(--field-line);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--ink);
+  font: .64rem/1.45 var(--mono-font);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/*
+ * Narrow host card. The drawer becomes a full-width sheet, the mode cells give
+ * up horizontal padding before they give up their labels, and the wordmark
+ * stays: it is the only thing on the row that says what this panel is.
+ */
+@media (max-width: 560px) {
+  .drawer { width: 100%; border-left: 0; }
+  .mode-button { padding: .26rem .4rem; }
+  .depth-control { flex: 1 1 8rem; }
+}

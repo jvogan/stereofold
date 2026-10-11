@@ -1,0 +1,236 @@
+/*
+ * Card chrome: the header row and the idle outcome line.
+ *
+ * The inspector renders about 700 px wide inside a chat card. The header was
+ * drawn for a wordmark and two icon buttons, so everything this panel adds has
+ * to stay on one line. The panel label is a quiet monospace tag, and the
+ * actions that do not fit sit in a menu that opens under the header.
+ *
+ * These rules load after inspector.css and before style.css, so anything that
+ * competes with a rule in style.css is written one step more specific.
+ */
+
+.panel-label {
+  margin-left: 12px;
+  color: var(--muted);
+  font: 11px var(--mono);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+/* A 440 px side card cannot hold the wordmark, the label, the display toggle,
+   undo, redo and More on one 40 px line. The label is the one item nothing
+   depends on, so it goes first. */
+@media (max-width: 560px) { .panel-label { display: none; } }
+
+.header-menu { position: relative; }
+
+.header-menu > summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  list-style: none;
+}
+
+.header-menu > summary::-webkit-details-marker { display: none; }
+/* style.css sets the narrow-card header buttons to 12 px; a summary is not a
+   button, so it gets the same size here. */
+@media (max-width: 760px) { .header-menu > summary { font-size: 12px; } }
+.header-menu > summary::after { content: '▾'; font-size: 10px; }
+.header-menu > summary:hover { color: var(--text); background: var(--hover); border-color: var(--hover-border); }
+.header-menu > summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.header-menu[open] > summary { color: var(--text); border-color: var(--teal); }
+
+.header-menu-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  display: grid;
+  gap: 6px;
+  min-width: 184px;
+  width: max-content;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px #0006;
+}
+
+.header-actions .header-menu-body button {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  background: var(--control);
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+.header-actions .header-menu-body button:hover { background: var(--hover); border-color: var(--hover-border); }
+
+/* Nothing to report yet, so the line takes no room and draws no border. */
+.session-outcome:empty { display: none; }
+
+/*
+ * Card mode, trimmed for a host that titles the card itself.
+ *
+ * Codex draws "Stereofold" and an icon just above the card, so a full-weight
+ * wordmark on a 40 px row with a rule under it read as a second title. The
+ * wordmark stays for hosts that show no title, at the size of a label, on a
+ * 36 px row with a hairline. The header controls shrink to fit that row.
+ *
+ * The toolbar under it drew five equally heavy boxes. Its buttons now read as
+ * quiet outlines, so the structure is the brightest thing in the card; the two
+ * sheet toggles keep their teal. style.css sets these rows in card mode with
+ * `body:not([data-companion=true]) .x`, so each rule here adds one part.
+ */
+@media (max-height: 760px) {
+  body:not([data-companion="true"]) #app > .app-header {
+    height: 36px;
+    border-bottom-color: color-mix(in srgb, var(--line) 60%, transparent);
+  }
+  body:not([data-companion="true"]) #app > .app-header .brand {
+    gap: 7px;
+    color: var(--secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+  }
+  body:not([data-companion="true"]) #app > .app-header .brand svg { width: 16px; height: 16px; }
+  body:not([data-companion="true"]) #app > .app-header .header-actions { gap: 6px; }
+  body:not([data-companion="true"]) #app > .app-header .header-actions > button,
+  body:not([data-companion="true"]) #app > .app-header .header-menu > summary {
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  body:not([data-companion="true"]) #app > .app-header .header-actions > button {
+    min-width: 30px;
+    border-color: color-mix(in srgb, var(--control-border) 60%, transparent);
+    background: transparent;
+  }
+  body:not([data-companion="true"]) #app > .app-header .header-actions > button:hover:not(:disabled) { background: var(--hover); border-color: var(--hover-border); }
+
+  body:not([data-companion="true"]) .canvas-tools > div button {
+    min-height: 28px;
+    padding: 4px 9px;
+    border-color: color-mix(in srgb, var(--control-border) 45%, transparent);
+    border-radius: 6px;
+    background: transparent;
+    font-size: 12px;
+  }
+  body:not([data-companion="true"]) .canvas-tools > div button:not(.sheet-toggle) { color: var(--secondary); }
+  body:not([data-companion="true"]) .canvas-tools > div button:hover:not(:disabled) { background: var(--hover); border-color: var(--hover-border); }
+  body:not([data-companion="true"]) .canvas-tools > div button:not(.sheet-toggle):hover:not(:disabled) { color: var(--text); }
+
+  /* The stage labels are captions on the structure, not controls. */
+  body:not([data-companion="true"]) .stage .canvas-caption span {
+    padding: 3px 7px;
+    border: 1px solid #ffffff12;
+    border-radius: 4px;
+    background: #071015b8;
+    color: #a9bec5;
+    letter-spacing: .03em;
+  }
+}
+
+/* The footer's copy of the selection count (inspector.ts). A tall window keeps
+   the count in its own row under the stage, so the copy shows in a card only. */
+.footer-selection { display: none; }
+
+/*
+ * Card mode, the open structure.
+ *
+ * At 737 x 600 the header, the heading, the toolbar and two rows under the
+ * stage took 180 px, and the stage labels repeated the heading. The toolbar
+ * now floats over the stage, the selection row under it is gone, and the
+ * footer is one line: the status on the left and, once residues are selected,
+ * the count on the right. The stage grows from about 420 to 480 px. The
+ * heading's facts use the text face, not monospace, with a dot between them.
+ * The panel id moves to the wordmark's tooltip.
+ */
+@media (max-height: 760px) {
+  body:not([data-companion="true"]) #app > .app-header { height: 34px; }
+  body:not([data-companion="true"]) #app > .app-header .panel-label { display: none; }
+
+  body:not([data-companion="true"]) #app > .scene-heading { padding: 5px 0 7px; }
+  body:not([data-companion="true"]) #app > .scene-heading h1 { font-size: 16px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+  body:not([data-companion="true"]) #app > .scene-heading .source-code {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-color: color-mix(in srgb, var(--line) 80%, transparent);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: .06em;
+    vertical-align: 2px;
+  }
+  body:not([data-companion="true"]) #app > .scene-heading .scene-facts { gap: 0; color: var(--muted); font-size: 12px; }
+  body:not([data-companion="true"]) #app > .scene-heading .scene-facts b { font: inherit; color: var(--secondary); font-variant-numeric: tabular-nums; }
+  body:not([data-companion="true"]) #app > .scene-heading .scene-facts > span + span::before {
+    content: '·';
+    margin: 0 7px;
+    color: color-mix(in srgb, var(--muted) 60%, transparent);
+  }
+
+  /* The toolbar floats over the top edge of the stage rather than taking a
+     row of its own; the space between its buttons passes drags through to the
+     canvas, and the sheets open above it. The stage is dark in both themes, so
+     the toolbar takes the dark palette in both, and each button a
+     stage-colored fill that keeps it legible over the structure. */
+  body:not([data-companion="true"]) #app .workspace .molecular-view { position: relative; }
+  body:not([data-companion="true"]) .workspace .canvas-tools {
+    --text: #e9eef1;
+    --secondary: #bdcdd2;
+    --teal: #58dcc9;
+    --control-border: #58737c;
+    --hover: #20383e;
+    --hover-border: #8ba8b0;
+    --active: #10262b;
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 20;
+    height: auto;
+    padding: 8px;
+    border: 0;
+    background: transparent;
+    color-scheme: dark;
+    pointer-events: none;
+  }
+  body:not([data-companion="true"]) .canvas-tools > div button {
+    min-height: 26px;
+    padding-block: 3px;
+    background: #071015cc;
+    pointer-events: auto;
+  }
+
+  /* The heading already names the structure, so the left label goes. The
+     color scheme stays as a legend: quiet text, no box. */
+  body:not([data-companion="true"]) .stage .canvas-caption { font-family: inherit; }
+  body:not([data-companion="true"]) .stage .canvas-caption > span:first-child { visibility: hidden; }
+  body:not([data-companion="true"]) .stage .canvas-caption .canvas-legend {
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: #07101599;
+    color: #9fb4bb;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+  body:not([data-companion="true"]) .stage .canvas-caption .canvas-legend::before { content: 'Color: '; color: #71878e; }
+
+  body:not([data-companion="true"]) .workspace .canvas-bottom { display: none; }
+  body:not([data-companion="true"]) #app > .app-footer { min-height: 24px; gap: 12px; font-size: 11px; }
+  body:not([data-companion="true"]) #app > .app-footer #status { color: var(--muted); font-size: 11px; }
+  body:not([data-companion="true"]) #app > .app-footer #status[data-error="true"] { color: var(--amber); }
+  body:not([data-companion="true"]) #app > .app-footer .footer-selection { display: block; flex: none; color: var(--amber); white-space: nowrap; }
+  body:not([data-companion="true"]) #app > .app-footer .footer-selection[data-empty="true"] { display: none; }
+}

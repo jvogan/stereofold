@@ -136,6 +136,53 @@ export async function hydrateInspectionBytes(data: any, call: ToolCall): Promise
 }
 
 /**
+ * One page's last verified primary byte pair. A stale attach may need a new
+ * scene revision while the coordinates and catalog are unchanged. Repeating
+ * dozens of AppBridge round trips on an already loaded page delays recovery.
+ *
+ * Keep only the two immutable, digest-checked strings, never a response object,
+ * decoded catalog or comparison asset. Every caller still decodes the incoming
+ * catalog metadata and verifies its source before restoring. A changed binding,
+ * model/assembly or descriptor evicts the pair before any awaited work; an old
+ * concurrent load cannot repopulate it after a newer request.
+ */
+export function createInspectionBytesHydrator() {
+  let generation = 0;
+  let held: { identity: string; structureText: string; catalogData: string } | undefined;
+  return async (data: any, call: ToolCall): Promise<void> => {
+    const ownGeneration = ++generation, previous = held;
+    held = undefined;
+    // Inline and legacy partial transports keep their existing contract.
+    if (!data || typeof data !== 'object' || data.sourceBytes === undefined || data.catalogBytes === undefined) {
+      await hydrateInspectionBytes(data, call);
+      return;
+    }
+    const source = data.sourceBytes, catalog = data.catalogBytes, wire = data.catalogWire;
+    // Check all descriptors before considering a hit, including cases whose
+    // malformed values JSON.stringify could otherwise normalize to null.
+    if (!isDescriptor(source) || source.bytes > MAX_PART_BYTES.source
+      || !isDescriptor(catalog) || catalog.bytes > MAX_PART_BYTES.catalog
+      || typeof data.structureText === 'string' || !wire || typeof wire !== 'object'
+      || typeof wire.data === 'string') throw invalidDescriptor();
+    if (wire.sourceSha256 !== source.sha256) throw changedDuringDelivery();
+    const bound = [data.sessionId, data.serverEpoch, data.sourceToken].every(value => typeof value === 'string' && value.length > 0);
+    const identity = bound ? JSON.stringify([data.sessionId, data.serverEpoch, data.sourceToken,
+      data.format, data.sourceSelection, source, catalog, wire]) : undefined;
+    if (identity !== undefined && previous?.identity === identity) {
+      data.structureText = previous.structureText;
+      data.catalogWire = { ...wire, data: previous.catalogData };
+      delete data.sourceBytes;
+      delete data.catalogBytes;
+      held = previous;
+      return;
+    }
+    await hydrateInspectionBytes(data, call);
+    if (identity !== undefined && generation === ownGeneration)
+      held = { identity, structureText: data.structureText, catalogData: data.catalogWire.data };
+  };
+}
+
+/**
  * Fill one comparison structure's descriptors in place, so the entry takes the
  * `{id, cif, sha256, catalogWire}` shape the viewer registers.
  *

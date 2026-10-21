@@ -15,7 +15,7 @@ import { focusPlacement, focusTravel } from '../focus-placement.mjs';
 import { pointRange } from '../plate-standoff.mjs';
 import { EYE_TAN_HALF_HORIZONTAL, EYE_TAN_HALF_VERTICAL } from '../spatial-toolbar-geometry.mjs';
 import { normalizePlacement } from '../inspection-state.mjs';
-import { clampPlacementScale, clampPlacementTranslation } from '../placement-limits.mjs';
+import { XR_ROOM_MAX_METRES, clampPlacementScale, clampPlacementTranslation } from '../placement-limits.mjs';
 import { pivotPreservingTranslation } from '../presentation-pivot.mjs';
 import { createGesturePivot } from '../gesture-pivot.mjs';
 import { labelHarness, pageFunction } from './label-action-harness.mjs';
@@ -23,6 +23,8 @@ import { applyMatrix4 } from '../room-lock.mjs';
 import { resetEntryGeometry } from '../reset-entry-geometry.mjs';
 import { resetViewPlacement } from '../reset-view-placement.mjs';
 import { createPlacementHold } from '../wearer-placement.mjs';
+import { chapterFieldDistance, createMenuObstructionScorer, menuGlassInView, menuObstruction, menuOverlap } from '../chapter-field.mjs';
+import { glassPlatesOverlapInViews } from '../glass-overlap.mjs';
 // The real hidden-set reader, so a plate the harness keeps is a
 // plate the production rule would have kept. Nothing is hidden in these fixtures.
 import { emptyVisibility, hiddenRowKeys, normalizeVisibility } from '../inspection-visibility.mjs';
@@ -50,16 +52,18 @@ export function tourFocusHarness({ labels = false } = {}) {
   const forbidden = () => assert.fail('XR tour must not request a desktop camera operation');
   const labelView = labels ? labelHarness() : null;
   const h = labelView?.h ?? vm.createContext({});
-  Object.assign(h, { focusResidues, clampPlacementScale, clampPlacementTranslation, placementFitWithinEnvelope, fitAppearanceInWorker: (options, policy) => fitAppearanceInWorker(options, { ...policy, makeWorker: realAppearanceWorker }), placementViewWaiters: new Set(), lastPlacementFitEvidence: undefined, resetEntryGeometry, ...emphasis, Mat4, Vec3, Euler, normalizePlacement,
+  Object.assign(h, { hostLoadDepth: 0, roomEntry: undefined, focusResidues, clampPlacementScale, clampPlacementTranslation, placementFitWithinEnvelope, fitAppearanceInWorker: (options, policy) => fitAppearanceInWorker(options, { ...policy, makeWorker: realAppearanceWorker }), placementViewWaiters: new Set(), lastPlacementFitEvidence: undefined, resetEntryGeometry, ...emphasis, Mat4, Vec3, Euler, normalizePlacement,
     AbortController, setTimeout, clearTimeout,
     sourceRecord: h.sourceRecord ?? {}, visibleStage: undefined, gesturePivot: createGesturePivot(), focusPivotRequest: undefined,
-    xrPlacementFollowup: undefined,
+    xrPlacementFollowup: undefined, lessonSelection: h.lessonSelection, frozenTurn: undefined,
     pivotPreservingTranslation, focusPlacement, pointRange, resetViewPlacement,
     focusTravel: options => focusTravel({ ...options, now: () => now, defer() {} }),
     scheduleViewFrame: callback => { now += 500; callback(); },
     performance: { now: () => now },
     now: () => now,
     LESSON_FRAMING_TRAVEL_MS: 1000,
+    GLASS_MIN_SIZE_SHARE: .75, MOTION_MIN_DEGREES: 35, chapterSizeBound: null, chapterFieldDistance,
+    menuOverlap, menuObstruction, createMenuObstructionScorer, menuGlassInView, glassPlatesOverlapInViews, latestSeatStandoffMeters: null, XR_ROOM_MAX_METRES,
     latestHeadSample: 0, latestRoomPlacementPose: { headInRoom: head,
       renderFromRoom: Array.from(Mat4.identity()), labelViews: syntheticViews() },
     // The real sentence minter and the two page
@@ -69,6 +73,8 @@ export function tourFocusHarness({ labels = false } = {}) {
     pendingGrowthTurn: false, enableXr: true, volume: null, structure: {},
     canvas: { camera: { scale: .01 }, xr: { isPresenting: { value: true } }, webgl: { isContextLost: false, xr: { session: {} } } },
     loadedSphere: () => sphere, recordBoundingSphere: () => sphere,
+    molecularAnimation: { envelope: () => undefined, selectionSphere: loci => loci, owns: () => false,
+      replaces: () => false, representations: () => [], apply() {}, refresh: async () => {}, snapshot: () => null },
     scientificRepresentations: () => [], presentationTransform: () => Array.from(Mat4.identity()),
     lessonFigure: { snapshot: () => null, annotations: () => [] }, // No layered illustration in this fixture.
     selection: { rows: ['B', 'C'].map(key => ({ key, coordinateState: 'resolved', atomSites: [{}] })), toLoci: () => target },
@@ -106,7 +112,8 @@ export function tourFocusHarness({ labels = false } = {}) {
   });
   for (const name of ['gesturePivotContext', 'beginGesturePivot', 'invalidateGesturePivot', 'gesturePivotCenter', 'grabPivotBounds',
     'cancelXrPlacementFollowup', 'startXrPlacementFollowup', 'emphasize', 'modelledFocusKeys', 'focusSelection', 'bakeGrab', 'placementIntentCheckpoint', 'settlePlacementIntent', 'takeWearerPlacement',
-    'rotationFromPlacement', 'rotationDegreesZYX', 'placementTransform', 'placementFitEvidence', 'capturePlacementFitEvidence', 'clearHeldPlatePlacement', 'placeInspection']) {
+    'rotationFromPlacement', 'rotationDegreesZYX', 'placementTransform', 'placementFitEvidence', 'capturePlacementFitEvidence', 'clearHeldPlatePlacement', 'authoredSeatFaces', 'placeInspection',
+    'chapterFieldSummary']) {
     const start = source.search(new RegExp(`  (?:async )?function ${name}\\(`));
     const lineEnd = source.indexOf('\n', start);
     const end = source.slice(start, lineEnd).trimEnd().endsWith('}') ? lineEnd : source.indexOf('\n  }', start) + 4;

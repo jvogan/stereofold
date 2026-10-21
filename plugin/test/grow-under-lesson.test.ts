@@ -275,10 +275,10 @@ describe('an agent grow sent while a lesson autoplays', () => {
       dirty: false, blocked: false, interactionActive: false })).toBe(true);
   });
 
-  it('holds a source change behind a hand on the molecule and a blocked panel', () => {
+  it('a host source change retires the outgoing hand and failure notice', () => {
     const held = { sourceChanged: true, experienceChanged: false, dirty: true };
-    expect(followsSourceTransition({ ...held, blocked: false, interactionActive: true })).toBe(false);
-    expect(followsSourceTransition({ ...held, blocked: true, interactionActive: false })).toBe(false);
+    expect(followsSourceTransition({ ...held, blocked: false, interactionActive: true })).toBe(true);
+    expect(followsSourceTransition({ ...held, blocked: true, interactionActive: false })).toBe(true);
     expect(followsSourceTransition({ ...held, blocked: false, interactionActive: false })).toBe(true);
     expect(followsSourceTransition({ sourceChanged: false, experienceChanged: false,
       dirty: false, blocked: false, interactionActive: false })).toBe(false);

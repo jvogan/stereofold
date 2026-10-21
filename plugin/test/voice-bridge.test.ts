@@ -208,8 +208,10 @@ describe('binding fill', () => {
         tool, { change: { kind: 'motion', patch: { state: 'spin' } } }, readState);
       expect(args.serverEpoch).toBe(BINDING_STATE.serverEpoch);
       expect(args.sourceToken).toBe(BINDING_STATE.sourceToken);
-      expect(args.baseStateRevision).toBe(7);
-      expect(args.baseInspectionRevision).toBe(3);
+      // update_inspection and control_tour leave their revisions to the host,
+      // which fills them on arrival; focus_selection still carries them.
+      expect(args.baseStateRevision).toBe(tool === 'focus_selection' ? 7 : undefined);
+      expect(args.baseInspectionRevision).toBe(tool === 'focus_selection' ? 3 : undefined);
       // The companion wins: it is the view the wearer is in.
       expect(args.panelId).toBe('33333333-3333-4333-8333-333333333333');
       expect(args.commandId).toMatch(/^vb-[a-z0-9-]+$/);
@@ -231,11 +233,11 @@ describe('tier 1 validation', () => {
     const placement=tool.input_schema.properties.change.oneOf.find((choice:any)=>choice.properties.kind.const==='placement');
     expect(placement.properties.patch.properties.scale).toEqual({type:'number',minimum:1e-6,maximum:1e6});
     expect(placement.properties.patch.properties.translation.items).toEqual({type:'number',minimum:-1e6,maximum:1e6});
-    for(const scale of [1e-6,.01,8,100,1e6]) {
+    for(const scale of [1e-6,1.7e-6,1e-4,.005,.01,8,100,1e6]) {
       const args={change:{kind:'placement',patch:{scale,translation:[12,-20,30]}}};
       expect(validateTier1Call('update_inspection',args,SUMMARY)).toEqual({kind:'tool',name:'update_inspection',args});
     }
-    for(const patch of [{scale:0},{scale:1e-7},{scale:1e6+1},{scale:Infinity},{translation:[1e6+1,0,0]},{translation:[NaN,0,0]}])
+    for(const patch of [{scale:0},{scale:-1},{scale:NaN},{scale:1e-7},{scale:1e6+1},{scale:Infinity},{translation:[1e6+1,0,0]},{translation:[NaN,0,0]}])
       expect(validateTier1Call('update_inspection',{change:{kind:'placement',patch}},SUMMARY).kind).toBe('refused');
   });
 

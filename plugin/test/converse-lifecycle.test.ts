@@ -260,7 +260,8 @@ describe('buffered conversational work', () => {
       expect(results.find(line => line.id === 'later')).toMatchObject({ rendered: true, receipt: { status: 'rendered' } });
       if (action === 'correct') {
         expect(posted[2].arguments.utteranceId).toBe('replacement-utterance');
-        expect(posted[3].arguments.baseInspectionRevision).toBe(2);
+        // Sent after the replacement rendered; the host binds it to that revision on arrival.
+        expect(posted[3].arguments).not.toHaveProperty('baseInspectionRevision');
         expect(results.find(line => line.id === 'replacement')).toMatchObject({ rendered: true, receipt: { status: 'rendered' } });
       }
     } finally { await host.close(); }
@@ -460,8 +461,10 @@ it('correction to cartoon waits for a rendered receipt, then a new utterance ren
     expect(host.lines.filter(line => line.type === 'error')).toEqual([]);
     expect(host.lines.find(line => line.id === 'surface')).toMatchObject({ rendered: false, receipt: { status: 'superseded', supersededBy: 'correction-u', fenceReleased: expect.stringMatching(/^(pending|rolled-back)$/) } });
     expect(host.calls.find(call => call.name === 'update_inspection' && call.arguments.commandId === 'cartoon')?.arguments.utteranceId).toBe('correction-u');
-    expect(host.calls.find(call => call.name === 'update_inspection' && call.arguments.commandId === 'third')?.arguments)
-      .toMatchObject({ utteranceId: 'u-9', baseInspectionRevision: 2 });
+    // The utterance carries the binding; the revision is the host's to fill on arrival.
+    const third = host.calls.find(call => call.name === 'update_inspection' && call.arguments.commandId === 'third')?.arguments;
+    expect(third).toMatchObject({ utteranceId: 'u-9' });
+    expect(third).not.toHaveProperty('baseInspectionRevision');
     expect(host.lines.filter(line => line.type === 'result' && line.rendered).map(line => line.id)).toEqual(['cartoon', 'third']);
   } finally { await host.close(); }
 });

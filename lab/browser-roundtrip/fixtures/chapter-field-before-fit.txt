@@ -1,0 +1,76 @@
+// Frozen 2026-10-17 pre-optimization field geometry, used only as an equivalence oracle.
+function fieldGeometry({ placement, bounds, center, radius, cameraScale, renderFromRoom, exact = false, projectionCache }) {
+  const { rotation, roomFromRender, spheres, loose, groups } = fieldParts({ placement, bounds, cameraScale, renderFromRoom });
+  const local = bounds.center.map((v, i) => v - center[i]);
+  const offset = Vec3.transformMat4(Vec3(), local, rotation).map(v => v * placement.scale);
+  // One part per sphere or plate: a plate's four quad corners, each widened
+  // to a box by its `sweep` along a moving path; a sphere's eight box
+  // corners, or, measured where it stands (`exact`), the sphere itself, seen
+  // by its exact silhouette.
+  const isBall = sphere => !sphere.quad && (exact || sphere.kind === 'drawn');
+  const cornersAt = (sphere, point) => sphere.quad
+    ? [-1, 1].flatMap(x => [-1, 1].flatMap(y => (sphere.sweep > 0 ? boxCorners(sphere.sweep) : [[0, 0, 0]]).map(widen =>
+      applyMatrix4(point.map((v, i) => v + sphere.offset[i] + x * sphere.quad[0][i] + y * sphere.quad[1][i] + widen[i]), renderFromRoom))))
+    : [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z =>
+      applyMatrix4(point.map((v, i) => v + sphere.offset[i] + [x, y, z][i] * sphere.radius), renderFromRoom))));
+  const subjectAt = point => spheres.flatMap(sphere => cornersAt(sphere, point));
+  // Each part of the field at `point` in one eye, with its screen rectangle
+  // (`rect`) and, for a ball, its centre in that eye (`eye`). A group of
+  // drawn balls is first seen as its one enclosing ball; where `prune`
+  // passes that ball, its members are not visited. `visit` returning false
+  // ends the scan, which then returns false. `meter.tests` counts each
+  // rectangle measured.
+  const scan = (point, view, { prune, visit, meter }) => {
+    const toEye = Mat4.mul(Mat4(), view.transform.inverse.matrix, renderFromRoom), p = view.projectionMatrix;
+    // A scorer owns one fixed field for one synchronous menu solve. Many
+    // candidate seats see it through the same eyes; only their glass changes.
+    // Check values as well as identity because XR adapters can reuse matrices.
+    const key = projectionCache && JSON.stringify([point, Array.from(toEye), Array.from(p)]);
+    let projected = projectionCache?.get(view);
+    if (projectionCache && projected?.key !== key) {
+      projected = { key, parts: new Map(), groups: new Map() };
+      projectionCache.set(view, projected);
+    }
+    const eyeAt = sphereOffset => {
+      const x = point[0] + sphereOffset[0], y = point[1] + sphereOffset[1], z = point[2] + sphereOffset[2];
+      return [toEye[0] * x + toEye[4] * y + toEye[8] * z + toEye[12], toEye[1] * x + toEye[5] * y + toEye[9] * z + toEye[13],
+        toEye[2] * x + toEye[6] * y + toEye[10] * z + toEye[14]];
+    };
+    const ballPart = sphere => { const eye = eyeAt(sphere.offset); return { eye, radius: sphere.radius, rect: eyeBallRect(eye, sphere.radius, p) }; };
+    // Mol* pushes a plate toward each eye's own camera. The push measured
+    // with the field follows the field: from where the plate stands now,
+    // toward this eye.
+    let eyeRoom;
+    const pushed = sphere => {
+      if (!sphere.push) return point;
+      eyeRoom ??= applyMatrix4(invertMatrix4(view.transform.inverse.matrix).slice(12, 15), roomFromRender);
+      // `offset` already contains the previously measured push. Recover
+      // the anchor before taking this eye's ray, or a second room solve
+      // subtly changes the quad and moves a chapter that already cleared.
+      const at = point.map((v, i) => v + sphere.offset[i] - sphere.push * sphere.toward[i]);
+      const to = eyeRoom.map((v, i) => v - at[i]), length = Math.hypot(...to);
+      return length > 0 ? point.map((v, i) => v + sphere.push * (to[i] / length - sphere.toward[i])) : point;
+    };
+    const part = sphere => isBall(sphere) ? ballPart(sphere) : { rect: rect(cornersAt(sphere, pushed(sphere)), view) };
+    const measured = (cache, index, sphere, ball = false) => {
+      if (cache?.has(index)) return cache.get(index);
+      if (meter) meter.projections = (meter.projections ?? 0) + 1;
+      const entry = ball ? ballPart(sphere) : part(sphere);
+      cache?.set(index, entry);
+      return entry;
+    };
+    let tests = 0;
+    try {
+      for (const index of loose) { tests++; if (visit(index, measured(projected?.parts, index, spheres[index])) === false) return false; }
+      for (const group of groups) {
+        tests++;
+        if (prune(measured(projected?.groups, group, group, true))) continue;
+        for (const index of group.members) { tests++; if (visit(index, measured(projected?.parts, index, spheres[index], true)) === false) return false; }
+      }
+      return true;
+    } finally { if (meter) meter.tests = (meter.tests ?? 0) + tests; }
+  };
+  const initial = applyMatrix4(center.map((v, i) =>
+    (v + placement.translation[i] * radius + offset[i]) * cameraScale), roomFromRender);
+  return { offset, spheres, subjectAt, scan, initial, bodyRadius: most(spheres.map(s => s.radius)) };
+}

@@ -1,3 +1,4 @@
+import { residueIdentityRows } from './residue-identity-rows.mjs';
 import { geometryBudgetChanged } from '../browser-roundtrip/geometry-advisory.mjs';
 import { PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE, PLACEMENT_MAX_TRANSLATION } from '../browser-roundtrip/placement-limits.mjs';
 import { demoSourceIdentity } from '../browser-roundtrip/demo-source-identity.mjs';
@@ -278,7 +279,10 @@ function sync(snapshot = viewer?.snapshot()) {
   for (const [key, value] of Object.entries({ model:snapshot.modelNumber, assembly:snapshot.assemblyId, residues:snapshot.residueCount, atoms:snapshot.atomCount })) $(`[data-fact="${key}"]`).textContent = key === 'assembly' && value === 'asymmetric_unit'
     ? displayProvenance?.scope ?? (fixture?.code?.toUpperCase() === 'XXXX' ? 'Local coordinates' : 'Asymmetric unit') : value;
   const rows = selectedRows(snapshot), selected = new Set(snapshot.selectionKeys);
-  for (const button of $$('.sequence button')) button.setAttribute('aria-pressed', String(selected.has(button.dataset.key)));
+  for (const button of $$('.sequence button')) {
+    const pressed = String(selected.has(button.dataset.key));
+    if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+  }
   $('.selection-count').textContent = rows.length ? `${rows.length} residue${rows.length === 1 ? '' : 's'} selected` : 'No residues selected';
   $('.selection-count').dataset.empty = String(rows.length === 0);
   $('.selection-details').textContent = rows.length
@@ -305,15 +309,17 @@ function sync(snapshot = viewer?.snapshot()) {
     // The inspector owns XR entry, resume and exit. Done/reconnect refreshes
     // must not enable entry while presenting or overwrite its retry state.
     if (control.matches('[data-enter-xr], [data-resume-xr], [data-leave-xr]')) continue;
-    control.disabled = disabled;
+    if (control.disabled !== disabled) control.disabled = disabled;
   }
+  const sequenceItems = $('.sequence-items');
+  if (sequenceItems && sequenceItems.dataset.disabled !== String(disabled)) sequenceItems.dataset.disabled = String(disabled);
   syncSceneHistory(snapshot);
   $('[data-action="focus"]').disabled = disabled || !rows.length || rows.some(r => r.coordinateState !== 'resolved' || !r.atomSites.length);
   $('[data-action="clear"]').disabled = disabled || !rows.length;
   $('[data-selection="focus"]').disabled = $('[data-action="focus"]').disabled;
   $('[data-selection="clear"]').disabled = $('[data-action="clear"]').disabled;
   for (const input of $$('[data-control="uniform-color"], [data-picker="uniform-color"]')) input.disabled = disabled || a.color !== 'uniform';
-  moleculeCanvas.style.pointerEvents = disabled ? 'none' : '';
+  moleculeCanvas.style.pointerEvents = closing || !['ready', 'mutating'].includes(snapshot.status) ? 'none' : '';
   if (snapshot.generation !== lastGeneration) { lastGeneration = snapshot.generation; renderSequence(); }
   syncSearchAction(); syncWalkthrough(snapshot); syncMotion(snapshot.inspectionMotion); syncRenderQuality();
   // Host-driven listing from the shared library, with
@@ -350,9 +356,12 @@ function run(message, action, { publishSettled = true } = {}) {
     // sync here would briefly untick checkboxes and snap sliders backwards.
     for (const control of $$('#app button, #app input, #app select')) {
       if (!control.dataset.workspace && !control.dataset.tab && !control.dataset.layout
-        && !control.matches('[data-enter-xr], [data-resume-xr], [data-leave-xr]')) control.disabled = true;
+        && !control.matches('[data-enter-xr], [data-resume-xr], [data-leave-xr]') && !control.disabled) control.disabled = true;
     }
-    moleculeCanvas.style.pointerEvents = 'none';
+    const sequenceItems = $('.sequence-items');
+    if (sequenceItems && sequenceItems.dataset.disabled !== 'true') sequenceItems.dataset.disabled = 'true';
+    // Molecular input remains live while a chapter paints.
+    moleculeCanvas.style.pointerEvents = '';
     setStatus('Changing the scene…');
     try { const result = await action(); setStatus(result?.applied?.geometryBudget?.message ?? (typeof message === 'function' ? message(result) : message)); return result; }
     catch (error) { setStatus(error.message, true); throw error; }
@@ -363,6 +372,7 @@ function run(message, action, { publishSettled = true } = {}) {
 }
 
 function ui(message, action) {
+  options.onLocalEdit?.();
   return run(message, async () => {
     // Manual edits begin at the displayed orientation. Tool commands use their
     // separately admitted saved scene through applyRemote below.
@@ -394,9 +404,15 @@ function renderSequence() {
     && (!wanted || (range ? row.identity.authorResidue >= Number(range[1]) && row.identity.authorResidue <= Number(range[2])
       : `${label(row)} ${row.identity.labelChain}:${row.identity.labelSequenceId}`.toUpperCase().includes(wanted))));
   const sequence = $('.sequence'); sequence.replaceChildren();
-  const chosen = new Set(viewer?.snapshot().selectionKeys ?? []);
+  const snapshot = viewer?.snapshot(), chosen = new Set(snapshot?.selectionKeys ?? []);
+  const disabled = busy || closing || !snapshot?.ready;
+  // Keep the scrolling/padding on .sequence and dim its buttons together.
+  // Every button retains native disabled behavior, including a busy rebuild.
+  const items = filtered.length ? document.createElement('div') : undefined;
+  if (items) { items.className = 'sequence-items'; items.dataset.disabled = String(disabled); }
   for (const row of filtered) {
     const button = document.createElement('button'); button.type = 'button'; button.dataset.key = row.key;
+    if (disabled) button.disabled = true;
     button.dataset.coordinate = row.coordinateState; button.setAttribute('aria-pressed', String(chosen.has(row.key)));
     button.setAttribute('aria-label', `Select ${label(row)}${row.coordinateState !== 'resolved' ? ', coordinates missing' : ''}`);
     button.title = `${label(row)}; label ${row.identity.labelChain}:${row.identity.labelSequenceId ?? '?'}; copy ${row.identity.operatorIds.join(',')}; ${row.coordinateState}`;
@@ -418,8 +434,9 @@ function renderSequence() {
     const hover = keys => { if (!busy && viewer?.snapshot().ready) viewer.inspection.hover(keys).catch(() => {}); };
     button.addEventListener('mouseenter', () => hover([row.key])); button.addEventListener('mouseleave', () => hover([]));
     button.addEventListener('focus', () => hover([row.key])); button.addEventListener('blur', () => hover([]));
-    sequence.append(button);
+    items.append(button);
   }
+  if (items) sequence.append(items);
   if (!filtered.length) { const empty = document.createElement('p'); empty.textContent = viewer?.snapshot().ready ? 'No matching residues. Try a residue number, name, or range such as 8–16.' : 'The sequence appears after the structure loads.'; sequence.append(empty); }
   // This array is exactly the bulk action's keys. Cache its UTF-8 payload
   // once per sequence render; syncSearchAction only adds the small current
@@ -631,7 +648,7 @@ moleculeCanvas.addEventListener('keydown', event => {
   if (event.key === 'Escape') { event.preventDefault(); ui('Selection cleared', actions.clear); }
 });
 
-async function loadSource(next, { modelNumber = next.catalog.modelNumbers[0], assemblyId = next.catalog.assemblyId, scene, preserveCamera = false, restorePlacement = false, seatForEntry = false, xrRecoveryFrame } = {}) {
+async function loadSource(next, { modelNumber = next.catalog.modelNumbers[0], assemblyId = next.catalog.assemblyId, scene, initialInspection, preserveCamera = false, restorePlacement = false, seatForEntry = false, xrRecoveryFrame } = {}) {
   return run('Structure shown', async () => {
     // XR owns its live camera through headset tracking. A source transition
     // retains the molecule's room anchor in the viewer instead of replaying a
@@ -639,23 +656,30 @@ async function loadSource(next, { modelNumber = next.catalog.modelNumbers[0], as
     // different structure rather than a lesson tier: the room frame stays, but
     // the structure takes the entry seat instead of the outgoing size.
     const preserveRoomPlacement = preserveCamera && viewer.snapshot().ready && viewer.snapshot().xrPresenting;
+    // Recovery owns its saved appearance and mask from the first candidate
+    // frame. A scene for another source/model/assembly has no such authority.
+    if (scene && (scene.sourceSha256 !== next.sha256 || scene.modelNumber !== modelNumber || scene.assemblyId !== assemblyId)) scene = undefined;
+    const initial = scene?.inspection ? { appearance: scene.inspection.appearance, visibility: scene.inspection.visibility,
+      ...(initialInspection?.coordinateFrame ? { coordinateFrame: initialInspection.coordinateFrame } : {}),
+      ...(initialInspection?.frameVisibleFigureOnce ? { frameVisibleFigureOnce: true, preserveFigureFrame: true } : {}) } : initialInspection;
     const result = await viewer.load(next, { representation: next.id === 'identity_edge' ? 'ball-and-stick' : 'cartoon', modelNumber, assemblyId,
+      ...(initial && !next.map ? { initialInspection: initial } : {}),
       ...(preserveRoomPlacement ? { preserveRoomPlacement: true, ...(seatForEntry ? { seatForEntry: true } : {}) } : {}) });
     fixture = next; searchValue = ''; chainValue = 'all'; anchor = null; $('[data-control="search"]').value = '';
     // A saved view is valid only for the exact source, model and assembly being drawn.
-    if (scene && (scene.sourceSha256 !== next.sha256 || scene.modelNumber !== modelNumber || scene.assemblyId !== assemblyId)) scene = undefined;
     if (scene) await viewer.inspection.restore(scene,{preserveCamera, preservePlacement: preserveRoomPlacement && !restorePlacement,restorePlacement,preservePreviewCamera:restorePlacement,xrRecoveryFrame});
     loadedView = viewer.inspection.capture(); walkthrough = null;
+    const densityMap = loadedView.assemblyId === 'map';
     const displayProvenance = demoSourceIdentity(next.sha256);
     $('.scene-heading h1').replaceChildren(document.createTextNode(displayProvenance ? `${displayProvenance.title} ` : next.title ?? 'Molecular structure '));
     const code = document.createElement('span'); code.className = 'source-code';
-    code.textContent = displayProvenance?.pdbId ?? (next.code?.toUpperCase() === 'XXXX' ? '' : next.code ?? '');
+    code.textContent = densityMap ? 'Density map' : displayProvenance?.pdbId ?? (next.code?.toUpperCase() === 'XXXX' ? '' : next.code ?? '');
     $('.scene-heading h1').append(code);
     const sourceCaption = [next.caption ?? 'SESSION STRUCTURE', displayProvenance?.scope].filter(Boolean).join(' · ');
     const resolvedChains = new Set(currentRows().filter(row => row.atomSites.length)
       .map(row => `${row.identity.copyId}:${row.identity.labelChain}`)).size;
     $('.canvas-caption > span').textContent = options.enableXr === true
-      ? `${sourceCaption} · ${resolvedChains} ${resolvedChains === 1 ? 'CHAIN' : 'CHAINS'}` : sourceCaption;
+      ? `${sourceCaption} · ${densityMap ? 'ISOSURFACE' : `${resolvedChains} ${resolvedChains === 1 ? 'CHAIN' : 'CHAINS'}`}` : sourceCaption;
     $('.walkthrough').hidden = next.id !== 'public_1crn';
     renderSequence(); document.body.dataset.ready = 'true'; return result;
   });
@@ -684,6 +708,7 @@ viewer = await createViewer({ canvas:moleculeCanvas, container:$('.stage'), enab
   // An in-headset toolbar edit is admitted by the same serialized queue as
   // the desktop controls and applyRemote, so a saved scene arriving from the
   // host cannot land inside one.
+  onLocalEdit: () => options.onLocalEdit?.(),
   runSpatialAction: (_action, apply) => run('Headset control applied', apply),
   onOpenWorkbench: options.onOpenWorkbench,
   ...(options.getSceneHistory && options.onSceneHistoryAction
@@ -705,14 +730,15 @@ sync();
 const captureScene = () => { const scene = viewer.inspection.capture(); delete scene.inspection.history; delete scene.inspection.savedViews; return scene; };
 return Object.freeze({ viewer, snapshot:() => viewer.snapshot(), setNamedViews, syncSceneHistory, rows:() => structuredClone(currentRows()),
   registerComparisonSources: sources => viewer.inspection.registerComparisonSources(sources),
-  identityRows:() => currentRows().map(({key,identity,coordinateState})=>({key,identity:structuredClone(identity),coordinateState})), loadSource, dispose, setStatus,
+  identityRows:() => residueIdentityRows(currentRows()), loadSource, dispose, setStatus,
   // A tour is one admitted workspace action so a queued manual edit cannot
   // land between its visual operations. It uses the same pause and lifecycle
   // rules as the controls above without giving the catalog raw queue access.
-  runTour: action => run('Tour scene shown', async () => {
+  runTour: action => run('Tour scene shown', () => viewer.inspection.runChapter(async () => {
     await viewer.inspection.setMotion({paused:true}); return action();
-  }),
+  })),
   capture:captureScene,
+  serializeCapture:() => viewer.inspection.serializeCapture({omitHistory:true}),
   restore:(scene,options) => run('Saved view restored', () => viewer.inspection.restore(scene,options)),
   // XR head tracking owns the live view. Replaying a shared desktop camera
   // into a presenting session reads as an unexpected head teleport, so the
@@ -720,15 +746,16 @@ return Object.freeze({ viewer, snapshot:() => viewer.snapshot(), setNamedViews, 
   restoreShared:(scene,admit,preserveCamera,restorePlacement=false,onRestored) => run('Shared view rendered', async()=>{
     const restore = async () => {
       await admit();
-      await viewer.inspection.restore(scene,{preserveCamera:preserveCamera===true || viewer.snapshot().xrPresenting===true,restorePlacement});
+      await viewer.inspection.restore(scene,{preserveCamera:!restorePlacement || preserveCamera===true || viewer.snapshot().xrPresenting===true,
+        preservePlacement:!restorePlacement && !scene.inspection?.lessonPlayback,restorePlacement});
       // Adopt the peer's cursor before capture and before a queued local edit.
       // Otherwise the old player can publish its chapter over the new scene.
-      onRestored?.(scene);
+      await onRestored?.(scene);
       return captureScene();
     };
     // Peer playback reconciliation owns publication; a renderer mutation must
     // not let the old player write its cursor during the restore transaction.
-    return onRestored ? namedPublication.run(restore) : restore();
+    return viewer.inspection.runChapter(() => onRestored ? namedPublication.run(restore) : restore());
   }),
   captureNamedView:(admit,confirm) => run('Named view captured', () => namedPublication.run(() => captureNamedView(viewer,admit,confirm)), {publishSettled:false}),
   restoreNamedView:(scene,admit,confirm,namedViewIntent) => run('Named view restored', () => namedPublication.run(() => restoreNamedView(viewer,scene,admit,confirm,namedViewIntent), {publishAfter:true}), {publishSettled:false}),
@@ -806,7 +833,7 @@ return Object.freeze({ viewer, snapshot:() => viewer.snapshot(), setNamedViews, 
     // puts the panel back rather than leaving half a picture.
     else if (change.kind === 'compound') {
       if (typeof viewer.inspection.beginOperation !== 'function') throw Error('This panel cannot run several edits as one change.');
-      // Stage all seven saved fields before building geometry, so admission
+      // Stage the saved fields before building geometry, so admission
       // measures the final scene and completion waits for one combined frame.
       const staged = typeof viewer.inspection.compound === 'function';
       if (staged) await viewer.inspection.compound(change, change.patch.ops.some(op => op.kind === 'appearance' && Object.hasOwn(op.patch, 'representation'))
@@ -822,6 +849,7 @@ return Object.freeze({ viewer, snapshot:() => viewer.snapshot(), setNamedViews, 
           return viewer.inspection.emphasize(patch);
         },
         'companion-structure': patch => viewer.inspection.setCompanion(patch),
+        measurement: patch => viewer.inspection.setMeasurementLines(patch.lines),
         visibility: patch => {
           if (typeof viewer.inspection.setVisibility !== 'function') throw Error('This panel cannot hide part of the structure.');
           return viewer.inspection.setVisibility(patch);
@@ -834,6 +862,11 @@ return Object.freeze({ viewer, snapshot:() => viewer.snapshot(), setNamedViews, 
     }
     // The agent's "spin it" / "stop", the same explicit target
     // the wearer's spoken command and the menu's Auto-rotate row set.
+    else if (change.kind === 'measurement') await viewer.inspection.setMeasurementLines(change.patch.lines);
+    else if (change.kind === 'animation') {
+      if (!viewer.inspection.applyMolecularAnimationControl) throw Error('This panel cannot control chapter animation.');
+      applied = { animation: await viewer.inspection.applyMolecularAnimationControl(change.patch, change.target) };
+    }
     else if (change.kind === 'motion') await viewer.inspection.setMotion({ paused: change.patch.state === 'stop' });
     // The agent's answer to "make it look better". The
     // runtime lever belongs to the viewer; until it lands, a panel that cannot

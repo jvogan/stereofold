@@ -179,10 +179,10 @@ test('automatic placement still uses the framing solver and does not acquire an 
   assert.equal(h.hold.holdsPlacement(), false);
 });
 
-test('desktop explicit placement needs neither XR clearance nor session hold', async () => {
+test('desktop explicit placement retains its chosen seat without XR clearance', async () => {
   const h = harness({ presenting: false }); await h.placeInspection(pose(20));
   assert.deepEqual(h.inspection.snapshot().placement, pose(20));
-  assert.equal(h.hold.holdsPlacement(), false);
+  assert.equal(h.hold.holdsPlacement(), true);
   assert.equal(h.solves(), 0);
 });
 

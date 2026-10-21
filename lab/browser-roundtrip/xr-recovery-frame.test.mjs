@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import { PLACEMENT_MIN_SCALE } from './placement-limits.mjs';
 import { preserveSourceTransitionAnchor } from './source-transition-anchor.mjs';
 
 const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
@@ -24,20 +25,25 @@ function fixture() {
   return { context, canvas, session, headTracking, identity: value => { identity = value; }, camera: () => camera };
 }
 const bounds = radius => ({ center: [0, 0, 0], radius });
-test('opaque local XR rollback restores world scale after two clamped source anchors without rewinding tracking', () => {
+test('opaque local XR rollback restores world scale after an extreme source round trip without rewinding tracking', () => {
   const t = fixture(), savedCamera = structuredClone(t.camera()), savedHead = structuredClone(t.headTracking);
   const token = t.context.captureXrRecoveryFrame();
   assert.equal(JSON.stringify(token), '{}');
   const placement = { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 };
   const larger = preserveSourceTransitionAnchor({ priorBase: bounds(10), priorVisible: bounds(10), priorPlacement: placement,
     priorCameraScale: 1, nextBase: bounds(1e9), nextVisible: bounds(1e9) });
+  assert.equal(larger.placement.scale, PLACEMENT_MIN_SCALE);
+  assert.equal(larger.usedCameraScale, true);
+  assert.equal(1e9 * larger.placement.scale * larger.cameraScale, 10);
   t.context.setXrCameraScale(larger);
   const returned = preserveSourceTransitionAnchor({ priorBase: bounds(1e9), priorVisible: bounds(1e9), priorPlacement: larger.placement,
     priorCameraScale: larger.cameraScale, nextBase: bounds(10), nextVisible: bounds(10) });
+  assert.equal(returned.usedCameraScale, false, 'the return fits within the restored numerical scale range');
+  assert.equal(10 * returned.placement.scale * returned.cameraScale, 10);
   t.context.setXrCameraScale(returned);
   // An extreme source ratio crosses the numerical guard and changes world
-  // scale. Restoring only the serialized placement would leave a 0.1m subject.
-  assert.equal(10 * placement.scale * t.canvas.camera.scale, 0.1);
+  // scale. Restoring only the serialized placement would leave a tiny subject.
+  assert.ok(Math.abs(10 * placement.scale * t.canvas.camera.scale - 10 / returned.placement.scale) < 1e-15);
   assert.equal(t.context.restoreXrRecoveryFrame(token), true);
   assert.equal(10 * placement.scale * t.canvas.camera.scale, 10);
   assert.deepEqual(t.camera(), savedCamera);

@@ -42,6 +42,8 @@ const stubbed = [
   'dist/viewer.html',
   'dist/inspector.html',
   'dist/inspector.css',
+  'dist/inspector-script-1.js',
+  'dist/inspector-script-2.js',
   'dist/inspector-host.js',
   'dist/molstar/molstar.js',
   'dist/molstar/molstar.css',
@@ -52,6 +54,7 @@ const stubbed = [
   'skills/stereo-structure/SKILL.md',
   'skills/molecular-presentation/SKILL.md',
   'skills/molecular-presentation/scripts/lesson.mjs',
+  'skills/molecular-presentation/references/live-authoring.md',
   'skills/stereofold-setup/SKILL.md',
   'skills/stereofold-setup/scripts/setup-check.mjs',
   'demos/stub.json',
@@ -178,7 +181,7 @@ async function createBuilt(artifact: string): Promise<string> {
   const built = resolve(artifact, '..', 'built');
   await mkdir(built, { recursive: true });
   for (const name of ['server.mjs', 'headset-host.mjs', 'serve-inspection.mjs', 'scene-socket-relay.mjs',
-    'inspector-host.js', 'inspector.html', 'inspector.css', 'viewer.html']) {
+    'inspector-host.js', 'inspector.html', 'inspector.css', 'inspector-script-1.js', 'inspector-script-2.js', 'viewer.html']) {
     await cp(resolve(artifact, 'dist', name), resolve(built, name));
   }
   return built;

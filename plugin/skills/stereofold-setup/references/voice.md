@@ -93,6 +93,8 @@ Tool lookup uses the MCP server's environment. OpenSSL searches only
 `/usr/bin/openssl`, `/opt/homebrew/bin/openssl`, `/usr/local/bin/openssl`, then
 `/bin/openssl`, in that order; it has no PATH fallback or environment override.
 
+Whisper runs on the CPU. `STEREOFOLD_WHISPER_GPU=1` runs it on the GPU instead.
+
 Transcription searches for `ffmpeg` and `whisper-cli` in `/opt/homebrew/bin`,
 `/usr/local/bin`, then `/usr/bin`, followed by absolute directories on PATH.
 The Apple helper searches `native/applespeech/bin/applespeech` under the plugin
@@ -119,8 +121,9 @@ scene, then call `stereo_structure.get_readiness` with that `sessionId` and
 binary and `ffmpeg` resolved or that `whisper-cli`, `ffmpeg`, and a readable model named by
 `STEREOFOLD_WHISPER_MODEL` resolved. Its `replies` line must say that the
 installed reply helper produced one-word audio. On the Apple route, make one
-test press and require `listen_voice` to return its text; that is the consent
-check, because compiling cannot grant Speech Recognition permission.
+test press and require its channel event or `listen_voice` result to contain
+text; that is the consent check, because compiling cannot grant Speech
+Recognition permission.
 
 Each failure has one recovery command:
 
@@ -141,7 +144,37 @@ not ship. Use that route only when such a helper is installed; name its
 executable with `STEREOFOLD_AGENT_VOICE_BIN` or `agentVoiceBin`. Repeat
 `get_readiness` after every recovery.
 
+### Optional completed-audio handoff
+
+Stereofold supplies `STEREOFOLD_AGENT_VOICE_READY_FILE` to the narration helper
+as a new absolute receipt path in its private temporary directory. Existing
+helpers can ignore it: Stereofold still accepts their WAV after successful exit.
+An implementing helper can make complete audio available while its connection
+closes. After a successful, completed speech response, finish the requested WAV
+and any metadata, then atomically publish this receipt as the last output write:
+
+```json
+{"version":1,"status":"completed","bytes":123456,"sha256":"<SHA-256 of the complete requested WAV>"}
+```
+
+The adapter checks the size and digest against that WAV before encoding it,
+including when the helper exits before the first receipt check. A valid
+completion remains usable if subsequent connection cleanup fails.
+Do not publish for partial audio, failed responses or unfinished output writes;
+only connection cleanup may remain. The helper keeps its 45-second process
+deadline, and Stereofold removes its private input/output directory after exit.
+This handoff needs no new provider, credentials, persistent service or model
+request. It changes when a completed clip is available, not what it says.
+
 Stereofold itself does not install `cloudflared`, `ffmpeg`, `whisper-cli`, or
 a model. Install needed helpers within the user's authorized setup scope,
 using the chosen package manager and preserving existing working routes.
+
+
+## Claude Code channel protocol
+
+This package pins MCP SDK 1.29.0, whose latest supported protocol is `2025-11-25`;
+it does not negotiate `2026-07-28`. No legacy override is needed here. If a future
+v2 runtime negotiates `2026-07-28` and Claude fails to register the channel, set
+`MCP_PROTOCOL_NEGOTIATION=legacy` in that MCP server's environment and restart.
 

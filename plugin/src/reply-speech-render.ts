@@ -26,6 +26,14 @@ import { estimateHeadsetSpeechSeconds, HEADSET_REPLY_RENDER_BUDGET_MS,
  * process holding its own websocket, and a 200-word reply is at most six
  * segments.
  *
+ * A later local pass measured another wait after the opening was encoded:
+ * once the page had taken the caption, delivery held that clip until the last
+ * segment settled. The caller now sends each ready prefix as a continuation
+ * batch. Five fixed two-segment trials went from a 6.14 s median caption-to-
+ * playback delay to 3.91 s, with encoding-to-playback for the opening falling
+ * from 1.51-2.21 s to 23-58 ms on a 50 ms loopback polling interval. A single
+ * segment still pays the helper's setup and socket-close costs.
+ *
  * Nothing here changes what is said. The returned segments carry the same text
  * in the same order `splitHeadsetSpeech` produced, whatever order the helper
  * answered in.
@@ -69,8 +77,8 @@ export type ReplySpeechRenderOptions = {
   /**
    * Called each time the leading run of settled segments grows and contains a
    * clip, with that run. It is how the caller can hand the opening of an
-   * answer to a page that has not taken the caption yet, instead of holding
-   * every word until the last segment lands.
+   * answer to the caption or a continuation batch, instead of holding every
+   * word until the last segment lands.
    */
   onReady?: (segments: readonly HeadsetCaptionSegment[]) => void;
 };

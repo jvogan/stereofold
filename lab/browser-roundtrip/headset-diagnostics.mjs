@@ -51,6 +51,7 @@ export const FRAME_RATE_SAMPLE_MS = 5_000;
 /** Bound the sampling cost; retention below also protects rare evidence. */
 export const DIAGNOSTIC_RATE_LIMIT_MS = Object.freeze({
   'frame-cost': 5_000,
+  'animation-cost': 1_000,
   'frame-rate': 5_000,
   'plate-update': 5_000,
 });

@@ -73,6 +73,8 @@ export async function verifyLayout(artifactRoot: string): Promise<void> {
     'dist/viewer.html',
     'dist/inspector.html',
     'dist/inspector.css',
+    'dist/inspector-script-1.js',
+    'dist/inspector-script-2.js',
     'dist/inspector-host.js',
     'dist/molstar/molstar.js',
     'dist/molstar/molstar.css',
@@ -86,6 +88,7 @@ export async function verifyLayout(artifactRoot: string): Promise<void> {
     'skills/stereo-structure/SKILL.md',
     'skills/molecular-presentation/SKILL.md',
     'skills/molecular-presentation/scripts/lesson.mjs',
+    'skills/molecular-presentation/references/live-authoring.md',
     // The setup skill is the one an agent reads before the plugin works, so
     // its check has to run on bare `node`: this artifact carries no
     // `package.json`, no `node_modules` and no `scripts/`.
@@ -174,7 +177,7 @@ export async function verifyLayout(artifactRoot: string): Promise<void> {
  * the checkout just tested, and a byte comparison is what catches that.
  */
 const BUILT_BUNDLES = ['server.mjs', 'headset-host.mjs', 'serve-inspection.mjs', 'scene-socket-relay.mjs',
-  'inspector-host.js', 'inspector.html', 'inspector.css', 'viewer.html'] as const;
+  'inspector-host.js', 'inspector.html', 'inspector.css', 'inspector-script-1.js', 'inspector-script-2.js', 'viewer.html'] as const;
 
 /**
  * Every staged bundle is byte for byte the built one, and the staged server
@@ -297,6 +300,8 @@ async function verifyGitEligibleLaunch(): Promise<void> {
     'plugin/dist/viewer.html',
     'plugin/dist/inspector.html',
     'plugin/dist/inspector.css',
+    'plugin/dist/inspector-script-1.js',
+    'plugin/dist/inspector-script-2.js',
     'plugin/dist/inspector-host.js',
     'plugin/dist/molstar/molstar.js',
     'plugin/dist/molstar/molstar.css',

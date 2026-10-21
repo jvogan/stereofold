@@ -258,3 +258,15 @@ test('production appearance rebuild preserves selected high quality, style, appe
     if (context.appliedGeometryBudget) assert.match(context.appliedGeometryBudget.message, /may run slowly/);
   }
 });
+
+test('nonbond budgets retain exact estimates without evaluating lazy bond inference', () => {
+  const exact = { elementCount: 22000, atomicResidueCount: 3000, bondCount: 35000 };
+  const lazy = { ...exact, get bondCount() { throw Error('full composite bond inference'); } };
+  for (const representation of ['cartoon', 'spacefill', 'molecular-surface']) {
+    const expected = geometryBudgetDecision(ask({ representation, ...structureGeometryCounts(exact) }));
+    const actual = geometryBudgetDecision(ask({ representation, ...structureGeometryCounts(lazy, representation) }));
+    assert.deepEqual(actual, expected);
+  }
+  assert.throws(() => structureGeometryCounts(lazy, 'ball-and-stick'), /full composite/);
+  assert.throws(() => structureGeometryCounts(lazy, 'sticks'), /full composite/);
+});

@@ -238,12 +238,12 @@ describe('the line the wearer is shown', () => {
     expect(captionLine(undefined)).toBe('');
   });
 
-  it('never paginates a spoken line, and pages only the fallback prose', () => {
+  it('sends the plate line whole, spoken or not: the card pages it at its own width', () => {
     expect(wearerPages(wide)).toEqual([wide.narration]);
     const catalogStep = TOURS[0].steps[0];
     const prose = catalogStep.body ?? catalogStep.description ?? '';
-    expect(wearerPages(catalogStep)).toEqual(pageText(prose));
-    expect(wearerPages(catalogStep).length).toBeGreaterThan(1);
+    expect(pageText(prose).length).toBeGreaterThan(1);
+    expect(wearerPages(catalogStep)).toEqual([prose]);
   });
 
   it('keeps every bundled spoken line free of numbers', () => {
@@ -466,6 +466,17 @@ describe('applying one scene to the workspace', () => {
     expect(failures).toEqual(["Could not find node 'yEw1bmA1hVpstsCEqyENWg'."]);
   });
 
+  // CRISPR chapter 3 selects the PAM to label it, and the caption calls the
+  // PAM yellow. A wearer's selection is marked in magenta; the lesson's own is
+  // marked by its colour key, so the chapter selects as the lesson.
+  it('selects an authored chapter selection as the lesson', async () => {
+    const { workspace } = recorder();
+    const selected: unknown[][] = [];
+    workspace.viewer.select = async (...args: unknown[]) => { selected.push(args); };
+    await applyTourStep(workspace, { ...step, selection:{ chain:'B' } }, () => true, false);
+    expect(selected).toEqual([[['B:8'], 'selection', { lesson:true }]]);
+  });
+
   it('records the lost key rather than swallowing it silently', async () => {
     const { workspace } = recorder();
     (workspace.viewer.inspection as Record<string, unknown>).emphasize =
@@ -512,7 +523,7 @@ describe('emphasis on a scene the wearer comes back to', () => {
   it('re-applies the scene emphasis after restoring a cached scene', () => {
     const cachedBranch = source.slice(source.indexOf('if (cached) {'), source.indexOf('liveStep = target;'));
     expect(cachedBranch).toContain('restore(cached');
-    expect(cachedBranch).toContain('applyStepEmphasis(tour.steps[target], admitted)');
+    expect(cachedBranch).toContain('applyStepEmphasis(tour.steps[target], owned)');
   });
 
   it('clears the emphasis layers with the lesson starting view', () => {
@@ -855,7 +866,9 @@ describe('a lesson scene that never comes back', () => {
 
   it('bounds the scene as a whole, including the wait for the workspace queue', () => {
     const source = readFileSync(new URL('../src/tour-player.ts', import.meta.url), 'utf8');
-    expect(source).toContain("withTourDeadline('scene', workspace.runTour(");
+    // A rollback that outlasts its own bound answers through `answered`, so
+    // the caller still hears within this net while the queue stays held.
+    expect(source).toContain("withTourDeadline('scene', Promise.race([answered, workspace.runTour(");
     // The scene net scales with the loaded tier, and `tourSceneTimeoutMs` is
     // never tighter than TOUR_SCENE_TIMEOUT_MS.
     expect(source).toContain('tourSceneTimeoutMs(workspace.snapshot().atomCount));');
@@ -1025,6 +1038,8 @@ describe('cinematic playback & motion scheduling', () => {
   const setupMockDom = () => {
     const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
     const elements: Record<string, unknown> = {};
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
 
     const makeElement = (tag = 'div') => {
       const el: Record<string, unknown> = {
@@ -1056,11 +1071,11 @@ describe('cinematic playback & motion scheduling', () => {
 
     const selectors = [
       '[data-tour-menu]', '[data-tour-summary]', '[data-tour-progress]',
-      '[data-tour-title]', '[data-tour-body]', '[data-tour-sources]',
+      '[data-tour-title]', '[data-tour-body]', '[data-tour-sources]', '[data-tour-details-disclosure]', '[data-tour-details]',
       '[data-tour-status]', '[data-tour-start]', '[data-tour-rejoin]',
       '[data-tour-back]', '[data-tour-next]', '[data-tour-play]',
       '[data-tour-pace]', '[data-tour-restart]', '[data-tour-restore]',
-      '[data-tour-menu-button]'
+      '[data-tour-menu-button]', '.tour-player-scene', '[data-tour-scroll-hint]'
     ];
     for (const s of selectors) {
       elements[s] = makeElement();
@@ -1084,6 +1099,8 @@ describe('cinematic playback & motion scheduling', () => {
     };
 
     (globalThis as any).window = {
+      requestAnimationFrame: (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; },
+      cancelAnimationFrame: (id: number) => frames.delete(id),
       addEventListener: (evt: string, cb: (...args: unknown[]) => void) => {
         listeners[evt] = listeners[evt] || [];
         listeners[evt].push(cb);
@@ -1095,6 +1112,10 @@ describe('cinematic playback & motion scheduling', () => {
 
     return {
       elements,
+      root,
+      dispatch: (event: string) => { for (const listener of listeners[event] ?? []) listener(); },
+      frame: () => { const pending = [...frames.values()]; frames.clear(); for (const callback of pending) callback(0); },
+      pendingFrames: () => frames.size,
       mountAnchor: mountAnchor as unknown as Element,
       setHidden: (hidden: boolean) => {
         (globalThis as any).document.hidden = hidden;
@@ -1177,6 +1198,126 @@ describe('cinematic playback & motion scheduling', () => {
     { id: 'above', title: 'Above', visibility: { op: 'only', chains: ['A-2', 'B-2', 'A-3'], classes: ['polymer'] } },
   ] };
 
+  it('opens a changed caption at its beginning while preserving reading position on Pause', async () => {
+    const dom = setupMockDom(), { workspace } = createMockWorkspace();
+    const caption = dom.elements['.tour-player-scene'] as { scrollTop: number };
+    try {
+      const player = mountTourPlayer({ workspace, tours: testTours, after: dom.mountAnchor });
+      await player.select('tour-1'); await player.start(false);
+      caption.scrollTop = 180;
+      player.pause();
+      expect(caption.scrollTop).toBe(180);
+      await player.next();
+      expect(caption.scrollTop).toBe(0);
+      caption.scrollTop = 90;
+      await player.back();
+      expect(caption.scrollTop).toBe(0);
+    } finally { dom.restore(); }
+  });
+
+  it('keeps caption writes out of layout reads and preserves unchanged caption/source nodes', async () => {
+    const dom = setupMockDom(), { workspace } = createMockWorkspace();
+    const originalObserver = globalThis.ResizeObserver;
+    let notify!: () => void;
+    const observed = new Set<Element>();
+    globalThis.ResizeObserver = class {
+      constructor(callback: () => void) { notify = callback; }
+      observe(element: Element) { observed.add(element); }
+      disconnect() { observed.clear(); }
+      unobserve(element: Element) { observed.delete(element); }
+    } as unknown as typeof ResizeObserver;
+    const caption = dom.elements['.tour-player-scene'] as HTMLDivElement;
+    const hint = dom.elements['[data-tour-scroll-hint]'] as HTMLSpanElement;
+    let reads = 0, height = 100, scrollHeight = 300, scrollTop = 0;
+    Object.defineProperties(caption, {
+      clientHeight: { get: () => { reads++; return height; } },
+      scrollHeight: { get: () => { reads++; return scrollHeight; } },
+      scrollTop: { get: () => { reads++; return scrollTop; }, set: value => { scrollTop = value; } },
+    });
+    const sources = dom.elements['[data-tour-sources]'] as HTMLParagraphElement;
+    const rebuildSources = vi.spyOn(sources, 'replaceChildren');
+    const chapter = { id: 'same', title: 'Same chapter', body: 'A readable caption.', sources: [{ title: 'Original source', url: 'https://example.org/first' }] };
+    let bodyWrites = 0, bodyValue = '';
+    Object.defineProperty(dom.elements['[data-tour-body]'], 'textContent', {
+      get: () => bodyValue, set: value => { bodyWrites++; bodyValue = value; },
+    });
+    try {
+      const player = mountTourPlayer({ workspace, tours: [{ id: 'caption', title: 'Caption', summary: 'Overview', steps: [chapter] }], after: dom.mountAnchor });
+      await player.select('caption'); await player.start(false);
+      expect(reads).toBe(0);
+      expect(observed).toEqual(new Set(['.tour-player-scene', '[data-tour-progress]', '[data-tour-title]', '[data-tour-body]', '[data-tour-sources]', '[data-tour-details-disclosure]', '[data-tour-status]'].map(selector => dom.elements[selector])));
+      notify(); expect(reads).toBe(3); expect(hint.hidden).toBe(false);
+      const nodes = [...sources.children], rebuilds = rebuildSources.mock.calls.length, writes = bodyWrites;
+      scrollTop = 180;
+      for (let i = 0; i < 8; i++) player.pause();
+      expect(scrollTop).toBe(180);
+      expect(reads).toBe(3);
+      expect(bodyWrites).toBe(writes); expect(rebuildSources).toHaveBeenCalledTimes(rebuilds);
+      expect(sources.children).toEqual(nodes);
+      // Same-sized text still updates, but only the browser's post-layout
+      // observer decides whether overflow needs another measurement.
+      chapter.body = 'Another caption.'; player.pause();
+      expect(scrollTop).toBe(0); expect(bodyValue).toBe(chapter.body); expect(reads).toBe(3);
+      expect(rebuildSources).toHaveBeenCalledTimes(rebuilds);
+      scrollTop = 50;
+      chapter.sources = [{ title: 'Replacement source', url: 'https://example.org/second' }]; player.pause();
+      expect(scrollTop).toBe(0); expect(rebuildSources).toHaveBeenCalledTimes(rebuilds + 1);
+      expect((sources.children[1] as HTMLAnchorElement).href).toBe('https://example.org/second');
+      scrollHeight = 90; notify(); expect(hint.hidden).toBe(true);
+      height = 0; const beforeHidden = reads; notify(); expect(reads).toBe(beforeHidden + 1);
+      dom.dispatch('pagehide'); expect(observed.size).toBe(0);
+      const beforeSuspended = reads; notify(); expect(reads).toBe(beforeSuspended);
+      dom.dispatch('pageshow'); expect(observed.size).toBe(7);
+      height = 100; scrollHeight = 300; notify(); expect(hint.hidden).toBe(false);
+    } finally { dom.dispatch('pagehide'); globalThis.ResizeObserver = originalObserver; dom.restore(); }
+  });
+
+  it('coalesces caption scroll/resize fallback after paint and cancels hidden or detached work', async () => {
+    const dom = setupMockDom(), { workspace } = createMockWorkspace();
+    const originalObserver = globalThis.ResizeObserver;
+    (globalThis as any).ResizeObserver = undefined;
+    vi.useFakeTimers();
+    const caption = dom.elements['.tour-player-scene'] as HTMLDivElement;
+    const hint = dom.elements['[data-tour-scroll-hint]'] as HTMLSpanElement;
+    let reads = 0, height = 100, scrollTop = 0;
+    Object.defineProperties(caption, {
+      clientHeight: { get: () => { reads++; return height; } },
+      scrollHeight: { get: () => { reads++; return 300; } },
+      scrollTop: { get: () => { reads++; return scrollTop; }, set: value => { scrollTop = value; } },
+    });
+    const paint = () => { dom.frame(); vi.runOnlyPendingTimers(); };
+    try {
+      const player = mountTourPlayer({ workspace, tours: [{ id: 'caption', title: 'Caption', summary: 'Overview', steps: [{ id: 'one', title: 'One', body: 'Full body' }] }], after: dom.mountAnchor });
+      await player.select('caption'); await player.start(false);
+      expect(reads).toBe(0); expect(dom.pendingFrames()).toBe(1);
+      dom.frame(); expect(reads).toBe(0); vi.runOnlyPendingTimers();
+      expect(reads).toBe(3); expect(hint.hidden).toBe(false);
+      // Native details can resize the reading region without any player write
+      // or viewport resize, including in a browser without ResizeObserver.
+      height = 350; dom.dispatch('toggle'); expect(dom.pendingFrames()).toBe(1); expect(reads).toBe(3);
+      paint(); expect(hint.hidden).toBe(true);
+      height = 100; dom.dispatch('toggle'); paint(); expect(hint.hidden).toBe(false);
+      const beforePause = reads;
+      player.pause(); player.pause(); expect(dom.pendingFrames()).toBe(1); expect(reads).toBe(beforePause);
+      paint(); const settled = reads; player.pause(); expect(dom.pendingFrames()).toBe(0); expect(reads).toBe(settled);
+      scrollTop = 200; dom.dispatch('scroll'); dom.dispatch('scroll'); dom.dispatch('resize');
+      expect(dom.pendingFrames()).toBe(1); expect(reads).toBe(settled); paint(); expect(hint.hidden).toBe(true);
+      // Pagehide can itself call Pause/sync; the lifecycle cancellation still
+      // removes both the previously queued frame and any after-paint timer.
+      dom.dispatch('resize'); dom.dispatch('pagehide'); expect(dom.pendingFrames()).toBe(0);
+      const hiddenReads = reads; vi.runOnlyPendingTimers(); expect(reads).toBe(hiddenReads);
+      dom.dispatch('pageshow'); dom.frame(); expect(vi.getTimerCount()).toBe(1);
+      dom.dispatch('pagehide'); vi.runOnlyPendingTimers(); expect(reads).toBe(hiddenReads);
+      dom.dispatch('pageshow'); paint(); expect(reads).toBe(hiddenReads + 3);
+      dom.setHidden(true); dom.dispatch('resize'); expect(dom.pendingFrames()).toBe(0);
+      dom.setHidden(false); expect(dom.pendingFrames()).toBe(1); paint();
+      dom.dispatch('resize'); dom.root.isConnected = false;
+      const beforeDetached = reads; paint(); expect(reads).toBe(beforeDetached);
+      dom.dispatch('resize'); expect(dom.pendingFrames()).toBe(0);
+      dom.root.isConnected = true; dom.dispatch('pageshow'); paint(); expect(reads).toBe(beforeDetached + 3);
+    } finally { dom.dispatch('pagehide'); vi.useRealTimers(); globalThis.ResizeObserver = originalObserver; dom.restore(); }
+  });
+
   it('replays exact visible subsets through Next, cached Back, Rejoin, and Restore start', async () => {
     const dom = setupMockDom(), h = visibilityHarness(), baseline = h.capture();
     try {
@@ -1227,11 +1368,75 @@ describe('cinematic playback & motion scheduling', () => {
     } finally { dom.restore(); }
   });
 
-  it.each([false, true])('keeps ten telomerase plates on first play and cached replay (omit emphasis: %s)', async omitEmphasis => {
+  it('keeps source details safe, optional and open across chapter changes without entering the HUD', async () => {
+    const dom = setupMockDom(), { workspace } = createMockWorkspace();
+    const tour = structuredClone(testTours[0]);
+    const original = tour.steps[0];
+    const hostileText = '<img src=x onerror=alert(1)> & original UUID\nPredicted complex';
+    tour.steps = [
+      { ...original, id: 'details-one', details: hostileText },
+      { ...original, id: 'details-two', details: 'Second original identifier' },
+      { ...original, id: 'no-details' },
+      { ...original, id: 'details-again', details: 'Final source' },
+    ];
+    const disclosure = dom.elements['[data-tour-details-disclosure]'] as HTMLDetailsElement;
+    const details = dom.elements['[data-tour-details]'] as HTMLParagraphElement;
+    try {
+      const player = mountTourPlayer({ workspace, tours: [tour], after: dom.mountAnchor });
+      await player.select(tour.id);
+      expect(disclosure.hidden).toBe(true);
+      await player.start(false);
+      expect(disclosure.hidden).toBe(false);
+      expect(details.textContent).toBe(hostileText);
+      expect(details.innerHTML).toBe('');
+      expect(details.children).toHaveLength(0);
+      expect(player.getState().body).toBe(captionLine(original));
+      expect(player.getState()).not.toHaveProperty('details');
+      disclosure.open = true;
+      await player.next();
+      expect(details.textContent).toBe('Second original identifier');
+      expect(disclosure.open).toBe(true);
+      await player.next();
+      expect(disclosure.hidden).toBe(true);
+      expect(details.textContent).toBe('');
+      expect(disclosure.open).toBe(true);
+      await player.next();
+      expect(disclosure.hidden).toBe(false);
+      expect(disclosure.open).toBe(true);
+      disclosure.open = false;
+      await player.back(); await player.back();
+      expect(disclosure.hidden).toBe(false);
+      expect(disclosure.open).toBe(false);
+      expect(details.textContent).toBe('Second original identifier');
+    } finally { dom.restore(); }
+  });
+
+  it('renders local modelled sources as text beside deposited source links', async () => {
+    const dom = setupMockDom(), { workspace } = createMockWorkspace();
+    const tour = structuredClone(testTours[0]);
+    tour.steps[0].sources = [
+      { title: 'Local modelled source: linkers.cif — Idealised linkers' },
+      { title: 'Structure source', url: 'https://www.rcsb.org/structure/5SYF' },
+    ];
+    try {
+      const player = mountTourPlayer({ workspace, tours: [tour], after: dom.mountAnchor });
+      await player.select(tour.id);
+      await player.start(false);
+      const children = (dom.elements['[data-tour-sources]'] as any).children;
+      expect(children).toContain('Local modelled source: linkers.cif — Idealised linkers');
+      const links = children.filter((child: any) => child.tagName === 'A');
+      expect(links).toHaveLength(1);
+      expect(links[0].href).toBe('https://www.rcsb.org/structure/5SYF');
+    } finally { dom.restore(); }
+  });
+
+  it.each([false, true])('keeps every telomerase chapter\'s plates on first play and cached replay (omit emphasis: %s)', async omitEmphasis => {
     const dom = setupMockDom();
     const { workspace } = createMockWorkspace();
     const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8')));
     if (omitEmphasis) for (const step of tour.steps.slice(1)) delete step.emphasis;
+    // One plate per part the chapter names; a chapter without emphasis keeps the first chapter's.
+    const platesAt = (i: number) => (tour.steps[i]!.emphasis ?? tour.steps[0]!.emphasis)!.parts!.length;
     let painted: any;
     const plates = createComponentLabelSession({ isPresenting: () => true, wantsLabels: () => true,
       buildPlates: async () => planComponentLabels(painted, (part: any) => [part.chain]).colours.map((part: any) => part.id),
@@ -1249,7 +1454,7 @@ describe('cinematic playback & motion scheduling', () => {
       for (let i = 0; i < tour.steps.length; i++) {
         if (i) await player.next();
         expect(player.getState().step).toBe(i);
-        expect(plates.refs(), `first play ${tour.steps[i]!.id}`).toHaveLength(10);
+        expect(plates.refs(), `first play ${tour.steps[i]!.id}`).toHaveLength(platesAt(i));
         if (!tour.steps[i]!.emphasis) {
           expect(painted.parts).toEqual(tour.steps[0]!.emphasis!.parts);
           expect(painted.focus).toBeUndefined();
@@ -1258,7 +1463,7 @@ describe('cinematic playback & motion scheduling', () => {
       for (let i = tour.steps.length - 2; i >= 0; i--) {
         await player.back();
         expect(player.getState().step).toBe(i);
-        expect(plates.refs(), `cached ${tour.steps[i]!.id}`).toHaveLength(10);
+        expect(plates.refs(), `cached ${tour.steps[i]!.id}`).toHaveLength(platesAt(i));
       }
       player.pause();
     } finally { vi.useRealTimers(); dom.restore(); }
@@ -1739,7 +1944,7 @@ describe('cinematic playback & motion scheduling', () => {
     }
   });
 
-  it('still stops the chapter when the wearer really takes the structure', async () => {
+  it('yields camera motion while keeping the XR chapter when the wearer takes the structure', async () => {
     const dom = setupMockDom();
     const env = takeoverWorkspace();
     vi.useFakeTimers();
@@ -1757,7 +1962,7 @@ describe('cinematic playback & motion scheduling', () => {
       // mutation — never the lesson's ticks — is what reaches the player here.
       player.notifyMutation(env.workspace.snapshot());
       expect(player.getState().motionRunning).toBe(false);
-      expect(player.getState().stopped).toBe(true);
+      expect(player.getState()).toMatchObject({ stopped: false, active: true });
 
       // The chapter's silent ticks end with the takeover and never resume.
       const silentCalls = env.calls.filter(call => call.kind === 'applyLessonMotion').length;

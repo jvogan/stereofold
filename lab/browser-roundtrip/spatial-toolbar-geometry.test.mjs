@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
-import { boundStatusLines, createToolbarPanel, SPATIAL_TOOLBAR_LAYOUT, TOOLBAR_READING_RANGE_METERS, toolbarMenuPoints, toolbarBackingOutline, toolbarLayoutForStandoff } from './spatial-toolbar-geometry.mjs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { boundStatusLines, createToolbarPanel, SPATIAL_TOOLBAR_LAYOUT, TOOLBAR_READING_RANGE_METERS, toolbarMenuPoints, toolbarBackingOutline, toolbarLayoutForOutboard, toolbarLayoutForStandoff, toolbarTextPoint } from './spatial-toolbar-geometry.mjs';
 import { spatialToolbarRows } from './spatial-toolbar-content.mjs';
 import { screenRectFromPoints } from './label-layout.mjs';
+import { toolbarCaptionPoints } from './spatial-toolbar-geometry.mjs';
+import { menuSeatWithinView } from './menu-view-band.mjs';
 // spatial-toolbar.mjs pulls molstar, which the main tree resolves only under plugin/;
 // the readout tests are skipped where the package is out of reach.
 let tourReadout;
 try { ({ tourReadout } = await import('./spatial-toolbar.mjs')); } catch { tourReadout = undefined; }
+const boldAdvances = JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances;
+const measureBoldText = text => [...text].reduce((sum, glyph) => sum + (boldAdvances[glyph] ?? .6), 0);
 const needsReadout = { skip: tourReadout ? false : 'molstar is not resolvable from this tree' };
 
 // The identity head the deterministic layout tests lay their panels out from.
@@ -18,6 +22,49 @@ const REFUSAL = 'Filament tier has no atoms. Switch to an atomic tier.';
 const shippedRows = spatialToolbarRows({
   tour: { selectedId: 'microtubule-growth-filament', bodyPageCount: 40, bodyPageIndex: 0 },
   voice: { state: 'replying' }, passthrough: true,
+});
+
+test('an opening map card clears unused space without shrinking or dropping its caption', () => {
+  const options = { rows: menuRows(1), head: HEAD, measureText: measureBoldText,
+    readout: [{ text: 'A different experiment · 1/2', whole: true, forwardView: true },
+      { text: 'A different experiment reveals a whole tube in cryo-EM density.', whole: true }] };
+  const normal = createToolbarPanel(options);
+  const fitted = createToolbarPanel({ ...options, constants: { ...SPATIAL_TOOLBAR_LAYOUT, fitChapterCaption: true } });
+  assert.deepEqual(fitted.readoutPoints.map(line => line.text), normal.readoutPoints.map(line => line.text));
+  assert.equal(fitted.readoutFontMeters, normal.readoutFontMeters);
+  assert.equal(fitted.readoutPageCount, normal.readoutPageCount);
+  assert.deepEqual(fitted.buttons, normal.buttons);
+  assert.ok(fitted.captionBacking.halfHeight < normal.captionBacking.halfHeight);
+  assert.ok(fitted.captionBacking.point[1] - fitted.captionBacking.halfHeight
+    > normal.captionBacking.point[1] - normal.captionBacking.halfHeight);
+  assert.ok(menuSeatWithinView(toolbarCaptionPoints(fitted), HEAD), 'the whole card stays in both eyes');
+  const bottom = fitted.captionBacking.point[1] - fitted.captionBacking.halfHeight;
+  assert.ok(fitted.readoutPoints.every(line => line.point[1] - fitted.readoutFontMeters / 2 > bottom));
+});
+
+test('only the first map chapter fits its caption; atomic and later chapters keep their card', async () => {
+  const { toolbarFrameRuntime, toolbarFrameHarness } = await import('./fixtures/toolbar-frame-runtime.mjs');
+  const runtime = await toolbarFrameRuntime();
+  const state = { densityMap: false, tour: { selectedId: 'local-map', active: true, step: 0, total: 2, chapterStartedAt: 1,
+    title: 'Density', bodyPage: 'A different experiment reveals a whole tube in cryo-EM density.' } };
+  const h = toolbarFrameHarness(runtime, { state });
+  // captionPoints also carries the assistant card below the controls.
+  // Measure the chapter plate, not the unchanged status card's lower edge.
+  const floor = () => {
+    const points = h.toolbar.captionPoints();
+    return Math.min(...(points.plates?.[0] ?? points).map(point => point[1]));
+  };
+  try {
+    await h.toolbar.update(); const normal = floor();
+    h.setState({ ...state, densityMap: true });
+    await h.toolbar.update(); const fitted = floor();
+    assert.ok(fitted > normal, 'the opening card leaves more space beneath its text');
+    await h.toolbar.update(); assert.equal(floor(), fitted, 'a redraw retains the chapter card');
+    h.setState({ densityMap: true, tour: { ...state.tour, navigating: true } });
+    await h.toolbar.update(); assert.equal(floor(), normal, 'a transition measures the original field');
+    h.setState({ densityMap: true, tour: { ...state.tour, step: 1, chapterStartedAt: 2 } });
+    await h.toolbar.update(); assert.equal(floor(), normal, 'the next chapter uses its original card');
+  } finally { await h.toolbar.dispose(); }
 });
 
 test('empty rows return no toolbar panel', () => {
@@ -190,25 +237,23 @@ test('a line the room can hold is kept whole; a lone long token is never sliced'
   assert.deepEqual(boundStatusLines('endsoneword again', 10, 1), ['endsoneword…']);
 });
 
-test('the tour readout feeds the wearer the spoken line and a progress without the TEXT token', needsReadout, () => {
-  // With a TEXT token on the middle line the plate draws `Scene 3 / 5 · TEX…`
-  // and the caption below it in pieces. The middle line is the progress alone,
-  // and the spoken line is the one entry that cannot be dropped. The payload
-  // line draws only inside the chapter's full caption window, so these reads
-  // sit one second into a chapter stamped at 0.
+test('the tour readout feeds the wearer the spoken line under one title line that carries the counter', needsReadout, () => {
+  // The scene counter had a line of its own, and a card of three lines kept
+  // one for the caption. The title and the counter share the first line, so
+  // the caption has the other three, and no TEXT token reaches the wearer.
   const line = 'As a surface, the new strand binds along the side: a patch of wall, not a closed tube.';
-  const readout = tourReadout({ selectedId: 'x', title: 'Open sheet',
+  const readout = tourReadout({ selectedId: 'x', title: 'Open sheet', step: 2, total: 5,
     selectedTitle: 'D. A wall three protofilaments wide', progress: 'Scene 3 / 5',
     bodyPage: line, bodyPageIndex: 0, bodyPageCount: 1, chapterStartedAt: 0 }, false, 1000);
-  assert.deepEqual(readout.map(entry => entry.text), ['Open sheet', 'Scene 3 / 5', line]);
-  assert.equal(readout[1].optional, true, 'the progress line yields first');
-  assert.equal(readout[1].text.includes('TEXT'), false, 'no TEXT token reaches the wearer');
-  assert.equal(readout[2].optional, false, 'a whole spoken line is never dropped');
+  assert.deepEqual(readout.map(entry => entry.text), ['Open sheet · 3/5', line]);
+  assert.equal(readout[0].compactText, 'Open sheet', 'a title too long to share its line keeps the line alone');
+  assert.equal(readout.some(entry => entry.text.includes('TEXT')), false, 'no TEXT token reaches the wearer');
+  assert.equal(readout[1].optional, false, 'a whole spoken line is never dropped');
   // A page also stays whole: the next page cannot recover dropped words.
   const paged = tourReadout({ selectedId: 'x', title: 'Meet your molecule', progress: 'Scene 1 / 20',
     bodyPage: 'Full cartoon view; chain colors', bodyPageIndex: 0, bodyPageCount: 6, chapterStartedAt: 0 }, false, 1000);
-  assert.equal(paged[2].optional, false, 'a paginated page must remain drawn');
-  assert.equal(paged[2].whole, true, 'a paginated page keeps every word');
+  assert.equal(paged[1].optional, false, 'a paginated page must remain drawn');
+  assert.equal(paged[1].whole, true, 'a paginated page keeps every word');
 });
 
 test('every spoken line draws whole above the menus a chapter plays over', needsReadout, () => {
@@ -217,8 +262,6 @@ test('every spoken line draws whole above the menus a chapter plays over', needs
   // plate adds rows and eases the type before it cuts, so the line draws whole
   // in both states; only a line the eye itself refuses may end on a whole
   // word with an ellipsis, and then the progress line has yielded first.
-  // Read one second into the chapter's full caption window, which is the state
-  // this composition contract is about.
   const lines = [
     'As a surface, the new strand binds along the side: a patch of wall, not a closed tube.',
     'Green marks both nucleases, red both cut sites. HNH cuts magenta, RuvC cuts blue.',
@@ -226,7 +269,7 @@ test('every spoken line draws whole above the menus a chapter plays over', needs
   ];
   for (const count of [3, 4, 9]) {
     for (const line of lines) {
-      const panel = createToolbarPanel({ rows: menuRows(count), head: HEAD,
+      const panel = createToolbarPanel({ rows: menuRows(count), head: HEAD, measureText: measureBoldText,
         readout: tourReadout({ selectedId: 'lesson-x', title: 'Open sheet',
           selectedTitle: 'A wall three wide', progress: 'Scene 3 / 5',
           bodyPage: line, bodyPageIndex: 0, bodyPageCount: 1, chapterStartedAt: 0 }, false, 1000) });
@@ -242,6 +285,136 @@ test('every spoken line draws whole above the menus a chapter plays over', needs
         assert.equal(drawn.includes('Scene 3 / 5'), false, 'the progress line yields before the sentence is cut');
       }
     }
+  }
+});
+
+// The deposited titles of the shipped demos, from one word to the longest.
+const entry = { pdbId: '4HHB', chains: 4, assembly: 'asymmetric_unit', selectionCount: 0, representation: 'cartoon', color: 'chain-id' };
+const demoSubjects = [
+  { ...entry, title: 'Crambin' },
+  { ...entry, title: 'Human deoxyhaemoglobin' },
+  { ...entry, pdbId: '9KJ6', title: 'SpCas9 ternary complex, amino acids (1242-1263) replaced with Gly-Ser linker' },
+  { ...entry, pdbId: '8OUE', chains: 10, title: 'The H/ACA RNP lobe of human telomerase with the dyskerin thumb loop in a semi-closed conformation' },
+];
+const glyphRun = rows => rows.join('').replace(/\s+/gu, '');
+
+// What a chapter card may draw: its title line (`Title · 1/5`, or the title
+// alone when the two cannot share a line), then the whole caption. Nothing
+// else, and nothing cut.
+function assertChapterCard(drawn, { title, counter, caption }, label) {
+  const run = glyphRun(drawn);
+  assert.ok(run === glyphRun([`${title} · ${counter}`, caption]) || run === glyphRun([title, caption]),
+    `the card is the title and the whole caption: ${label}`);
+}
+
+// The chapter card used to hold its caption for a four-second reading window and
+// then settle on the structure's own lines: `SpCas9 ternary` over `complex,…` on
+// the CRISPR card, `Human` over `…` on the hemoglobin one. Settled, it is still
+// the chapter, under every structure and above every menu.
+test('a settled chapter card keeps its whole caption and none of the structure lines', needsReadout, () => {
+  const chapter = { title: 'CAS9 COMPLEX', progress: 'Scene 1 / 9', counter: '1/9',
+    caption: 'Cas9 in grey, its guide RNA in orange, and the two DNA strands it holds.' };
+  for (const count of [3, 4, 9]) for (const subject of demoSubjects) {
+    // 1 s into a chapter stamped at 0, then well after the scene has settled.
+    for (const nowMs of [1000, 10_000, 600_000]) {
+      const readout = tourReadout({ selectedId: 'lesson-x', active: true, step: 0, total: 9, title: chapter.title, selectedTitle: 'A lesson',
+        progress: chapter.progress, bodyPage: chapter.caption, bodyPageIndex: 0, bodyPageCount: 1, chapterStartedAt: 0 }, subject, nowMs);
+      const label = `${count} rows, ${subject.title.slice(0, 12)}, ${nowMs} ms`;
+      assert.deepEqual(readout.map(line => line.text), [`${chapter.title} · ${chapter.counter}`, chapter.caption], label);
+      const panel = createToolbarPanel({ rows: menuRows(count), head: HEAD, measureText: measureBoldText, readout });
+      const drawn = panel.readoutPoints.map(row => row.text);
+      assertChapterCard(drawn, chapter, `${label}: ${JSON.stringify(drawn)}`);
+    }
+  }
+});
+
+// Every chapter of every shipped lesson, settled, on the card a wearer reads it
+// on. The caption arrives whole and the card wraps it at its own width; a
+// caption longer than three lines draws a page at a time, each page under the
+// chapter's title line, and only a page that continues ends on the mark. The
+// menu runs from the quiet compact grid to the expanded one, and the seat from
+// the entry bearing to its widest outboard swing. A stand-off scales the whole
+// seat and keeps its angles, so it adds no case.
+const DEMOS = new URL('../../plugin/demos/', import.meta.url);
+const demoLessons = readdirSync(DEMOS, { recursive: true }).filter(name => String(name).endsWith('.json'))
+  .map(file => ({ file: String(file), lesson: JSON.parse(readFileSync(new URL(String(file), DEMOS), 'utf8')) }))
+  .filter(({ lesson }) => Array.isArray(lesson.chapters));
+test('every shipped chapter caption draws whole on its card, or in whole pages', needsReadout, () => {
+  assert.ok(demoLessons.length >= 10, `found ${demoLessons.length} lessons`);
+  const layouts = [SPATIAL_TOOLBAR_LAYOUT, toolbarLayoutForOutboard(3.5)];
+  let chapters = 0, paged = 0;
+  for (const { file, lesson } of demoLessons) lesson.chapters.forEach((chapter, step) => {
+    chapters++;
+    const caption = chapter.immersive?.narration?.trim() || chapter.caption;
+    const counter = `${step + 1}/${lesson.chapters.length}`;
+    const tour = { active: true, selectedId: 'lesson-x', selectedTitle: lesson.title, title: chapter.title,
+      progress: `Scene ${counter.replace('/', ' / ')}`, step, total: lesson.chapters.length, canBack: step > 0, canNext: true,
+      bodyPage: caption, bodyPageIndex: 0, bodyPageCount: 1, chapterStartedAt: 0 };
+    const readout = tourReadout(tour, demoSubjects[3], 60_000);
+    for (const constants of layouts) for (const collapsed of [true, false]) {
+      const rows = spatialToolbarRows({ collapsed, tour });
+      const options = { rows, head: HEAD, constants, measureText: measureBoldText, readout, readoutPage: 0 };
+      const first = createToolbarPanel(options);
+      const pages = Array.from({ length: first.readoutPageCount }, (_, readoutPage) =>
+        createToolbarPanel({ ...options, readoutPage }).readoutPoints.map(row => row.text));
+      if (pages.length > 1 && constants === SPATIAL_TOOLBAR_LAYOUT && collapsed) paged++;
+      const label = `${file} / ${chapter.id}, ${collapsed ? 'compact' : 'expanded'}: ${JSON.stringify(pages)}`;
+      for (const [index, drawn] of pages.entries()) {
+        assert.ok(drawn.length <= first.readoutLineBudget, label);
+        assert.ok([`${chapter.title} · ${counter}`, chapter.title].includes(drawn[0]), `every page opens on the title line: ${label}`);
+        assert.ok(drawn.every((row, at) => !row.endsWith('…') || (at === drawn.length - 1 && index < pages.length - 1)),
+          `only a page that continues ends on the mark: ${label}`);
+      }
+      assert.equal(glyphRun(pages.flatMap(page => page.slice(1)).map(row => row.replace(/…$/u, ''))), glyphRun([caption]),
+        `the pages keep every word: ${label}`);
+    }
+  });
+  assert.ok(chapters > 100 && paged > 0, `${chapters} chapters, ${paged} paged`);
+});
+
+test('a structure line that wraps on its separator drops the dot at the break', needsReadout, () => {
+  // `cartoon by chain · 0 selected` broke as `cartoon by chain` over
+  // `· 0 selected`; the break says the two facts are apart.
+  const panel = createToolbarPanel({ rows: menuRows(4), head: HEAD, measureText: text => text.length * 1.5,
+    readout: [{ text: 'Wide reveal', whole: true, forwardView: true },
+      { text: 'cartoon by chain · 0 selected', maxLines: 2, optional: true }] });
+  const drawn = panel.readoutPoints.map(row => row.text);
+  assert.equal(drawn.at(0), 'Wide reveal');
+  assert.ok(drawn.length >= 3, JSON.stringify(drawn));
+  assert.deepEqual(drawn.slice(1).join(' ').replace(/\s+/gu, ' '), 'cartoon by chain 0 selected');
+});
+
+// Text stands in front of its plate, with the glass a further stretch behind it.
+// Pushed along the normal alone, a card 17 degrees off the normal showed its text
+// flush with the glass's right edge and its title over the top edge. Along the
+// sight line from the seat it covers the part of the glass it labels.
+test('text stands in front of its plate on the sight line from the seat to the glass', () => {
+  const dotv = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const subv = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const crossv = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const panel = createToolbarPanel({ rows: shippedRows, head: HEAD, measureText: measureBoldText,
+    readout: [{ text: 'Wide reveal', whole: true, forwardView: true }, { text: 'Four chains in four colours.', whole: true }] });
+  const outward = panel.normal.map(value => -value);
+  const clearance = 0.025, behind = 0.03;
+  assert.ok(panel.readoutPoints.length >= 2);
+  const points = [...panel.readoutPoints.map(line => line.point), ...panel.buttons.map(button => button.point), panel.captionBacking.point];
+  for (const point of points) {
+    const text = toolbarTextPoint(panel, point, clearance, behind);
+    assert.ok(Math.abs(dotv(subv(text, point), outward) - clearance) < 1e-9, 'its normal offset is the clearance');
+    // Collinear with the seat and the glass face: no sideways slide as seen from there.
+    const glass = subv(point, outward.map(value => value * behind));
+    assert.ok(Math.hypot(...crossv(subv(text, glass), subv(panel.seatOrigin, glass))) < 1e-9, 'text, glass point and seat are on one line');
+  }
+  // The caption card sits well off the normal, which is where the plain offset slid.
+  const cardPoint = panel.captionBacking.point;
+  const card = toolbarTextPoint(panel, cardPoint, clearance, behind);
+  const slide = Math.hypot(...subv(card, cardPoint.map((value, axis) => value + outward[axis] * clearance)));
+  assert.ok(slide > 0.01, `the sight line moves the text ${slide} m off the plain offset`);
+  // No sight line to give: a seat behind the plate, far off to the side, or none at all.
+  const plain = panel.anchor.map((value, axis) => Math.round((value + outward[axis] * clearance) * 1e9));
+  for (const seatOrigin of [panel.anchor.map((value, axis) => value - outward[axis]), panel.anchor.map((value, axis) => value + outward[axis] * 0.2 + panel.right[axis] * 3), undefined]) {
+    const text = toolbarTextPoint({ ...panel, seatOrigin }, panel.anchor, clearance, behind);
+    assert.deepEqual(text.map(value => Math.round(value * 1e9)), plain);
   }
 });
 

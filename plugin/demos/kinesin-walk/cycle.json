@@ -1,0 +1,724 @@
+{
+  "version": 1,
+  "id": "kinesin-walk-cycle",
+  "title": "One kinesin step, four states",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/5SYF"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/8RHB"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/9L7M"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/1BG2"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/3KIN"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2017.01.001"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/s41467-025-61498-3"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1083/jcb.202501253"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/380550a0"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/S0092-8674(00)80489-4"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.7554/eLife.24490"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/45483"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1126/science.1093753"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/nature06346"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1073/pnas.1517638112"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/nchembio.2028"
+      }
+    ],
+    "sourceSha256": "fa54a3d4cab242abf3e4e0a5ceb4f12612c42b9d0b8bd24a0f6ee9699904e0e3",
+    "note": "This composite uses rigidly moved fragments from separate entries, not a deposited walking dimer. 5SYF assembly chains A-14 with A and B-14 with B supply two Taxol-stabilised tubulin dimers 81.5 A apart (Kellogg et al. 2017). 8RHB supplies an AMP-PNP-bound head and docked linker through E334 from an engineered motor-tail fusion; the tail is omitted (Atherton et al. 2025). AMP-PNP stands in for the illustrated ATP and ADP·Pi states, not measured nucleotide timing. 9L7M supplies the nucleotide-free head through T324 from a cysteine-light construct (Makino et al. 2025); 1BG2 supplies the detached ADP head through I325 (Kull et al. 1996). 3KIN B and D, rat KIF5A residues 339-370, supply the neck coil; rat 339 maps to human KIF5B 337 (Kozielski et al. 1997). cycle-model.cif supplies schematic linker backbones (human 335-336, 325-336 or 326-336, native KIF5B sequence): CA spacing is 3.8 A, spans are below 82% of contour, but peptide geometry is distorted. The short poly-Ala stalk is illustrative; distal stalk and cargo are omitted. Bound heads were placed by tubulin superposition. Coil placement is illustrative, guided by rearward coil density in EMD-8546, not fitted to it (Liu et al. 2017). Free-head poses in panels 2-3 are illustrative. This is a one-head-bound ATP-waiting pathway; at high ATP, binding can precede rear-head release (Mickolajczyk et al. 2015). ATP favours linker docking, not an obligatory rigid swing (Rice et al. 1999; Liu et al. 2017). Head 1 passes head 2: about 16.3 nm for the head, 8.2 nm for the dimer (Yildiz et al. 2004)."
+  },
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "cycle",
+      "title": "One dimer, 1 to 4",
+      "caption": "Composite: one 8.2 nm dimer step via a one-head-bound ATP-waiting pathway. Head states (H1/H2), panels 1–4: ADP·Pi/apo, ADP/apo, ADP/ATP, apo/ADP·Pi; apo means no nucleotide. AMP-PNP stands in for ATP and ADP·Pi. Free-head and coil positions are illustrative; pale linkers and the stalk stub are modelled, and the stalk runs about 60 nm on to the cargo.",
+      "durationSeconds": 30,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 15
+        },
+        {
+          "kind": "hold",
+          "durationSeconds": 15
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#ffcc00",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "view": "fit",
+        "motion": "hold",
+        "narration": "The rear head lets go, swings forward on its linker, and lands in front.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "p1h1",
+              "label": "Head 1",
+              "aliases": [
+                "head 1"
+              ],
+              "color": "#d16ba5",
+              "chain": "P1H1",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p1h2",
+              "label": "Head 2",
+              "aliases": [
+                "head 2"
+              ],
+              "color": "#16a87e",
+              "chain": "P1H2",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p1a",
+              "label": "Alpha tubulin",
+              "aliases": [
+                "alpha"
+              ],
+              "color": "#6f93bf",
+              "chain": "P1A"
+            },
+            {
+              "id": "p1b",
+              "label": "Beta tubulin",
+              "aliases": [
+                "beta"
+              ],
+              "color": "#d8b46c",
+              "chain": "P1B"
+            },
+            {
+              "id": "p2h1",
+              "label": "Head 1",
+              "aliases": [
+                "head 1"
+              ],
+              "color": "#d16ba5",
+              "chain": "P2H1",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p2h2",
+              "label": "Head 2",
+              "aliases": [
+                "head 2"
+              ],
+              "color": "#16a87e",
+              "chain": "P2H2",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p2a",
+              "label": "Alpha tubulin",
+              "aliases": [
+                "alpha"
+              ],
+              "color": "#6f93bf",
+              "chain": "P2A"
+            },
+            {
+              "id": "p2b",
+              "label": "Beta tubulin",
+              "aliases": [
+                "beta"
+              ],
+              "color": "#d8b46c",
+              "chain": "P2B"
+            },
+            {
+              "id": "p3h1",
+              "label": "Head 1",
+              "aliases": [
+                "head 1"
+              ],
+              "color": "#d16ba5",
+              "chain": "P3H1",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p3h2",
+              "label": "Head 2",
+              "aliases": [
+                "head 2"
+              ],
+              "color": "#16a87e",
+              "chain": "P3H2",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p3a",
+              "label": "Alpha tubulin",
+              "aliases": [
+                "alpha"
+              ],
+              "color": "#6f93bf",
+              "chain": "P3A"
+            },
+            {
+              "id": "p3b",
+              "label": "Beta tubulin",
+              "aliases": [
+                "beta"
+              ],
+              "color": "#d8b46c",
+              "chain": "P3B"
+            },
+            {
+              "id": "p4h1",
+              "label": "Head 1",
+              "aliases": [
+                "head 1"
+              ],
+              "color": "#d16ba5",
+              "chain": "P4H1",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p4h2",
+              "label": "Head 2",
+              "aliases": [
+                "head 2"
+              ],
+              "color": "#16a87e",
+              "chain": "P4H2",
+              "residues": {
+                "from": 1,
+                "to": 322
+              }
+            },
+            {
+              "id": "p4a",
+              "label": "Alpha tubulin",
+              "aliases": [
+                "alpha"
+              ],
+              "color": "#6f93bf",
+              "chain": "P4A"
+            },
+            {
+              "id": "p4b",
+              "label": "Beta tubulin",
+              "aliases": [
+                "beta"
+              ],
+              "color": "#d8b46c",
+              "chain": "P4B"
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "p1h1-nuc",
+              "target": {
+                "chain": "P1H1",
+                "residues": {
+                  "from": 1001,
+                  "to": 1001
+                },
+                "componentId": "ANP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff1c9",
+              "opacity": 1,
+              "sizeFactor": 0.5
+            },
+            {
+              "id": "p1c1-coil",
+              "target": {
+                "chain": "P1C1"
+              },
+              "representation": "cartoon",
+              "color": "#d16ba5",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p1c2-coil",
+              "target": {
+                "chain": "P1C2"
+              },
+              "representation": "cartoon",
+              "color": "#16a87e",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p2h1-nuc",
+              "target": {
+                "chain": "P2H1",
+                "residues": {
+                  "from": 401,
+                  "to": 401
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff1c9",
+              "opacity": 1,
+              "sizeFactor": 0.5
+            },
+            {
+              "id": "p2c1-coil",
+              "target": {
+                "chain": "P2C1"
+              },
+              "representation": "cartoon",
+              "color": "#d16ba5",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p2c2-coil",
+              "target": {
+                "chain": "P2C2"
+              },
+              "representation": "cartoon",
+              "color": "#16a87e",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p3h1-nuc",
+              "target": {
+                "chain": "P3H1",
+                "residues": {
+                  "from": 401,
+                  "to": 401
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff1c9",
+              "opacity": 1,
+              "sizeFactor": 0.5
+            },
+            {
+              "id": "p3h2-nuc",
+              "target": {
+                "chain": "P3H2",
+                "residues": {
+                  "from": 1001,
+                  "to": 1001
+                },
+                "componentId": "ANP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff1c9",
+              "opacity": 1,
+              "sizeFactor": 0.5
+            },
+            {
+              "id": "p3c1-coil",
+              "target": {
+                "chain": "P3C1"
+              },
+              "representation": "cartoon",
+              "color": "#d16ba5",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p3c2-coil",
+              "target": {
+                "chain": "P3C2"
+              },
+              "representation": "cartoon",
+              "color": "#16a87e",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p4h2-nuc",
+              "target": {
+                "chain": "P4H2",
+                "residues": {
+                  "from": 1001,
+                  "to": 1001
+                },
+                "componentId": "ANP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff1c9",
+              "opacity": 1,
+              "sizeFactor": 0.5
+            },
+            {
+              "id": "p4c1-coil",
+              "target": {
+                "chain": "P4C1"
+              },
+              "representation": "cartoon",
+              "color": "#d16ba5",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "p4c2-coil",
+              "target": {
+                "chain": "P4C2"
+              },
+              "representation": "cartoon",
+              "color": "#16a87e",
+              "opacity": 1,
+              "sizeFactor": 1.0
+            },
+            {
+              "id": "stalk-1",
+              "target": {
+                "chain": "STK1"
+              },
+              "representation": "cartoon",
+              "color": "#eab3d2",
+              "opacity": 1,
+              "sizeFactor": 0.6
+            },
+            {
+              "id": "stalk-2",
+              "target": {
+                "chain": "STK2"
+              },
+              "representation": "cartoon",
+              "color": "#8fd9c2",
+              "opacity": 1,
+              "sizeFactor": 0.6
+            },
+            {
+              "id": "linkers-modelled",
+              "target": {
+                "chain": "LNK"
+              },
+              "representation": "cartoon",
+              "color": "#fff2a6",
+              "opacity": 1,
+              "sizeFactor": 0.5
+            }
+          ],
+          "labels": [
+            {
+              "id": "title-1",
+              "target": {
+                "chain": "P1A",
+                "residues": {
+                  "from": 58,
+                  "to": 58
+                },
+                "atomName": "CA"
+              },
+              "text": "1  Both bound",
+              "color": "#1f2a36",
+              "offsetX": 0,
+              "offsetY": -5,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p1h1-tag",
+              "target": {
+                "chain": "P1H1",
+                "residues": {
+                  "from": 35,
+                  "to": 35
+                },
+                "atomName": "CA"
+              },
+              "text": "H1 · ADP·Pi",
+              "color": "#8b3869",
+              "offsetX": -6,
+              "offsetY": 7.6,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p1h2-tag",
+              "target": {
+                "chain": "P1H2",
+                "residues": {
+                  "from": 218,
+                  "to": 218
+                },
+                "atomName": "CA"
+              },
+              "text": "H2 · apo",
+              "color": "#08745a",
+              "offsetX": 6,
+              "offsetY": 5.2,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "title-2",
+              "target": {
+                "chain": "P2A",
+                "residues": {
+                  "from": 33,
+                  "to": 33
+                },
+                "atomName": "CA"
+              },
+              "text": "2  Head 1 lets go",
+              "color": "#1f2a36",
+              "offsetX": 5,
+              "offsetY": -6,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p2h1-tag",
+              "target": {
+                "chain": "P2H1",
+                "residues": {
+                  "from": 55,
+                  "to": 55
+                },
+                "atomName": "CA"
+              },
+              "text": "H1 · ADP",
+              "color": "#8b3869",
+              "offsetX": -6,
+              "offsetY": 11.2,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p2h2-tag",
+              "target": {
+                "chain": "P2H2",
+                "residues": {
+                  "from": 123,
+                  "to": 123
+                },
+                "atomName": "CA"
+              },
+              "text": "H2 · apo",
+              "color": "#08745a",
+              "offsetX": 8.4,
+              "offsetY": 4.8,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "title-3",
+              "target": {
+                "chain": "P3A",
+                "residues": {
+                  "from": 282,
+                  "to": 282
+                },
+                "atomName": "CA"
+              },
+              "text": "3  Head 1 swings",
+              "color": "#1f2a36",
+              "offsetX": -1,
+              "offsetY": -5,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p3h1-tag",
+              "target": {
+                "chain": "P3H1",
+                "residues": {
+                  "from": 124,
+                  "to": 124
+                },
+                "atomName": "CA"
+              },
+              "text": "H1 · ADP",
+              "color": "#8b3869",
+              "offsetX": 1.2,
+              "offsetY": 10,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p3h2-tag",
+              "target": {
+                "chain": "P3H2",
+                "residues": {
+                  "from": 35,
+                  "to": 35
+                },
+                "atomName": "CA"
+              },
+              "text": "H2 · ATP",
+              "color": "#08745a",
+              "offsetX": -6,
+              "offsetY": 10,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "title-4",
+              "target": {
+                "chain": "P4A",
+                "residues": {
+                  "from": 279,
+                  "to": 279
+                },
+                "atomName": "CA"
+              },
+              "text": "4  Head 1 lands",
+              "color": "#1f2a36",
+              "offsetX": 6,
+              "offsetY": -5,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p4h1-tag",
+              "target": {
+                "chain": "P4H1",
+                "residues": {
+                  "from": 124,
+                  "to": 124
+                },
+                "atomName": "CA"
+              },
+              "text": "H1 · apo",
+              "color": "#8b3869",
+              "offsetX": 6,
+              "offsetY": 5.2,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "p4h2-tag",
+              "target": {
+                "chain": "P4H2",
+                "residues": {
+                  "from": 117,
+                  "to": 117
+                },
+                "atomName": "CA"
+              },
+              "text": "H2 · ADP·Pi",
+              "color": "#08745a",
+              "offsetX": -12,
+              "offsetY": 7.6,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "neck-coil",
+              "target": {
+                "chain": "STK1",
+                "residues": {
+                  "from": 2011,
+                  "to": 2011
+                },
+                "atomName": "CA"
+              },
+              "text": "Neck coil, stalk ↑",
+              "color": "#1f2a36",
+              "offsetX": 0,
+              "offsetY": 7,
+              "maxOffsetEm": 3,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "plus-end",
+              "target": {
+                "chain": "P2B",
+                "residues": {
+                  "from": 219,
+                  "to": 219
+                },
+                "atomName": "CA"
+              },
+              "text": "Plus end →",
+              "color": "#1f2a36",
+              "offsetX": 3.6,
+              "offsetY": -17.4,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.1
+            }
+          ],
+          "distances": []
+        }
+      }
+    }
+  ]
+}

@@ -115,7 +115,7 @@ test('entry replay reaches the actual caption representation after the room pose
 test('production entry, tracked-frame and exit callbacks own the replay lifecycle', () => {
   assert.match(source, /onPresented: async \(\) => \{ await prepareEntryGeometryAdvisory\(\); \}/);
   assert.match(source, /flushEntryGeometryAdvisory\(drawn\);\s*xrSnapshotFrame/);
-  assert.match(source, /isPresenting\.subscribe\(presenting => \{\s*if \(!presenting\) entryGeometryAdvisory = undefined;/);
+  assert.match(source, /isPresenting\.subscribe\(presenting => \{\s*molecularAnimation\.reanchor\(\);\s*if \(!presenting\) entryGeometryAdvisory = undefined;/);
 });
 
 

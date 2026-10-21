@@ -469,9 +469,9 @@ export function lensRectsOverlap(a, b, clearance = 0) {
  *  4. `shift` — only now, sideways, and never so far that an edge passes
  *     `shiftLimit`. A subject shoved off the edge of the lens to clear a
  *     caption has been made worse, not better.
- *  5. `held` — no legal seat at all. The best candidate is taken at the floor
- *     and clamped into the lens; `overlap` stays true and render order is what
- *     keeps the caption readable.
+ *  5. `held` — no legal seat at all. The subject stays where it stands,
+ *     giving up what size the floor allows, held inside the shift limit;
+ *     `overlap` stays true and render order keeps the caption readable.
  *
  * The plate handed in is the CAPTION plate alone, never the union of the
  * caption and the menu: that union spans the whole left column of the lens
@@ -550,15 +550,15 @@ export function plateAvoidance({ subject, plate, clearance = PLATE_CLEARANCE_LEN
     const { x, y } = aside.place(shrink);
     return answer(x, y, shrink, aside.move, aside.axis);
   }
-  // Nothing separates them. Take the roomiest candidate at the floor, hold it
-  // inside the lens and inside the shift limit, and say so: `overlap` stays
-  // true and the plates are kept legible by render order alone.
-  const held = [...verticals, ...shifts, inPlace].reduce((a, b) => (b.cap > a.cap ? b : a));
-  const shrink = Math.max(floor, Math.min(1, held.cap));
-  const { x, y } = held.place(shrink);
-  const sideRoom = Math.max(0, limit - halfW(shrink)), riseRoom = Math.max(0, 1 - edge - halfH(shrink));
-  return answer(Math.max(-sideRoom, Math.min(sideRoom, x)),
-    Math.max(-riseRoom, Math.min(riseRoom, y)), shrink, 'held', held.axis);
+  // Nothing separates them, so the plate overlaps the subject wherever it
+  // goes. It stays where it was framed, as small as the floor allows standing
+  // there and inside the shift limit, and says so: `overlap` stays true and
+  // the plates are kept legible by render order alone. Sliding to the
+  // roomiest candidate instead lifted a tall chapter to the lens rim, for a
+  // card that still covered it.
+  const shrink = Math.max(floor, Math.min(1, inPlace.cap));
+  const sideRoom = Math.max(0, limit - halfW(shrink));
+  return answer(Math.max(-sideRoom, Math.min(sideRoom, subject.x)), subject.y, shrink, 'held', 'none');
 }
 
 /**

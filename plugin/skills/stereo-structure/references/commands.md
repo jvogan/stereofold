@@ -31,6 +31,8 @@ actual source. Read the handoff reference before using its tools.
 | Tour | The tour chooser | `control_tour` | `{"action":"menu"}` |
 | Look | "color chain A orange" | `update_inspection` | `{"change":{"kind":"appearance","residues":{"labelChain":"A"},"patch":{"color":"uniform","uniformColor":"#ff8800"}}}` |
 | Look | "show the hemes as sticks" | `update_inspection` | `{"change":{"kind":"appearance","residues":{"componentId":"HEM"},"patch":{"representation":"ball-and-stick"}}}` |
+| Look | "label residue 248" (every chain with it) | `update_inspection` | `{"change":{"kind":"compound","patch":{"ops":[{"kind":"selection","patch":{"residues":{"authorResidueRange":[248,248]}}},{"kind":"appearance","patch":{"labels":true}}]}}}` |
+| Look | "label the heme" | `update_inspection` | `{"change":{"kind":"compound","patch":{"ops":[{"kind":"selection","patch":{"residues":{"componentId":"HEM"}}},{"kind":"appearance","patch":{"labels":true}}]}}}` |
 | Look | "chain A orange and chain B blue" | `update_inspection` | `{"change":{"kind":"compound","patch":{"ops":[{"kind":"appearance","residues":{"labelChain":"A"},"patch":{"color":"uniform","uniformColor":"#ff8800"}},{"kind":"appearance","residues":{"labelChain":"B"},"patch":{"color":"uniform","uniformColor":"#0088ff"}}]}}}` |
 | Look | "hide the water" | `update_inspection` | `{"change":{"kind":"visibility","patch":{"op":"hide","classes":["water"]}}}` |
 | Look | Ribbons, atoms, surface or spheres | `update_inspection` | `{"change":{"kind":"appearance","patch":{"representation":"molecular-surface"}}}` |
@@ -80,16 +82,54 @@ actual source. Read the handoff reference before using its tools.
 | `render-quality` | `level: "fast" | "balanced" | "best"` |
 | `compound` | `ops` containing two through seven edits; one render and one undo |
 
+## Label residues, ligands and regions
+
 `labels` is a boolean for automatic residue-identity labels, not custom text.
-Select and confirm the intended residues first, then use
-`{"kind":"appearance","patch":{"labels":true}}`; at most 32 selected residues
-are labeled. Do not claim a larger selection is completely labeled.
-Custom names such as “alpha-tubulin” belong to authored
-`immersive.figure.labels`: up to 16 source-anchored labels, each at most 60
-characters. Create or revise the lesson through the
-[molecular-presentation skill](../../molecular-presentation/SKILL.md), then load it
-with `inspect_lesson`. Generic lesson part plates use dark text on a white backing;
-figure labels retain their authored colors.
+It labels the selected residues, at most 32, with residue names and ligand
+codes such as `MOV 303`. Do not claim a larger selection is completely labeled.
+
+For one residue, one contiguous range or one ligand, select and label in one
+compound with no state read first; the host refuses a selector that matches
+nothing:
+
+```json
+{"change":{"kind":"compound","patch":{"ops":[{"kind":"selection","patch":{"residues":{"authorResidueRange":[248,248]}}},{"kind":"appearance","patch":{"labels":true}}]}},"waitForRenderMs":10000}
+```
+
+Without a chain, the range labels that residue on every chain that has it.
+One selection names one region, so "label R248 and R273" or "Cys12 and the
+drug" need `selectionKeys`: send their `get_inspection_state` residue reads
+together in one turn, then one compound with all the keys and `labels:true`.
+A `{"classes":["ligand"]}` read lists ligand codes when the code is unknown.
+
+The page highlights selected atoms, and the highlight can replace a color set
+on them. A selected ligand or a selected cartoon stretch is painted with the
+selection mark, magenta (`#ff2dd4`) unless the background or highlight color is
+close to it. Selected residues drawn as sticks keep their own color inside an
+outline in the highlight color. Call selected atoms highlighted and name no
+color for them. Clearing the selection also removes their labels. To show a
+region in a chosen color, color it with a scoped appearance and leave it
+unselected.
+
+Labels show codes, so name a ligand in your reply and headset caption
+("sotorasib, labeled MOV"). Confirm a rendered label edit in one short
+sentence; report receipt details only when something failed or is pending.
+
+For a text name on a region, such as “receptor-binding domain”, install a
+one-chapter lesson with one figure label into the current scene. It keeps the
+scene's colors and selection, draws no scene card, and adds lesson controls to
+the headset menu; replacing the source removes it:
+
+```json
+{"lesson":{"version":1,"id":"rbd-name","title":"Receptor-binding domain","mode":"explore","presentation":{"captionCard":"hidden"},"provenance":{"sourceRefs":[{"kind":"public","ref":"https://www.rcsb.org/structure/6VXX"}]},"chapters":[{"id":"named","title":"Receptor-binding domain","caption":"Receptor-binding domain","durationSeconds":20,"changes":[{"kind":"hold","durationSeconds":20}],"immersive":{"figure":{"layers":[{"id":"rbd","target":{"chain":"A","residues":{"from":319,"to":541}},"representation":"cartoon","color":"#ff8800"}],"labels":[{"id":"rbd-name","target":{"chain":"A","residues":{"from":440,"to":440},"atomName":"CA"},"text":"Receptor-binding domain","color":"#ffffff"}]}}}]},"start":{"chapterId":"named","autoplay":false,"narration":false},"waitForRenderMs":10000}
+```
+
+Figure targets use author chains. Give the layer the region's current color.
+A figure allows 16 labels of at most 60 characters. If installation fails,
+keep the region colored and name it in the reply and caption. For longer
+lessons, read the [molecular-presentation skill](../../molecular-presentation/SKILL.md)
+and use `inspect_lesson` for a new scene. Generic lesson part plates use dark
+text on a white backing; figure labels retain their authored colors.
 
 Representations include `cartoon`, `ball-and-stick`, `molecular-surface`, and
 `spacefill`; `sticks`, `surface`, and `spheres` are accepted aliases. A scoped

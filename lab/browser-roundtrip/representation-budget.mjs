@@ -32,8 +32,13 @@ const count = (n, name) => {
   if (!Number.isSafeInteger(n) || n < 0) throw Error(`Cannot budget geometry: invalid ${name} count.`);
   return n;
 };
-export function structureGeometryCounts(structure) {
-  return { atoms: count(structure.elementCount, 'atom'), bonds: count(structure.bondCount, 'bond'),
+export function structureGeometryCounts(structure, representation) {
+  // Mol* infers inter-unit bonds lazily. A composite of overlapping alternate
+  // complexes can spend seconds on that graph. Nonbond geometry estimates do
+  // not use it; defer the scientific computation until a bond consumer asks.
+  const needsBonds = !['cartoon', 'spacefill', 'molecular-surface', 'gaussian-surface'].includes(representation);
+  return { atoms: count(structure.elementCount, 'atom'),
+    ...(needsBonds ? { bonds: count(structure.bondCount, 'bond') } : {}),
     residues: count(structure.atomicResidueCount, 'residue') };
 }
 export function effectiveGeometryLevel(quality, atoms, standalone = false) {

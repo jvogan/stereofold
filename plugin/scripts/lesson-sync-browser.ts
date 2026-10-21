@@ -8,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { chromium, type Frame, type Page } from 'playwright';
 import { redactTokens, requestRoute, scrubSecrets } from './report-redaction.js';
+import { expectedInspection } from '../src/inspection-contract.js';
 // @ts-ignore Production metadata admission predicate, used read-only by the harness.
 import { canRestoreLessonPlaybackMetadata } from '../../lab/browser-roundtrip/lesson-playback-restore.mjs';
 
@@ -18,7 +19,7 @@ assert.ok(outArg, 'Supply a fresh artifact directory outside the repository.');
 const out = resolve(outArg);
 await mkdir(out, { recursive: false });
 const report: any = { status: 'failed', scope: 'Two Chromium desktop AppBridge panels, local 1CRN, isolated MCP scene service; no XR or physical-device evidence.',
-  cases: [], errors: [], externalRequests: [], appCalls: [], cleanup: {} };
+  cases: [], errors: [], externalRequests: [], appCalls: [], commandEvents: [], historyAttempts: [], cleanup: {} };
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 const sleep = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
 const pass = (label: string) => { report.cases.push(label); console.log(`Passed: ${label}`); };
@@ -29,6 +30,10 @@ const transport = new StdioClientTransport({ command: process.execPath, args: [r
 let stderr = '', browser: Awaited<ReturnType<typeof chromium.launch>> | undefined, host: ReturnType<typeof createServer> | undefined;
 let sessionId = '', origin = '', html = '', opened: any;
 const peers: { name: string; page: Page; frame: Frame; offline: boolean; panelId: string }[] = [];
+let historyAttempt: any;
+const commandSummary = (command: any) => command && ({ commandId: command.commandId, status: command.status,
+  reason: command.reason, detail: command.detail, acceptedAt: command.acceptedAt, renderedAt: command.renderedAt,
+  renderedRevision: command.renderedRevision, savedRevision: command.savedRevision });
 transport.stderr?.on('data', chunk => { stderr = (stderr + String(chunk)).slice(-32_768); });
 const call = async (name: string, args: any) => {
   const result: any = await client.callTool({ name: `stereo_structure.${name}`, arguments: args });
@@ -71,8 +76,12 @@ function differencePaths(a: any, b: any, path = ''): string[] {
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return [path];
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].flatMap(key => differencePaths(a[key], b[key], path ? `${path}.${key}` : key));
 }
+function differenceValues(expected: any, actual: any) {
+  const read = (value: any, path: string) => path.split('.').reduce((next, key) => next?.[key], value);
+  return differencePaths(expected, actual).map(path => ({ path, expected: read(expected, path), actual: read(actual, path) }));
+}
 async function mount(name: string) {
-  const page = await browser!.newPage({ viewport: { width: 1100, height: 780 }, deviceScaleFactor: 1 });
+  const page = await browser!.newPage({ viewport: { width: 1100, height: 780 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   page.setDefaultTimeout(30_000);
   await page.addInitScript({ content: 'globalThis.__name = value => value;' });
   const recorder = await build({ stdin: { contents: `import { resetHeadsetDiagnostics, installHeadsetDiagnostics } from './lab/browser-roundtrip/headset-diagnostics.mjs'; resetHeadsetDiagnostics({limit:2000}); installHeadsetDiagnostics();`, resolveDir: resolve('..') },
@@ -88,12 +97,57 @@ async function mount(name: string) {
   await page.exposeFunction('__call', async (payload: any) => {
     if (peer.offline) throw Error('Synthetic peer transport disconnect.');
     assert.ok(!payload.name.endsWith('.voice_acknowledgement'), 'Acceptance must not request narration.');
+    if ((payload.name.endsWith('.undo_last_change') || payload.name.endsWith('.redo_last_change')) && historyAttempt?.peer === name)
+      historyAttempt.commandId = payload.arguments?.commandId;
     const response: any = await client.callTool({ name: payload.name, arguments: payload.arguments ?? {} });
     if (payload.name.endsWith('.attach_inspection') && response.structuredContent?.panelId) peer.panelId = response.structuredContent.panelId;
     if (payload.name.endsWith('.sync_inspection') || payload.name.endsWith('.poll_inspection')) report.appCalls.push({ peer: name,
       name: payload.name, sentRevision: payload.arguments?.baseInspectionRevision, revision: response.structuredContent?.inspectionRevision,
       cursor: payload.arguments?.tourState, saved: response.structuredContent?.saved, conflict: response.structuredContent?.conflict,
       isError: response.isError === true });
+    // Deliberately select diagnostic fields: claims, source/session tokens and
+    // connection capabilities must never enter the persistent report.
+    const args = payload.arguments ?? {}, data = response.structuredContent;
+    const delivery = response._meta?.['stereo_structure/inspection']?.delivery;
+    if (delivery) {
+      report.commandEvents.push({ at: Date.now(), peer: name, event: 'delivery', commandId: delivery.commandId,
+        historyAction: delivery.historyAction, change: delivery.change });
+      if (historyAttempt?.commandId === delivery.commandId) {
+        historyAttempt.change = delivery.change;
+        try { historyAttempt.expectedScene = expectedInspection(historyAttempt.before.scene, delivery.change); }
+        catch (error) { historyAttempt.expectedSceneError = redactTokens(String(error)); }
+      }
+    }
+    if (payload.name.endsWith('.undo_last_change') || payload.name.endsWith('.redo_last_change')) {
+      const receipt = { at: Date.now(), peer: name, event: payload.name.split('.').at(-1),
+        commandId: args.commandId, baseStateRevision: args.baseStateRevision, baseInspectionRevision: args.baseInspectionRevision,
+        stateRevision: data?.stateRevision, inspectionRevision: data?.inspectionRevision,
+        command: commandSummary(data?.command), undone: data?.undone, redone: data?.redone,
+        restores: data?.restores, history: data?.history, isError: response.isError === true };
+      report.commandEvents.push(receipt);
+      if (historyAttempt?.peer === name) { historyAttempt.commandId = args.commandId; historyAttempt.receipt = receipt; }
+    }
+    if (payload.name.endsWith('.complete_inspection')) {
+      const receipt = { at: Date.now(), peer: name, event: 'complete_inspection', commandId: args.commandId,
+        phase: args.phase ?? 'rendered', baseStateRevision: args.baseStateRevision, baseInspectionRevision: args.baseInspectionRevision,
+        hasScene: Boolean(args.scene), failure: args.failure, failureReason: args.failureReason,
+        hasHistoryScene: Boolean(args.historyScene),
+        ...(args.historyScene ? { historyView: { camera: args.historyScene.camera, placement: args.historyScene.inspection?.placement } } : {}),
+        placementAdjusted: args.placementAdjusted, wearerPlacement: args.wearerPlacement,
+        accepted: data?.accepted, stateRevision: data?.stateRevision, inspectionRevision: data?.inspectionRevision,
+        command: commandSummary(data?.command), history: data?.history, isError: response.isError === true,
+        ...(response.isError ? { error: redactTokens(String(response.content?.[0]?.text ?? '')) } : {}) };
+      report.commandEvents.push(receipt);
+      if (historyAttempt?.commandId === args.commandId) {
+        (historyAttempt.completions ??= []).push(receipt);
+        if (args.scene) {
+          historyAttempt.renderedScene = args.scene;
+          if (historyAttempt.expectedScene) historyAttempt.renderedDifferences = differenceValues(historyAttempt.expectedScene, args.scene);
+        }
+      }
+      if (args.scene && data?.accepted === false)
+        console.log(`Refused ${name} completion: ${data?.command?.status}; ${redactTokens(data?.command?.reason)}; ${redactTokens(data?.command?.detail)}`);
+    }
     return response;
   });
   const load = async () => {
@@ -119,9 +173,9 @@ try {
   report.inspectorSha256 = hash(html);
   // Read the public workspace capture without changing it or bypassing any
   // scene admission. The marker must identify exactly one compiled accessor.
-  const captureAccessor = /capture:([$\w]+),restore:\(/g;
+  const captureAccessor = /capture:([$\w]+),serializeCapture:(?=\(\)=>)/g;
   assert.equal([...html.matchAll(captureAccessor)].length, 1, 'Expected one compiled workspace capture accessor');
-  html = html.replace(captureAccessor, 'capture:(globalThis.__stereofoldPeerCapture=$1,$1),restore:(');
+  html = html.replace(captureAccessor, 'capture:(globalThis.__stereofoldPeerCapture=$1,$1),serializeCapture:');
   report.instrumentation = 'Test-only read-only workspace capture accessor in served HTML; distributed files unchanged.';
   const bundle = await build({ entryPoints: [resolve('scripts/inspector-host.ts')], bundle: true, format: 'iife', write: false, platform: 'browser', target: 'es2022' });
   const hostHtml = `<!doctype html><html><body style="margin:0"><iframe style="border:0;width:100vw;height:100vh"></iframe><script>${bundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script')}</script></body></html>`;
@@ -141,6 +195,25 @@ try {
   assert.equal((await inspection()).shared, true);
   const b = await mount('b');
   await bothAt(-1, false, false);
+  // Acceptance precondition: no independent preview turns before the shared
+  // lesson captures its baseline. Use supported public controls on both peers.
+  for (const peer of peers) {
+    await until(state, value => value.panels.some((entry: any) => entry.panelId === peer.panelId
+      && entry.current && entry.availability === 'ready'), `${peer.name} preview stop admission`);
+    const stop = await call('update_inspection', { sessionId, panelId: peer.panelId,
+      change: { kind: 'motion', patch: { state: 'stop' } }, waitForRenderMs: 10_000 });
+    const receipt = stop.structuredContent.command;
+    if (receipt.status !== 'rendered') await until(async () =>
+      (await call('get_inspection_state', { sessionId, commandId: receipt.commandId })).structuredContent,
+      value => value.command?.status === 'rendered', `${peer.name} preview stopped`);
+  }
+  const stableStart = await until(async () => ({ saved: (await inspection()).scene,
+    peers: await Promise.all(peers.map(peer => peer.frame.evaluate(() =>
+      (globalThis as any).__stereofoldPeerCapture()))) }),
+    value => value.peers.every(scene => differencePaths(scene, value.saved).length === 0),
+    'equal saved peer scenes before lesson start');
+  report.stabilization = { reducedMotion: 'reduce', previewStopReceipts: true,
+    bothScenesEqualBeforeLessonStart: true, startingPlacements: stableStart.peers.map(scene => scene.inspection.placement) };
   await command(a.peer, 'start', { tourId: 'fold-detective', autoplay: false, narration: false });
   await bothAt(0);
   pass('A real lesson start reaches both live player cursors with autoplay and narration off');
@@ -156,6 +229,12 @@ try {
     return { peer: peer.name, capture, differencesAgainstServer: differencePaths(capture, beforeMetadata.scene),
       canRestoreMetadata: canRestoreLessonPlaybackMetadata(capture, stopped), appearanceCount: await appearanceCount(peer) };
   })) };
+  report.bothStartingScenesEqual = report.metadataAdmission.peers.every((peer: any) =>
+    differencePaths(peer.capture.inspection.lessonPlayback.startingScene,
+      beforeMetadata.scene.inspection.lessonPlayback.startingScene).length === 0);
+  assert.equal(report.bothStartingScenesEqual, true, 'The metadata shortcut test requires equal saved starting scenes');
+  assert.ok(report.metadataAdmission.peers.every((peer: any) => peer.canRestoreMetadata),
+    'Both peers must satisfy the production metadata-only admission predicate before testing the shortcut');
   const stoppedSaved = await saveScene(beforeMetadata, stopped);
   await bothAt(0, true, false);
   assert.deepEqual(await Promise.all(peers.map(appearanceCount)), costBefore, 'Status-only peer updates must not rebuild appearance');
@@ -243,11 +322,39 @@ try {
   await bothRepresentations(editStyle);
   pass('An agent appearance edit reaches both peer renderers and shared history');
   const historyFrom = async (peer: typeof peers[number], action: 'undo' | 'redo', style: string) => {
-    const revision = (await inspection()).inspectionRevision;
-    await peer.frame.locator(`[data-action="${action}"]`).click();
-    await until(inspection, data => data.inspectionRevision > revision
-      && data.scene.inspection.appearance.representation === style, `${peer.name} ${action} saved`);
-    await bothRepresentations(style);
+    const before = await inspection(), revision = before.inspectionRevision;
+    const attempt: any = { peer: peer.name, action, style, before: { stateRevision: before.stateRevision,
+      inspectionRevision: revision, scene: before.scene },
+      peerBefore: await peer.frame.evaluate(() => (globalThis as any).__stereofoldPeerCapture()) };
+    historyAttempt = attempt; report.historyAttempts.push(attempt);
+    try {
+      await peer.frame.locator(`[data-action="${action}"]`).click();
+      await until(inspection, data => data.inspectionRevision > revision
+        && data.scene.inspection.appearance.representation === style, `${peer.name} ${action} saved`);
+      await bothRepresentations(style);
+    } finally {
+      const after = await inspection();
+      attempt.after = { stateRevision: after.stateRevision, inspectionRevision: after.inspectionRevision, scene: after.scene };
+      attempt.peerAfter = await peer.frame.evaluate(() => (globalThis as any).__stereofoldPeerCapture()).catch(() => undefined);
+      if (attempt.commandId) {
+        const receipt = (await call('get_inspection_state', { sessionId, commandId: attempt.commandId })).structuredContent;
+        attempt.finalReceipt = { command: commandSummary(receipt.command), history: receipt.history,
+          stateRevision: receipt.stateRevision, inspectionRevision: receipt.inspectionRevision };
+      }
+      historyAttempt = undefined;
+    }
+    const placementOwned = attempt.change?.kind === 'placement'
+      || attempt.change?.kind === 'compound' && attempt.change.patch.ops.some((op: any) => op.kind === 'placement');
+    const wantedPlacement = placementOwned ? expectedInspection(attempt.peerBefore, attempt.change).inspection.placement
+      : attempt.peerBefore.inspection.placement;
+    assert.deepEqual(attempt.peerAfter?.inspection.placement, wantedPlacement,
+      `${peer.name} ${action} must ${placementOwned ? 'restore its explicitly requested placement' : "preserve that panel's own placement"}`);
+    const cameraPose = (scene: any) => Object.fromEntries(['mode', 'fov', 'position', 'target', 'up'].map(key => [key, scene.camera[key]]));
+    assert.deepEqual(cameraPose(attempt.peerAfter), cameraPose(attempt.peerBefore),
+      `${peer.name} ${action} must preserve that panel's camera pose`);
+    attempt.placementOwnedByHistory = placementOwned;
+    attempt.localPlacementPreserved = !placementOwned; attempt.explicitPlacementRestored = placementOwned;
+    attempt.cameraPosePreserved = true; attempt.passed = true;
   };
   await historyFrom(b.peer, 'undo', originalStyle);
   await historyFrom(a.peer, 'redo', editStyle);

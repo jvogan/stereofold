@@ -33,6 +33,7 @@
  */
 
 import { normalizeEmphasisState, planLessonEmphasis } from './lesson-emphasis.mjs';
+import { MOLSTAR_BACKGROUND_MARGIN } from './label-layout.mjs';
 
 /** A dimmed plate retains enough opacity for its ink and white backing. */
 export const COMPONENT_LABEL_BACKING_ALPHA_FLOOR = 0.6;
@@ -46,22 +47,69 @@ export const COMPONENT_LABEL_INK = 0x15212b;
 export const COMPONENT_LABEL_GLASS_OPACITY = 0.9;
 export const COMPONENT_LABEL_BORDER_WIDTH = 0;
 
-/** Keep labels readable when their molecular context fades. Mol* applies
- * alpha to the entire primitive, so ink and backing share this floor.
- * The layout, source anchor and font quality remain unchanged.
+/** The `backgroundMargin` a desktop plate is drawn with; a headset plate
+ * takes `MOLSTAR_BACKGROUND_MARGIN`, which the layout sizes it by. */
+export const DESKTOP_COMPONENT_LABEL_MARGIN = 0.25;
+
+/**
+ * A plate placed away from its part is a legend entry, and a legend needs its
+ * key. Ten white plates in a column beside telomerase named ten chains, and a
+ * wearer could not tell which plate named which. So a detached plate is drawn
+ * over a second primitive in its part's own colour: the same name, the same
+ * offsets and size, filling the plate's whole footprint, just behind it. The
+ * white glass in front shrinks its margin by this share, and what is left of
+ * the key shows as a coloured edge round the name.
+ *
+ * The footprint the layout reserved is the key's, so no plate grows into its
+ * neighbour, the menu or the molecule. The key's own copy of the name is
+ * painted white: text.frag pulls every glyph forward in depth, by more than
+ * the key sits behind, so a coloured copy showed through the white as a
+ * shadow of the name. A white one lands on white and the dark ink in front
+ * still wins, so no second word shows at another depth. A plate beside its part draws exactly what it always
+ * drew, one primitive. A key is built for a plate placed away from its part; a
+ * plate that comes back hides its key at alpha zero, which Mol* never draws,
+ * and a plate that leaves its part in a relayout gains one.
  */
-export function componentLabelPaint({ placeAlpha = 1, contextAlpha = 1, offsetZ = 0 } = {}) {
+export const COMPONENT_LABEL_KEY_SHARE = 0.7;
+/** How far behind its plate the key sits, as a share of the plate's stand-off:
+ * enough that no depth buffer calls the two glasses equal. A plate's offsets
+ * are divided by the depth it is drawn at, so a deeper key also draws a
+ * little nearer its anchor; at two percent a legend plate's edge was two
+ * pixels thicker on one side than the other. */
+export const COMPONENT_LABEL_KEY_LAG = 0.005;
+/** The key's glyphs never show, so it takes the smallest Mol* atlas. */
+export const COMPONENT_LABEL_KEY_FONT_QUALITY = 0;
+
+/** XR plates are either readable or absent: Mol* fades ink and glass
+ * together, so a partial primitive alpha creates a blank grey rectangle.
+ * Desktop keeps its existing fade. Chapter emphasis chooses XR context.
+ * With a part `color`, `key` is that plate's key layer, at alpha zero unless `detached`.
+ */
+export function componentLabelPaint({ placeAlpha = 1, contextAlpha = 1, offsetZ = 0, presenting = false,
+  color, detached = false } = {}) {
   const { backingAlpha } = componentLabelAlpha({ placeAlpha, contextAlpha });
-  return {
-    backing: {
-      textColor: COMPONENT_LABEL_INK, alpha: backingAlpha,
-      background: true, backgroundColor: COMPONENT_LABEL_GLASS,
-      backgroundOpacity: COMPONENT_LABEL_GLASS_OPACITY,
-      borderWidth: COMPONENT_LABEL_BORDER_WIDTH, borderColor: COMPONENT_LABEL_GLASS,
-      offsetZ: Number.isFinite(offsetZ) ? offsetZ : 0,
-      tether: false,
-    },
+  const alpha = presenting ? (placeAlpha > 0 && contextAlpha >= 1 ? 1 : 0) : backingAlpha;
+  const stand = Number.isFinite(offsetZ) ? offsetZ : 0;
+  const margin = presenting ? MOLSTAR_BACKGROUND_MARGIN : DESKTOP_COMPONENT_LABEL_MARGIN;
+  const keyed = detached === true && Number.isFinite(color);
+  const coloured = Number.isFinite(color);
+  const backing = {
+    textColor: COMPONENT_LABEL_INK, alpha,
+    background: true, backgroundColor: COMPONENT_LABEL_GLASS,
+    backgroundOpacity: keyed ? 1 : COMPONENT_LABEL_GLASS_OPACITY,
+    backgroundMargin: keyed ? margin * (1 - COMPONENT_LABEL_KEY_SHARE) : margin,
+    borderWidth: COMPONENT_LABEL_BORDER_WIDTH, borderColor: COMPONENT_LABEL_GLASS,
+    offsetZ: stand,
+    tether: false,
   };
+  if (!coloured) return { backing };
+  return { backing, key: {
+    textColor: COMPONENT_LABEL_GLASS, alpha: keyed ? alpha : 0,
+    background: true, backgroundColor: color, backgroundOpacity: 1, backgroundMargin: margin,
+    borderWidth: 0, borderColor: color,
+    offsetZ: stand * (1 - COMPONENT_LABEL_KEY_LAG),
+    tether: false, fontQuality: COMPONENT_LABEL_KEY_FONT_QUALITY,
+  } };
 }
 
 /**
@@ -149,6 +197,12 @@ export function stageComponentLabelLayers({ committed, updates,
       changed += 1;
       updates.to(cell).update(old => ({ ...old, ...params }));
     },
+    /** A plate that leaves its part in a relayout gains its key, under the
+     * plate's own cell, in the same commit. Always a change. */
+    add(parent, transformer, params, ref) {
+      changed += 1;
+      updates.to(parent).apply(transformer, params, { ref });
+    },
     changed: () => changed,
     detail(path, reason) {
       return { path, ...(typeof reason === 'string' && reason ? { reason } : {}),
@@ -221,8 +275,10 @@ export function planComponentLabels(emphasis, resolveKeys) {
   const plan = planLessonEmphasis({ ...state, focus: [] }, resolveKeys);
   // If the focus cannot resolve, the molecular key lights the whole tier too.
   const focused = new Set(plan.colours.filter(part => state.focus.includes(part.id)).map(part => part.id));
+  // A part lit beside the focus is painted at full strength, so is its plate.
+  const lit = new Set(state.alsoLit ?? []);
   return { ...plan, colours: plan.colours.map(part => ({ ...part,
-    opacity: !focused.size || focused.has(part.id) ? 1 : state.contextOpacity,
+    opacity: !focused.size || focused.has(part.id) || lit.has(part.id) ? 1 : state.contextOpacity,
   })) };
 }
 
@@ -414,7 +470,7 @@ export function createComponentLabelSession({ isPresenting, wantsLabels, buildPl
       }
     },
     /** The live plate refs. Empty while a rebuild is between delete and build. */
-    refs: () => [...refs],
+    refs: (out = []) => { out.length = 0; for (const ref of refs) out.push(ref); return out; },
     /** Build the wanted plates, serialized behind any rebuild already running. */
     rebuild: (reason, seatBasis) => request(false, reason, false, seatBasis),
     /** Re-solve the existing plates after a menu move, on the same serial queue. */

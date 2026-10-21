@@ -14,6 +14,17 @@
  * being a transcription exercise. A value the caller supplied always wins,
  * which is what makes a deliberate stale-revision test still possible.
  *
+ * Three tools are the exception: `control_tour`, `install_lesson` and
+ * `update_inspection` go without the two revisions (`HOST_REBASED_TOOLS`).
+ * The headset saves the wearer's placement whenever they move or scale the
+ * molecule, and the page seats it on VR entry, so a revision read a moment
+ * earlier was usually stale by the time the command reached the panel, and
+ * Claude's start lost to the wearer's own seat. Left out, the host binds the
+ * command to the revision current when it arrives and lets it follow a local
+ * save only when that save left the command's inputs alone
+ * (`compatibleLocalSave`): a moved or rescaled molecule carries the command
+ * along, and a scientific edit still refuses it.
+ *
  * The map is written out rather than derived, because this runs as an HTTP
  * client that never sees a schema. `test/agent-arguments.test.ts` rebuilds it
  * from the real server's advertised schemas and fails if the two disagree.
@@ -37,7 +48,7 @@ export const BINDING_FIELDS = Object.keys(BINDING_SOURCES) as BindingField[];
 const FULL_BINDING = [
   'acknowledge_experience_step', 'acknowledge_voice_intent', 'acknowledge_voice_playback', 'attach_inspection',
   'claim_voice_intent', 'complete_inspection', 'control_tour', 'detach_inspection', 'emphasize', 'focus_selection',
-  'grow_structure', 'import_detailed_view', 'navigate_experience', 'open_companion', 'open_detailed_view', 'poll_inspection', 'replace_inspection_source',
+  'install_lesson', 'remove_measurement', 'grow_structure', 'import_detailed_view', 'navigate_experience', 'open_companion', 'open_detailed_view', 'poll_inspection', 'replace_inspection_source',
   'report_source_failure', 'resolve_scene_import', 'speak_to_headset', 'submit_headset_view', 'sync_inspection', 'undo_last_change', 'redo_last_change', 'update_inspection',
   'voice_acknowledgement', 'voice_command',
 ] as const;
@@ -45,6 +56,7 @@ const FULL_BINDING = [
 const SOURCE_ONLY = ['manage_companion'] as const;
 /** Tools whose schema also requires an explicit target panel. */
 export const TOOLS_NEEDING_PANEL = new Set([
+  'install_lesson', 'remove_measurement',
   'acknowledge_experience_step', 'acknowledge_voice_intent', 'acknowledge_voice_playback', 'claim_voice_intent',
   'complete_inspection', 'control_tour', 'detach_inspection', 'emphasize', 'focus_selection', 'grow_structure', 'import_detailed_view', 'navigate_experience',
   'poll_inspection', 'replace_inspection_source', 'report_source_failure', 'report_detailed_selection', 'speak_to_headset', 'submit_headset_view',
@@ -52,6 +64,7 @@ export const TOOLS_NEEDING_PANEL = new Set([
 ]);
 /** Tools whose schema also requires a caller-chosen command ID. */
 export const TOOLS_NEEDING_COMMAND_ID = new Set([
+  'install_lesson', 'remove_measurement',
   'complete_inspection', 'control_tour', 'emphasize', 'focus_selection', 'import_detailed_view', 'undo_last_change', 'redo_last_change',
   'update_inspection',
 ]);
@@ -60,6 +73,17 @@ const BY_TOOL = new Map<string, readonly BindingField[]>([
   ...FULL_BINDING.map(name => [name, BINDING_FIELDS] as const),
   ...SOURCE_ONLY.map(name => [name, ['serverEpoch', 'sourceToken'] as BindingField[]] as const),
 ]);
+
+/**
+ * Tools whose base revisions the CLI leaves for the host to fill.
+ *
+ * Their schemas still take both revisions (the map above says so), and a
+ * caller who sends them keeps the exact stale-revision refusal. Left out, the
+ * host fills them on arrival and lets the command wait out a placement save
+ * instead of losing to it. See the module comment.
+ */
+export const HOST_REBASED_TOOLS: ReadonlySet<string> = new Set(['control_tour', 'install_lesson', 'update_inspection']);
+const REVISION_FIELDS: ReadonlySet<BindingField> = new Set(['baseStateRevision', 'baseInspectionRevision']);
 
 /** What one call has to carry before the server will look at it. */
 export type ToolRequirements = { binding: readonly BindingField[]; panel: boolean; commandId: boolean };
@@ -98,6 +122,7 @@ export const UNION_TOOLS: ReadonlyMap<string, UnionRequirements> = new Map([
 
 /** What this exact call has to carry, branch included. */
 export function requirementsFor(name: string, args: Record<string, unknown> = {}): ToolRequirements {
+  if (name === 'measure' && args.annotate === true) return RENDERS;
   const union = UNION_TOOLS.get(name);
   if (!union) {
     return { binding: BY_TOOL.get(name) ?? [], panel: TOOLS_NEEDING_PANEL.has(name), commandId: TOOLS_NEEDING_COMMAND_ID.has(name) };
@@ -116,6 +141,12 @@ export function bindingFieldsFor(name: string, args: Record<string, unknown> = {
   const union = UNION_TOOLS.get(name);
   if (union && args[union.discriminator] === undefined) return [];
   return requirementsFor(name, args).binding;
+}
+
+/** The binding fields this CLI copies in when the caller left them out. */
+export function filledBindingFor(name: string, args: Record<string, unknown> = {}): readonly BindingField[] {
+  const binding = bindingFieldsFor(name, args);
+  return HOST_REBASED_TOOLS.has(name) ? binding.filter(field => !REVISION_FIELDS.has(field)) : binding;
 }
 
 /**
@@ -411,7 +442,7 @@ export function fillAgentArguments(name: string, args: Record<string, unknown>, 
   const needs = requirementsFor(name, next);
   const filled: string[] = [];
   let blurred = false;
-  for (const field of needs.binding) {
+  for (const field of filledBindingFor(name, next)) {
     if (next[field] !== undefined) continue;
     const value = state[BINDING_SOURCES[field]];
     if (value === undefined || value === null) throw Error(`The host did not report ${BINDING_SOURCES[field]}, so ${name} cannot be bound to the current inspection.`);
@@ -530,7 +561,7 @@ export function needsInspectionState(name: string, args: Record<string, unknown>
   const union = UNION_TOOLS.get(name);
   if (union && args[union.discriminator] === undefined) return true;
   const needs = requirementsFor(name, args);
-  if (needs.binding.some(field => args[field] === undefined)) return true;
+  if (filledBindingFor(name, args).some(field => args[field] === undefined)) return true;
   return needs.panel && args.panelId === undefined;
 }
 

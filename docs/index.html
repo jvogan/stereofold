@@ -6,12 +6,12 @@
     <meta name="theme-color" content="#080b16" />
     <meta
       name="description"
-      content="Stereofold is a plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask. Try the crambin demo in your browser."
+      content="See your protein in real depth and tell Claude or Codex what to change: cut it open, bring the pocket closer, load the next structure. A plugin for Claude Code, Claude Science, and Codex. The crambin demo runs in your browser."
     />
     <meta property="og:title" content="Stereofold — Claude and Codex show proteins in your headset" />
     <meta
       property="og:description"
-      content="A plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask."
+      content="See your protein in real depth and tell Claude or Codex what to change: cut it open, bring the pocket closer, load the next structure."
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Stereofold" />
@@ -30,7 +30,7 @@
     <meta name="twitter:title" content="Stereofold — Claude and Codex show proteins in your headset" />
     <meta
       name="twitter:description"
-      content="A plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask."
+      content="See your protein in real depth and tell Claude or Codex what to change: cut it open, bring the pocket closer, load the next structure."
     />
     <meta name="twitter:image" content="https://jvogan.github.io/stereofold/artwork/stereofold-social-1280x640.jpg" />
     <meta
@@ -143,6 +143,150 @@
           gap: 18px;
         }
       }
+      .install-card-wide {
+        grid-column: 1 / -1;
+      }
+      .install-card-wide p,
+      .install-card-wide .install-code {
+        max-width: 760px;
+      }
+      .install-card-wide p code {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: #c7d4e6;
+      }
+      .install-card a,
+      .hero-note a,
+      .demos-note a {
+        color: var(--cyan);
+      }
+      .install-card a:hover,
+      .hero-note a:hover,
+      .demos-note a:hover {
+        color: #fff;
+      }
+      .hero-note {
+        max-width: 445px;
+        margin-top: 22px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #c5cadd;
+      }
+      .demos-section {
+        border-top: 1px solid var(--line);
+      }
+      .demo-routes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 26px;
+      }
+      .demo-routes .inline-link {
+        margin-top: 18px;
+      }
+      .demo-say {
+        font-family: var(--display);
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+      .install-card .demo-say {
+        font-size: 17px;
+        color: var(--text);
+      }
+      .demo-grid {
+        list-style: none;
+        margin: 34px 0 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 26px;
+      }
+      .demo-card {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #2b3549;
+        border-radius: 8px;
+        background: var(--panel);
+        overflow: hidden;
+        min-width: 0;
+      }
+      .demo-card img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 3;
+        background: var(--panel);
+        border-bottom: 1px solid #222a3a;
+      }
+      .demo-card-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        padding: 20px 22px 22px;
+      }
+      .demo-card h3 {
+        font-size: 20px;
+        line-height: 1.35;
+      }
+      .demo-card-body > p {
+        margin-top: 10px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #a4afc3;
+      }
+      .demo-card .demo-name {
+        margin: 0 0 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        color: #a3e6ef;
+      }
+      .demo-card .demo-say {
+        margin-top: auto;
+        padding-top: 16px;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--text);
+      }
+      .demo-card-body > p.demo-source {
+        margin-top: 10px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: #899bb6;
+      }
+      .demo-card .demo-source + .demo-say {
+        padding-top: 14px;
+      }
+      .demos-note {
+        margin: 26px 0 0;
+        max-width: 760px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #a4afc3;
+      }
+      @media (max-width: 1150px) {
+        .demo-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 850px) {
+        .demo-routes {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+      }
+      @media (max-width: 600px) {
+        .demo-grid {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+        .hero-note {
+          width: fit-content;
+          max-width: 350px;
+          padding: 8px 12px;
+          border-radius: 5px;
+          background: #060820d9;
+          font-size: 14px;
+        }
+      }
     </style>
     <script type="application/ld+json">
       {
@@ -251,13 +395,14 @@
           Stereofold
         </a>
         <nav class="desktop-nav" aria-label="Main navigation">
-          <a href="#explore">Demo</a>
+          <a href="#demos">Demos</a>
+          <a href="#explore">Crambin</a>
           <a href="#stereo">Stereo modes</a>
           <a href="#install">Install</a>
           <a href="#development">Headset</a>
         </nav>
-        <a class="header-cta" href="#explore"
-          >Open demo <svg class="icon"><use href="#icon-arrow" /></svg
+        <a class="header-cta" href="#demos"
+          >See demos <svg class="icon"><use href="#icon-arrow" /></svg
         ></a>
         <button
           class="menu-toggle"
@@ -275,8 +420,10 @@
         aria-label="Mobile navigation"
         hidden
       >
-        <a href="#explore">Crambin demo</a><a href="#stereo">Stereo modes</a
-        ><a href="#install">Install</a><a href="#development">Headset</a>
+        <a href="#demos">Headset demos</a><a href="#explore">Crambin demo</a
+        ><a href="#stereo">Stereo modes</a><a href="#install">Install</a
+        ><a href="#claude-science">Claude Science</a
+        ><a href="#development">Headset</a>
       </nav>
     </header>
 
@@ -300,18 +447,21 @@
           </h1>
           <p class="hero-description">
             Stereofold is a plugin for Claude Code, Claude Science, and Codex.
-            The agent opens a protein structure in a WebXR headset browser and
-            changes it when you ask: a new color, highlighted residues, or
-            another structure.
+            See your protein in real depth and tell the agent what to change:
+            cut it open, bring the pocket closer, load the next structure.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#explore"
-              >Try the browser demo <svg class="icon"><use href="#icon-arrow" /></svg
+            <a class="button button-primary" href="#demos"
+              >See the headset demos <svg class="icon"><use href="#icon-arrow" /></svg
             ></a>
             <a class="button button-quiet" href="#install"
               >Install the plugin <span aria-hidden="true">↘</span></a
             >
           </div>
+          <p class="hero-note">
+            In Claude Science, <a href="#claude-science">set it up once</a>,
+            then ask for a <a href="#demos">demo by name</a>.
+          </p>
         </div>
         <div class="hero-bottom wrap">
           <a
@@ -324,9 +474,263 @@
           <span class="hero-art-label"
             >Stereofold artwork <span aria-hidden="true">/</span> 01</span
           >
-          <a class="scroll-link" href="#explore"
-            >Try the demo <span aria-hidden="true">↓</span></a
+          <a class="scroll-link" href="#demos"
+            >See the demos <span aria-hidden="true">↓</span></a
           >
+        </div>
+      </section>
+
+      <section
+        class="demos-section section-pad"
+        id="demos"
+        aria-labelledby="demos-title"
+      >
+        <div class="wrap">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">
+                <span class="section-number">01</span> Headset demos
+              </p>
+              <h2 id="demos-title">Ask for a demo by name.</h2>
+            </div>
+            <p>
+              Each demo is a lesson built from PDB entries and told in captioned
+              chapters. Most name their parts on plates, and in three the
+              protein moves. Pause a demo, step through its chapters, walk
+              around it, or ask the agent to change it.
+            </p>
+          </div>
+          <div class="demo-routes">
+            <article class="install-card">
+              <h3>In Claude Science</h3>
+              <p>
+                <a href="#claude-science">Set up the connector</a> once. Then
+                start the headset host in a Mac terminal and ask:
+              </p>
+              <p class="demo-say">
+                “Join the Stereofold scene on this Mac and open the
+                kinesin-walk demo.”
+              </p>
+            </article>
+            <article class="install-card">
+              <h3>In Claude Code or Codex</h3>
+              <p>
+                <a href="#install">Install the plugin</a>, start a new
+                conversation, and ask:
+              </p>
+              <p class="demo-say">“Open the kinesin-walk demo on my Quest.”</p>
+            </article>
+          </div>
+          <ul class="demo-grid" role="list">
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/kinesin-walk.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the kinesin-walk demo: a green and a pink kinesin head joined by their neck coil above a strand of blue and amber tubulin, the green head mid-swing, each part named on a plate."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">kinesin-walk</p>
+                <h3>Kinesin walks hand over hand</h3>
+                <p>
+                  The pink and green heads trade the lead along a microtubule,
+                  8.2&nbsp;nm per step, then the motor rests with both heads bound.
+                </p>
+                <p class="demo-source">PDB 5SYF, 9L7M, 8RHB, 1BG2, 3KIN</p>
+                <p class="demo-say">
+                  “Open the kinesin-walk demo on my headset.”
+                </p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/atp-synthase-rotor.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the atp-synthase-rotor demo: the red and orange gamma stalk rising from a pink ring of c subunits into the grey catalytic head, with subunit a in teal beside the ring and one c subunit marked in yellow."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">atp-synthase-rotor</p>
+                <h3>ATP synthase: the rotor turns</h3>
+                <p>
+                  The gamma stalk and a ring of ten c subunits turn together
+                  under the catalytic head, in three 120° steps per turn.
+                </p>
+                <p class="demo-source">PDB 6N2Y, 6N2Z, 6N30</p>
+                <p class="demo-say">
+                  “Open the atp-synthase-rotor demo on my headset.”
+                </p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/hemoglobin-switch.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the hemoglobin-switch demo in the R state: green and blue subunit pairs with red hemes, and the earlier T position of the blue pair drawn faded behind it."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">hemoglobin-switch</p>
+                <h3>Hemoglobin switches from T to R</h3>
+                <p>
+                  The blue alpha-beta pair turns 14 degrees against the green
+                  pair into the R state, with O2 on every heme, then turns back.
+                </p>
+                <p class="demo-source">PDB 2DN2, 2DN1</p>
+                <p class="demo-say">
+                  “Open the hemoglobin-switch demo on my headset.”
+                </p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/microtubule-growth.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the wall stage of the microtubule-growth demo: three strands of tubulin side by side, alpha tubulin in blue and beta tubulin in amber."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">microtubule-growth</p>
+                <h3>A microtubule, grown tier by tier</h3>
+                <p>
+                  Say “grow it” and the next tier replaces the last: one
+                  tubulin, a dimer, a strand, then a wall three strands wide.
+                </p>
+                <p class="demo-source">PDB 5SYF</p>
+                <p class="demo-say">
+                  “Open the monomer stage of microtubule-growth, then grow it.”
+                </p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/crispr-cas9.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the crispr-cas9 demo: the magenta target strand and blue non-target strand of DNA entering a faded grey Cas9, with the three PAM bases labelled DT 5, DG 6 and DG 7."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">crispr-cas9</p>
+                <h3>CRISPR-Cas9 holding its target DNA</h3>
+                <p>
+                  Cas9 with its guide RNA and both DNA strands. Nine chapters
+                  name the guide, the PAM, the recognition lobe and the
+                  nucleases, then recap them.
+                </p>
+                <p class="demo-source">PDB 9KJ6</p>
+                <p class="demo-say">
+                  “Open the crispr-cas9 demo on my headset.”
+                </p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/telomerase-haca.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the telomerase-haca demo: the H/ACA lobe coloured by chain, with plates naming each dyskerin, GAR1, NHP2, NOP10, TCAB1 and the telomerase RNA."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">telomerase-haca</p>
+                <h3>Telomerase, the RNA-protein lobe</h3>
+                <p>
+                  Nine proteins on one RNA in human telomerase, with two
+                  dyskerin copies anchoring the complex.
+                </p>
+                <p class="demo-source">PDB 8OUE</p>
+                <p class="demo-say">
+                  “Open the telomerase-haca demo on my headset.”
+                </p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/spike.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the spike demo, close up: the closed SARS-CoV-2 spike trimer drawn as a molecular surface, its chains in pink, green and orange."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">spike</p>
+                <h3>The SARS-CoV-2 spike, closed</h3>
+                <p>
+                  The trimer with all three receptor-binding domains folded
+                  down, turned on its long axis and shown as a surface.
+                </p>
+                <p class="demo-source">PDB 6VXX</p>
+                <p class="demo-say">“Open the spike demo on my headset.”</p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/nucleosome.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the nucleosome demo: two DNA strands in orange and teal wrapped around a core of eight histones, each histone chain in its own colour."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">nucleosome</p>
+                <h3>The nucleosome</h3>
+                <p>
+                  147 base pairs of DNA wrapped not quite twice around eight
+                  histones, then cut open to the histone core.
+                </p>
+                <p class="demo-source">PDB 1KX5</p>
+                <p class="demo-say">“Open the nucleosome demo on my headset.”</p>
+              </div>
+            </li>
+            <li class="demo-card">
+              <img
+                src="./artwork/demos/daraxonrasib.webp"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                alt="Headless render of the daraxonrasib demo's contact chapter: the yellow drug between faded teal KRAS G12D and purple cyclophilin A, with plates naming Tyr64, Asn102 and Daraxonrasib and the two measured contacts, 3.38 Å and 2.90 Å."
+              />
+              <div class="demo-card-body">
+                <p class="demo-name">daraxonrasib</p>
+                <h3>Daraxonrasib, a molecular glue</h3>
+                <p>
+                  KRAS G12D and cyclophilin A held together by the drug, with
+                  its two contacts measured at 3.38&nbsp;Å and 2.90&nbsp;Å.
+                </p>
+                <p class="demo-source">PDB 9AX6</p>
+                <p class="demo-say">
+                  “Open the daraxonrasib demo on my headset.”
+                </p>
+              </div>
+            </li>
+          </ul>
+          <p class="demos-note">
+            The images are headless renders of the headset view on a Mac.
+            Coordinates download from RCSB on first use and must match the
+            digest in the demo index. The
+            <a
+              href="https://github.com/jvogan/stereofold/blob/main/plugin/demos/README.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              >demos README</a
+            >
+            lists every demo and stage. Stereofold has been run on a Quest 2
+            and in the visionOS simulator, not on a Vision Pro device.
+          </p>
         </div>
       </section>
 
@@ -339,7 +743,7 @@
           <div class="section-intro">
             <div>
               <p class="eyebrow">
-                <span class="section-number">01</span> Browser demo
+                <span class="section-number">02</span> Browser demo
               </p>
               <h2 id="explore-title">Explore crambin’s structure.</h2>
             </div>
@@ -607,7 +1011,7 @@
         <div class="wrap stereo-layout">
           <div class="stereo-copy">
             <p class="eyebrow">
-              <span class="section-number">02</span> Desktop stereo
+              <span class="section-number">03</span> Desktop stereo
             </p>
             <h2 id="stereo-title">How desktop <br />stereo works.</h2>
             <p class="section-description">
@@ -1749,7 +2153,7 @@
           <div class="section-intro">
             <div>
               <p class="eyebrow">
-                <span class="section-number">03</span> Install the plugin
+                <span class="section-number">04</span> Install the plugin
               </p>
               <h2 id="install-title">Run Stereofold in your own agent host.</h2>
             </div>
@@ -1760,6 +2164,35 @@
             </p>
           </div>
           <div class="install-grid">
+            <article class="install-card install-card-wide" id="claude-science">
+              <h3>Claude Science</h3>
+              <p>
+                Set it up once. Clone the repository, then open Settings →
+                Connectors → Add connector → Local command. Name it
+                <code>stereofold</code>, give your absolute Node path as the
+                command and the absolute path to
+                <code>plugin/dist/server.mjs</code> as its argument. The
+                <a
+                  href="https://github.com/jvogan/stereofold#claude-science"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >README</a
+                >
+                lists the two environment variables and the sandbox settings
+                that let Claude Science join the headset host.
+              </p>
+              <pre class="install-code"><code>git clone https://github.com/jvogan/stereofold
+cd stereofold
+node plugin/dist/headset-host.mjs 4HHB</code></pre>
+              <p>
+                The last line starts the headset host. Run it in a Mac terminal
+                whenever you want the headset: it opens the Wi-Fi share for a
+                Quest, or for a Vision Pro with <code>--vision-pro</code>, and
+                waits for Claude Science. Keep the terminal open, put the
+                headset on, then ask: “Join the Stereofold scene on this Mac and
+                open the kinesin-walk demo.”
+              </p>
+            </article>
             <article class="install-card">
               <h3>Codex</h3>
               <p>Register the repository as a marketplace, then add the plugin.</p>
@@ -1775,12 +2208,9 @@ claude plugin install stereofold@stereofold</code></pre>
             </article>
           </div>
           <p class="install-note">
-            For Claude Science, add a local-command connector in Settings using Node
-            and <code>plugin/dist/server.mjs</code>. Install skills through
-            Settings → Skills. The README covers paths and sandbox permissions.
-            In any host, start
-            a new conversation after installing and ask: “Inspect PDB 1CRN in
-            Stereofold.”
+            In Claude Science, add the skills through Settings → Skills. In any
+            host, start a new conversation after installing and ask: “Inspect
+            PDB 1CRN in Stereofold.”
           </p>
           <p class="install-note">
             For lesson files alone, copy the complete
@@ -1811,7 +2241,7 @@ claude plugin install stereofold@stereofold</code></pre>
           <div class="section-intro">
             <div>
               <p class="eyebrow">
-                <span class="section-number">04</span> With the plugin
+                <span class="section-number">05</span> With the plugin
               </p>
               <h2 id="development-title">
                 Open a structure, then put it in your headset.
@@ -1850,7 +2280,8 @@ claude plugin install stereofold@stereofold</code></pre>
                 add <code>--vision-pro</code> for Vision Pro. (2) Pair the headset
                 as the terminal directs; keep the terminal and browser tab open.
                 (3) Ask Claude Science to join the Stereofold scene on this Mac
-                and change it. It calls <code>continue_session</code>. See the
+                and change it, or to open a <a href="#demos">demo</a> by name.
+                It calls <code>continue_session</code>. See the
                 <a href="https://github.com/jvogan/stereofold#claude-science">README’s Claude Science setup</a>.
               </p>
               <p>

@@ -29,7 +29,7 @@ function harness({ filtered = false, solver = solveAppearanceFit } = {}) {
   const head = [...identity]; head[13] = 1.6;
   let points = glass(.25, .65);
   const candidate = { id: 'left', points: glass(-.8, -.4) };
-  const h = vm.createContext({ now: () => performance.now(), Mat4, Vec3, normalizePlacement, clampPlacementScale, pivotPreservingTranslation,
+  const h = vm.createContext({ roomEntry: undefined, now: () => performance.now(), Mat4, Vec3, normalizePlacement, clampPlacementScale, pivotPreservingTranslation,
     sourceRecord: {}, visibleStage: filtered ? {} : undefined, state: { status: 'ready', generation: 1 },
     gesturePivot: createGesturePivot(), focusPivotRequest: undefined, xrPlacementFollowup: undefined,
     inspectionState: state, inspectionSnapshot: () => state.snapshot(), snapshot: () => state.snapshot(),
@@ -125,4 +125,34 @@ test('spoken size steps and clamped scale preserve the chosen whole-structure pl
   await t.action({ kind: 'scale', direction: 1, steps: 99 });
   assert.equal(t.state.snapshot().placement.scale, PLACEMENT_MAX_SCALE);
   assert.deepEqual(t.state.snapshot().placement.translation, before.translation);
+});
+
+for (const authored of [12, .05, 2.6]) for (const direction of [-1, 1]) {
+  test(`menu/voice resize ${direction} from authored scale ${authored} respects intent`, async () => {
+    const t = harness({ filtered: true, solver: input => input.seat });
+    t.h.roomEntry = { seat: { scale: 1 } };
+    t.state.place({ scale: authored });
+    const before = t.state.placement();
+    const pivot = drawnCenterInScene({ ...t.bounds, placement: before });
+    await t.action({ kind: 'scale', direction });
+    const after = t.state.placement();
+    const expected = (authored > 5 && direction > 0) || (authored < .2 && direction < 0)
+      ? authored : authored * 1.15 ** direction;
+    assert.equal(after.scale, expected);
+    const nextPivot = drawnCenterInScene({ ...t.bounds, placement: after });
+    nextPivot.forEach((v, axis) => assert.ok(Math.abs(v - pivot[axis]) < 1e-12));
+  });
+}
+
+test('typed voice scale hook uses the current authored placement and fixed entry band', () => {
+  const t = harness();
+  t.h.roomEntry = { seat: { scale: 1 } };
+  const start = source.indexOf('    clampWearerScale:');
+  const end = source.indexOf('\n    configure:', start);
+  const clamp = vm.runInContext('({' + source.slice(start, end) + '}).clampWearerScale', t.h);
+  for (const authored of [12, .05, 2.6]) {
+    t.state.place({ scale: authored });
+    assert.equal(clamp(authored * 1.2), authored > 5 ? authored : authored * 1.2);
+    assert.equal(clamp(authored / 1.2), authored < .2 ? authored : authored / 1.2);
+  }
 });

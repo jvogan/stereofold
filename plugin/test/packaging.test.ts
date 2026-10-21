@@ -51,8 +51,8 @@ function expectCoordinateFreePublicResult(result: unknown, coordinates: string):
 
 describe('Stereofold packaging metadata', () => {
   it('keeps the documented tool totals aligned with the shipped inventory', async () => {
-    expect(REGISTERED_TOOL_NAMES).toHaveLength(64);
-    expect(MODEL_VISIBLE_TOOL_NAMES).toHaveLength(37);
+    expect(REGISTERED_TOOL_NAMES).toHaveLength(68);
+    expect(MODEL_VISIBLE_TOOL_NAMES).toHaveLength(41);
     expect(APP_ONLY_TOOL_NAMES).toHaveLength(27);
     expect(APP_ONLY_TOOL_NAMES).toContain('stereo_structure.report_detailed_selection');
     expect(APP_ONLY_TOOL_NAMES).toContain('stereo_structure.report_source_failure');
@@ -67,16 +67,16 @@ describe('Stereofold packaging metadata', () => {
       new URL('../claude-code/skills/stereofold-quest/SKILL.md', import.meta.url),
     ].map(url => readFile(url, 'utf8')));
 
-    expect(readme).toContain('thirty-seven of the sixty-four\nregistered tools; the other twenty-seven are app-only');
-    expect(inspector).toContain('thirty-seven model-visible tools');
-    expect(install).toContain('64 registered tools, 37 of them model-visible');
+    expect(readme).toContain('forty-one of the sixty-eight\nregistered tools; the other twenty-seven are app-only');
+    expect(inspector).toContain('forty-one model-visible tools');
+    expect(install).toContain('68 registered tools, 41 of them model-visible');
     for (const text of [readme, inspector, install, ...skills]) {
       expect(text).not.toMatch(/\b55 registered tools\b|\b31 model-visible\b|\b24 app-only\b|fifty-eight\s+registered tools|twenty-four (?:are )?app-only/iu);
     }
   });
 
   it('keeps setup, Git eligibility and release docs aligned with the runtime bundles', async () => {
-    const bundles = ['server.mjs', 'viewer.html', 'inspector.html', 'inspector.css', 'inspector-host.js'];
+    const bundles = ['server.mjs', 'viewer.html', 'inspector.html', 'inspector.css', 'inspector-script-1.js', 'inspector-script-2.js', 'inspector-host.js'];
     const skill = await readFile(setupSkillUrl, 'utf8');
     const release = await readFile(new URL('../../docs/release.md', import.meta.url), 'utf8');
     const notices = await readFile(noticesUrl, 'utf8');
@@ -89,7 +89,7 @@ describe('Stereofold packaging metadata', () => {
       expect(gitSection, 'Git-eligible bundle').toContain(`\`dist/${bundle}\``);
       expect(release, 'release bundle').toContain(`dist/${bundle}`);
       // CSS dependencies are inventoried by the reconstructed inspector HTML.
-      if (bundle !== 'inspector.css') expect(notices, 'generated notices bundle').toContain(`\`dist/${bundle}\``);
+      if (bundle !== 'inspector.css' && !bundle.startsWith('inspector-script-')) expect(notices, 'generated notices bundle').toContain(`\`dist/${bundle}\``);
       expect(codexKit, 'Codex kit bundle').toContain(`dist/${bundle}`);
     }
     expect(gitSection).toContain('parent ignore rule before release');
@@ -130,7 +130,7 @@ describe('Stereofold packaging metadata', () => {
 
     expect(manifest).toMatchObject({
       name: 'stereofold',
-      version: '0.1.21',
+      version: '0.1.22',
       description: 'Explore molecular structures with Codex or Claude and keep changing the same scene on your computer and WebXR headset.',
       author: { name: 'Jacob Vogan' },
       skills: './skills/',
@@ -223,7 +223,7 @@ describe('Stereofold packaging metadata', () => {
     const manifest = JSON.parse(await readFile(claudeCodeManifestUrl, 'utf8')) as Record<string, unknown>;
     expect(manifest).toMatchObject({
       name: 'stereofold',
-      version: '0.1.21',
+      version: '0.1.22',
       license: 'MIT',
       author: { name: 'Jacob Vogan' },
       skills: ['./skills/', './claude-code/skills/'],

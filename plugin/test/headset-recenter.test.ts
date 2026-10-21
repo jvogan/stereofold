@@ -22,6 +22,7 @@ import { InspectionCompanionHttp } from '../src/inspection-companion-http.js';
 import { expectedInspection, inspectionChangeSchema, matchesInspectionChange, updateInspectionSchema,
   PRIVATE_INSPECTION_META_KEY as KEY } from '../src/inspection-contract.js';
 import { VIEWER_BUILD_PLACEHOLDER } from '../src/viewer-build.js';
+import { TOURS } from '../src/tour-catalog.js';
 
 const cif = await readFile(new URL('../../fixtures/1CRN.cif', import.meta.url), 'utf8');
 const RECENTER = { kind: 'placement', patch: { recenter: true } } as const;
@@ -167,6 +168,30 @@ describe('companion page build', () => {
 });
 
 describe('placement {recenter:true}', () => {
+  it('confirms a rendered native Reset that stops the current lesson cursor', async () => {
+    const t=await setup();
+    try {
+      const playing:any=structuredClone(t.scene);
+      playing.inspection.lessonPlayback={tourId:TOURS[0].id,chapterId:TOURS[0].steps[0].id,stopped:false,
+        narration:false,motionProgress:.2,motionPlaying:true,startingScene:structuredClone(t.scene)};
+      const response=await t.call('sync_inspection',{...t.bound,scene:playing});
+      expect(response.isError,response.content?.[0]?.text).not.toBe(true);
+      const saved=response.structuredContent;
+      expect(saved.saved).toBe(true);
+      Object.assign(t.bound,{baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision});
+      await t.beat(t.companion,true);await t.beat(t.companion,true);
+      await t.call('update_inspection',{...t.bound,panelId:t.companion,commandId:'reset-stops-lesson',change:RECENTER});
+      const delivery=(await t.beat(t.companion,true)).delivery;
+      const claim={...t.bound,panelId:t.companion,commandId:'reset-stops-lesson',claimToken:delivery.claimToken};
+      expect((await t.call('complete_inspection',{...claim,phase:'admit'})).structuredContent.admitted).toBe(true);
+      const scene=structuredClone(playing);
+      scene.inspection.placement={translation:[-.073,.054,-2.882],rotation:[0,0,0],scale:2.1};
+      Object.assign(scene.inspection.lessonPlayback,{stopped:true,motionProgress:.3,motionPlaying:false});
+      const result=await t.call('complete_inspection',{...claim,scene,recenterCompletion:{
+        structureReset:true,menuReseated:true,placement:scene.inspection.placement}});
+      expect(result.structuredContent.command.status).toBe('rendered');
+    } finally {await t.close();}
+  });
   it('reaches the headset panel as its Reset and renders on the placement the page solved', async () => {
     const t = await setup();
     try {
@@ -311,5 +336,51 @@ describe('the recenter contract', () => {
     expect(request.safeParse({ kind: 'placement', patch: { recenter: true, scale: 2 } }).success).toBe(false);
     expect(request.safeParse({ kind: 'compound', patch: { ops: [RECENTER, { kind: 'appearance', patch: { opacity: 0.5 } }] } }).success).toBe(false);
     expect(request.safeParse({ kind: 'placement', patch: { scale: 2 } }).success).toBe(true);
+  });
+
+  it('accepts only Reset-owned cursor changes while preserving source, chapter and baseline', () => {
+    const playing=structuredClone(scene);
+    playing.inspection.lessonPlayback={tourId:'lesson-gallery',chapterId:'binder-01',stopped:false,
+      narration:false,motionProgress:.2,motionPlaying:true,startingScene:structuredClone(scene)};
+    const expected=expectedInspection(playing,change), reset=structuredClone(playing);
+    Object.assign(reset.inspection.lessonPlayback,{stopped:true,motionProgress:.3,motionPlaying:false});
+    reset.inspection.placement={translation:[-.073,.054,-2.882],rotation:[0,0,0],scale:2.1};
+    expect(matchesInspectionChange(reset,expected,change)).toBe(true);
+    for(const alter of [
+      (s:any)=>s.inspection.lessonPlayback.chapterId='binder-02',
+      (s:any)=>s.inspection.lessonPlayback.startingScene.inspection.placement.scale=2,
+      (s:any)=>s.inspection.lessonPlayback.stopped=false,
+      (s:any)=>s.inspection.lessonPlayback.motionPlaying=true,
+      (s:any)=>s.sourceSha256='b'.repeat(64),
+      (s:any)=>s.inspection.appearance.opacity=.4,
+    ]) {
+      const wrong=structuredClone(reset);alter(wrong);
+      expect(matchesInspectionChange(wrong,expected,change)).toBe(false);
+    }
+  });
+
+  it('accepts Reset removing a cutaway without admitting unrelated appearance edits', () => {
+    const clipped=structuredClone(scene);clipped.inspection.appearance.clipping=1;
+    const reset=structuredClone(clipped);reset.inspection.appearance.clipping=0;reset.camera.radius=25;
+    expect(matchesInspectionChange(reset,expectedInspection(clipped,change),change)).toBe(true);
+    reset.inspection.appearance.color='uniform';
+    expect(matchesInspectionChange(reset,expectedInspection(clipped,change),change)).toBe(false);
+  });
+
+  it('accepts Reset pausing a molecular clock but holds its definition and controls', () => {
+    const playing=structuredClone(scene);
+    playing.inspection.animation={definition:{version:1,durationSeconds:5,tracks:[]},
+      playback:{id:'clip',chapterId:'binder-01',state:'playing',timeSeconds:1,durationSeconds:5,loop:true,speed:1}};
+    const expected=expectedInspection(playing,change), reset=structuredClone(playing);
+    Object.assign(reset.inspection.animation.playback,{state:'paused',timeSeconds:2});
+    expect(matchesInspectionChange(reset,expected,change)).toBe(true);
+    for(const alter of [
+      (s:any)=>s.inspection.animation.playback.state='playing',
+      (s:any)=>s.inspection.animation.playback.speed=2,
+      (s:any)=>s.inspection.animation.definition.durationSeconds=10,
+    ]) {
+      const wrong=structuredClone(reset);alter(wrong);
+      expect(matchesInspectionChange(wrong,expected,change)).toBe(false);
+    }
   });
 });

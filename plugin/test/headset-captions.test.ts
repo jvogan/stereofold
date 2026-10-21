@@ -19,7 +19,9 @@ describe('the reply a headset wearer is given', () => {
     expect(() => sayToHeadsetSchema.parse({ text: 'a'.repeat(HEADSET_REPLY_MAX_CHARS + 1) })).toThrow();
     expect(() => sayToHeadsetSchema.parse({ text: 'ok', holdSeconds: 1 })).toThrow();
     expect(() => sayToHeadsetSchema.parse({ text: 'ok', holdSeconds: 16 })).toThrow();
-    expect(() => sayToHeadsetSchema.parse({ text: 'ok', sessionId: 'x' } as any)).toThrow();
+    // A copied scene binding is accepted and dropped by the host; any other stray field is still refused.
+    expect(sayToHeadsetSchema.parse({ text: 'ok', sessionId: 'x' } as any).text).toBe('ok');
+    expect(() => sayToHeadsetSchema.parse({ text: 'ok', voice: 'x' } as any)).toThrow();
   });
 
   it('flattens a caption to one printable line', () => {

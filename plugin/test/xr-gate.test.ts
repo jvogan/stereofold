@@ -110,17 +110,16 @@ describe('the wearer-view gate', () => {
     });
   }, 120_000);
 
-  it('refuses missing glance metadata rather than treating forward captures as readable', async () => {
+  it('captures the complete menu in the forward frame without a required reading turn', async () => {
     await withFixture(async directory => {
       const { writeFile } = await import('node:fs/promises');
       const path = resolve(directory, 'browser-report.json');
       const report = JSON.parse(await readFile(path, 'utf8'));
-      expect(report.screenshots[0].headYawDegrees).toBeCloseTo(47);
+      expect(report.screenshots[0].headYawDegrees).toBe(0);
       delete report.screenshots[0].headYawDegrees;
       await writeFile(path, JSON.stringify(report));
       const result = await runXrGate(directory);
-      expect(reasons(result.failures, 'eye-frame').join(' ')).toContain('both captured eyes');
-      expect(reasons(result.failures, 'label-completeness').length).toBeGreaterThan(0);
+      expect(result.failures).toEqual([]);
     });
   }, 120_000);
 
@@ -131,10 +130,10 @@ describe('the wearer-view gate', () => {
       const found = reasons(result.failures, 'central-cone');
       expect(found.length).toBeGreaterThan(0);
       expect(found.join(' ')).toContain('off-molecule');
-      // The peripheral compact panel leaves a central sixty-degree cone.
+      // The inboard compact panel leaves a central thirty-two-degree cone.
       // This forward capture proves that clearance separately from the
-      // turned-head frame used to inspect labels.
-      expect(found.join(' ')).toContain('inside the central 60 degree cone');
+      // forward frame used to inspect labels.
+      expect(found.join(' ')).toContain('inside the central 32 degree cone');
       expect(CENTRAL_CONE_HALF_ANGLE_DEGREES).toBeGreaterThan(EXPANDED_GRID_CONE_HALF_ANGLE_DEGREES);
       expect(result.failures.some(failure => failure.frame?.includes(steps[3].file))).toBe(true);
     });
@@ -188,10 +187,10 @@ describe('the wearer-view gate', () => {
       // Both physical eye offsets are measured in the actual reading orientation.
       expect(eyes.every(eye => eye.verticalDegrees <= EYE_FRAME_VERTICAL_LIMIT_DEGREES)).toBe(true);
       if (set.collapsed) {
-        expect(eyes.every(eye => Math.abs(eye.headYawDegrees - 47) < 1e-6)).toBe(true);
+        expect(eyes.every(eye => eye.headYawDegrees === 0)).toBe(true);
         const forward = await measureEyeFrame(set.rows, true, {}, 'forward');
-        expect(forward.every(eye => eye.breaches), 'forward gaze honestly reports the peripheral panel outside its lens').toBe(true);
-        expect((await measureCentralCone(set.rows, true)).degrees).toBeGreaterThanOrEqual(30);
+        expect(forward.every(eye => !eye.breaches), 'complete glass stays inside both forward lenses').toBe(true);
+        expect((await measureCentralCone(set.rows, true)).degrees).toBeGreaterThanOrEqual(CENTRAL_CONE_HALF_ANGLE_DEGREES);
       } else expect(eyes.every(eye => eye.headYawDegrees === 0)).toBe(true);
     }
     // And this is what the preferred bearing alone did, which is the bug: the

@@ -62,6 +62,30 @@ function panels() {
 }
 
 describe('paired headset tabs',()=>{
+  it('keeps a newly opened same-headset tab through its initial hidden beat until it becomes foreground',()=>{
+    const {commands,attach,beat}=panels();
+    const old=attach();beat(old,true);
+    const next=attach(),devices=new Map([[old,'device'],[next,'device']]);
+    commands.retireDuplicatePanels(devices,binding);
+    expect(commands.summary(binding).panels.map(p=>p.panelId)).toContain(next);
+    beat(next,false);commands.retireDuplicatePanels(devices,binding);
+    expect(commands.summary(binding).panels.map(p=>p.panelId)).toContain(next);
+    // An unchanged old heartbeat does not renew its earlier foreground claim.
+    beat(old,true);commands.retireDuplicatePanels(devices,binding);
+    expect(beat(next,true)).toMatchObject({attached:true});
+    beat(old,false,'busy');commands.retireDuplicatePanels(devices,binding);
+    expect(commands.wearerPage(binding).panelId).toBe(next);
+    expect(commands.readyPanel(next,binding)).toBe(true);
+    expect(beat(old,false)).toEqual({attached:false,superseded:true});
+  });
+  it('still honors a deliberate return to the old tab after a newer tab has attached',()=>{
+    const {commands,attach,beat}=panels();
+    const old=attach();beat(old,true);const next=attach();beat(next,true);
+    beat(old,false);beat(old,true);beat(next,false);
+    commands.retireDuplicatePanels(new Map([[old,'device'],[next,'device']]),binding);
+    expect(commands.wearerPage(binding).panelId).toBe(old);
+    expect(beat(next,false)).toEqual({attached:false,superseded:true});
+  });
   it('prefers the visible tab even after a hidden old tab checks in last, then retires that capability',()=>{
     const {commands,attach,beat}=panels();
     const old=attach(),visible=attach();beat(visible,true);beat(old,false,'busy');
@@ -128,11 +152,11 @@ it('reports preparation-exhausted waits with real elapsed time and a pollable op
   expect(start).toBeGreaterThan(0);expect(end).toBeGreaterThan(start);
   const data={attachment:{commands:{readyPanel:()=>false}}};
   const context=vm.createContext({Date:{now:()=>171000},callStarted:0,renderBudgetMsFor:()=>130000,
-    input:{sessionId:'session',panelId:'panel',waitForRenderMs:40000},refreshed:data,
+    input:{sessionId:'session',panelId:'panel',waitForRenderMs:40000},refreshed:data,loadTimings:{},
     HOST_TOOL_WAIT_CEILING_MS:40000,OPEN_COMPANION_CALL_CEILING_MS:55000,
     sourceOperation:{commandId:'source-command'},sourceRenderWait:{wait:async(ms:number)=>{expect(ms).toBe(0);}},
     current:async()=>data,binding:()=>binding,result:(_id:unknown,_data:unknown,receipt:unknown,text:string)=>({receipt,text}),
-    opened:{structuredContent:{renderToken:2}},source:{kind:'pdb',id:'4HHB'}});
+    demoTour:undefined,opened:{structuredContent:{renderToken:2}},source:{kind:'pdb',id:'4HHB'}});
   const answer=await execute(`(async()=>{${server.slice(start,end)}})()`,context);
   expect(answer.text).toContain('Host preparation used the call wait budget (171000 ms; 171000 ms elapsed)');
   expect(answer.text).toContain('Rendering continues');expect(answer.text).toContain('source-command');

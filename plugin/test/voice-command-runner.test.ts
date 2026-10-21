@@ -728,3 +728,21 @@ it('changed advisory speaks once, while the next voice edit retains the ordinary
   prior={...advisory};await h.say('spin it');
   expect(h.spoken).toEqual([advisory.message,'Spinning.']);h.runner.dispose();
 });
+
+it('keeps a rendered headset action in line 3 when a newer utterance owns the caption', async () => {
+  // @ts-ignore Shared wearer status, as used by the bundled runner.
+  const { assistantStatus } = await import('../../lab/browser-roundtrip/assistant-status.mjs');
+  const events = createPushToTalkAudioEvents();
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  const runner = attachVoiceCommandRunner({ events, dispatch: () => pending });
+  try {
+    assistantStatus.renderedCommand({ status: 'rendered', commandId: 'previous-action', assistantName: 'Codex', action: 'updated appearance' });
+    events.emit({ state: 'heard', utteranceId: 'local', text: 'make it bigger' });
+    await Promise.resolve();
+    expect(assistantStatus.lines()[2]).toBe('Codex: updated appearance');
+    events.emit({ state: 'heard', utteranceId: 'newer', text: 'explain the structure' });
+    finish(); await runner.settled();
+    expect(assistantStatus.lines()[2]).toMatch(/^Headset: /);
+  } finally { finish(); runner.dispose(); }
+});

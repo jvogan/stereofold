@@ -5,6 +5,7 @@ import { expect, it } from 'vitest';
 import { createStereoStructureServer } from '../src/server.js';
 import { PRIVATE_INSPECTION_META_KEY as key } from '../src/inspection-contract.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
+import { createPushToTalkTranscriber } from '../src/push-to-talk-transcribe.js';
 
 // The wearer speaks again while a structure is still
 // loading. "No, cancel that, show me crambin" was recorded
@@ -18,7 +19,8 @@ async function setup() {
   let release!: () => void, entered!: () => void;
   const gate = new Promise<void>(r => { release = r; });
   const fetching = new Promise<void>(r => { entered = r; });
-  const server = createStereoStructureServer(undefined, { fetchPdbText: async () => { entered(); await gate; return hhb; } });
+  const transcriber = createPushToTalkTranscriber({ enabled: false });
+  const server = createStereoStructureServer(undefined, { transcriber, fetchPdbText: async () => { entered(); await gate; return hhb; } });
   const client = new Client({ name: 'Stereofold swap utterance test', version: '1' });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b); await client.connect(a);
@@ -47,7 +49,7 @@ async function setup() {
   let panelId: string = ok(await call('attach_inspection', { ...binding, surface: 'companion' })).structuredContent.panelId;
   await call('poll_inspection', { ...binding, panelId, availability: 'ready' });
   const t = {
-    call, ok, fetching, release,
+    call, ok, fetching, release, transcriber,
     get binding() { return binding; }, get panelId() { return panelId; }, get scene() { return scene; },
     firstKeys: [...data.catalog.rows.slice(0, 1).map((row: any) => row.key)],
     // Words: an utterance recorded on whatever the panel is showing now.
@@ -71,6 +73,25 @@ async function setup() {
   return t;
 }
 type Harness = Awaited<ReturnType<typeof setup>>;
+it.each(['placement', 'cancel'])('binds sessionless %s to the continued panel after source replacement', async kind => {
+  const t = await setup(); try {
+    const { corrected } = await interrupted(t);
+    const originalPanel = t.panelId;
+    t.transcriber.transcripts.publish({ utteranceId: corrected, sessionId: t.binding.sessionId,
+      panelId: originalPanel, text: 'Make it bigger.', durationMs: 1, receivedAt: new Date().toISOString(), model: 'synthetic' });
+    t.ok(await t.call('detach_inspection', { ...t.binding, panelId: originalPanel }));
+    const currentPanel = await t.render();
+    expect(currentPanel).not.toBe(originalPanel);
+    const result = await t.call('update_inspection', { utteranceId: corrected,
+      change: kind === 'placement' ? { kind: 'placement', patch: { scale: 1.25 } }
+        : { kind: 'utterance', patch: { action: 'cancel' } } });
+    expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
+    if (kind === 'placement') {
+      const state = t.ok(await t.call('get_inspection_state', { sessionId: t.binding.sessionId })).structuredContent;
+      expect(state.pendingCommand.map((c: any) => c.panelId)).toContain(currentPanel);
+    } else expect(result.structuredContent.lifecycle.action).toBe('cancel');
+  } finally { await t.close(); }
+});
 function lifecycle(t: Harness, commandId: string, action: string, utteranceId: string) {
   return t.call('update_inspection', { ...t.binding, panelId: t.panelId, commandId, utteranceId,
     change: { kind: 'utterance', patch: { action } } });

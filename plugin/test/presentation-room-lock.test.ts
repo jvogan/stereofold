@@ -13,7 +13,7 @@ export const Scene={create:()=>{
     update(objects){scene.updates+=1;globalThis.__roomLockUpdates.push(objects?.length??0);}};
   return scene;
 }};
-export const ValueCell={update:(cell,value)=>{cell.ref.value=value;return cell;}};
+export const ValueCell={create:value=>({ref:{value}}),update:(cell,value)=>{cell.ref.value=value;return cell;}};
 export const updateTransformData=()=>{};
 export const calculateTransformBoundingSphere=()=>({center:[0,0,0],radius:1});
 `;
@@ -51,6 +51,19 @@ function harness(){
 }
 
 const roomLockUpdates=()=>(globalThis as any).__roomLockUpdates as number[];
+
+it('opts room UI text into SDF smoothing before adding it, without flagging molecular text or plates',async()=>{
+  const {createPresentationScene}=await sceneRuntime();
+  const {canvas}=harness();
+  const layer=createPresentationScene(canvas);
+  const ui:any={...renderObject(),type:'text'}, molecule:any={...renderObject(),type:'text'}, plate:any={...renderObject(),type:'mesh'};
+  layer.add({renderObjects:[ui,plate]},{roomLocked:true});
+  layer.add({renderObjects:[molecule]});
+  expect(ui.values.dStereofoldUiSdf.ref.value).toBe(true);
+  expect(plate.values.dStereofoldUiSdf).toBeUndefined();
+  expect(molecule.values.dStereofoldUiSdf).toBeUndefined();
+  layer.dispose();
+});
 
 it('re-places room-locked objects only when the view actually moved',async()=>{
   const {createPresentationScene}=await sceneRuntime();

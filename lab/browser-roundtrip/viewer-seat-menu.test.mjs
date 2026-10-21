@@ -98,6 +98,7 @@ import { spatialVoiceAction } from './voice-command-runner.mjs';
 
 test('real voice actions: the diagnostics ring receives one layout and one update per action', async () => {
   const { h, labels, writes } = tourFocusHarness({ labels: true });
+  h.molecularAnimation = { selectionSphere: loci => loci, refresh: async () => {} };
   // Re-extract the production action and every emphasis/focus/placement slice
   // in strict mode. The fixture supplies molecular bounds and renderer adapters;
   // the session, transaction, solver and diagnostic sanitizer remain real.
@@ -189,18 +190,27 @@ test('a plate build that fails part way deletes its plates, and the session reti
   }
 });
 
-test('an identical emphasis set repaints live plate opacity without rebuilding geometry', async () => {
+for (const presenting of [true, false]) test(`an identical emphasis set repaints live plate opacity without rebuilding geometry (XR=${presenting})`, async () => {
   const h = labelHarness();
+  h.h.canvas.xr.isPresenting.value = presenting;
   await h.h.rebuildComponentLabels();
+  const beforeCells = new Map(h.cells);
   const refs = h.session.refs(), buildCommits = h.commits.length;
   h.h.componentLabelKeyPlan = () => ({ colours: h.h.emphasisState.parts.map(part => ({ id: part.id, opacity: .25 })) });
   await h.h.rebuildComponentLabels();
   assert.equal(h.commits.length, buildCommits + 1, 'opacity uses one atomic in-place update');
   assert.deepEqual(h.session.refs(), refs);
   for (const ref of refs) {
-    assert.equal(h.cells.get(`${ref}-backing`).params.alpha, .6);
+    assert.equal(h.cells.get(`${ref}-backing`).params.alpha, presenting ? 0 : .6);
     assert.equal(h.cells.has(`${ref}-text`), false, 'ink and backing share one primitive and alpha');
   }
+  h.h.componentLabelKeyPlan = () => ({ colours: h.h.emphasisState.parts.map(part => ({ id: part.id, opacity: 1 })) });
+  await h.h.rebuildComponentLabels();
+  assert.equal(h.commits.length, buildCommits + 2, 'restoring emphasis also repaints in one commit');
+  for (const ref of refs) assert.equal(h.cells.get(`${ref}-backing`).params.alpha, 1);
+  for (const [ref, cell] of h.cells) assert.equal(cell, beforeCells.get(ref));
+  assert.equal(h.session.passes(), 1);
+  assert.ok(h.commits.slice(buildCommits).every(commit => commit.operations.every(op => op === 'update')));
 });
 
 for (const action of ['scale', 'focus']) test(`a committed ${action} re-solves live plates against the new silhouette`, async () => {
@@ -244,12 +254,16 @@ for (const action of ['scale', 'focus']) test(`a committed ${action} re-solves l
     vm.runInContext(pageFunction(viewer, name), h);
   }
   h.clearHeldPlatePlacement = requested => requested;
+  const reseats = [];
+  h.immersiveSession = { ...h.immersiveSession, toolbarAction: async request => { reseats.push(plain(request)); } };
   await session.rebuild();
   const before = solves.at(-1);
   h.componentLabelPlateParts = () => h.emphasisState.parts.map((part, i) => ({ ...part, focused: i < 2 }));
   if (action === 'scale') await h.placeInspection({ scale: .5 });
   else { h.grabScale = .5; await h.bakeGrab({ gesture: 'focus' }); }
   assert.deepEqual(takeovers, action === 'scale' ? ['agent-placement'] : [], 'explicit scale owns room intent; automatic focus does not');
+  assert.deepEqual(reseats, action === 'scale' ? [{ kind: 'recenter-menu', reason: 'placement' }] : [],
+    'an agent placement re-seats and reveals the glass; automatic focus leaves it');
   assert.equal(solves.length, 2, 'placement commits a layout without waiting for a menu press');
   const after = solves.at(-1);
   assert.ok(after.subject.halfWidth < before.subject.halfWidth);
@@ -257,6 +271,12 @@ for (const action of ['scale', 'focus']) test(`a committed ${action} re-solves l
   assert.equal(after.subjectOverlaps, 0);
   assert.equal(after.overlaps, 0);
   assert.equal(after.offGlass, 0);
+  if (action === 'scale') {
+    await h.placeInspection({ rotation: [0, 35, 0] });
+    assert.deepEqual(reseats, Array.from({ length: 2 }, () => ({ kind: 'recenter-menu', reason: 'placement' })),
+      'a subsequent agent turn runs the same re-seat decision');
+    assert.deepEqual(placement.rotation, [0, 35, 0]);
+  }
 });
 
 test('changing part colours retains the readable plate palette without rebuilding geometry', async () => {
@@ -438,7 +458,7 @@ test('settled collapse restores plate work and timers through XR, toolbar and di
   });
   h.canvas.camera.view = Mat4.identity();
   h.canvas.webgl = { xr: { session: {} } };
-  for (const name of ['componentLabelRepresentations', 'applyInspectionTransform', 'flushXrDeferredGrab']) {
+  for (const name of ['componentLabelRepresentations', 'applyInspectionTransform', 'flushXrDeferredGrab', 'sampleHeadFrame']) {
     vm.runInContext(pageFunction(viewer, name), h);
   }
   h.connectionFrame = connectionFrame;
@@ -616,7 +636,7 @@ function seatHarness() {
     scientificRepresentations: () => [],
     recordCost: (kind, value) => records.push({ kind, ...plain(value) }),
   });
-  for (const name of ['adopt', 'beginRoomEntry', 'settleInRoom', 'roomAnchorPlacement', 'placementTransform', 'xrLabelSizing', 'componentLabelLayout', 'runFaceAction', 'flushXrDeferredGrab']) {
+  for (const name of ['adopt', 'beginRoomEntry', 'settleInRoom', 'roomAnchorPlacement', 'placementTransform', 'xrLabelSizing', 'componentLabelLayout', 'runFaceAction', 'flushXrDeferredGrab', 'sampleHeadFrame']) {
     vm.runInContext(pageFunction(viewer, name), h);
   }
   if (viewer.includes('  function componentLabelViewBasis(')) vm.runInContext(pageFunction(viewer, 'componentLabelViewBasis'), h);
@@ -723,7 +743,7 @@ function menuHarness(view) {
   // The commit now writes its own seat receipt. It goes to the page's
   // diagnostics ring, not to the layout records this harness counts, so it is
   // collected separately and asserted on beside them.
-  const seatReceipts = [];
+  const seatReceipts = [], actionErrors = [];
   const menu = vm.createContext({ clampPlacementScale, ...emptyLessonFigureBinding(),
     // This fixture does not paint, so drawing the selection costs it
     // nothing. `render-dedupe-harness.mjs` is the one that counts paints, and
@@ -736,7 +756,7 @@ function menuHarness(view) {
     paintCompanion:async()=>{},
     ...h, collapsed: true, actionChain: Promise.resolve(), actionEpoch: 0, inputLocked: false,
     acceptsInput: () => true, nextXrTick: async () => true, session: {}, gestures: { dispose() {} },
-    menuLatched: true, seatReason: '', entryOutboard: 1, entryHead: seat,
+    menuLatched: true, seatReason: '', entryOutboard: 1, entryHead: seat, observedPlacementMoves: 0,
     wokenAt: 0, standingBack: false, engaged: false, setDimmed() {},
     restoredMenuLayout: undefined, tourSeatRestorePending: false,
     menuReseatRequested: false, renderedSeat: undefined, renderedGrid: undefined,
@@ -744,13 +764,17 @@ function menuHarness(view) {
     // These presses act on a drawn menu, including when its grid is collapsed.
     // Mirror the visibility state read by the committed motion classification.
     hidden: false, hiddenMenuMotion: [], clearanceHidden: false, relocationSeat: undefined, cancelMenuDrag() {},
-    getState: () => ({}), onActionError: error => { throw error; }, onAction: async () => {},
+    getState: () => ({}), onActionError: error => { actionErrors.push(error); }, onAction: async () => {},
     menuPoints: () => points, startupPhase: 'active', active: null,
     createMenuResolve: options => createMenuResolve({ ...options, now: () => now,
       schedule: fn => { timer = fn; return 1; }, cancel: () => { timer = undefined; } }),
     onMenuPlaced: () => {},
   });
-  for (const name of ['run', 'unlatchSeat']) vm.runInContext(pageFunction(toolbar, name), menu);
+  // The production action consults placement ownership before it can redraw.
+  // Include that real helper; an absent binding inside the action chain used
+  // to silently end these presses before the fixture reached its commit.
+  vm.runInContext(toolbar.match(/^  const wearerOwnsSeat = .*;$/m)[0], menu);
+  for (const name of ['syncPlacementSeat', 'run', 'unlatchSeat']) vm.runInContext(pageFunction(toolbar, name), menu);
   for (const name of ['menuRedrawn', 'menuMotion', 'menuResolveFor']) vm.runInContext(pageFunction(sessionSource, name), menu);
   // Execute the toolbar's committed motion classification, up to its GPU swap.
   const commit = toolbar.slice(toolbar.indexOf('      const firstDraw = renderedSeat'),
@@ -798,6 +822,7 @@ function menuHarness(view) {
     menu.run(action);
     await menu.actionChain;
   }, async settle() {
+    assert.deepEqual(actionErrors, [], 'explicit menu action must succeed before its layout notification');
     now += MENU_SETTLE_MS;
     assert.ok(timer, 'committed redraw must schedule a solve');
     timer(); timer = undefined;
@@ -1344,7 +1369,10 @@ for (const action of ['collapse,reseat', 'emphasis']) test(`${action}: real sess
   assert.equal(records.filter(r => r.kind === 'plate-update').length, 1);
   assert.equal(commits.length, count + 1, 'the complete offsets and opacity update commits together');
   assert.equal(session.passes(), 1, 'the session did not fall back to another build');
-  if (action === 'emphasis') assert.equal(cells.get('plate-0-backing').params.alpha, .6, 'ink and backing retain the readability floor together');
+  if (action === 'emphasis') {
+    assert.equal(cells.get('plate-0-backing').params.alpha, 0, 'dimmed XR context is absent');
+    assert.equal(cells.get('plate-1-backing').params.alpha, 1, 'emphasized XR ink and backing keep full contrast');
+  }
 });
 
 // A missing layer is a rejected update, never permission to solve again.

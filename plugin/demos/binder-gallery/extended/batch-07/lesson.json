@@ -1,0 +1,2212 @@
+{
+  "version": 1,
+  "id": "binder-gallery-extended-batch-07",
+  "title": "Other tested designs \u00b7 batch 7/10",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://www.anthropic.com/research/claude-scorpion-toxin-binder-design"
+      }
+    ],
+    "sourceSha256": "82f89241db9e35669236509602a7fa70701cc0e9845b5c2da6aa3c093d50ac57",
+    "note": "Published predicted ESMFold2 structures, one approved intended-toxin pair per remaining design. These are not the published 17 qualified binders. Assay status stays on screen; predicted score is not measured binding or neutralization. Canonical toxin atoms are identical across batches. Both original chains retain their original relative geometry under one common proper rigid transform; the displayed steady overlay substitutes the canonical target. No sequences, atoms, occupancy or B-factors were changed. Source lock, matrices, original/overlay contacts and immutable revision are in the extended manifests."
+  },
+  "presentation": {
+    "captionCard": "hidden",
+    "end": "hold",
+    "coordinateFrame": "binder-gallery-extended-aligned-v1",
+    "continueToStage": "batch-08"
+  },
+  "chapters": [
+    {
+      "id": "binder-2375ac8e",
+      "title": "Design 155 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D155",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 155",
+            "aliases": [
+              "Design155",
+              "2375ac8e",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D155"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D155"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D155"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D155",
+                "residueNumbers": [
+                  117,
+                  131,
+                  153,
+                  156
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  18,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D155"
+              },
+              "text": "Design 155 \u00b7 Pred. score 0.719 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design155 \u00b7 UUID: 2375ac8e\nDesign 155 \u00b7 Pred. score 0.719 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/2375ac8e/2375ac8e_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-4cc8857b",
+      "title": "Design 157 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D157",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 157",
+            "aliases": [
+              "Design157",
+              "4cc8857b",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D157"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D157"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D157"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D157",
+                "residueNumbers": [
+                  127,
+                  131,
+                  153,
+                  156
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D157"
+              },
+              "text": "Design 157 \u00b7 Pred. score 0.682 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design157 \u00b7 UUID: 4cc8857b\nDesign 157 \u00b7 Pred. score 0.682 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/4cc8857b/4cc8857b_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-28491140",
+      "title": "Design 158 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D158",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 158",
+            "aliases": [
+              "Design158",
+              "28491140",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D158"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D158"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D158"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D158",
+                "residueNumbers": [
+                  119,
+                  131,
+                  153,
+                  156
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  17,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D158"
+              },
+              "text": "Design 158 \u00b7 Pred. score 0.671 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design158 \u00b7 UUID: 28491140\nDesign 158 \u00b7 Pred. score 0.671 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/28491140/28491140_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-d15c8ece",
+      "title": "Design 160 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D160",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 160",
+            "aliases": [
+              "Design160",
+              "d15c8ece",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D160"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D160"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D160"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D160",
+                "residueNumbers": [
+                  127,
+                  131,
+                  153,
+                  156
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D160"
+              },
+              "text": "Design 160 \u00b7 Pred. score 0.716 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design160 \u00b7 UUID: d15c8ece\nDesign 160 \u00b7 Pred. score 0.716 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/d15c8ece/d15c8ece_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-8995a1e3",
+      "title": "Design 162 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D162",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 162",
+            "aliases": [
+              "Design162",
+              "8995a1e3",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D162"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D162"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D162"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D162",
+                "residueNumbers": [
+                  101,
+                  105,
+                  127,
+                  130
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D162"
+              },
+              "text": "Design 162 \u00b7 Pred. score 0.750 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design162 \u00b7 UUID: 8995a1e3\nDesign 162 \u00b7 Pred. score 0.750 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/8995a1e3/8995a1e3_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-cdc4f510",
+      "title": "Design 163 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D163",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 163",
+            "aliases": [
+              "Design163",
+              "cdc4f510",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D163"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D163"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D163"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D163",
+                "residueNumbers": [
+                  101,
+                  105,
+                  127,
+                  130
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D163"
+              },
+              "text": "Design 163 \u00b7 Pred. score 0.722 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design163 \u00b7 UUID: cdc4f510\nDesign 163 \u00b7 Pred. score 0.722 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/cdc4f510/cdc4f510_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-d62f6cc0",
+      "title": "Design 164 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D164",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 164",
+            "aliases": [
+              "Design164",
+              "d62f6cc0",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D164"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D164"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D164"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D164",
+                "residueNumbers": [
+                  101,
+                  105,
+                  127,
+                  130
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D164"
+              },
+              "text": "Design 164 \u00b7 Pred. score 0.715 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design164 \u00b7 UUID: d62f6cc0\nDesign 164 \u00b7 Pred. score 0.715 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/d62f6cc0/d62f6cc0_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-062f6e47",
+      "title": "Design 165 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D165",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 165",
+            "aliases": [
+              "Design165",
+              "062f6e47",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D165"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D165"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D165"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D165",
+                "residueNumbers": [
+                  101,
+                  105,
+                  127,
+                  130
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D165"
+              },
+              "text": "Design 165 \u00b7 Pred. score 0.750 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design165 \u00b7 UUID: 062f6e47\nDesign 165 \u00b7 Pred. score 0.750 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/062f6e47/062f6e47_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-eeaf0e49",
+      "title": "Design 166 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D166",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 166",
+            "aliases": [
+              "Design166",
+              "eeaf0e49",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D166"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D166"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D166"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D166",
+                "residueNumbers": [
+                  101,
+                  105,
+                  127,
+                  130
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D166"
+              },
+              "text": "Design 166 \u00b7 Pred. score 0.703 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design166 \u00b7 UUID: eeaf0e49\nDesign 166 \u00b7 Pred. score 0.703 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/eeaf0e49/eeaf0e49_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-e1d7f65f",
+      "title": "Design 167 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D167",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 167",
+            "aliases": [
+              "Design167",
+              "e1d7f65f",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D167"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D167"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D167"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D167",
+                "residueNumbers": [
+                  101,
+                  105,
+                  127,
+                  134
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  17,
+                  34,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D167"
+              },
+              "text": "Design 167 \u00b7 Pred. score 0.725 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design167 \u00b7 UUID: e1d7f65f\nDesign 167 \u00b7 Pred. score 0.725 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/e1d7f65f/e1d7f65f_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-0bf88e5c",
+      "title": "Design 168 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D168",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 168",
+            "aliases": [
+              "Design168",
+              "0bf88e5c",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D168"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D168"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D168"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D168",
+                "residueNumbers": [
+                  119,
+                  131,
+                  153,
+                  156
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  17,
+                  36,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D168"
+              },
+              "text": "Design 168 \u00b7 Pred. score 0.689 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design168 \u00b7 UUID: 0bf88e5c\nDesign 168 \u00b7 Pred. score 0.689 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/0bf88e5c/0bf88e5c_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-569c6be9",
+      "title": "Design 169 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D169",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 169",
+            "aliases": [
+              "Design169",
+              "569c6be9",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D169"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D169"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D169"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D169",
+                "residueNumbers": [
+                  141,
+                  145,
+                  168,
+                  198
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  8,
+                  26,
+                  39,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D169"
+              },
+              "text": "Design 169 \u00b7 Pred. score 0.762 \u00b7 Adaptyv no hit",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design169 \u00b7 UUID: 569c6be9\nDesign 169 \u00b7 Pred. score 0.762 \u00b7 Adaptyv no hit\nThis design is not in the published 17 qualified binders. No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/569c6be9/569c6be9_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-0af4b327",
+      "title": "Design 170 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D170",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 170",
+            "aliases": [
+              "Design170",
+              "0af4b327",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D170"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D170"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D170"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D170",
+                "residueNumbers": [
+                  141,
+                  145,
+                  164,
+                  198
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  8,
+                  15,
+                  26,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D170"
+              },
+              "text": "Design 170 \u00b7 Adaptyv KD \u22481.65 nM \u00b7 not selected",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design170 \u00b7 UUID: 0af4b327\nDesign 170 \u00b7 Adaptyv KD \u22481.65 nM \u00b7 not selected\nThis design is not in the published 17 qualified binders. Smallest reported positive Adaptyv KD among intended targets with a published Adaptyv hit; this alone does not establish the dataset binder criteria.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/0af4b327/0af4b327_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    },
+    {
+      "id": "binder-39f80384",
+      "title": "Design 171 \u00b7 Target 3 \u00b7 AaH I",
+      "caption": "Other tested design, not one of the 17 qualified binders. Published predicted structure aligned to a fixed toxin reference. Close residue pairs are geometric examples only.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D171",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Design 171",
+            "aliases": [
+              "Design171",
+              "39f80384",
+              "design protein"
+            ],
+            "color": "#329ec7",
+            "chain": "D171"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 \u00b7 AaH I",
+            "aliases": [
+              "target",
+              "toxin",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "D171"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "D171"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "D171",
+                "residueNumbers": [
+                  141,
+                  142,
+                  145,
+                  198
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  8,
+                  17,
+                  26,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "D171"
+              },
+              "text": "Design 171 \u00b7 Adaptyv KD 147 nM \u00b7 not selected",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 \u00b7 AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Catalog alias: Design171 \u00b7 UUID: 39f80384\nDesign 171 \u00b7 Adaptyv KD 147 nM \u00b7 not selected\nThis design is not in the published 17 qualified binders. Smallest reported positive Adaptyv KD among intended targets with a published Adaptyv hit; this alone does not establish the dataset binder criteria.\nPred. score is the published final_score (0\u20131), not measured binding or neutralization. Adaptyv KD, where shown, measures binding only.\nDisplay: this binder is rigidly aligned to the canonical AaH I target. The same transform preserves both original chains in the source composite; only the shared reference target is displayed. This overlay differs from the original predicted complex.\nFour or fewer illustrative side-chain proximity pairs within 4.5 \u00c5; not proven interactions or key sites. Full original-pair and overlay contacts, original atom identities and the transform are in this batch manifest.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/39f80384/39f80384_esmfold2-aah1.pdb\nAnthropic, PBC (2026), CC BY 4.0. Dataset methods, assay qualifications and third-party credits are retained in the original gallery provenance."
+    }
+  ]
+}

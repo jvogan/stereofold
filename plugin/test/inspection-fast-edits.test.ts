@@ -1,3 +1,5 @@
+// @ts-ignore Shared wearer status used by the inspector's receipt handler.
+import { createAssistantStatus } from '../../lab/browser-roundtrip/assistant-status.mjs';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -6,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it, vi } from 'vitest';
 import { createStereoStructureServer } from '../src/server.js';
+import { LocalSceneService } from '../src/scene-service.js';
 import { PRIVATE_INSPECTION_META_KEY as PRIVATE_KEY, expectedInspection } from '../src/inspection-contract.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 import { inspectionFailureReceipt } from '../src/inspection-failure-receipt.js';
@@ -562,6 +565,43 @@ describe('what an agent host keeps of each tool', () => {
       const over = visible.filter(tool => (tool.description ?? '').length > 2048)
         .map(tool => `${tool.name} (${tool.description!.length})`);
       expect(over).toEqual([]);
+      for (const name of ['continue_session', 'prepare_composite', 'inspect_lesson', 'install_lesson']) {
+        const description = tools.find(tool => tool.name === `stereo_structure.${name}`)!.description!;
+        expect(description).toMatch(/^For a bundled demo in a joined session use one call: replace_inspection_source/);
+        expect(description).toMatch(/When a headset session is joined, make any new scene or lesson there: prepare_composite.* -> replace_inspection_source with the joined sessionId -> install_lesson/);
+        expect(description).toContain('do not ask a handoff question');
+        expect(description).toContain('only when nothing is joined or the user explicitly asks for a separate scene');
+      }
+      for (const name of ['control_tour', 'install_lesson']) {
+        const description = tools.find(tool => tool.name === `stereo_structure.${name}`)!.description!;
+        expect(description).toContain('autoplay:false,narration:false');
+        expect(description).toMatch(/explicit (control_tour )?next/);
+        expect(description).toContain('narration is scheduled');
+      }
     } finally { await client.close(); await server.close(); }
   });
+});
+
+
+it('an assistant-sent rendered command updates the wearer action line with its original author', async () => {
+  const sceneService = new LocalSceneService({ serverEpoch: randomUUID(), live: () => true });
+  vi.spyOn(sceneService, 'offer').mockResolvedValue(false);
+  sceneService.label = 'Codex';
+  const t = await setup({ sceneService });
+  const status = createAssistantStatus();
+  try {
+    await t.heartbeat();
+    const queued = await t.call('update_inspection', { sessionId: t.sessionId,
+      change: { kind: 'appearance', patch: { opacity: 0.5 } } });
+    expect(queued.isError, JSON.stringify(queued.content)).not.toBe(true);
+    status.renderedCommand(queued.structuredContent.command);
+    expect(status.lines()[2]).toBe('No action applied yet');
+    const receipt = await t.render(await t.claim());
+    expect(receipt.command).toMatchObject({ status: 'rendered', assistantName: 'Codex', action: 'updated appearance' });
+    status.renderedCommand(receipt.command);
+    expect(status.lines()[2]).toBe('Codex: updated appearance');
+    status.update({ action: { status: 'rendered', source: 'Headset', text: 'stopped spinning' } });
+    status.renderedCommand(receipt.command);
+    expect(status.lines()[2]).toBe('Headset: stopped spinning');
+  } finally { await t.close(); }
 });

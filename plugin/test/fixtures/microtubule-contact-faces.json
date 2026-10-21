@@ -1,0 +1,1007 @@
+{
+  "source": "https://www.rcsb.org/structure/5SYF",
+  "sourceSha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
+  "cutoffAngstrom": 4.5,
+  "faces": {
+    "monomer": {
+      "chain": "A",
+      "partnerChain": "B",
+      "operator": "1",
+      "residues": [
+        11,
+        15,
+        70,
+        71,
+        72,
+        73,
+        76,
+        77,
+        95,
+        96,
+        97,
+        98,
+        100,
+        101,
+        105,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        207,
+        210,
+        211,
+        214,
+        221,
+        222,
+        223,
+        224,
+        394,
+        397,
+        398,
+        401,
+        402,
+        403,
+        404,
+        405,
+        406,
+        407
+      ],
+      "ranges": [
+        [
+          11,
+          11
+        ],
+        [
+          15,
+          15
+        ],
+        [
+          70,
+          73
+        ],
+        [
+          76,
+          77
+        ],
+        [
+          95,
+          98
+        ],
+        [
+          100,
+          101
+        ],
+        [
+          105,
+          105
+        ],
+        [
+          176,
+          183
+        ],
+        [
+          207,
+          207
+        ],
+        [
+          210,
+          211
+        ],
+        [
+          214,
+          214
+        ],
+        [
+          221,
+          224
+        ],
+        [
+          394,
+          394
+        ],
+        [
+          397,
+          398
+        ],
+        [
+          401,
+          407
+        ]
+      ],
+      "direction": [
+        -0.45610087128437726,
+        -0.17247037320686331,
+        -40.5412251525467
+      ],
+      "witnesses": [
+        {
+          "residue": 11,
+          "atom": "NE2",
+          "partnerResidue": 247,
+          "partnerAtom": "O",
+          "distance": 2.275596
+        },
+        {
+          "residue": 15,
+          "atom": "NE2",
+          "partnerResidue": 247,
+          "partnerAtom": "O",
+          "distance": 3.33237
+        },
+        {
+          "residue": 70,
+          "atom": "O",
+          "partnerResidue": 1,
+          "partnerAtom": "CE",
+          "distance": 3.952207
+        },
+        {
+          "residue": 71,
+          "atom": "OE1",
+          "partnerResidue": 249,
+          "partnerAtom": "CB",
+          "distance": 3.389379
+        },
+        {
+          "residue": 72,
+          "atom": "C",
+          "partnerResidue": 48,
+          "partnerAtom": "NH2",
+          "distance": 3.132368
+        },
+        {
+          "residue": 73,
+          "atom": "OG1",
+          "partnerResidue": 48,
+          "partnerAtom": "NH2",
+          "distance": 2.213237
+        },
+        {
+          "residue": 76,
+          "atom": "OD2",
+          "partnerResidue": 48,
+          "partnerAtom": "NH1",
+          "distance": 2.687121
+        },
+        {
+          "residue": 77,
+          "atom": "OE2",
+          "partnerResidue": 245,
+          "partnerAtom": "CB",
+          "distance": 3.736783
+        },
+        {
+          "residue": 95,
+          "atom": "O",
+          "partnerResidue": 1,
+          "partnerAtom": "CE",
+          "distance": 2.619384
+        },
+        {
+          "residue": 96,
+          "atom": "CA",
+          "partnerResidue": 1,
+          "partnerAtom": "CE",
+          "distance": 1.638292
+        },
+        {
+          "residue": 97,
+          "atom": "OE2",
+          "partnerResidue": 253,
+          "partnerAtom": "NH2",
+          "distance": 1.042069
+        },
+        {
+          "residue": 98,
+          "atom": "OD2",
+          "partnerResidue": 251,
+          "partnerAtom": "OD2",
+          "distance": 1.956687
+        },
+        {
+          "residue": 100,
+          "atom": "CB",
+          "partnerResidue": 253,
+          "partnerAtom": "CD",
+          "distance": 3.521199
+        },
+        {
+          "residue": 101,
+          "atom": "OD1",
+          "partnerResidue": 254,
+          "partnerAtom": "CE",
+          "distance": 1.430578
+        },
+        {
+          "residue": 105,
+          "atom": "NH2",
+          "partnerResidue": 253,
+          "partnerAtom": "NE",
+          "distance": 3.233909
+        },
+        {
+          "residue": 176,
+          "atom": "O",
+          "partnerResidue": 333,
+          "partnerAtom": "CD2",
+          "distance": 3.539504
+        },
+        {
+          "residue": 177,
+          "atom": "CG2",
+          "partnerResidue": 333,
+          "partnerAtom": "CD1",
+          "distance": 2.363476
+        },
+        {
+          "residue": 178,
+          "atom": "OG",
+          "partnerResidue": 349,
+          "partnerAtom": "CB",
+          "distance": 1.242453
+        },
+        {
+          "residue": 179,
+          "atom": "O",
+          "partnerResidue": 352,
+          "partnerAtom": "CA",
+          "distance": 3.455313
+        },
+        {
+          "residue": 180,
+          "atom": "O",
+          "partnerResidue": 349,
+          "partnerAtom": "ND2",
+          "distance": 2.27855
+        },
+        {
+          "residue": 181,
+          "atom": "CG2",
+          "partnerResidue": 258,
+          "partnerAtom": "OD1",
+          "distance": 2.494695
+        },
+        {
+          "residue": 182,
+          "atom": "CG2",
+          "partnerResidue": 257,
+          "partnerAtom": "CG1",
+          "distance": 4.207413
+        },
+        {
+          "residue": 183,
+          "atom": "OE1",
+          "partnerResidue": 349,
+          "partnerAtom": "ND2",
+          "distance": 4.004919
+        },
+        {
+          "residue": 207,
+          "atom": "O",
+          "partnerResidue": 326,
+          "partnerAtom": "NZ",
+          "distance": 3.759928
+        },
+        {
+          "residue": 210,
+          "atom": "CG",
+          "partnerResidue": 326,
+          "partnerAtom": "CD",
+          "distance": 2.343761
+        },
+        {
+          "residue": 211,
+          "atom": "OD1",
+          "partnerResidue": 326,
+          "partnerAtom": "NZ",
+          "distance": 3.690304
+        },
+        {
+          "residue": 214,
+          "atom": "NH1",
+          "partnerResidue": 330,
+          "partnerAtom": "OE1",
+          "distance": 3.09296
+        },
+        {
+          "residue": 221,
+          "atom": "CZ",
+          "partnerResidue": 327,
+          "partnerAtom": "OE1",
+          "distance": 2.486226
+        },
+        {
+          "residue": 222,
+          "atom": "O",
+          "partnerResidue": 324,
+          "partnerAtom": "OG",
+          "distance": 1.393142
+        },
+        {
+          "residue": 223,
+          "atom": "N",
+          "partnerResidue": 324,
+          "partnerAtom": "OG",
+          "distance": 3.180529
+        },
+        {
+          "residue": 224,
+          "atom": "OH",
+          "partnerResidue": 325,
+          "partnerAtom": "CE",
+          "distance": 2.346267
+        },
+        {
+          "residue": 394,
+          "atom": "CG",
+          "partnerResidue": 348,
+          "partnerAtom": "CG",
+          "distance": 3.4951
+        },
+        {
+          "residue": 397,
+          "atom": "CD2",
+          "partnerResidue": 345,
+          "partnerAtom": "O",
+          "distance": 3.006891
+        },
+        {
+          "residue": 398,
+          "atom": "CG",
+          "partnerResidue": 346,
+          "partnerAtom": "O",
+          "distance": 2.097912
+        },
+        {
+          "residue": 401,
+          "atom": "CG",
+          "partnerResidue": 346,
+          "partnerAtom": "CG",
+          "distance": 3.375044
+        },
+        {
+          "residue": 402,
+          "atom": "O",
+          "partnerResidue": 261,
+          "partnerAtom": "O",
+          "distance": 4.427763
+        },
+        {
+          "residue": 403,
+          "atom": "CA",
+          "partnerResidue": 261,
+          "partnerAtom": "O",
+          "distance": 3.429461
+        },
+        {
+          "residue": 404,
+          "atom": "CE2",
+          "partnerResidue": 257,
+          "partnerAtom": "O",
+          "distance": 2.145668
+        },
+        {
+          "residue": 405,
+          "atom": "N",
+          "partnerResidue": 261,
+          "partnerAtom": "O",
+          "distance": 4.376094
+        },
+        {
+          "residue": 406,
+          "atom": "ND1",
+          "partnerResidue": 263,
+          "partnerAtom": "CD",
+          "distance": 2.764594
+        },
+        {
+          "residue": 407,
+          "atom": "NE1",
+          "partnerResidue": 257,
+          "partnerAtom": "CA",
+          "distance": 1.427454
+        }
+      ]
+    },
+    "end": {
+      "chain": "A",
+      "partnerChain": "B",
+      "operator": "14",
+      "residues": [
+        1,
+        2,
+        130,
+        131,
+        133,
+        163,
+        199,
+        245,
+        246,
+        247,
+        248,
+        249,
+        251,
+        253,
+        254,
+        256,
+        257,
+        258,
+        260,
+        261,
+        262,
+        263,
+        314,
+        315,
+        324,
+        325,
+        326,
+        327,
+        329,
+        336,
+        346,
+        347,
+        348,
+        349,
+        350,
+        351,
+        352,
+        353,
+        434,
+        435,
+        437
+      ],
+      "ranges": [
+        [
+          1,
+          2
+        ],
+        [
+          130,
+          131
+        ],
+        [
+          133,
+          133
+        ],
+        [
+          163,
+          163
+        ],
+        [
+          199,
+          199
+        ],
+        [
+          245,
+          249
+        ],
+        [
+          251,
+          251
+        ],
+        [
+          253,
+          254
+        ],
+        [
+          256,
+          258
+        ],
+        [
+          260,
+          263
+        ],
+        [
+          314,
+          315
+        ],
+        [
+          324,
+          327
+        ],
+        [
+          329,
+          329
+        ],
+        [
+          336,
+          336
+        ],
+        [
+          346,
+          353
+        ],
+        [
+          434,
+          435
+        ],
+        [
+          437,
+          437
+        ]
+      ],
+      "direction": [
+        -0.45610087128437726,
+        -0.17247037320686331,
+        40.95877484745404
+      ],
+      "witnesses": [
+        {
+          "residue": 1,
+          "atom": "N",
+          "partnerResidue": 96,
+          "partnerAtom": "NE2",
+          "distance": 3.825024
+        },
+        {
+          "residue": 2,
+          "atom": "NH1",
+          "partnerResidue": 71,
+          "partnerAtom": "OE1",
+          "distance": 2.633947
+        },
+        {
+          "residue": 130,
+          "atom": "C",
+          "partnerResidue": 96,
+          "partnerAtom": "OE1",
+          "distance": 3.315237
+        },
+        {
+          "residue": 131,
+          "atom": "N",
+          "partnerResidue": 96,
+          "partnerAtom": "OE1",
+          "distance": 3.213133
+        },
+        {
+          "residue": 133,
+          "atom": "NE2",
+          "partnerResidue": 96,
+          "partnerAtom": "O",
+          "distance": 3.248972
+        },
+        {
+          "residue": 163,
+          "atom": "NZ",
+          "partnerResidue": 109,
+          "partnerAtom": "CG2",
+          "distance": 4.333936
+        },
+        {
+          "residue": 199,
+          "atom": "OD2",
+          "partnerResidue": 407,
+          "partnerAtom": "CH2",
+          "distance": 3.94619
+        },
+        {
+          "residue": 245,
+          "atom": "OD2",
+          "partnerResidue": 77,
+          "partnerAtom": "CB",
+          "distance": 4.010847
+        },
+        {
+          "residue": 246,
+          "atom": "O",
+          "partnerResidue": 11,
+          "partnerAtom": "NE2",
+          "distance": 3.757427
+        },
+        {
+          "residue": 247,
+          "atom": "CB",
+          "partnerResidue": 224,
+          "partnerAtom": "CD1",
+          "distance": 3.63919
+        },
+        {
+          "residue": 248,
+          "atom": "CD1",
+          "partnerResidue": 224,
+          "partnerAtom": "OH",
+          "distance": 3.022816
+        },
+        {
+          "residue": 249,
+          "atom": "N",
+          "partnerResidue": 11,
+          "partnerAtom": "NE2",
+          "distance": 3.21238
+        },
+        {
+          "residue": 251,
+          "atom": "OD1",
+          "partnerResidue": 98,
+          "partnerAtom": "CA",
+          "distance": 3.505999
+        },
+        {
+          "residue": 253,
+          "atom": "OG1",
+          "partnerResidue": 100,
+          "partnerAtom": "N",
+          "distance": 3.383679
+        },
+        {
+          "residue": 254,
+          "atom": "OE1",
+          "partnerResidue": 101,
+          "partnerAtom": "ND2",
+          "distance": 3.409143
+        },
+        {
+          "residue": 256,
+          "atom": "O",
+          "partnerResidue": 407,
+          "partnerAtom": "NE1",
+          "distance": 2.794216
+        },
+        {
+          "residue": 257,
+          "atom": "OG1",
+          "partnerResidue": 100,
+          "partnerAtom": "O",
+          "distance": 2.572115
+        },
+        {
+          "residue": 258,
+          "atom": "ND2",
+          "partnerResidue": 101,
+          "partnerAtom": "ND2",
+          "distance": 3.082257
+        },
+        {
+          "residue": 260,
+          "atom": "O",
+          "partnerResidue": 407,
+          "partnerAtom": "NE1",
+          "distance": 2.920814
+        },
+        {
+          "residue": 261,
+          "atom": "O",
+          "partnerResidue": 404,
+          "partnerAtom": "N",
+          "distance": 2.652008
+        },
+        {
+          "residue": 262,
+          "atom": "OH",
+          "partnerResidue": 401,
+          "partnerAtom": "O",
+          "distance": 2.683008
+        },
+        {
+          "residue": 263,
+          "atom": "N",
+          "partnerResidue": 406,
+          "partnerAtom": "CE1",
+          "distance": 2.852662
+        },
+        {
+          "residue": 314,
+          "atom": "CB",
+          "partnerResidue": 404,
+          "partnerAtom": "CZ",
+          "distance": 3.982071
+        },
+        {
+          "residue": 315,
+          "atom": "O",
+          "partnerResidue": 181,
+          "partnerAtom": "CG2",
+          "distance": 4.086433
+        },
+        {
+          "residue": 324,
+          "atom": "CG1",
+          "partnerResidue": 222,
+          "partnerAtom": "O",
+          "distance": 2.915348
+        },
+        {
+          "residue": 325,
+          "atom": "CG",
+          "partnerResidue": 224,
+          "partnerAtom": "CE1",
+          "distance": 3.013653
+        },
+        {
+          "residue": 326,
+          "atom": "NZ",
+          "partnerResidue": 220,
+          "partnerAtom": "O",
+          "distance": 2.98021
+        },
+        {
+          "residue": 327,
+          "atom": "OD1",
+          "partnerResidue": 220,
+          "partnerAtom": "O",
+          "distance": 3.985499
+        },
+        {
+          "residue": 329,
+          "atom": "ND2",
+          "partnerResidue": 210,
+          "partnerAtom": "CE1",
+          "distance": 3.077053
+        },
+        {
+          "residue": 336,
+          "atom": "NZ",
+          "partnerResidue": 176,
+          "partnerAtom": "O",
+          "distance": 2.507097
+        },
+        {
+          "residue": 346,
+          "atom": "O",
+          "partnerResidue": 398,
+          "partnerAtom": "CG",
+          "distance": 2.895088
+        },
+        {
+          "residue": 347,
+          "atom": "CA",
+          "partnerResidue": 398,
+          "partnerAtom": "CG",
+          "distance": 3.895054
+        },
+        {
+          "residue": 348,
+          "atom": "CG",
+          "partnerResidue": 394,
+          "partnerAtom": "CG",
+          "distance": 3.521745
+        },
+        {
+          "residue": 349,
+          "atom": "OG1",
+          "partnerResidue": 181,
+          "partnerAtom": "O",
+          "distance": 3.190411
+        },
+        {
+          "residue": 350,
+          "atom": "N",
+          "partnerResidue": 178,
+          "partnerAtom": "OG",
+          "distance": 3.888114
+        },
+        {
+          "residue": 351,
+          "atom": "O",
+          "partnerResidue": 180,
+          "partnerAtom": "CA",
+          "distance": 3.099838
+        },
+        {
+          "residue": 352,
+          "atom": "CA",
+          "partnerResidue": 179,
+          "partnerAtom": "O",
+          "distance": 3.033427
+        },
+        {
+          "residue": 353,
+          "atom": "N",
+          "partnerResidue": 179,
+          "partnerAtom": "O",
+          "distance": 3.168271
+        },
+        {
+          "residue": 434,
+          "atom": "O",
+          "partnerResidue": 401,
+          "partnerAtom": "NH1",
+          "distance": 3.737822
+        },
+        {
+          "residue": 435,
+          "atom": "O",
+          "partnerResidue": 401,
+          "partnerAtom": "NH1",
+          "distance": 4.324395
+        },
+        {
+          "residue": 437,
+          "atom": "O",
+          "partnerResidue": 401,
+          "partnerAtom": "NH1",
+          "distance": 3.385851
+        }
+      ]
+    },
+    "side-alpha": {
+      "chain": "A",
+      "partnerChain": "A",
+      "operator": "15",
+      "residues": [
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285
+      ],
+      "ranges": [
+        [
+          279,
+          285
+        ]
+      ],
+      "direction": [
+        52.9024865615811,
+        -7.001196763020914,
+        9.480000000000416
+      ],
+      "witnesses": [
+        {
+          "residue": 279,
+          "atom": "OE2",
+          "partnerResidue": 89,
+          "partnerAtom": "CG",
+          "distance": 2.019212
+        },
+        {
+          "residue": 280,
+          "atom": "O",
+          "partnerResidue": 88,
+          "partnerAtom": "CE1",
+          "distance": 3.2301
+        },
+        {
+          "residue": 281,
+          "atom": "C",
+          "partnerResidue": 88,
+          "partnerAtom": "CE1",
+          "distance": 4.221221
+        },
+        {
+          "residue": 282,
+          "atom": "C",
+          "partnerResidue": 88,
+          "partnerAtom": "NE2",
+          "distance": 1.381257
+        },
+        {
+          "residue": 283,
+          "atom": "CB",
+          "partnerResidue": 88,
+          "partnerAtom": "CG",
+          "distance": 0.678987
+        },
+        {
+          "residue": 284,
+          "atom": "OE1",
+          "partnerResidue": 90,
+          "partnerAtom": "OE1",
+          "distance": 2.703402
+        },
+        {
+          "residue": 285,
+          "atom": "OE1",
+          "partnerResidue": 128,
+          "partnerAtom": "OE1",
+          "distance": 2.092806
+        }
+      ]
+    },
+    "side-beta": {
+      "chain": "B",
+      "partnerChain": "B",
+      "operator": "15",
+      "residues": [
+        218,
+        279,
+        280,
+        282,
+        283,
+        284,
+        285,
+        297,
+        338
+      ],
+      "ranges": [
+        [
+          218,
+          218
+        ],
+        [
+          279,
+          280
+        ],
+        [
+          282,
+          285
+        ],
+        [
+          297,
+          297
+        ],
+        [
+          338,
+          338
+        ]
+      ],
+      "direction": [
+        52.874586984810946,
+        -6.769415782219994,
+        9.479999999999222
+      ],
+      "witnesses": [
+        {
+          "residue": 218,
+          "atom": "CE",
+          "partnerResidue": 90,
+          "partnerAtom": "OD1",
+          "distance": 3.760922
+        },
+        {
+          "residue": 279,
+          "atom": "O",
+          "partnerResidue": 89,
+          "partnerAtom": "CG",
+          "distance": 4.247469
+        },
+        {
+          "residue": 280,
+          "atom": "CB",
+          "partnerResidue": 89,
+          "partnerAtom": "CG",
+          "distance": 3.964651
+        },
+        {
+          "residue": 282,
+          "atom": "CD",
+          "partnerResidue": 60,
+          "partnerAtom": "NZ",
+          "distance": 1.845842
+        },
+        {
+          "residue": 283,
+          "atom": "CE1",
+          "partnerResidue": 89,
+          "partnerAtom": "CD",
+          "distance": 1.060631
+        },
+        {
+          "residue": 284,
+          "atom": "O",
+          "partnerResidue": 56,
+          "partnerAtom": "CB",
+          "distance": 3.331209
+        },
+        {
+          "residue": 285,
+          "atom": "CB",
+          "partnerResidue": 56,
+          "partnerAtom": "CA",
+          "distance": 3.797121
+        },
+        {
+          "residue": 297,
+          "atom": "OD2",
+          "partnerResidue": 124,
+          "partnerAtom": "NZ",
+          "distance": 4.167235
+        },
+        {
+          "residue": 338,
+          "atom": "NZ",
+          "partnerResidue": 127,
+          "partnerAtom": "OE2",
+          "distance": 2.948852
+        }
+      ]
+    }
+  }
+}

@@ -249,6 +249,7 @@ test('source replacement retains comparison and styles through the first candida
     // its stub runs the real emphasis pass.
     currentSelectionPlan: () => undefined,
     async paintSelectionOverlay() {},
+    now:()=>0,recordCost(){},
     composeOverpaintLayers, selectionOverpaintLayer,state:{},retainedRepresentationCount:0,styleLayers:previous.styleLayers,assertLoad(){},markRecord(){},checkpoint:async()=>{},
     plugin:{state:{data:{updateCellState:ref=>shown.push(ref)}}},
     canvas:{xr:{isPresenting:{value:true}},remove:repr=>removed.push(repr),commit(){}},

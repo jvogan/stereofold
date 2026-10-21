@@ -1,5 +1,18 @@
-import { toolbarSeatBasis, HALF_IPD_METERS, EYE_HALF_FIELD_DEGREES,
-  EYE_HALF_FIELD_VERTICAL_DEGREES, PANEL_FRAME_MARGIN_DEGREES } from './spatial-toolbar-geometry.mjs';
+import { toolbarSeatBasis, HALF_IPD_METERS, VIEW_BAND_TAN_HORIZONTAL,
+  VIEW_BAND_TAN_VERTICAL } from './spatial-toolbar-geometry.mjs';
+import { applyMatrix4 } from './room-lock.mjs';
+
+/** All drawn points through each current eye's actual projection. */
+export function menuSeatInEyeViews(points, views, renderFromRoom) {
+  if (!views?.length || !renderFromRoom) return true;
+  return points?.length > 0 && views.every(view => points.every(point => {
+    const eye = applyMatrix4(applyMatrix4(point, renderFromRoom), view.transform.inverse.matrix);
+    const p = view.projectionMatrix;
+    const clip = row => eye.reduce((sum, v, i) => sum + p[i * 4 + row] * v, p[12 + row]);
+    const w = clip(3);
+    return w > 1e-6 && Math.abs(clip(0)) <= w && Math.abs(clip(1)) <= w;
+  }));
+}
 
 /** Test the committed glass against both eyes in the menu's upright design frame.
  * A wearer summon checks this before drawing a new seat. Host redraws leave
@@ -8,8 +21,8 @@ import { toolbarSeatBasis, HALF_IPD_METERS, EYE_HALF_FIELD_DEGREES,
 export function menuSeatWithinView(points, head) {
   const basis = toolbarSeatBasis(head);
   if (!basis || !points?.length) return false;
-  const horizontal = Math.tan((EYE_HALF_FIELD_DEGREES - PANEL_FRAME_MARGIN_DEGREES) * Math.PI / 180);
-  const vertical = Math.tan((EYE_HALF_FIELD_VERTICAL_DEGREES - PANEL_FRAME_MARGIN_DEGREES) * Math.PI / 180);
+  // The band `captionEnvelope` fits the card glass inside, so the two agree.
+  const horizontal = VIEW_BAND_TAN_HORIZONTAL, vertical = VIEW_BAND_TAN_VERTICAL;
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   for (const side of [-1, 1]) for (const point of points) {
     const relative = point.map((value, axis) => value - basis.origin[axis] - side * HALF_IPD_METERS * basis.right[axis]);

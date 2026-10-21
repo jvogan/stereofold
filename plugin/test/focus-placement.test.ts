@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 // @ts-ignore Shared XR focus placement maths.
 import { FOCUS_FRAMINGS, GROWTH_TILT_DEGREES, GROWTH_TURN_MAX_MS, GROWTH_TURN_MIN_MS, GROWTH_WALL_AZIMUTH_DEGREES, focusPlacement, focusRotation, focusTravel, growthTurnDurationMs, longestAxis, obliqueGrowthTurn } from '../../lab/browser-roundtrip/focus-placement.mjs';
@@ -7,6 +8,8 @@ import { ASSEMBLY_LENS_FRACTION, PLATE_NEAR_FALLBACK_METRES, PLATE_STANDOFF_METR
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra';
 // @ts-ignore Shared lens geometry.
 import { EYE_TAN_HALF_HORIZONTAL, EYE_TAN_HALF_VERTICAL } from '../../lab/browser-roundtrip/spatial-toolbar-geometry.mjs';
+// @ts-ignore Shared numerical placement guardrail.
+import { PLACEMENT_MIN_SCALE } from '../../lab/browser-roundtrip/placement-limits.mjs';
 
 const identity = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
 const head = [...identity.slice(0,12), 0, 1.6, 0, 1];
@@ -212,15 +215,15 @@ describe('framing one region for the wearer without moving their head', () => {
     expect(() => focusPlacement({ ...base, radius: 1e-6, framing: 'fill' })).toThrow(/placement range/);
   });
 
-  it.each([1e-4, 1, 1e4])('keeps physical framing invariant when source units change by %s', factor => {
+  it.each([1e-4, 1, 1e4])('keeps physical framing invariant when normalized source units change by %s', factor => {
     const input = { ...base, radius: base.radius * factor, targetRadius: base.targetRadius * factor,
+      cameraScale: base.cameraScale / factor,
       placement: { translation: [12, -15, 20], rotation: [0, 90, 0], scale: 12 } };
     const reference = focusPlacement({ ...base, framing: 'fill' });
     const placed = focusPlacement({ ...input, framing: 'fill' });
-    expect(placed.cameraScale).toBe(base.cameraScale);
-    expect(placed.usedCameraScale).toBe(false);
-    expect(placed.scale * factor).toBeCloseTo(reference.scale, 9);
-    placed.translation.forEach((value: number, i: number) => expect(value * factor).toBeCloseTo(reference.translation[i], 8));
+    expect(placed.scale).toBeGreaterThanOrEqual(.01);
+    expect(placed.scale).toBeCloseTo(reference.scale, 9);
+    expect(placed.cameraScale).toBe(base.cameraScale / factor);
     placedInRoom(input, placed).forEach((value: number, i: number) => expect(value).toBeCloseTo(placedInRoom(base, reference)[i], 8));
     expect(placed.standoff.clears).toBe(true);
     expect(placed.standoff.assembly.assemblyWide).toBeCloseTo(reference.standoff.assembly.assemblyWide, 9);
@@ -228,7 +231,7 @@ describe('framing one region for the wearer without moving their head', () => {
 
   it('uses scene scale only after exhausting the shared numerical scale range', () => {
     const placed = focusPlacement({ ...base, radius: 1e9, targetRadius: 1e9, elevationDegrees: 0, framing: 'fill' });
-    expect(placed.scale).toBe(1e-6);
+    expect(placed.scale).toBe(PLACEMENT_MIN_SCALE);
     expect(placed.usedCameraScale).toBe(true);
     expect(placed.standoff.clears).toBe(true);
     expect(placed.angleDegrees).toBeCloseTo(focusPlacement({ ...huge, elevationDegrees: 0, framing: 'fill' }).angleDegrees, 9);
@@ -616,7 +619,13 @@ describe('the viewer spends the turn on a landed tier only', () => {
 
   it('owes a turn after a source swap that kept the room placement', () => {
     expect(viewer).toContain("inspectionState.place(sourceAnchor.placement, 'source-transition');");
-    expect(viewer).toContain('pendingGrowthTurn = true;');
+    const pending = viewer.match(/pendingGrowthTurn = !sourceAnchor\.preservesCoordinateFrame;/)?.[0];
+    expect(pending).toBeDefined();
+    for (const preservesCoordinateFrame of [false, true]) {
+      const context = { sourceAnchor: { preservesCoordinateFrame }, pendingGrowthTurn: false };
+      vm.runInNewContext(pending!, context);
+      expect(context.pendingGrowthTurn).toBe(!preservesCoordinateFrame);
+    }
   });
 
   it('spends it on the next framing and never on the chapter after that', () => {
@@ -756,7 +765,13 @@ describe('the viewer lands a grown tier with the new key, face and clearance', (
   it('twists whole-structure growth landings by the wall azimuth', () => {
     const focus = viewer.slice(viewer.indexOf('const owedTurn = pendingGrowthTurn'), viewer.indexOf("await bakeGrab({ gesture: 'focus' })"));
     expect(focus).toContain('azimuthDegrees: GROWTH_WALL_AZIMUTH_DEGREES');
-    expect(focus).toContain('captionPoints: captions');
+    // Stable atomic lesson glass is fitted jointly after the natural frame;
+    // density and other landings still avoid the current caption directly.
+    expect(focus).toContain('const jointLessonGlass = !volume && offeredSeats.some(seat => seat.stableLesson)');
+    expect(focus).toContain('captionPoints: jointLessonGlass ? [] : captions');
+    expect(focus).toContain('menuPoints: jointLessonGlass ? [] : menus');
+    expect(focus).toContain('menuPoints: seat.points, menuGlass: seat.glass');
+    expect(focus).toContain('fitChapterField({ ...glassFor(seat), clearanceOnly: true');
   });
 
   it('records the landing azimuth beside the tilt and the roll', () => {

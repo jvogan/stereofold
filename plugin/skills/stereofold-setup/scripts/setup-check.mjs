@@ -238,7 +238,14 @@ export function discover({
   const root = findRoot({ env, start, exists: hasDirectory, hasFile });
   const nodeMajor = Number.parseInt(String(nodeVersion).split('.')[0] ?? '', 10);
 
-  const runtime = root == null ? RUNTIME_FILES.slice() : RUNTIME_FILES.filter((file) => !hasFile(join(root, file)));
+  let runtimeFiles = RUNTIME_FILES;
+  if (root != null) {
+    try {
+      if (readFileSync(join(root, 'dist/inspector.html'), 'utf8').includes('STEREOFOLD_INSPECTOR_SCRIPT_'))
+        runtimeFiles = [...RUNTIME_FILES, 'dist/inspector-script-1.js', 'dist/inspector-script-2.js'];
+    } catch { /* The ordinary missing-file check reports unreadable HTML. */ }
+  }
+  const runtime = root == null ? RUNTIME_FILES.slice() : runtimeFiles.filter((file) => !hasFile(join(root, file)));
   const kind = root == null ? 'none' : 'release artifact';
   let mcpEntry;
   if (root != null) {

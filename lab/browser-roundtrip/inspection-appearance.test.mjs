@@ -12,6 +12,7 @@ import { loadAppearanceStructure, themePlugin, themes, createStructureRepresenta
   StructureElement, StructureProperties, Bond, appearanceRenderHarness } from './appearance-render-harness.mjs';
 import { viewerSource } from './render-dedupe-harness.mjs';
 import { emptyLessonFigureBinding } from './fixtures/empty-lesson-figure.mjs';
+import { residueRunPlate } from './residue-label-plates.mjs';
 
 let structure;
 before(async () => { structure = await loadAppearanceStructure(); });
@@ -296,7 +297,7 @@ test('a residue label that fails to build takes its component off the state tree
       selection: { rows: [{ key: 'k', coordinateState: 'resolved', atomSites: [{}] }], toLoci: () => ({}) },
       structure: {}, state: { selectionKeys: ['k'] }, hiddenSceneKeySet: () => new Set(), canvas: { xr: { isPresenting: { value: true } } },
       LABEL_CHARACTER_DEGREES: { comfortable: 1 }, xrLabelSizing: () => { throw labelFailure(); },
-      inspectionLabel: undefined, applyInspectionTransform() {},
+      inspectionLabel: undefined, applyInspectionTransform() {}, residueRunPlate,
       plugin: {
         builders: { structure: { tryCreateComponentFromSelection: async () => { cells.set('labels', {}); return { ref: 'labels' }; } } },
         state: { data: { cells, build: () => ({ delete: ref => ({ async commit() {

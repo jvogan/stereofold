@@ -1,13 +1,15 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { toolbarFrameRuntime, toolbarFrameHarness, identity } from './fixtures/toolbar-frame-runtime.mjs';
 import { watchFrameCost } from './xr-render-budget.mjs';
+import { menuSeatWithinView } from './menu-view-band.mjs';
 import { toolbarSeatBasis } from './spatial-toolbar-geometry.mjs';
 import { ENTRY_SUBJECT_LENS } from './entry-menu-seat.mjs';
 import { lensRect, lensRectFromPoints, lensRectsOverlap, PLATE_CLEARANCE_LENS } from './plate-standoff.mjs';
 
 test('the published quiet Menu row opens a real figure appearance control before style selection', async () => {
-  const runtime = await toolbarFrameRuntime();
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
   const h = toolbarFrameHarness(runtime, { state: {
     voice: { state: 'idle' }, appearance: { representation: 'cartoon' }, lessonFigure: { layers: [{}] },
     representations: ['cartoon', 'spacefill', 'molecular-surface'],
@@ -32,7 +34,7 @@ test('the published quiet Menu row opens a real figure appearance control before
 });
 
 test('steady XR frames do not rebuild geometry or compare menu footprints', async t => {
-  const runtime = await toolbarFrameRuntime();
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
   let ready = false, solves = 0;
   const timers = new Map();
   const resolver = runtime.createMenuResolve({ solve: () => { solves++; }, now: () => 0,
@@ -50,7 +52,7 @@ test('steady XR frames do not rebuild geometry or compare menu footprints', asyn
     const subject = lensRect({ x: 0, y: 0, halfWidth: ENTRY_SUBJECT_LENS, halfHeight: ENTRY_SUBJECT_LENS });
     // Compact entry is intentionally peripheral: central molecular framing
     // stays clear and the wearer turns left to read the full panel.
-    assert.equal(lensRectsOverlap(drawn, subject, PLATE_CLEARANCE_LENS), false);
+    assert.ok(menuSeatWithinView(h.toolbar.platePoints(), h.toolbar.head()), 'the full inboard panel is visible before frame-cost checks');
     assert.ok(drawn.right < 0, 'the actual glass remains left of the subject');
     resolver.seed(h.toolbar.menuPoints());
     ready = true;
@@ -106,7 +108,7 @@ test('steady XR frames do not rebuild geometry or compare menu footprints', asyn
 });
 
 test('menu depth reuses exact local outlines while projecting both current eyes and rebuilding for a new panel', async () => {
-  const runtime = await toolbarFrameRuntime();
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
   const h = toolbarFrameHarness(runtime, { state: { subject: { title: 'A custom local structure' } } });
   try {
     await h.toolbar.update(); runtime.reset();
@@ -145,7 +147,7 @@ test('menu depth reuses exact local outlines while projecting both current eyes 
 });
 
 test('frame-cost counts animation callbacks rather than eyes or unique XR frames', async () => {
-  const runtime = await toolbarFrameRuntime();
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
   const callbacks = [], records = [];
   let time = 0, poseSyncs = 0;
   const session = { requestAnimationFrame: callback => { callbacks.push(callback); return callbacks.length; } };
@@ -166,4 +168,70 @@ test('frame-cost counts animation callbacks rather than eyes or unique XR frames
     assert.equal('fps' in records[0], false);
     assert.equal('frames' in records[0], false);
   } finally { cost.stop(); observer.restore(); }
+});
+
+test('connected assistant status changes existing menu text once and stays out of steady frames', async () => {
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
+  runtime.assistantStatus.update({ assistant:'Claude', connected:true });
+  const h = toolbarFrameHarness(runtime);
+  try {
+    await h.toolbar.update();
+    const before = h.toolbar.platePoints();
+    const basis=toolbarSeatBasis(h.toolbar.head());
+    const glass=lensRectFromPoints({points:before,origin:basis.origin,basis});
+    const molecule=lensRect({x:0,y:0,halfWidth:ENTRY_SUBJECT_LENS,halfHeight:ENTRY_SUBJECT_LENS});
+    assert.ok(menuSeatWithinView(before, h.toolbar.head()), 'status fits inside both eyes');
+    assert.ok(h.toolbar.readoutText().some(text => text.includes('Claude')));
+    runtime.assistantStatus.update({ microphone:'listening' });
+    await h.toolbar.update();
+    assert.ok(h.toolbar.readoutText().includes('Listening...'));
+    assert.deepEqual(h.toolbar.platePoints(),before,'status text has a fixed footprint');
+    runtime.assistantStatus.update({heard:'pause animation',action:{status:'rendered',id:'pause',source:'Claude',text:'paused animation'}});
+    await h.toolbar.update();
+    assert.ok(runtime.assistantStatus.lines().includes('Claude: paused animation'),
+      'narrow status keeps the complete action in state while showing one line');
+    runtime.reset();
+    for(let i=0;i<72;i++)runtime.assistantStatus.update({assistant:'Claude',connected:true});
+    assert.equal(runtime.counts.ShapeRepresentation ?? 0,0);
+    assert.equal(runtime.counts.toolbarRepresentationUpdates ?? 0,0);
+  } finally {await h.toolbar.dispose();}
+});
+
+test('changed gallery geometry revalidates clearance without re-uploading identical quiet glass',async()=>{
+  const runtime=await toolbarFrameRuntime();let geometry=0,proofs=0,adds=0,commits=0;
+  const state=step=>({voice:{state:'idle'},subject:{title:`Source ${step}`},tour:{selectedId:'gallery',active:true,autoplay:true,
+    captionCard:'hidden',step,total:17,canNext:true,canBack:step>0,title:`Design ${step}`,body:`Details ${step}`}});
+  const h=toolbarFrameHarness(runtime,{state:state(0),getEntryGeometry:()=>({clearanceKey:String(geometry)}),
+    beforeMenuDraw:async()=>{proofs++;},presentation:{add(){adds++;}},onRepresentationChange:()=>{commits++;}});
+  try{
+    await h.toolbar.update();assert.deepEqual(h.toolbar.rows().map(row=>row.label),['Talk','Pause','Next','Menu']);
+    const points=h.toolbar.glassPlates(),anchor=h.toolbar.seatAnchor(),beforeProofs=proofs,beforeAdds=adds,beforeCommits=commits;
+    runtime.reset();
+    for(let step=1;step<=4;step++){geometry++;h.setState(state(step));await h.toolbar.update();
+      assert.deepEqual(h.toolbar.glassPlates(),points);assert.deepEqual(h.toolbar.seatAnchor(),anchor);}
+    assert.equal(proofs,beforeProofs+4,'each new molecular envelope still receives the normal clearance check');
+    assert.equal(adds,beforeAdds,'unchanged glass never re-enters presentation.add/scene.commit');
+    assert.equal(commits,beforeCommits);assert.equal(runtime.counts.ShapeRepresentation??0,0,'no new atlas/text/plate representations');
+    assert.equal(runtime.counts.toolbarRepresentationUpdates??0,0,'no geometry upload tasks');
+    h.setState({...state(4),voice:{state:'sending'}});await h.toolbar.update();
+    assert.ok(adds>beforeAdds,'a changed voice label still paints');
+  }finally{await h.toolbar.dispose();}
+});
+
+test('unchanged sequence geometry refreshes source/version action bindings and preserves visual state changes',async()=>{
+  const runtime=await toolbarFrameRuntime(),actions=[];let adds=0;
+  const state=(binding,version,patch={})=>({voice:{state:'idle'},sequence:{open:true,rows:[{id:'residue',label:'A:1',
+    action:{kind:'sequence',op:'select',binding,version},...patch}]}});
+  const h=toolbarFrameHarness(runtime,{state:state('old-source',1),onAction:async action=>{actions.push(action);},presentation:{add(){adds++;}}});
+  try{
+    await h.toolbar.update();const initialAdds=adds;runtime.reset();
+    h.setState(state('new-source',2));await h.toolbar.update();
+    assert.equal(adds,initialAdds);assert.equal(runtime.counts.ShapeRepresentation??0,0);
+    assert.equal(h.toolbar.aimSynthetic({id:'residue'}).fired,true);await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(actions.at(-1),{kind:'sequence',op:'select',binding:'new-source',version:2});
+    for(const patch of [{state:true},{accent:true},{label:'A:2'}]){
+      const before=adds;h.setState(state('new-source',2,patch));await h.toolbar.update();
+      assert.ok(adds>before,'disabled/accent/label changes retain their real draw');
+    }
+  }finally{await h.toolbar.dispose();}
 });

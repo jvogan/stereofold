@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { pageFunction } from './fixtures/label-action-harness.mjs';
-import { createVisibleStageBoundsCache } from './visible-stage-bounds.mjs';
+import { createDrawnSubsetCache, createVisibleStageBoundsCache } from './visible-stage-bounds.mjs';
+import { normalizeVisibility } from './inspection-visibility.mjs';
 
 const viewer = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
 
@@ -120,4 +121,42 @@ test('the production pivot follows adopted stages and falls back to the current 
   context.sourceRecord = {};
   context.loadedSphere = () => ({ center: [-20, 6, 4], radius: 90 });
   assert.deepEqual(Array.from(context.pivotCenter()), [-20, 6, 4]);
+});
+
+test('the drawn subset drops hidden chains and unshown selections, and rescans only when one of them changes', () => {
+  let reads = 0;
+  const rows = Array.from({ length: 300 }, (_, residue) => ({
+    key: `r${residue}`, entityType: 'polymer',
+    identity: { entityId: '1', labelChain: ['A', 'B', 'C'][Math.floor(residue / 100)], copyId: '1', operatorIds: ['1'] },
+    atomSites: [{ get assemblyCoordinatesAngstrom() { reads++; return [residue, residue % 7, 0]; } }],
+  }));
+  const drawn = createDrawnSubsetCache();
+  let visibility = normalizeVisibility({ hiddenChains: [{ labelChain: 'B', copyId: '1' }] });
+  let selectionKeys = ['r10', 'r250'];
+  const read = (visible = undefined) => drawn({ rows, visible, visibility, selectionKeys });
+  const hidden = read();
+  assert.deepEqual(hidden.center, [149.5, 3, 0], 'chains A and C span the same box');
+  assert.equal(hidden.keys.length, 200);
+  assert.equal(reads, 200);
+  // Turn ticks, a changed selection that is not shown alone, and a cloned
+  // stage read the cached rows.
+  for (let tick = 0; tick < 100; tick++) assert.equal(read().keys, hidden.keys);
+  selectionKeys = ['r11'];
+  assert.equal(read().keys, hidden.keys);
+  assert.equal(reads, 200);
+  assert.deepEqual(read({ labelChains: ['A'] }).center, [49.5, 3, 0], 'the stage still filters');
+  assert.equal(read({ labelChains: ['A'] }).keys, read(structuredClone({ labelChains: ['A'] })).keys);
+  assert.equal(read({ labelChains: ['B'] }), undefined, 'a stage that is all hidden draws nothing');
+  visibility = normalizeVisibility({ ...visibility, showOnlySelection: true });
+  selectionKeys = ['r10', 'r250'];
+  assert.deepEqual(read().center, [130, 4, 0]);
+  assert.deepEqual(read().keys, ['r10', 'r250']);
+  const before = reads;
+  selectionKeys = [...selectionKeys];
+  read();
+  assert.equal(reads, before + 2, 'a new selection is rescanned while only the selection is shown');
+  const copy = read();
+  copy.center[0] = 999;
+  assert.deepEqual(read().center, [130, 4, 0], 'callers cannot edit the cached box');
+  assert.equal(drawn({ rows: null, visibility, selectionKeys }), undefined);
 });

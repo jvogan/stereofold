@@ -110,12 +110,20 @@ describe('the first save of a density session, from each of its two renderers', 
     // that block is what makes `sync_inspection` check against the map.
     const state = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
     expect(state.density).toMatchObject({ sha256: mapSha256, contour: CONTOUR });
-    // And the desktop draws the coordinates, because that is all it is handed.
-    // The `/density` descriptor is added by `InspectionCompanionHttp` on the
-    // companion's own hydration; a desktop panel never sees the map at all,
-    // and `inspector.ts` takes its `loadedSha256` from the catalog.
-    expect(session.data.density).toBeUndefined();
-    expect(session.data.mapBytes).toBeUndefined();
+    // The desktop needs the map's identity to avoid starting density chapters
+    // on reference atoms. `bytes` is only a count: neither hydration transport
+    // may contain the map or a URL to fetch it. Only the companion adds /density.
+    const chunked = (await session.call('get_inspection', { sessionId: session.sessionId,
+      transport: 'chunked' }))._meta[PRIVATE_KEY];
+    for (const data of [session.data, chunked]) {
+      expect(data.density).toEqual({ sha256: mapSha256, bytes: map.byteLength, contour: CONTOUR });
+      expect(data.density.url).toBeUndefined();
+      expect(data.mapBytes).toBeUndefined();
+      expect(data.mapSha256).toBeUndefined();
+      expect(data.mapContour).toBeUndefined();
+    }
+    // Without map bytes, inspector.ts draws the coordinates and takes its
+    // loadedSha256 from the catalog, as the desktop save below verifies.
     expect(typeof session.data.structureText).toBe('string');
 
     const desktop = { sourceSha256: catalog.source.sha256, modelNumber: catalog.modelNumbers[0],
@@ -151,6 +159,135 @@ describe('the first save of a density session, from each of its two renderers', 
     expect((headset as Record<string, unknown>).assemblyId).toBe('map');
     const saved = (await session.call('sync_inspection', { ...session.binding, scene: headset })).structuredContent;
     expect(saved.saved).toBe(true);
+  });
+
+  it('keeps the shared map authoritative when its reference-atoms desktop follows or edits', async () => {
+    const session = await setup(); cleanups.push(session.close);
+    const catalog = session.data.catalog;
+    const desktop = { sourceSha256: catalog.source.sha256, modelNumber: catalog.modelNumbers[0],
+      assemblyId: catalog.assemblyId, selectionKeys: [], ...body };
+    const mapScene = { ...volumeSceneIdentity({ sha256: mapSha256 }), selectionKeys: [], ...body,
+      inspection: { ...body.inspection, appearance: { ...body.inspection.appearance, representation: 'isosurface' } } };
+    const at = (state: any) => ({ ...session.binding, baseStateRevision: state.stateRevision,
+      baseInspectionRevision: state.inspectionRevision, sourceToken: state.sourceToken });
+    const initial = (await session.call('sync_inspection', { ...session.binding, scene: desktop })).structuredContent;
+    const firstDesktop = (await session.call('attach_inspection', { ...at(initial), surface: 'desktop' })).structuredContent.panelId;
+    const edited = (await session.call('sync_inspection', { ...at(initial), scene: { ...desktop,
+      inspection: { ...desktop.inspection, placement: { ...desktop.inspection.placement, scale: 1.2 } } } })).structuredContent;
+    expect(edited.history.undoCount).toBe(1);
+    const mapped = (await session.call('sync_inspection', { ...at(edited), scene: mapScene })).structuredContent;
+    const companion = (await session.call('attach_inspection', { ...at(mapped), surface: 'companion' })).structuredContent.panelId;
+    await session.call('poll_inspection', { ...at(mapped), panelId: companion, availability: 'ready' });
+
+    // The desktop began loading before any scene existed, but finishes after
+    // the map. It may refresh its binding without claiming that its atoms saved.
+    const late = await session.call('sync_inspection', { ...session.binding, scene: desktop });
+    expect(late.structuredContent).toMatchObject({ saved: false, referenceOnly: true,
+      inspectionRevision: mapped.inspectionRevision });
+
+    // A late desktop load has the current binding but still draws reference atoms.
+    // Its heartbeat must remain available for a later source replacement, without
+    // presenting it as a renderer of the shared density scene.
+    const following = await session.call('attach_inspection', { ...at(mapped), surface: 'desktop',
+      replacesPanelId: firstDesktop, renderedSourceSha256: desktop.sourceSha256 });
+    expect(following.isError).not.toBe(true);
+    const desktopId = following.structuredContent.panelId;
+    const beat = await session.call('poll_inspection', { ...at(mapped), panelId: desktopId, availability: 'ready' });
+    expect(beat.structuredContent.attached).toBe(true);
+    const before = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
+    expect(before.panels).toContainEqual(expect.objectContaining({ panelId: desktopId, current: false, referenceOnly: true }));
+    expect(before.panels).toContainEqual(expect.objectContaining({ panelId: companion, current: true }));
+    expect(before.history.undoCount).toBe(0);
+
+    const refused = await session.call('sync_inspection', { ...at(mapped), panelId: desktopId, scene: desktop });
+    expect(refused.structuredContent).toMatchObject({ saved: false, referenceOnly: true });
+    expect(refused.structuredContent.reason).toContain('reference coordinates');
+    const after = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
+    expect(after.inspectionRevision).toBe(mapped.inspectionRevision);
+    expect(after.view.assemblyId).toBe('map');
+    expect(after.history.undoCount).toBe(0);
+    const explicit = await session.call('update_inspection', { ...at(mapped), panelId: desktopId,
+      commandId: 'reference-is-not-map', change: { kind: 'placement', patch: { scale: 1.4 } } });
+    expect(explicit.isError).toBe(true);
+    const invalidIdentity = await session.call('attach_inspection', { ...at(mapped), surface: 'desktop',
+      renderedSourceSha256: 'a'.repeat(64) });
+    expect(invalidIdentity.isError).toBe(true);
+    const falseMap = await session.call('attach_inspection', { ...at(mapped), surface: 'desktop',
+      renderedSourceSha256: mapSha256 });
+    expect(falseMap.isError).toBe(true);
+    const queued = await session.call('update_inspection', { sessionId: session.sessionId,
+      commandId: 'map-after-reference', change: { kind: 'placement', patch: { scale: 1.4 } } });
+    expect(queued.isError).not.toBe(true);
+    expect(queued.structuredContent.command.panelId).toBe(companion);
+  });
+
+  it('keeps a pre-map detailed viewer reference-only after it follows the new map revision', async () => {
+    const session = await setup(); cleanups.push(session.close);
+    const catalog = session.data.catalog;
+    const atoms = { sourceSha256: catalog.source.sha256, modelNumber: catalog.modelNumbers[0],
+      assemblyId: catalog.assemblyId, selectionKeys: [], ...body };
+    const mapScene = { ...volumeSceneIdentity({ sha256: mapSha256 }), selectionKeys: [], ...body,
+      inspection: { ...body.inspection, appearance: { ...body.inspection.appearance, representation: 'isosurface' } } };
+    const at = (state: any) => ({ ...session.binding, sourceToken: state.sourceToken,
+      baseStateRevision: state.stateRevision, baseInspectionRevision: state.inspectionRevision });
+    const initial = (await session.call('sync_inspection', { ...session.binding, scene: atoms })).structuredContent;
+    // Mol* can open before the companion adopts the map. Its actual attachment
+    // omits the optional digest; the host knows it loaded reference coordinates.
+    const detailed = (await session.call('attach_inspection', { ...at(initial), surface: 'detailed' })).structuredContent.panelId;
+    const before = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
+    expect(before.panels).toContainEqual(expect.objectContaining({ panelId: detailed, current: true }));
+    const mapped = (await session.call('sync_inspection', { ...at(initial), scene: mapScene })).structuredContent;
+    const companion = (await session.call('attach_inspection', { ...at(mapped), surface: 'companion' })).structuredContent.panelId;
+
+    // The detailed page refreshes its binding on every beat. Following the
+    // revision does not replace its loaded atom coordinates with a volume.
+    const staleBeat = await session.call('poll_inspection', { ...at(initial), panelId: detailed, availability: 'ready' });
+    expect(staleBeat.structuredContent).toMatchObject({ attached: true, inspectionRevision: mapped.inspectionRevision });
+    const refreshedBeat = await session.call('poll_inspection', { ...at(staleBeat.structuredContent), panelId: detailed, availability: 'ready' });
+    expect(refreshedBeat.structuredContent.attached).toBe(true);
+    const after = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
+    expect(after.panels).toContainEqual(expect.objectContaining({ panelId: detailed, current: false, referenceOnly: true }));
+    expect(after.panels).toContainEqual(expect.objectContaining({ panelId: companion, current: true }));
+    const explicit = await session.call('update_inspection', { ...at(mapped), panelId: detailed,
+      commandId: 'detailed-reference-is-not-map', change: { kind: 'appearance', patch: { opacity: 0.8 } } });
+    expect(explicit.isError).toBe(true);
+    const queued = await session.call('update_inspection', { sessionId: session.sessionId,
+      commandId: 'map-after-detailed-reference', change: { kind: 'appearance', patch: { opacity: 0.8 } } });
+    expect(queued.isError, JSON.stringify(queued.content)).not.toBe(true);
+    expect(queued.structuredContent.command.panelId).toBe(companion);
+  });
+
+  it.each(['desktop', 'detailed'] as const)('restores normal %s saves and commands after switching from a map to atoms', async surface => {
+    const session = await setup(); cleanups.push(session.close);
+    const mapScene = { ...volumeSceneIdentity({ sha256: mapSha256 }), selectionKeys: [], ...body,
+      inspection: { ...body.inspection, appearance: { ...body.inspection.appearance, representation: 'isosurface' } } };
+    const mapped = (await session.call('sync_inspection', { ...session.binding, scene: mapScene })).structuredContent;
+    const mappedBinding = { ...session.binding, baseInspectionRevision: mapped.inspectionRevision };
+    const companion = (await session.call('attach_inspection', { ...mappedBinding, surface: 'companion' })).structuredContent.panelId;
+    const preview = (await session.call('attach_inspection', { ...mappedBinding, surface,
+      renderedSourceSha256: session.data.catalog.source.sha256 })).structuredContent.panelId;
+    const swapped = await session.call('replace_inspection_source', { sessionId: session.sessionId,
+      panelId: companion, source: { kind: 'pasted', text: cif + '\n# density return to atoms\n' }, waitForRenderMs: 0 });
+    expect(swapped.isError, JSON.stringify(swapped.content)).not.toBe(true);
+    const data = (await session.call('get_inspection', { sessionId: session.sessionId }))._meta[PRIVATE_KEY];
+    expect(data.density).toBeUndefined();
+    const atomic = { sourceSha256: data.catalog.source.sha256, modelNumber: data.catalog.modelNumbers[0],
+      assemblyId: data.catalog.assemblyId, selectionKeys: [], ...body };
+    const current = { ...session.binding, sourceToken: data.sourceToken, baseStateRevision: data.stateRevision,
+      baseInspectionRevision: data.inspectionRevision };
+    const saved = (await session.call('sync_inspection', { ...current, scene: atomic })).structuredContent;
+    expect(saved.saved).toBe(true);
+    const attached = await session.call('attach_inspection', { ...current, baseInspectionRevision: saved.inspectionRevision,
+      replacesPanelId: preview, surface, renderedSourceSha256: atomic.sourceSha256 });
+    expect(attached.isError, JSON.stringify(attached.content)).not.toBe(true);
+    const desktopId = attached.structuredContent.panelId;
+    const state = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
+    expect(state.panels).toContainEqual(expect.objectContaining({ panelId: desktopId, current: true }));
+    expect(state.panels.find((panel: any) => panel.panelId === desktopId).referenceOnly).toBeUndefined();
+    const queued = await session.call('update_inspection', { sessionId: session.sessionId,
+      panelId: desktopId, commandId: 'atoms-after-density', change: { kind: 'appearance', patch: { opacity: 0.8 } } });
+    expect(queued.isError, JSON.stringify(queued.content)).not.toBe(true);
+    expect(queued.structuredContent.command.panelId).toBe(desktopId);
   });
 
   it('refuses Mol* on the saved map with its tier name and an actionable recovery', async () => {

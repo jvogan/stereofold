@@ -237,6 +237,21 @@ export const PLATE_FIELD = Object.freeze({
 export const PLATE_BAND_SLOTS = 15;
 
 /**
+ * The air, in tangent units, the name plates keep off the menu and card
+ * glass. The menu admits a chapter only with 0.04 of each eye's view between
+ * its glass and every drawn plate quad, which is wider than the text the
+ * layout measures and sits half an eye's spacing off the head centre. A plate
+ * laid flush against the card failed that admission, and the menu left the
+ * forward view for a turned-head seat. This is that gap, the quad's pad and
+ * the parallax, with a little to spare.
+ */
+export const MENU_PLATE_AIR = 0.07;
+
+/** Menu and card glass rectangles as plate obstacles, each widened by `MENU_PLATE_AIR`. */
+export const menuGlassObstacles = rects => rects.filter(Boolean).map(glass => ({ ...glass,
+  halfWidth: glass.halfWidth + MENU_PLATE_AIR, halfHeight: glass.halfHeight + MENU_PLATE_AIR }));
+
+/**
  * How many plate-deep bands the slot set carries on each side.
  *
  * Ten plates do not fit on one ring around a silhouette that fills most of the

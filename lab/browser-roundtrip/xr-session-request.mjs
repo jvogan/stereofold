@@ -319,6 +319,33 @@ export function passthroughPlan({ blendMode, passthroughOn, on }) {
   return { action: 'unchanged', mode: null };
 }
 
+// Origin-local browser preference, separate from a scene's scientific state.
+// Only explicit wearer choices are stored; first-time entry keeps its default.
+const ROOM_PREFERENCE_KEY = 'stereofold.room-visible.v1';
+export function readPassthroughPreference(scope = globalThis) {
+  try {
+    const value = scope.localStorage?.getItem(ROOM_PREFERENCE_KEY);
+    return value === 'true' ? true : value === 'false' ? false : undefined;
+  } catch { return undefined; }
+}
+export function storePassthroughPreference(on, scope = globalThis) {
+  if (typeof on !== 'boolean') return;
+  try { scope.localStorage?.setItem(ROOM_PREFERENCE_KEY, String(on)); }
+  catch { /* Private/restricted storage retains the live page's choice. */ }
+}
+
+/** Restore a chosen Room off setting after Mol* seeds a fresh XR session. */
+export function restorePassthroughOnEntry({ blendMode, preferred, toggle }) {
+  const seeded = blendMode === 'alpha-blend';
+  // An opaque session cannot show the room; restoration never requests a
+  // different session or consumes a new user gesture.
+  if (!seeded || preferred !== false) return { on: seeded, restored: false };
+  try {
+    if (toggle() === true) return { on: false, restored: true };
+  } catch { /* Entry remains usable, with an honest mirror of the clear. */ }
+  return { on: seeded, restored: false, failed: true };
+}
+
 /**
  * Why an immersive request was refused, in one word for the record.
  *

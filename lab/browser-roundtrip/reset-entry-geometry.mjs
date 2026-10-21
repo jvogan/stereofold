@@ -502,7 +502,7 @@ function eyeAlreadyClear(menu, subject, directions = separationDirections(menu, 
  * frusta and the existing 4 m ceiling. No point is frustum-culled before testing.
  */
 export function resetEntryTravel({ geometry, points, forward, maximum }) {
-  const renderedMenu = points.map(p => applyMatrix4(p, geometry.renderFromRoom));
+  const renderedPlates = (points.plates ?? [points]).map(plate => plate.map(p => applyMatrix4(p, geometry.renderFromRoom)));
   const travel = vector(forward, geometry.renderFromRoom);
   let clear = [[0, maximum]], visible = [[0, maximum]];
   const eyes = [];
@@ -510,9 +510,11 @@ export function resetEntryTravel({ geometry, points, forward, maximum }) {
     const matrix = view.transform?.inverse?.matrix, projection = view.projectionMatrix;
     if (matrix?.length !== 16 || projection?.length !== 16) return undefined;
     const subject = eyeSubject(geometry, matrix);
-    const menu = renderedMenu.map(p => applyMatrix4(p, matrix)).filter(p => p[2] < -1e-9);
     const delta = vector(travel, matrix);
-    eyes.push({ subject, menu, delta, projection, normals: separationDirections(menu, subject) });
+    for (const renderedMenu of renderedPlates) {
+      const menu = renderedMenu.map(p => applyMatrix4(p, matrix)).filter(p => p[2] < -1e-9);
+      eyes.push({ subject, menu, delta, projection, normals: separationDirections(menu, subject) });
+    }
   }
   // Zero travel deliberately ignores whole-subject frustum containment today.
   // Answer that same question before calculating any adjustment intervals.
@@ -545,11 +547,11 @@ export function resetEntryLateralTravel({ geometry, points, right, clearance = M
   centreLimit = SUBJECT_CENTRE_TANGENT }) {
   // Diagnostics round tangents to four decimals. Keep the admitted centre
   // inside the existing band after that rounding too.
-  const menu = points.map(p => applyMatrix4(p, geometry.renderFromRoom));
+  const menus = (points.plates ?? [points]).map(plate => plate.map(p => applyMatrix4(p, geometry.renderFromRoom)));
   const travel = vector(right, geometry.renderFromRoom);
   let allowed = [[-Infinity, Infinity]];
   const eyes = [];
-  for (const view of geometry.views) {
+  for (const view of geometry.views) for (const menu of menus) {
     const matrix = view.transform?.inverse?.matrix, projection = view.projectionMatrix;
     if (matrix?.length !== 16 || projection?.length !== 16) return undefined;
     // A fit candidate is read from its base's cached extremes (`fittedView`);
@@ -603,6 +605,11 @@ export function resetEntryLateralTravel({ geometry, points, right, clearance = M
       if (!eyeAlreadyClear(glass, subject())) return Infinity;
       continue;
     }
+    // A plate already vertically separated spends no horizontal travel.
+    if (points.plates && [1, -1].some(sign => {
+      const edge = Math.max(...glass.map(p => sign * p[1] / -p[2])) + clearance;
+      return margin([0, sign, edge]) > 1e-10;
+    })) continue;
     const clear = [];
     for (const sign of [-1, 1]) {
       const edge = Math.max(...glass.map(p => sign * p[0] / -p[2])) + clearance;
@@ -673,9 +680,9 @@ export function subjectVisibleInEyes(geometry) {
  */
 export function resetEntryLateralBreakdown({ geometry, points = [], clearance = 0 }) {
   if (!geometry?.views?.length || !Array.isArray(geometry.subject)) return undefined;
-  const menu = points.map(p => applyMatrix4(p, geometry.renderFromRoom));
+  const menus = (points.plates ?? [points]).map(plate => plate.map(p => applyMatrix4(p, geometry.renderFromRoom)));
   const eyes = [];
-  for (const view of geometry.views) {
+  for (const view of geometry.views) for (const menu of menus) {
     const matrix = view.transform?.inverse?.matrix;
     if (matrix?.length !== 16) return undefined;
     const subject = eyeSubject(geometry, matrix);
@@ -702,5 +709,11 @@ export function resetEntryLateralBreakdown({ geometry, points = [], clearance = 
       clearMinus: lateral[0].clear, clearPlus: lateral[1].clear,
       alreadyClear: lateral[0].clear || lateral[1].clear, separated, separationX, separationY });
   }
-  return { eyes, alreadyClear: eyes.every(eye => eye.alreadyClear), separated: eyes.every(eye => eye.separated) };
+  const combined = [...new Set(eyes.map(eye => eye.eye))].map(name => {
+    const plates = eyes.filter(eye => eye.eye === name);
+    const clearMinus = plates.every(plate => plate.clearMinus), clearPlus = plates.every(plate => plate.clearPlus);
+    return { ...plates[0], plates, menuPoints: plates.reduce((sum, plate) => sum + plate.menuPoints, 0),
+      clearMinus, clearPlus, alreadyClear: clearMinus || clearPlus, separated: plates.every(plate => plate.separated) };
+  });
+  return { eyes: combined, alreadyClear: combined.every(eye => eye.alreadyClear), separated: combined.every(eye => eye.separated) };
 }

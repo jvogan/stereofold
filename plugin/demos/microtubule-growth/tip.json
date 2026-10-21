@@ -806,7 +806,7 @@
           ],
           "scale": 2.4
         },
-        "narration": "Beta holds a GTP stand-in here, marking young lattice.",
+        "narration": "Beta holds GTP gamma S, a slowly hydrolysed GTP analogue.",
         "motion": {
           "kind": "orbit",
           "degrees": -15,
@@ -990,7 +990,7 @@
     {
       "id": "wide",
       "title": "EB3, not EB1",
-      "caption": "This is EB3, not EB1, on a lattice held in a GTP-like state, not a filmed growing end.",
+      "caption": "EB3’s GTPgammaS lattice may mimic a hydrolysis intermediate, possibly GDP·Pi; no growing end is shown.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -1227,7 +1227,7 @@
           "contextOpacity": 0.18,
           "framing": "fill"
         },
-        "narration": "This is EB3, not EB1, on a GTP-like lattice.",
+        "narration": "EB3’s lattice may mimic a hydrolysis intermediate.",
         "motion": {
           "kind": "turntable",
           "degrees": 30,

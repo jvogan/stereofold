@@ -107,6 +107,16 @@ describe('a density companion, from its first save to an agent command', () => {
   const cleanups: Array<() => Promise<void>> = [];
   afterEach(async () => { await Promise.all(cleanups.splice(0).map(cleanup => cleanup())); });
 
+  it('tells the desktop hydration that the lesson belongs to a map, before any scene is saved', async () => {
+    const session = await setup();
+    cleanups.push(session.close);
+    expect(session.data.scene).toBeNull();
+    expect(session.data.density).toEqual({ sha256: mapSha256, bytes: map.byteLength, contour: CONTOUR });
+    // Desktop draws the reference coordinates; only the companion fetches map bytes.
+    expect(session.data.mapBytes).toBeUndefined();
+    expect(session.data.structureText).toBe(cif);
+  });
+
   it('saves the isosurface scene the headset captures, registers, and takes a placement command', async () => {
     const session = await setup();
     cleanups.push(session.close);

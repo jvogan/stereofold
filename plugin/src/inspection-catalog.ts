@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { CIF } from 'molstar/lib/commonjs/mol-io/reader/cif.js';
+import { CIF } from './compatible-cif.js';
 import { trajectoryFromMmCIF } from 'molstar/lib/commonjs/mol-model-formats/structure/mmcif.js';
 import { Symmetry } from 'molstar/lib/commonjs/mol-model/structure/model.js';
 import { createCatalogExtractor } from '../../lab/identity/extract-core.cjs';

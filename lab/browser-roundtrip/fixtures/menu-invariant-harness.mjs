@@ -108,7 +108,8 @@ export function menuInvariantHarness({ held = false, half = .1, vertices, worker
   });
   const canvas = h.canvas = {
     xr: { isPresenting: { value: true } }, webgl: { xr: { session: {} }, isContextLost: false },
-    camera: { scale: 1, getSnapshot: () => ({}), setState() {} },
+    camera: { scale: 1, state: { position: [0, 0, 0], target: [0, 0, -1], up: [0, 1, 0], radius: 1 },
+      getSnapshot() { return structuredClone(this.state); }, setState(value) { Object.assign(this.state, value); } },
     reprCount: { get value() { return live.size; } }, commitQueueSize: { value: 0 },
     add(repr) { events.push('reveal'); live.add(repr); }, remove(repr) { events.push('hide'); live.delete(repr); },
     commit() {}, setProps() {}, getRenderObjects: () => [...live].flatMap(repr => repr.renderObjects),
@@ -153,6 +154,7 @@ export function menuInvariantHarness({ held = false, half = .1, vertices, worker
     sourceRecord: { sha256: 'fixture' }, dataRoot: undefined, selection: undefined, visibleStage: undefined, recoveryRecord: undefined,
     stopPresentationMotion() {}, removeFrameCover() {}, removeInspectionLabels() {}, removeLigandOverlay() {}, removeComponentLabels() {},
     drawSubscription: { unsubscribe() {} }, pickSubscription: { unsubscribe() {} }, restoredSubscription: { unsubscribe() {} },
+    annotationRenderSubscription: { unsubscribe() {} }, annotationStateSubscription: { unsubscribe() {} },
     interactionSubscriptions: [], document: { removeEventListener() {} }, element: { removeEventListener() {} }, window: { removeEventListener() {} },
     visibilityChange() {}, mouseDown() {}, touchChange() {}, wheelInput() {}, keyInput() {}, mouseUp() {}, endInteraction() {}, contextLost() {},
     GROWTH_CAPTION_EVENT: 'unused', onHostGrowthCaption() {},
@@ -172,6 +174,9 @@ export function menuInvariantHarness({ held = false, half = .1, vertices, worker
     cells.set(base.ref, base.cell);
     for (const name of ['assertContext', 'assertReady', 'recoverStaleAppearanceFit', 'inspectionMutation', 'restoreJourneySeat'])
       vm.runInContext(viewerFunction(name), h);
+    // The checkpoint redraw a failed change runs, when the page has one.
+    for (const name of ['redrawRestoredScene', 'unrestoredComponents'])
+      if (source.includes(`function ${name}(`)) vm.runInContext(viewerFunction(name), h);
     h.inspectionMutationSettlement = undefined;
     h.cameraSnapshot = camera => camera;
     h.restoreTourSeat = async () => {};

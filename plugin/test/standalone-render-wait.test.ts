@@ -84,3 +84,19 @@ for (const renderAt of [61_000, 129_999, 140_000]) {
     } finally { vi.useRealTimers(); await client.close(); await server.close(); }
   });
 }
+
+it('retains the source command id for waiting and later text-only receipt readers', async () => {
+  const { withTextState } = await import('../src/tool-text-state.js');
+  for (const status of ['rendered','failed'] as const) {
+    const wait = new SourceRenderWait();
+    wait.commandId = 'replace-source';
+    const pending = wait.wait(1000);
+    wait.complete(status === 'rendered'
+      ? {status,panelId:'panel',sourceToken:'new',inspectionRevision:1,renderedAt:2,renderedRevision:1}
+      : {status,panelId:'panel',sourceToken:'new',inspectionRevision:1,failedAt:2,failure:'render_failed',failureReason:'Draw failed'});
+    expect(await pending).toMatchObject({commandId:'replace-source',status});
+    expect(wait.settled()).toMatchObject({commandId:'replace-source',status});
+    const reply = withTextState({structuredContent:{sourceRenderReceipt:wait.settled()}});
+    expect(JSON.parse(reply.content[0].text.slice(8,-4)).sourceRenderReceipt).toMatchObject({commandId:'replace-source',status});
+  }
+});

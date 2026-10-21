@@ -61,6 +61,12 @@ export function immersiveDepthPatch({ cameraScale, currentFog, lastMinFar = 0, f
  * The near plane the spatial panel must seat itself beyond, and the far plane
  * it must stay inside.
  *
+ * The near plane is always 0. The glass stays at its reading distance and the
+ * near plane is kept inside it instead (`immersiveDepthPlanes`), cutaway or
+ * not. Told about a cutaway's plane, the layout scaled the menu out past it
+ * while the held seat kept the column where it was, and the ATP site chapter
+ * cut the column away whole behind a 1.452 m plane.
+ *
  * A cutaway is an instruction. Mol*'s automatic near plane is not: it comes
  * out of `updateClip`'s arithmetic over the scene bounding sphere, so it
  * follows the structure's distance and the camera scale. On the microtubule
@@ -79,10 +85,9 @@ export function immersiveDepthPatch({ cameraScale, currentFog, lastMinFar = 0, f
  * @param {{clipped?: boolean, depthNear?: number, depthFar?: number}} input
  * @returns {{near: number, far: number}} metres; 0 and Infinity mean "no plane"
  */
-export function panelDepthBand({ clipped = false, depthNear, depthFar } = {}) {
-  const near = Number.isFinite(depthNear) && depthNear > 0 ? depthNear : 0;
+export function panelDepthBand({ clipped = false, depthFar } = {}) {
   const far = Number.isFinite(depthFar) && depthFar > 0 ? depthFar : Infinity;
-  return { near: clipped ? near : 0, far: clipped ? far : Infinity };
+  return { near: 0, far: clipped ? far : Infinity };
 }
 
 /**
@@ -97,9 +102,9 @@ export function panelDepthBand({ clipped = false, depthNear, depthFar } = {}) {
  * than 1.677 m was clipped away from an assembly whose nearest point was
  * 0.069 m BEHIND the wearer's eye.
  *
- * Under `clipped` both planes are returned exactly as asked. A cutaway is the
- * one case where the wearer chose the plane, and neither the menu nor the
- * presentation layer may take it back.
+ * Under `clipped` the far plane is returned exactly as asked, and the near
+ * plane too while it lies nearer than the glass. A cut deeper than the glass
+ * stops at the glass: the menu and the card are never what a cutaway removes.
  *
  * @param {{clipped?: boolean, depthNear?: number, depthFar?: number,
  *   presentationNear?: number, presentationFar?: number}} input
@@ -112,7 +117,10 @@ export function immersiveDepthPlanes({ clipped = false, depthNear, depthFar,
   if (!clipped && Number.isFinite(presentationFar) && presentationFar > 0) {
     far = Number.isFinite(far) ? Math.max(far, presentationFar) : presentationFar;
   }
-  if (!clipped && Number.isFinite(near) && Number.isFinite(presentationNear) && presentationNear > 0) {
+  // The near plane stays inside the nearest glass by its margin, under a
+  // cutaway too: the menu, card, status and talk caption are read at their
+  // own distance and are never what a cut removes.
+  if (Number.isFinite(near) && Number.isFinite(presentationNear) && presentationNear > 0) {
     near = Math.min(near, presentationNear);
   }
   // WebXR rejects a near plane at or past the far plane, and a session that

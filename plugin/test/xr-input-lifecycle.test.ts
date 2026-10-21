@@ -17,7 +17,7 @@ import { createGesturePivot } from '../../lab/browser-roundtrip/gesture-pivot.mj
 const viewer = readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs', import.meta.url), 'utf8');
 const session = readFileSync(new URL('../../lab/browser-roundtrip/immersive-session.mjs', import.meta.url), 'utf8');
 function fn(text: string, name: string) {
-  const start = text.indexOf(`  function ${name}(`);
+  const start = text.includes(`  async function ${name}(`) ? text.indexOf(`  async function ${name}(`) : text.indexOf(`  function ${name}(`);
   if (start < 0) throw Error(`Missing production function ${name}`);
   const lineEnd = text.indexOf('\n', start);
   return text.slice(start, text.slice(start, lineEnd).trimEnd().endsWith('}') ? lineEnd : text.indexOf('\n  }\n', start) + 5);
@@ -29,7 +29,7 @@ function harness(hand: string) {
   const controller = { handedness: hand, targetRayMode: 'tracked-pointer', targetRaySpace: {}, gripSpace: {},
     gamepad: { axes: [0,0,0,0], buttons: Array.from({ length: 6 }, () => ({ pressed: false, value: 0 })) } };
   const c: any = vm.createContext({ console, Set, Map, Math, Boolean,
-    xrInputBlind: false, xrDeferredGrab: undefined, xrDeferredBake: undefined, xrInputLifecycle: createXrPlacementLifecycle(), xrAimUnavailable: false, xrInputHeld: false, manualXrInputHeld: false,
+    hostLoadDepth: 0, activeWork: undefined, xrInputBlind: false, xrDeferredGrab: undefined, xrDeferredBake: undefined, xrInputLifecycle: createXrPlacementLifecycle(), xrAimUnavailable: false, xrInputHeld: false, manualXrInputHeld: false,
     grabRotation: undefined, grabScale: 1, grabOffset: undefined,
     triggerStickIntent: undefined, xrTransformBatchDepth: 0, xrTransformPending: false, applyInspectionTransform() {},
     xrInputRelease: createXrInputReleaseGate({ now: () => clock }),
@@ -264,5 +264,47 @@ describe('native controller tracking and focus lifecycle', () => {
     const retained = h.value(); h.frame(14, 2, 'tracked', .5, 0, 'null'); h.frame(100, 2, 'tracked', 1);
     expect(h.value()).toEqual(retained); h.frame(14, 2, 'tracked', 1.01);
     expect(h.value().position).toBeGreaterThan(retained.position);
+  });
+});
+
+describe('host loads preempt molecular input',()=>{
+  it.each(gestures)('cancels $hand button $button, pauses motion and requires neutral input before another gesture',async({hand,button})=>{
+    const h=harness(hand);
+    Object.assign(h.c,{mouseHeld:true,touchHeld:true,inputInteraction:true,
+      cancelXrPlacementFollowup(){},invalidateGesturePivot(){},createXrPlacementLifecycle,
+      molecularAnimation:{revision:()=>0,control(){},resume(){},halt(){h.c.halted=true;},async settled(){}},motionToolPaused:false,
+    });
+    vm.runInContext(fn(viewer,'prepareHostLoad'),h.c);
+    h.frame(0,button);h.frame(220,button);h.frame(14,button,'tracked',.02);
+    expect(h.manipulation.phase()).not.toBe('idle');
+    const lifecycle=h.c.xrInputLifecycle;
+    const release=await h.c.prepareHostLoad();
+    expect(lifecycle.ended).toBe(true);
+    expect(h.c.xrInputLifecycle.ended).toBe(false);
+    expect(h.manipulation.phase()).toBe('idle');
+    expect(h.c.halted).toBe(true);expect(h.c.motionToolPaused).toBe(true);
+    expect([h.c.mouseHeld,h.c.touchHeld,h.c.inputInteraction,h.c.xrInputHeld]).toEqual([false,false,false,false]);
+    expect(h.c.grabOffset).toBeUndefined();expect(h.c.grabScale).toBe(1);
+    h.frame(14,button,'tracked',.3);expect(h.manipulation.phase()).toBe('idle');
+    release();release();expect(h.c.hostLoadDepth).toBe(0);
+    h.frame(14,button,'tracked',.4);expect(h.manipulation.phase()).toBe('idle');
+    h.frame(14,0,'tracked',.4);h.frame(260,0,'tracked',.4);
+    expect(h.saved).toEqual([]);
+    h.frame(14,button,'tracked',.4);h.frame(240,button,'tracked',.42);
+    expect(h.manipulation.phase()).not.toBe('idle');
+  });
+  it('cancels a two-handed scale without baking it into the replacement',async()=>{
+    const h=harness('right');
+    Object.assign(h.c,{mouseHeld:false,touchHeld:false,inputInteraction:false,cancelXrPlacementFollowup(){},invalidateGesturePivot(){},
+      createXrPlacementLifecycle,molecularAnimation:{revision:()=>0,control(){},resume(){},halt(){},async settled(){}}});
+    vm.runInContext(fn(viewer,'prepareHostLoad'),h.c);
+    const pointer=(handedness:string,x:number)=>({handedness,buttons:2,emulatedPosition:false,
+      ray:{origin:[x,0,0],direction:[0,0,-1],orientation:[0,0,0,1]},
+      grip:{origin:[x,0,0],direction:[0,0,-1],orientation:[0,0,0,1]}});
+    h.c.xrManipulation.update([pointer('left',-.2),pointer('right',.2)]);
+    h.c.xrManipulation.update([pointer('left',-.2),pointer('right',.21)]);
+    expect(h.manipulation.phase()).toBe('scale');
+    const release=await h.c.prepareHostLoad();
+    expect(h.manipulation.phase()).toBe('idle');expect(h.saved).toEqual([]);release();
   });
 });

@@ -1,3 +1,4 @@
+import { runAutoplayManipulationAcceptance } from './xr-autoplay-manipulation-acceptance.js';
 import { runNaturalInputAcceptance } from './xr-natural-input-acceptance.js';
 import { runControllerAcceptance } from './xr-controller-acceptance.js';
 import { xrToolbarControllerPose } from './xr-toolbar-controller-pose.js';
@@ -43,6 +44,8 @@ import { createHeadsetBridgeWriter, summariseSelection,
  *   --controller-input          run native XR snapshot / saved-placement
  *                                acceptance across tracked, emulated and null
  *                                controller poses, then stop. Requires IWER.
+ *   --autoplay-manipulation     hold molecule trigger, grip and two-hand scale
+ *                                across authored autoplay chapter boundaries.
  *   --natural-input             synthetic handless transient pointers on IWER;
  *                                production input/save path, not Apple simulator evidence.
  *   --allow-console-errors       record console errors without failing.
@@ -58,9 +61,9 @@ const out = resolve(outArgument ?? '');
 assert.ok(outArgument, 'Supply a fresh artifact directory.');
 // Both options are optional and may appear in either order. Supplying none
 // leaves this harness on exactly the path it took before the bridge existed.
-const OPTION_USAGE = 'Optional usage: --xr-runtime /absolute/path/to/iwer.min.js [--bridge /absolute/bridge/directory] [--demo <demo name>] [--stage <stage id>] [--shots /absolute/step/shot/directory] [--mode vr|ar] [--browser-channel shell|chromium] [--head-yaw <degrees>] [--head-offset <x,y,z metres>] [--dist /absolute/dist/directory] [--render-budget <knob:value,...>] [--tour chapters|full] [--grow] [--grow-voice] [--controller-input] [--natural-input] [--allow-console-errors]';
+const OPTION_USAGE = 'Optional usage: --xr-runtime /absolute/path/to/iwer.min.js [--bridge /absolute/bridge/directory] [--demo <demo name>] [--stage <stage id>] [--shots /absolute/step/shot/directory] [--mode vr|ar] [--browser-channel shell|chromium] [--head-yaw <degrees>] [--head-offset <x,y,z metres>] [--dist /absolute/dist/directory] [--render-budget <knob:value,...>] [--tour chapters|full] [--grow] [--grow-voice] [--controller-input] [--natural-input] [--autoplay-manipulation] [--allow-console-errors]';
 // Valueless switches, removed before the pairwise scan below.
-const BOOLEAN_OPTIONS = ['--allow-console-errors', '--grow', '--grow-voice', '--controller-input', '--natural-input'];
+const BOOLEAN_OPTIONS = ['--allow-console-errors', '--grow', '--grow-voice', '--controller-input', '--natural-input', '--autoplay-manipulation'];
 const switches = new Set(allOptionArguments.filter(argument => BOOLEAN_OPTIONS.includes(argument)));
 const optionArguments = allOptionArguments.filter(argument => !BOOLEAN_OPTIONS.includes(argument));
 // `--demo` and `--stage` name entries in plugin/demos/index.json, so they are
@@ -175,6 +178,9 @@ assert.ok(!(naturalInputOnly && switches.has('--controller-input')), 'Choose eit
 // Both focused input routes share the small fixture and isolated setup.
 const controllerInputOnly = switches.has('--controller-input') || naturalInputOnly;
 assert.ok(!controllerInputOnly || xrRuntimePath, 'Focused input acceptance requires --xr-runtime.');
+const autoplayManipulation = switches.has('--autoplay-manipulation');
+assert.ok(!autoplayManipulation || (demoName && xrRuntimePath && !controllerInputOnly && !tourMode && !growDrive && !growVoiceDrive),
+  '--autoplay-manipulation needs --demo and --xr-runtime and takes the lesson over.');
 const focusedTourIwer = controllerInputOnly || process.env.STEREOFOLD_TOUR_IWER_ONLY === '1' || Boolean(demoName);
 // Where per-step both-eye frames go. Outside the artifact directory, because
 // they are read as the steps of one demo rather than as one whole run.
@@ -348,7 +354,7 @@ const serverEnvironment: Record<string, string> = {
   ...(voiceBin ? { STEREOFOLD_AGENT_VOICE_BIN: voiceBin } : {}),
   ...(askLoop ? { STEREOFOLD_PTT_TRANSCRIBE: '1' } : {}),
   ...Object.fromEntries((askLoop
-    ? ['STEREOFOLD_WHISPER_BIN', 'STEREOFOLD_WHISPER_MODEL', 'STEREOFOLD_FFMPEG_BIN', 'STEREOFOLD_PTT_TRANSCRIBER', 'STEREOFOLD_APPLESPEECH_BIN']
+    ? ['STEREOFOLD_WHISPER_BIN', 'STEREOFOLD_WHISPER_MODEL', 'STEREOFOLD_WHISPER_GPU', 'STEREOFOLD_FFMPEG_BIN', 'STEREOFOLD_PTT_TRANSCRIBER', 'STEREOFOLD_APPLESPEECH_BIN']
     : []).flatMap(name => (process.env[name] ? [[name, process.env[name] as string]] : []))),
 };
 const transport = new StdioClientTransport({ command: process.execPath, args: [resolve(distDirectory, 'server.mjs')], cwd: process.cwd(), stderr: 'pipe',
@@ -1809,9 +1815,11 @@ try {
   if (demo?.entry.coordinates.derivation) {
     const heading = await desktop.frame.locator('.scene-heading h1').innerText();
     const assembly = await desktop.frame.locator('[data-fact="assembly"]').innerText();
-    assert.ok(heading.includes(demo.entry.pdbId), 'Derived coordinates must display their verified parent PDB identity.');
+    assert.ok(heading.includes(demo.entry.pdbId ?? demo.entry.title), 'Derived coordinates must display their verified source identity.');
     assert.ok(!heading.includes('XXXX'), 'A generated coordinate placeholder must not be displayed as a PDB code.');
-    assert.match(assembly, /subset/u, 'Preexpanded subsets must not be labelled as a deposited asymmetric unit.');
+    assert.match(assembly, demo.entry.coordinates.derivation.kind === 'bundled-file' ? /bundled/u
+      : demo.entry.coordinates.derivation.kind === 'prepared-rigid-composite' ? /prepared rigid composite/u : /subset/u,
+      'Derived coordinates must display their authored scope.');
     report.derivedSourceHeading = { heading, assembly, coordinateSha256: fixtureDigest };
     passed('The derived coordinate source displays its verified PDB identity and subset scope');
   }
@@ -1825,13 +1833,13 @@ try {
   // Named for what was loaded, not for the default fixture: a demo run opens
   // that demo's coordinates here, and a frame called 4hhb reads as --demo
   // having been ignored when it was not.
-  const desktopShot = demo ? demo.entry.pdbId.toLowerCase() : '4hhb';
+  const desktopShot = demo ? (demo.entry.pdbId ?? demo.entry.name).toLowerCase() : '4hhb';
   if (!controllerInputOnly) {
   await captureCanvas(desktop.frame, desktop.page, `01-desktop-${desktopShot}-dark`);
   await desktop.page.evaluate(() => (window as any).__host.setContext({ theme: 'light' }));
   await desktop.frame.locator('html[data-theme="light"]').waitFor(); await contrast(desktop.frame);
   await captureCanvas(desktop.frame, desktop.page, `02-desktop-${desktopShot}-light`);
-  passed(`${demo ? 'inspect_lesson' : 'inspect_file'} loads the explicit >70 KiB ${demo ? demo.entry.pdbId : '4HHB'} mmCIF into a rendered desktop inspector without exposing coordinates in its public result`);
+  passed(`${demo ? 'inspect_lesson' : 'inspect_file'} loads the explicit >70 KiB ${demo ? demo.entry.pdbId ?? demo.entry.sourceId ?? demo.entry.name : '4HHB'} mmCIF into a rendered desktop inspector without exposing coordinates in its public result`);
   } else passed('Local 1CRN is rendered in the production desktop inspector');
 
   await waitPanelReady(sessionId, 'desktop');
@@ -2097,8 +2105,8 @@ try {
     // past it is outside what the wearer sees without turning their head. This
     // viewport lets the artifacts show the label; it does not make the seat
     // acceptable, and the seat itself still has to be brought in.
-    await companion.setViewportSize({ width: controllerInputOnly ? 400 : 2240, height: controllerInputOnly ? 300 : 630 });
-    await companion.waitForFunction(size => innerWidth === size.width && innerHeight === size.height, { width: controllerInputOnly ? 400 : 2240, height: controllerInputOnly ? 300 : 630 });
+    await companion.setViewportSize({ width: controllerInputOnly ? 400 : autoplayManipulation ? 800 : 2240, height: controllerInputOnly ? 300 : autoplayManipulation ? 500 : 630 });
+    await companion.waitForFunction(size => innerWidth === size.width && innerHeight === size.height, { width: controllerInputOnly ? 400 : autoplayManipulation ? 800 : 2240, height: controllerInputOnly ? 300 : autoplayManipulation ? 500 : 630 });
     await companion.evaluate(() => new Promise<void>(resolveFrame => requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame()))));
     // Enter the way a wearer does. The primary control is the only one on the
     // page itself; both named modes live under More options or on that same
@@ -2118,7 +2126,7 @@ try {
     // chrome takes height from that stage, so a 630 px browser window no longer
     // means a 630 px eye buffer. Grow only the test window to restore the capture
     // viewport; never relax the capture aspect or label-visibility assertions.
-    for (let attempt = 0; !controllerInputOnly && attempt < 4; attempt++) {
+    for (let attempt = 0; !controllerInputOnly && !autoplayManipulation && attempt < 4; attempt++) {
       const size = await companion.evaluate(() => {
         const layer = (globalThis as any).__companionXrTest.active.session.renderState.baseLayer;
         return { windowHeight: innerHeight, canvasHeight: layer.framebufferHeight };
@@ -2134,7 +2142,7 @@ try {
       return { width: innerWidth, height: innerHeight, canvasWidth: layer.framebufferWidth, canvasHeight: layer.framebufferHeight,
         vendor: gl?.getParameter(debug?.UNMASKED_VENDOR_WEBGL ?? gl.VENDOR), renderer: gl?.getParameter(debug?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER) };
     });
-    assert.ok(controllerInputOnly || report.xrReviewViewport.canvasHeight >= 628, 'The simulated eye buffer must retain its review height.');
+    assert.ok(controllerInputOnly || autoplayManipulation || report.xrReviewViewport.canvasHeight >= 628, 'The simulated eye buffer must retain its review height.');
     console.log(`Observed: production ${enteredMode} session is drawing two eye poses.`);
     if (naturalInputOnly) {
       report.emulatedXr.syntheticNaturalInput = {};
@@ -2297,6 +2305,32 @@ try {
       readState: async () => (await call('get_inspection_state', { sessionId })).structuredContent,
       panelId: companionPanel,
     });
+    if (autoplayManipulation) {
+      // Host setup selects the authored lesson paused and silent; Play itself
+      // remains a real controller ray press. No scene/placement hook is used.
+      await companion.evaluate(() => { document.body.dataset.tourDelayMs = '4000'; });
+      const ready = await waitPanelReady(sessionId, 'companion', companionPanel);
+      await call('control_tour', { ...binding(ready, sessionId), panelId: companionPanel,
+        commandId: 'autoplay-manipulation-start', action: 'start',
+        tourId: opened.structuredContent.customTourId, autoplay: false, narration: false });
+      await waitState(sessionId, state => state.command?.commandId === 'autoplay-manipulation-start'
+        && state.command?.status === 'rendered', 'autoplay-manipulation-start', 300_000);
+      await waitCurrentTour(companion, state => state.active && !state.navigating && !state.autoplay);
+      report.emulatedXr.autoplayManipulation = {};
+      await runAutoplayManipulationAcceptance(companion, {
+        readSaved: () => privateInspection(sessionId),
+        play: () => pressToolbar('Play while manipulating molecule', { kind: 'tour-play' }),
+        capture: name => captureXrFramebuffer(companion, name),
+        chapterCount: demo!.manifest.chapters.length,
+        evidence: report.emulatedXr.autoplayManipulation,
+      });
+      await assertRuntimeUnchanged();
+      assert.deepEqual(report.errors, [], 'Autoplay molecule manipulation produced browser callback errors');
+      assert.deepEqual(report.externalRequests, []);
+      assertEvidenceClean();
+      passed('Native molecule trigger, grip rotation and bimanual scaling hold across autoplay chapters while the untouched menu stays fixed');
+      throw Object.assign(Error('Autoplay molecule manipulation acceptance complete.'), { stereofoldRunComplete: true });
+    }
     const tourBefore = entryBaseline.saved;
     const densityTour = Boolean(demo?.entry.coordinates.volume);
     const measureTourGeometry = async () => {

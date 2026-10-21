@@ -1,21 +1,12 @@
+import { assistantStatus } from './assistant-status.mjs';
 import { connectionStatus, TALK_LINK_LOST } from './connection-liveness.mjs';
-// The one caption a wearer can always read.
-//
-// A button press that opens a microphone has to say so somewhere the wearer is
-// looking, or the button reads as doing nothing. The menu plate's status line
-// is not that place: the menu sits about 47 degrees off to one side of a Quest
-// 2's 89 degree field of view, so a wearer facing the structure sees none of
-// it.
-//
-// This plate is seated in front of the wearer's own gaze instead, a little
-// below it, and it carries one line at a time: what the controller is doing
-// right now, and what came of it. It never echoes the wearer's sentence back —
-// hearing your own words repeated adds nothing and delays the next attempt.
-//
-// It is deliberately a separate module from the menu. The menu is a panel the
-// wearer aims at and presses; this is a label that follows the head and can
-// never be aimed at, and mixing the two is what put the talk status somewhere
-// nobody could read it.
+// Temporary talk and action feedback. A headset supplies the committed
+// menu column: the caption uses a flat, column-width seat beneath its glass
+// (sized to its words beneath the compact Menu control), or stays off when
+// either eye, the molecule or another plate blocks it. Standalone callers
+// retain the head-relative caption seat below. Replies keep the ordinary reply
+// glass, their reading window and delivery diagnostics; one the column cannot
+// hold takes the head-relative seat.
 
 import { menuSeatWithinView } from './menu-view-band.mjs';
 import { measureReplyCard, measureReplyCardClearance, replyCardOffsetAsync } from './reply-card-layout.mjs';
@@ -111,7 +102,7 @@ export const CAPTION_DRIFT_DEGREES = 12;
 /** The shortest gap between two re-seats, so a turning head cannot thrash it. */
 export const CAPTION_RESEAT_MS = 200;
 
-const TEXT_PROPS = Object.freeze({ attachment: 'middle-center', background: false, fontFamily: 'sans-serif', fontQuality: 2 });
+const TEXT_PROPS = Object.freeze({ attachment: 'middle-center', background: false, fontFamily: 'sans-serif', fontWeight: 'bold', fontQuality: 2 });
 const PALETTE = Object.freeze({ text: 0xf2fdfc, plate: 0x081218, edge: 0x58dcc9 });
 
 /**
@@ -201,15 +192,18 @@ function plateCorners(seat, halfWidth, halfHeight) {
  * @param {string}  [state.notice] a caption another control asked for
  * @param {string}  [state.progress] ongoing microphone or fitting feedback
  */
-export function captionText(state = {}, link = connectionStatus()) {
+export function captionText(state = {}, link = connectionStatus(), { automaticHints = true } = {}) {
   if (link.line) return link.voiceLost ? `${TALK_LINK_LOST}. ${link.line}` : link.line;
   if (state.talking) return state.progress || 'Listening…';
   if (state.sending) return state.progress || 'Sending…';
   if (state.notice) return state.notice;
-  if (state.holding) return 'Move hand to move · grip + stick: size';
-  if (state.modifier) return 'Trigger + stick: turn / depth';
+  if (automaticHints && state.holding) return 'Move hand to move · grip + stick: size';
+  if (automaticHints && state.modifier) return 'Trigger + stick: turn / depth';
   return state.progress || state.outcome || '';
 }
+
+/** A quiet authored lesson keeps unsolicited control tutorials off its glass. */
+export const automaticCaptionHintsAllowed = tour => !(tour?.captionCard === 'hidden' && (tour.active === true || tour.navigating === true));
 
 /**
  * One caption line broken at the glass's preferred width.
@@ -228,10 +222,28 @@ export function captionText(state = {}, link = connectionStatus()) {
  *
  * @returns {string[]} at most `maxLines` lines
  */
-export function captionLines(text, { lineChars = CAPTION_LINE_CHARS, maxLines = CAPTION_MAX_LINES } = {}) {
+export function captionLines(text, { lineChars = CAPTION_LINE_CHARS, maxLines = CAPTION_MAX_LINES, maxWidth } = {}) {
   const source = typeof text === 'string' ? text.trim().replace(/\s+/gu, ' ') : '';
   if (!source) return [];
   const lines = [];
+  if (Number.isFinite(maxWidth)) {
+    let rest = source;
+    while (rest) {
+      const glyphs = Array.from(rest), advances = glyphAdvances(rest);
+      let width = 0, take = 0;
+      while (take < glyphs.length && width + advances[take] <= maxWidth + 1e-9) width += advances[take++];
+      // A single glyph is the irreducible width; draw can use the ordinary
+      // reply seat when even that cannot fit the column at readable type.
+      take = Math.max(1, take);
+      if (take < glyphs.length) {
+        const space = glyphs.slice(0, take + 1).lastIndexOf(' ');
+        if (space > 0) take = space;
+      }
+      lines.push(glyphs.slice(0, take).join('').trimEnd());
+      rest = glyphs.slice(take).join('').trimStart();
+    }
+    return lines.slice(0, maxLines);
+  }
   let rest = source;
   while (rest && lines.length < maxLines) {
     if (rest.length <= lineChars) { lines.push(rest); rest = ''; break; }
@@ -261,7 +273,7 @@ const WIDE_GLASS = Object.freeze({ lineChars: CAPTION_WIDE_LINE_CHARS, maxLines:
 
 /** Whether a sentence fits a glass whole, with nothing cut. */
 export function captionFits(text, glass = WIDE_GLASS) {
-  return captionLines(text, { lineChars: glass.lineChars, maxLines: Infinity }).length <= glass.maxLines;
+  return captionLines(text, { ...glass, maxLines: Infinity }).length <= glass.maxLines;
 }
 
 /**
@@ -285,7 +297,7 @@ export function captionPages(text, glass = WIDE_GLASS) {
   const source = typeof text === 'string' ? text.trim().replace(/\s+/gu, ' ') : '';
   const words = source ? source.split(' ').flatMap(word => {
     if (captionFits(word, glass)) return [word];
-    const lines = captionLines(word, { lineChars: glass.lineChars, maxLines: Infinity });
+    const lines = captionLines(word, { ...glass, maxLines: Infinity });
     const pieces = [];
     for (let index = 0; index < lines.length; index += glass.maxLines)
       pieces.push(lines.slice(index, index + glass.maxLines).join(''));
@@ -358,12 +370,13 @@ export function showTalkProgress(state) {
  * @param {object} options.presentation the presentation scene from `presentation-scene.mjs`
  * @param {()=>object|undefined} options.head the latest viewer pose
  */
-export function createTalkCaption({ plugin, presentation, head = () => undefined, menuPoints = () => [], clearance,
-  viewsAvailable,
+export function createTalkCaption({ plugin, presentation, head = () => undefined, menuPoints = () => [], menuPlates, clearance, captionColumn,
+  viewsAvailable, getTourState = () => undefined,
   now = () => (globalThis.performance?.now?.() ?? Date.now()),
   record = () => {} } = {}) {
   if (!plugin?.runTask) throw new TypeError('A talk caption needs the Mol* plugin.');
   if (!presentation?.add) throw new TypeError('A talk caption needs the presentation layer.');
+  const captionLine = (state, link) => captionText(state, link, { automaticHints: automaticCaptionHintsAllowed(getTourState()) });
   // The headset supplies clearance. A standalone caption has no molecular
   // scene to cover and keeps its existing design seat.
 
@@ -382,7 +395,35 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     const callback = outcomeReporter; if (!retain) outcomeReporter = undefined;
     try { callback?.(detail); } catch { /* Diagnostics cannot prevent a caption. */ }
   }
-  let outcomePages = [], outcomePage = 0, outcomeHold = CAPTION_OUTCOME_MS;
+  let outcomePages = [], outcomePage = 0, outcomeHold = CAPTION_OUTCOME_MS, outcomeWidth, outcomeGlass;
+  function currentColumn() {
+    try { return captionColumn?.(); } catch { return undefined; }
+  }
+  // The menu a card must clear, with its drawn plates when the caller has
+  // them, so a reply may sit beside a compact control rather than only below
+  // the whole reserved menu rectangle.
+  function menuObstacle() {
+    const points = menuPoints() ?? [];
+    let plates;
+    try { plates = menuPlates?.(); } catch { /* The menu may have left with XR. */ }
+    return plates?.length ? Object.assign([...points], { plates }) : points;
+  }
+  // A full menu's column sets the width of its temporary status. A compact
+  // column is one Menu control no line fits, so its status keeps the ordinary
+  // caption glass, sized to its words and centred beneath the control.
+  function columnGlass(column = currentColumn()) {
+    return column && !column.compact ? { maxWidth: Math.max(0, (2 * column.halfWidth - 2 * CAPTION_PADDING_METERS) / CAPTION_FONT_METERS),
+      maxLines: CAPTION_MAX_LINES } : undefined;
+  }
+  // A reply is read, not glanced at. It keeps the ordinary reply glass unless
+  // the menu column holds more of it on a page, and then it takes the column.
+  // Never the narrow glass, which would split a long word of a short reply.
+  // A standalone caption has no column and keeps the narrow glass for short
+  // lines.
+  function replyGlass(text, glass = columnGlass()) {
+    return glass && captionPages(text, glass).length < captionPages(text, WIDE_GLASS).length ? glass
+      : captionColumn ? WIDE_GLASS : undefined;
+  }
   let statePages = [], statePage = 0, statePageOf = '', statePageUntil = 0;
   let connectionLine = '', connectionUntil;
   /**
@@ -408,6 +449,15 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     record('caption-retired', { surface: 'caption', text, holdMs: Math.round(holdMs),
       ...(shownMs === undefined ? {} : { shownMs }) });
   }
+  let compact = '', compactUntil = 0, compactPending = false;
+  let previousConnection = assistantStatus.connectionLine();
+  const offAssistant = assistantStatus.subscribe(() => {
+    const connection = assistantStatus.connectionLine();
+    if (connection === previousConnection) return;
+    previousConnection = connection;
+    compact = assistantStatus.compactLine(); compactPending = true; compactUntil = 0;
+    refresh();
+  });
   const state = { talking: false, sending: false, outcome: '', holding: false, modifier: false, notice: '', progress: '' };
 
   function remove() {
@@ -428,7 +478,7 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     const posePosition = poseTransform?.position;
     pose = { matrix: poseTransform?.matrix && Array.from(poseTransform.matrix),
       position: posePosition && { x: posePosition.x, y: posePosition.y, z: posePosition.z } };
-    const nextSeat = captionSeat(pose);
+    let nextSeat = captionSeat(pose);
     if (!nextSeat) return;
     let queuedClearance;
     try { queuedClearance = clearance?.(); } catch { /* Wait for measurable geometry. */ }
@@ -439,27 +489,49 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
       if (line === state.outcome) reportOutcome(receipt, { retain: true });
       return;
     }
+    let column = currentColumn();
     const size = CAPTION_FONT_METERS;
-    const lines = captionLines(line, captionGlass(line));
+    const glass = line === state.outcome ? outcomeGlass : columnGlass(column);
+    const lines = glass ? captionLines(line, glass)
+      : line === compact || line === assistantStatus.releaseLine() ? [line] : captionLines(line, captionGlass(line));
     if (!lines.length) return;
     const pitch = size * CAPTION_LINE_PITCH;
     const widest = Math.max(...lines.map(text => glyphAdvances(text).reduce((total, advance) => total + advance, 0)));
     const halfWidth = widest * size / 2 + CAPTION_PADDING_METERS;
     const halfHeight = (size + (lines.length - 1) * pitch) / 2 + CAPTION_PADDING_METERS;
     const basis = toolbarSeatBasis(pose);
+    if (column && halfWidth > column.halfWidth + 1e-9 && line === state.outcome) column = undefined;
+    if (captionColumn && !(line === state.outcome && !column)) {
+      if (!column || (halfWidth > column.halfWidth + 1e-9 && !column.compact)) {
+        remove(); blockedLine = line; seatAim = headAim(pose);
+        const receipt = { outcome: 'blocked', measured: true, reason: 'no-column-space' };
+        record('talk-caption-seat', receipt);
+        if (line === state.outcome) reportOutcome(receipt, { retain: true });
+        return;
+      }
+      nextSeat = { ...column, columnBound: true, origin: column.top.map((v, i) => v - column.up[i] * halfHeight) };
+    }
     let fallback, seatVerdict;
     // Share the upright, binocular view band, and let the layout weigh it
     // against what the eyes report. The seat that comes back is measured
     // in both eye projections -- the wearer's actual pitch and roll, not the
     // levelled design frame -- so nothing downstream can call an offscreen
     // card shown.
-    const offset = await replyCardOffsetAsync({ points: plateCorners(nextSeat, halfWidth, halfHeight),
-      menuPoints: menuPoints(), eye: basis.origin,
+    const solve = () => replyCardOffsetAsync({ points: plateCorners(nextSeat, halfWidth, halfHeight),
+      menuPoints: menuObstacle(), ...(column ? { belowMenu: column.up } : {}), eye: basis.origin,
       target: basis.origin.map((value, i) => value + basis.forward[i]), up: basis.up, clearance: queuedClearance,
       withinView: corners => menuSeatWithinView(corners, pose),
       onFallback: reason => { fallback = reason; }, onSeat: verdict => { seatVerdict = verdict; } },
       { isCurrent: () => !closed && own === sequence && now() < solveDeadline });
+    let offset = await solve();
     if (closed || own !== sequence || !offset || now() >= solveDeadline) return;
+    // A reply the column cannot hold in view still owes the wearer its words:
+    // it takes the ordinary reply seat instead of waiting for the scene.
+    if (clearance && seatVerdict?.outcome !== 'shown' && column && line === state.outcome) {
+      column = undefined; nextSeat = captionSeat(pose); fallback = undefined; seatVerdict = undefined;
+      offset = await solve();
+      if (closed || own !== sequence || !offset || now() >= solveDeadline) return;
+    }
     if (fallback) record('talk-caption-seat', { outcome: 'fallback', fallback });
     if (clearance && seatVerdict?.outcome !== 'shown') {
       // A full glass has no readable card seat. Keep the reply pending for a
@@ -504,7 +576,7 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     const nextLabel = ShapeRepresentation(async () => textShape, Text.Utils, { modifyState: value => ({ ...value, pickable: false }) });
     try {
       await plugin.runTask(nextPlate.createOrUpdate({ alpha: 0.86, doubleSided: true, ignoreLight: true }, {}));
-      await plugin.runTask(nextLabel.createOrUpdate({ sizeFactor: 1, background: false, attachment: 'middle-center', offsetZ: 0 }, {}));
+      await plugin.runTask(nextLabel.createOrUpdate({ sizeFactor: 1, background: false, attachment: 'middle-center', offsetZ: 0, borderWidth: 0, fontFamily: 'sans-serif', fontWeight: 'bold', fontQuality: 2 }, {}));
     } catch (error) {
       try { nextPlate.destroy(); } catch {}
       try { nextLabel.destroy(); } catch {}
@@ -526,7 +598,8 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     if (clearance) {
       // The initial search can span frames. Always re-read current geometry,
       // menu and eyes; an unchanged head does not imply an unchanged molecule.
-      verdict = measureReplyCardClearance(corners, menuPoints(), commitClearance);
+      verdict = measureReplyCardClearance(corners, menuObstacle(), commitClearance);
+      if (column && JSON.stringify(column) !== JSON.stringify(currentColumn())) verdict = { outcome: 'blocked', measured: true };
       if (verdict?.outcome !== 'shown') {
         nextPlate.destroy(); nextLabel.destroy(); remove();
         blockedLine = line; seatAim = headAim(committedPose); reseatNow = true;
@@ -660,8 +733,24 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     // cannot leave a stale Listening/Sending line on the caption plate.
     const readable = lostLine ? { ...state, talking: false, sending: false,
       progress: state.talking || state.sending ? '' : state.progress } : state;
-    const line = captionText(readable, showLink ? link : { ...link, line: '' }).trim();
+    const primary = captionLine(readable, showLink ? link : { ...link, line: '' }).trim();
+    if(!automaticCaptionHintsAllowed(getTourState())) { compact='';compactPending=false;compactUntil=0; }
+    // Start the three-second window once the reply/microphone releases the glass.
+    // A heartbeat or transcript change cannot renew it.
+    if (!primary && compactPending) {
+      compactPending = false; compactUntil = now() + CAPTION_OUTCOME_MS;
+    }
+    const line = primary || (now() < compactUntil ? compact : '');
     const pose = head();
+    const glass = columnGlass();
+    if (state.outcome && outcomeWidth !== glass?.maxWidth) {
+      const unread = outcomePages.length ? outcomePages.slice(outcomePage).join(' ') : state.outcome;
+      outcomeGlass = replyGlass(unread, glass);
+      outcomePages = captionPages(unread, outcomeGlass ?? WIDE_GLASS); outcomePage = 0;
+      state.outcome = outcomePages[0]; outcomeWidth = glass?.maxWidth;
+      // Re-enter with the new page while preserving its remaining window.
+      return refresh();
+    }
     if (!line) { reportOutcome({ outcome: 'cleared' }); reported = ''; sequence++; pending = undefined; statePages = []; statePageOf = ''; remove(); return; }
     // One deadline belongs to the attempt, including time without tracking.
     // Head/menu drift can ask for another seat, never another deadline.
@@ -683,9 +772,10 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     // It keeps turning for as long as the state lasts, because the wearer may
     // look down at any point in the cycle and the last page has to come round.
     let shown = line;
-    if (!captionFits(line)) {
-      if (statePageOf !== line) {
-        statePages = captionPages(line); statePage = 0; statePageOf = line; statePageUntil = now() + CAPTION_OUTCOME_MS;
+    if (line !== state.outcome && !captionFits(line, glass ?? WIDE_GLASS)) {
+      const pageKey = JSON.stringify([line, glass?.maxWidth]);
+      if (statePageOf !== pageKey) {
+        statePages = captionPages(line, glass ?? WIDE_GLASS); statePage = 0; statePageOf = pageKey; statePageUntil = now() + CAPTION_OUTCOME_MS;
       } else if (now() >= statePageUntil) {
         statePage = (statePage + 1) % statePages.length; statePageUntil = now() + CAPTION_OUTCOME_MS;
       }
@@ -696,6 +786,9 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
       let measurable = false;
       try { measurable = viewsAvailable ? viewsAvailable() : clearance()?.views?.length === 2; }
       catch { /* The drawing is unmeasurable. */ }
+      if (measurable && seat?.columnBound && measureSeatNow()?.outcome !== 'shown') {
+        remove(); blockedLine = shown; seatAim = headAim(pose);
+      }
       if (!measurable) {
         remove(); blockedLine = shown; seatAim = headAim(pose);
         const receipt = { outcome: 'unmeasured', measured: false, reason: 'no-eye-views' };
@@ -703,7 +796,8 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
         if (shown === state.outcome) reportOutcome(receipt, { retain: true });
       }
     }
-    const nextMenu = JSON.stringify(menuPoints());
+    const menu = menuObstacle();
+    const nextMenu = JSON.stringify([menu, menu.plates, currentColumn()]);
     if (pending?.line === shown && pending?.menu === nextMenu) return;
     if ((shown === drawn || blockedLine === shown) && nextMenu === lastMenu) {
       if (blockedLine === shown) {
@@ -723,7 +817,7 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
       // caller is waiting on an answer the rate limit would otherwise defer.
       if (!reseatNow) {
         if (seatReceipt?.outcome === 'shown') {
-          if (driftDegrees(pose) < CAPTION_DRIFT_DEGREES && menuSeatWithinView(seatPoints, pose)) return;
+          if ((seat?.columnBound || driftDegrees(pose) < CAPTION_DRIFT_DEGREES) && menuSeatWithinView(seatPoints, pose)) return;
         } else if (!aimMoved(pose)) return;
         if (now() - lastDrawAt < CAPTION_RESEAT_MS) return;
       }
@@ -767,7 +861,7 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
   function seatHolds() {
     const pose = head();
     if (!pose || !seatPoints.length || !seatReceipt) return false;
-    if (!(driftDegrees(pose) < CAPTION_DRIFT_DEGREES && menuSeatWithinView(seatPoints, pose))) return false;
+    if (!((seat?.columnBound || driftDegrees(pose) < CAPTION_DRIFT_DEGREES) && menuSeatWithinView(seatPoints, pose))) return false;
     const measured = measureSeatNow();
     return clearance ? measured?.outcome === 'shown' : true;
   }
@@ -775,6 +869,8 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
   return {
     /** The line the wearer is reading, for diagnostics and tests. */
     text: () => drawn,
+    /** The drawn plate's corners in room metres, none while it is hidden. */
+    platePoints: () => (drawn ? seatPoints : []),
     /**
      * Update what the caption says.
      *
@@ -817,7 +913,10 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
       // is still accepted, and no longer decides anything: no caption kind may
       // end in an ellipsis, so the length of the sentence decides.
       if (typeof next.outcome === 'string' && next.outcome) {
-        const pages = captionFits(next.outcome, NARROW_GLASS) ? [] : captionPages(next.outcome);
+        outcomeWidth = columnGlass()?.maxWidth;
+        const glass = outcomeGlass = replyGlass(next.outcome);
+        const pages = glass ? captionPages(next.outcome, glass)
+          : captionFits(next.outcome, NARROW_GLASS) ? [] : captionPages(next.outcome);
         outcomePages = pages.length > 1 ? pages : [];
         outcomePage = 0;
         if (pages.length) next = { ...next, outcome: pages[0] };
@@ -846,7 +945,7 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
         // Same rule as a notice. A repeated sentence gets a fresh window,
         // so its measured hold is counted from the window, not from the draw.
         if (state.outcome === drawn) drawnAt = now();
-        outcomeNeedsHold = outcomeHoldAfterDraw && captionText(state, { ...connectionStatus(), line: '' }).trim() === state.outcome && drawn !== state.outcome;
+        outcomeNeedsHold = outcomeHoldAfterDraw && captionLine(state, { ...connectionStatus(), line: '' }).trim() === state.outcome && drawn !== state.outcome;
         // The same sentence arriving again used to answer its caller from
         // the standing receipt right here, before `refresh` had decided whether
         // the head had moved past `CAPTION_DRIFT_DEGREES` and the card had to
@@ -879,9 +978,10 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     clear() {
       reportOutcome({ outcome: 'cleared' }); outcomeNeedsHold = false; noticeUntil = 0;
       state.talking = false; state.sending = false; state.holding = false;
+      compact = ''; compactPending = false; compactUntil = 0;
       state.modifier = false; state.outcome = ''; state.notice = ''; state.progress = ''; reported = '';
       sequence++; pending = undefined; remove();
     },
-    dispose() { closed = true; sequence++; reportOutcome({ outcome: 'unavailable' }); remove(); return building.catch(() => {}); },
+    dispose() { offAssistant(); closed = true; sequence++; reportOutcome({ outcome: 'unavailable' }); remove(); return building.catch(() => {}); },
   };
 }

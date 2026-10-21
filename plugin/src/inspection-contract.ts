@@ -1,3 +1,5 @@
+import { measurementLinesSchema } from './inspection-measure.js';
+import { molecularLessonSchema, lessonStartSchema } from './molecular-lesson.js';
 // @ts-ignore Shared numerical placement guardrails used by the renderer.
 import { PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE, PLACEMENT_MAX_TRANSLATION } from '../../lab/browser-roundtrip/placement-limits.mjs';
 // @ts-ignore Shared pure page/host placement envelope.
@@ -5,6 +7,7 @@ import { placementFitWithinEnvelope } from '../../lab/browser-roundtrip/placemen
 import { assertInspectionBudget, MAX_INSPECTION_SCENE_BYTES, MAX_STRUCTURE_SOURCE_BYTES } from './inspection-limits.js';
 import { z } from 'zod';
 import { INSPECTION_FAILURE_CODES, MAX_INSPECTION_FAILURE_REASON_CHARS } from './inspection-failure-receipt.js';
+import { molecularAnimationSchema } from './molecular-animation.js';
 import { lessonFigureSchema } from './lesson-figure.js';
 // @ts-ignore Shared pure whole-figure style policy used by the live renderer.
 import { withFigureRepresentation } from '../../lab/browser-roundtrip/lesson-figure-appearance.mjs';
@@ -17,14 +20,16 @@ import { heartbeatDiagnosticsBatchSchema } from './headset-diagnostics.js';
 // These validators are the same implementations used by the stock viewer.
 // @ts-ignore Shared JavaScript science module.
 import { cameraSnapshot } from '../../lab/browser-roundtrip/camera-snapshot.mjs';
+// @ts-ignore Shared selection ownership identity used by the renderer.
+import { selectionSignature } from '../../lab/browser-roundtrip/selection-paint.mjs';
 // @ts-ignore Shared JavaScript inspection module.
 import { normalizeAppearance, normalizePlacement } from '../../lab/browser-roundtrip/inspection-state.mjs';
 // One definition of what "hidden" means, so the host that
 // decides what a request comes back as and the page that takes the rows off the
 // screen cannot describe the same picture two different ways.
 // @ts-ignore Shared JavaScript inspection module.
-import { MAX_HIDDEN_CHAINS, MAX_VISIBILITY_IDENTIFIER, VISIBILITY_COMPONENT_CLASSES, VISIBILITY_OPS, absentClassNote, absentVisibilityClasses, availableChains, chainIdentityKey, componentClassesPresent, describeVisibility, emptyVisibility, normalizeVisibility, resolveVisibility, sameVisibility, visibilityHidesEverything, visibilityIsEmpty } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
-export { MAX_HIDDEN_CHAINS, VISIBILITY_COMPONENT_CLASSES, VISIBILITY_OPS, absentClassNote,
+import { MAX_HIDDEN_CHAINS, MAX_SCENE_HIDDEN_CHAINS, MAX_VISIBILITY_IDENTIFIER, VISIBILITY_COMPONENT_CLASSES, VISIBILITY_OPS, absentClassNote, absentVisibilityClasses, availableChains, chainIdentityKey, componentClassesPresent, describeVisibility, emptyVisibility, normalizeVisibility, resolveVisibility, sameVisibility, visibilityHidesEverything, visibilityIsEmpty } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
+export { MAX_HIDDEN_CHAINS, MAX_SCENE_HIDDEN_CHAINS, VISIBILITY_COMPONENT_CLASSES, VISIBILITY_OPS, absentClassNote,
   absentVisibilityClasses, availableChains, chainIdentityKey, componentClassesPresent,
   describeVisibility, emptyVisibility, normalizeVisibility, resolveVisibility,
   sameVisibility, visibilityHidesEverything, visibilityIsEmpty };
@@ -80,10 +85,14 @@ export const emphasisPartSchema = z.object({
   residues: z.object({from: z.number().int(), to: z.number().int()}).strict().optional(),
 }).strict().refine(part => part.chain !== undefined || part.residues !== undefined,
   'An emphasis part must name a chain, a residue range, or both.');
+/** The most parts one scene's colour key may hold. */
+export const EMPHASIS_PART_LIMIT = 32;
 const emphasisFields = {
-  parts: z.array(emphasisPartSchema).max(32),
+  parts: z.array(emphasisPartSchema).max(EMPHASIS_PART_LIMIT),
   /** The parts held at full strength. Empty is the whole key at full strength. */
   focus: z.array(z.string().min(1).max(80)).max(32),
+  /** Parts drawn in their key colour beside the focus; not framed, not explained. */
+  alsoLit: z.array(z.string().min(1).max(80)).max(32).optional(),
   /** How faint everything else goes; 0 would hide the complex the part sits in. */
   contextOpacity: z.number().finite().min(0).max(1),
   /**
@@ -96,9 +105,9 @@ const emphasisFields = {
    */
   strandShades: z.boolean().optional(),
 };
-const focusesOwnKey = (value: {parts: {id: string}[]; focus: string[]}) =>
-  value.focus.every(id => value.parts.some(part => part.id === id));
-const FOCUS_MESSAGE = 'An emphasis may only focus parts its own colour key names.';
+const focusesOwnKey = (value: {parts: {id: string}[]; focus: string[]; alsoLit?: string[]}) =>
+  [...value.focus, ...(value.alsoLit ?? [])].every(id => value.parts.some(part => part.id === id));
+const FOCUS_MESSAGE = 'An emphasis may only focus or light parts its own colour key names.';
 export const emphasisSchema = z.object(emphasisFields).strict().refine(focusesOwnKey, FOCUS_MESSAGE);
 export type InspectionEmphasis = z.output<typeof emphasisSchema>;
 /**
@@ -230,7 +239,7 @@ const hiddenChainSchema = z.object({
 }).strict();
 export const visibilityComponentClassSchema = z.enum(VISIBILITY_COMPONENT_CLASSES as unknown as [string,...string[]]);
 export const sceneVisibilitySchema = z.object({
-  hiddenChains:z.array(hiddenChainSchema).max(MAX_HIDDEN_CHAINS),
+  hiddenChains:z.array(hiddenChainSchema).max(MAX_SCENE_HIDDEN_CHAINS),
   hiddenClasses:z.array(visibilityComponentClassSchema).max(VISIBILITY_COMPONENT_CLASSES.length),
   showOnlySelection:z.boolean(),
 }).strict().superRefine((value,ctx)=>{
@@ -276,16 +285,36 @@ const sceneCoreSchema = z.object({
     styles:sceneStylesSchema.optional(),
     companionStructure:companionStructureSchema.optional(),
     lessonFigure:lessonFigureSchema.optional(),
+    // Static chapter ownership survives removal of its playback clock.
+    lessonFigureAnimation:molecularAnimationSchema.optional(),
+    measurementLines:measurementLinesSchema.optional(),
+    // Sorted-key signature: provenance travels with the saved selection.
+    lessonSelection:z.string().max(MAX_INSPECTION_SCENE_BYTES).optional(),
   }).strict(),
 }).strict();
+/** Coarse sample from the panel that owns the chapter clock, never extrapolated by the host. */
+export const animationStateSchema = z.object({
+  id:z.string().min(1).max(128), chapterId:z.string().min(1).max(128),
+  state:z.enum(['playing','paused']), timeSeconds:z.number().finite().nonnegative(),
+  durationSeconds:z.number().finite().positive(), loop:z.boolean(), speed:z.number().finite().positive(),
+  representationCounts:z.object({molecular:z.number().int().nonnegative(), moving:z.number().int().nonnegative(),
+    added:z.number().int().nonnegative(), annotations:z.number().int().nonnegative(), tethers:z.number().int().nonnegative()}).strict().optional(),
+}).strict().refine(value=>value.timeSeconds<=value.durationSeconds,'Animation time exceeds its duration.');
+export type AnimationState = z.output<typeof animationStateSchema>;
 /** One source-bound baseline; nesting another playback snapshot is forbidden. */
 export const lessonPlaybackSchema = z.object({
   tourId:z.string().min(1).max(128), chapterId:z.string().min(1).max(128),
-  stopped:z.boolean(), narration:z.boolean().optional(), startingScene:sceneCoreSchema,
+  stopped:z.boolean(), narration:z.boolean().optional(),
+  // A start or restart opened this chapter: a peer keeps its wearer's placement.
+  entry:z.literal('start').optional(),
+  // Fraction already baked into the saved camera; transient ticks stay unsaved.
+  motionProgress:z.number().finite().min(0).max(1).optional(), motionPlaying:z.boolean().optional(), cameraFrame:z.enum(['desktop','xr']).optional(), startingScene:sceneCoreSchema,
 }).strict();
 export type LessonPlayback = z.output<typeof lessonPlaybackSchema>;
 export const sceneSchema = sceneCoreSchema.extend({inspection:sceneCoreSchema.shape.inspection.extend({
   lessonPlayback:lessonPlaybackSchema.optional(),
+  animation: z.object({definition:molecularAnimationSchema, playback:animationStateSchema}).strict()
+    .refine(value => value.definition.durationSeconds === value.playback.durationSeconds, 'Animation duration must match its definition.').optional(),
 }).strict()}).strict();
 export type InspectionScene = z.output<typeof sceneSchema>;
 const namedViewUnitVector=z.array(z.number().finite()).superRefine(exactly(3)).transform(v=>v as [number,number,number]);
@@ -384,6 +413,8 @@ export function validateScene(value: unknown, catalog: any, density?: {sha256:st
   const scene = sceneSchema.parse(value);
   assertInspectionBudget(scene,MAX_INSPECTION_SCENE_BYTES,'Inspection snapshot');
   cameraSnapshot(scene.camera); normalizeAppearance(scene.inspection.appearance); normalizePlacement(scene.inspection.placement);
+  if(scene.inspection.lessonSelection !== undefined && scene.inspection.lessonSelection !== selectionSignature(scene.selectionKeys))
+    throw Error('Lesson selection ownership must match the saved selection keys.');
   // "nothing is hidden" has exactly one spelling, which is the
   // absent field. A scene carrying an explicitly empty hidden set describes the
   // same picture with different bytes, and the receipt comparison would read
@@ -399,6 +430,23 @@ export function validateScene(value: unknown, catalog: any, density?: {sha256:st
       throw Error('The lesson starting view must match the saved scene source, model and assembly.');
     scene.inspection.lessonPlayback.startingScene=validateScene(start,catalog,density);
   }
+  if(scene.inspection.measurementLines) {
+    const atoms=new Map(catalog.rows.filter((row:any)=>row.identity.modelNumber===scene.modelNumber)
+      .flatMap((row:any)=>row.atomSites.map((atom:any)=>[atom.key,atom])));
+    const ids=new Set();
+    for(const line of scene.inspection.measurementLines) {
+      if(ids.has(line.id)) throw Error('Measurement ids must be unique.');
+      ids.add(line.id);
+      for(const endpoint of [line.a,line.b]) {
+        const atom:any=atoms.get(endpoint.key);
+        if(!atom || endpoint.authorChain!==atom.identity.authorChain
+          || (endpoint.authorResidue!==undefined && endpoint.authorResidue!==atom.identity.authorResidue)
+          || (endpoint.componentId!==undefined && endpoint.componentId!==atom.identity.componentId)
+          || inspectionJson(endpoint.position)!==inspectionJson(atom.assemblyCoordinatesAngstrom))
+          throw Error('Measurement endpoints must match the current model and assembly atoms.');
+      }
+    }
+  }
   return scene;
 }
 export const inspectionBindingSchema = z.object({ sessionId:sessionIdSchema, serverEpoch:z.string().uuid(),
@@ -412,12 +460,16 @@ export const inspectionBindingSchema = z.object({ sessionId:sessionIdSchema, ser
 export const IMPLICIT_BINDING_FIELDS = ['serverEpoch','sourceToken','baseStateRevision','baseInspectionRevision','panelId','commandId'] as const;
 /** Rides on each field the host fills, so a model reading the schema knows it may leave it out. */
 export const IMPLICIT_BINDING_NOTE = 'Optional: left out, the host uses the current value.';
-export function withImplicitBinding<T extends z.ZodObject<any,any>>(schema:T) {
+/** Rides on `sessionId` where a voice request's utteranceId can stand in for it. */
+export const UTTERANCE_SESSION_NOTE = 'Optional with utteranceId: the host uses that voice request\'s session.';
+export function withImplicitBinding<T extends z.ZodObject<any,any>>(schema:T, utteranceSession=false) {
   const shape=schema.shape as Record<string,z.ZodType>;
   // Only a field the strict schema requires is filled; an optional one stays the caller's.
-  return schema.extend(Object.fromEntries(IMPLICIT_BINDING_FIELDS
+  return schema.extend({...Object.fromEntries(IMPLICIT_BINDING_FIELDS
     .filter(key=>key in shape && !shape[key]!.safeParse(undefined).success)
-    .map(key=>[key,shape[key]!.optional().describe(IMPLICIT_BINDING_NOTE)])) as any);
+    .map(key=>[key,shape[key]!.optional().describe(IMPLICIT_BINDING_NOTE)])),
+    // A recorded utterance already names its session, so a voice edit may carry only its ID.
+    ...(utteranceSession && 'utteranceId' in shape && 'sessionId' in shape ? {sessionId:shape.sessionId!.optional().describe(UTTERANCE_SESSION_NOTE)} : {})} as any);
 }
 /** The longest an edit's own call waits for its receipt: a claimed render's deadline. */
 export const COMMAND_WAIT_CEILING_MS = 120_000;
@@ -428,7 +480,7 @@ export const tourCommandClaimSchema = inspectionBindingSchema.omit({sessionId:tr
 }).strict();
 const journeySaveClaimSchema = z.object({panelId:z.string().uuid(),rollbackToken:z.string().uuid()}).strict();
 export type JourneySaveClaim = z.output<typeof journeySaveClaimSchema>;
-export const syncInspectionSchema = inspectionBindingSchema.extend({scene:sceneSchema,tourCommand:tourCommandClaimSchema.optional(),
+export const syncInspectionSchema = inspectionBindingSchema.extend({scene:sceneSchema,panelId:z.string().uuid().optional(),tourCommand:tourCommandClaimSchema.optional(),
   journeySave:journeySaveClaimSchema.optional()}).strict();
 /**
  * How the host itself puts the companion page on the headset once a private
@@ -503,12 +555,17 @@ const replaceInspectionSourceFields = inspectionBindingSchema.extend({
    */
   waitForRenderMs:z.number().int().min(0).max(SOURCE_RENDER_WAIT_CEILING_MS).optional(),
   pdbId:z.string().regex(/^[A-Za-z0-9]{4}$/u).optional(),
+  demo:z.string().min(1).max(128).optional().describe('Bundled demo name from demos/index.json. Loads verified coordinates and starts its lesson in this session.'),
+  stage:z.string().min(1).max(128).optional().describe('Optional indexed stage, for example motion or monomer; only with demo.'),
   source:structureSourceSchema.describe(SOURCE_DESCRIPTION).optional(),
   ...structureSelectionShape,
 }).strict();
-const oneSource = (v:{pdbId?:unknown;source?:unknown}) => (v.pdbId!==undefined)!==(v.source!==undefined);
-export const replaceInspectionSourceSchema = replaceInspectionSourceFields.refine(oneSource,'Supply exactly one pdbId or source.');
-export const replaceInspectionSourceRequestSchema = withImplicitBinding(replaceInspectionSourceFields).refine(oneSource,'Supply exactly one pdbId or source.');
+const oneSource = (v:{pdbId?:unknown;source?:unknown;demo?:unknown;stage?:unknown;mode?:string;modelNumber?:number;assemblyId?:string;align?:string}) =>
+  [v.pdbId,v.source,v.demo].filter(value=>value!==undefined).length===1
+  && (v.stage===undefined || v.demo!==undefined)
+  && (v.demo===undefined || (v.mode!=='compare' && v.modelNumber===undefined && v.assemblyId===undefined && v.align===undefined));
+export const replaceInspectionSourceSchema = replaceInspectionSourceFields.refine(oneSource,'Supply exactly one pdbId, source or demo. stage requires demo; demo uses its indexed model/assembly and cannot compare.');
+export const replaceInspectionSourceRequestSchema = withImplicitBinding(replaceInspectionSourceFields).refine(oneSource,'Supply exactly one pdbId, source or demo. stage requires demo; demo uses its indexed model/assembly and cannot compare.');
 /**
  * One step up or down a staged demo, inside the session the wearer is already in.
  *
@@ -681,6 +738,7 @@ const selectionChange =z.object({kind:z.literal('selection'), patch:z.object({se
 const selectionRequestChange = z.object({kind:z.literal('selection'), patch:z.object({
   selectionKeys:sceneSchema.shape.selectionKeys.optional(), residues:regionQuerySchema.optional()}).strict()
   .refine(value=>(value.selectionKeys===undefined)!==(value.residues===undefined),'Supply selectionKeys or residues.')}).strict();
+const lessonChange = z.object({kind:z.literal('lesson'), patch:z.object({lesson:molecularLessonSchema, start:lessonStartSchema.optional(), frame:z.union([z.boolean(),z.literal('auto')]).optional()}).strict()}).strict();
 const tourChange = z.object({kind:z.literal('tour'), patch:tourActionSchema}).strict();
 /**
  * Bring an already-identified region into view, at a named framing.
@@ -704,6 +762,14 @@ const focusChange = z.object({kind:z.literal('focus'), patch:z.object({
  * selection are untouched, so it cannot carry a scene change.
  */
 const cameraChange = z.object({kind:z.literal('camera'), patch:z.object({camera:sceneSchema.shape.camera}).strict()}).strict();
+const animationRequestChange = z.object({kind:z.literal('animation'),patch:z.object({
+  state:z.enum(['play','pause']).optional(), speed:z.number().finite().min(0.1).max(4).optional(),
+  seekSeconds:z.number().finite().nonnegative().optional(), loop:z.boolean().optional(), restart:z.literal(true).optional(),
+}).strict().refine(patch=>Object.keys(patch).length>0,'Choose an animation control.')}).strict();
+// The host binds the command to the installed chapter before handing it to the panel.
+const animationChange = animationRequestChange.extend({target:z.object({
+  id:z.string().min(1).max(128),chapterId:z.string().min(1).max(128),
+}).strict().optional()});
 /**
  * Presentation motion: the slow turntable spin a wearer asks for with "spin
  * it" and stops with "stop". `spin` saves nothing; `stop` bakes the angle the
@@ -839,11 +905,12 @@ export type VisibilityRequestPatch = z.output<typeof visibilityRequestPatchSchem
  * every rule that governs one of them governs it inside a compound too, and
  * `expectedInspection` folds them in the order they are written. Each field may
  * appear once: a request that sets the opacity twice has not said what it
- * wants. Only the six scene-field edits are admitted — a tour, a motion, a
+ * wants. Only saved scene-field edits are admitted — a tour, a motion, a
  * render budget, a framing and a camera are not scene fields, and a compound
  * that mixed them could not be checked or reversed as one picture.
  */
-const compoundOpSchema = z.discriminatedUnion('kind', [appearanceChange, stylesChange, placementOpChange, selectionChange, emphasisChange, visibilityChange, companionChange]);
+const measurementChange=z.object({kind:z.literal('measurement'),patch:z.object({lines:measurementLinesSchema}).strict()}).strict();
+const compoundOpSchema = z.discriminatedUnion('kind', [appearanceChange, stylesChange, placementOpChange, selectionChange, emphasisChange, visibilityChange, companionChange, measurementChange]);
 export type InspectionCompoundOp = z.output<typeof compoundOpSchema>;
 const oncePerKind = (ops:readonly {kind:string;scope?:string}[]) => new Set(ops.map(op=>op.kind==='appearance' && op.scope==='selection'?'styles':op.kind)).size===ops.length;
 const COMPOUND_MESSAGE = 'A compound change carries each kind of edit at most once.';
@@ -859,7 +926,9 @@ export const COMPOUND_MIN_OPS = 2;
  */
 export const COMPOUND_MAX_OPS = 7;
 const compoundChange = z.object({kind:z.literal('compound'), patch:z.object({
-  ops:z.array(compoundOpSchema).max(COMPOUND_MAX_OPS).superRefine(atLeast(COMPOUND_MIN_OPS)).refine(oncePerKind,COMPOUND_MESSAGE),
+  // History can restore measured endpoints together with the seven caller-editable
+  // fields. Raw endpoints remain unavailable in the public request schema.
+  ops:z.array(compoundOpSchema).max(COMPOUND_MAX_OPS + 1).superRefine(atLeast(COMPOUND_MIN_OPS)).refine(oncePerKind,COMPOUND_MESSAGE),
 }).strict()}).strict();
 /**
  * The emphasis op AS A CALLER WRITES IT: part names, the way `emphasize` takes
@@ -883,7 +952,7 @@ export const compoundRequestChangeSchema = z.object({kind:z.literal('compound'),
     .max(COMPOUND_MAX_OPS).superRefine(atLeast(COMPOUND_MIN_OPS)).refine(oncePerRequestKind,COMPOUND_MESSAGE),
 }).strict()}).strict();
 export type CompoundRequestChange = z.output<typeof compoundRequestChangeSchema>;
-export const inspectionChangeSchema = z.discriminatedUnion('kind', [appearanceChange, stylesChange, placementChange, selectionChange, tourChange, cameraChange, focusChange, motionChange, renderQualityChange, emphasisChange, visibilityChange, companionChange, compoundChange]);
+export const inspectionChangeSchema = z.discriminatedUnion('kind', [appearanceChange, stylesChange, placementChange, selectionChange, tourChange, lessonChange, cameraChange, focusChange, motionChange, animationChange, measurementChange, renderQualityChange, emphasisChange, visibilityChange, companionChange, compoundChange]);
 export type InspectionChange = z.output<typeof inspectionChangeSchema>;
 export const commandIdSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/);
 /** Additive receipt metadata. A visual edit never changes coordinate bytes. */
@@ -899,6 +968,8 @@ export const operationContractSchema = z.discriminatedUnion('kind', [
 ]);
 export type OperationContract = z.output<typeof operationContractSchema>;
 export const inspectionStateSchema = z.object({sessionId:sessionIdSchema,commandId:commandIdSchema.optional(),residues:inspectionResidueQuerySchema.optional(),
+  includeViewDetails:z.boolean().optional().describe('Return the complete saved view, including canonical style keys, selection signature and animation definitions. Omit for compact routine polling.'),
+  includeLesson:z.boolean().optional().describe('Include the installed editable inline manifest for install_lesson, bounded to 256 KiB; omitted for routine polling.'),
   includeExperienceCatalog:z.boolean().optional().describe('Include full experience chapters and device budgets. Omit for routine state and receipt polling; tours always includes available IDs.')}).strict();
 /**
  * What `update_inspection` accepts, which is deliberately narrower than what a
@@ -911,10 +982,11 @@ export const updateInspectionSchema = inspectionBindingSchema.extend({panelId:z.
   // The tool description stops at what a host keeps (Claude Code keeps 2,048
   // characters); each kind's own rules ride on its member, which hosts keep whole.
   change:z.discriminatedUnion('kind', [
-    appearanceRequestChange.describe('Style the whole scene, a named region (residues) or the current selection (scope:"selection"). A region or selection patch takes representation, color, uniformColor, opacity or clear:true. labels:true labels the selected residues, up to 32: select them and confirm first. A costly scene may report a geometryBudget advisory that it may run slowly; the selected representation and quality are preserved.'),
+    appearanceRequestChange.describe('Style the whole scene, a named region (residues) or the current selection (scope:"selection"). A region or selection patch takes representation (cartoon, ball-and-stick, molecular-surface, spacefill, or sticks, surface, spheres), color, uniformColor, opacity 0-1 or clear:true. Without residues or scope:"selection", the patch styles the whole scene and also takes background, highlightColor, labels, clipping and fog. labels:true labels the selected residues, up to 32, with residue names and ligand codes. Select and label in one compound with no read first: ops [{kind:"selection",patch:{residues:{authorResidueRange:[248,248]}}},{kind:"appearance",patch:{labels:true}}], or residues {componentId:"MOV"} for a ligand. One selection names one region, so residues in separate places need selectionKeys from get_inspection_state residue reads, sent together. The selection highlight can replace a color set on selected atoms, so call them highlighted, name no color for them and leave a region unselected when its color should show; clearing the selection also removes their labels. A costly scene may report a geometryBudget advisory that it may run slowly; the selected representation and quality are preserved.'),
     placementChange.describe('Move the whole molecule: translation [x,y,z] in molecular radii, rotation in degrees [x,y,z], positive scale. Numerical limits are ±1000000 per translation axis and scale 0.000001–1000000. Moving only some residues is not a placement. {recenter:true}, alone, runs the headset\'s own Reset: the structure goes back to its entry size in front of the wearer and the menu is re-seated beside them. The receipt reports if the menu could not move. Use it when the wearer says they cannot see the structure or it is behind them. It needs a headset page in VR and is refused on the Mac panel.'),
     selectionRequestChange.describe('Replace the selection with a named region (residues) or canonical selectionKeys; selectionKeys:[] clears it. Rows without coordinates can be selected but show no 3D highlight.'),
     tourChange,
+    animationRequestChange.describe('Pause or resume the animation in the current lesson chapter. Use state play or pause, speed 0.1–4, an absolute seekSeconds within the clip, loop true or false, or restart true to return to zero. Restart keeps the play/pause state; add state play to play it again. This does not advance or pause the tour.'),
     motionChange.describe('spin starts the slow turntable the wearer hears as "Spinning."; stop ends it and saves the angle shown.'),
     renderQualityChange.describe('How much the panel draws per frame; nothing saved changes. balanced is the default. A headset already in VR gets more detail at once and the resolution only at its next entry: the receipt then carries scaleAppliesOnNextEntry:true, so say "Sharper after re-entry."'),
     visibilityRequestChange.describe('Take parts off the screen. Name a chain by its label letter when this model has one chain with it, else by the {labelChain, copyId} pair; a class the structure lacks is refused by name, or listed in visibility.absent beside what it did hide. op "only" with selection:true shows just the selection, and op "show" with selection:true undoes that. Report the result in the words visibility.now gives.'),
@@ -949,7 +1021,7 @@ const focusSelectionFields = inspectionBindingSchema.extend({panelId:z.string().
 const oneFocusRegion = (v:{selectionKeys?:unknown;residues?:unknown}) => !(v.selectionKeys && v.residues);
 const FOCUS_REGION_MESSAGE = 'Supply selectionKeys or residues, or neither to use what is already selected.';
 export const focusSelectionSchema = focusSelectionFields.refine(oneFocusRegion,FOCUS_REGION_MESSAGE);
-export const focusSelectionRequestSchema = withImplicitBinding(focusSelectionFields).refine(oneFocusRegion,FOCUS_REGION_MESSAGE);
+export const focusSelectionRequestSchema = withImplicitBinding(focusSelectionFields,true).refine(oneFocusRegion,FOCUS_REGION_MESSAGE);
 /**
  * What `emphasize` accepts: part names, and how faint everything else goes.
  *
@@ -1057,6 +1129,7 @@ export const pollInspectionSchema = inspectionBindingSchema.extend({panelId:z.st
   pageBuild:z.string().length(64).optional(),
   spatialContext:spatialContextSchema.nullable().optional(),
   xrStartup:xrStartupSchema.optional(),
+  animation:animationStateSchema.nullable().optional(),
   tourState:tourStateSchema.optional(),
   experience:experienceChapterSchema.optional(),
   // The headset's own log rides this heartbeat. Only entries the desktop has
@@ -1099,9 +1172,13 @@ function validPlacementFit(requested: InspectionScene['inspection']['placement']
 }
 
 export const completeInspectionSchema = inspectionBindingSchema.extend({panelId:z.string().uuid(),commandId:commandIdSchema,claimToken:z.string().uuid(),
+  animation:animationStateSchema.nullable().optional(),
   tourState:tourStateSchema.optional(),
   tourCommand:tourCommandClaimSchema.optional(),
-  phase:z.enum(['admit','settled']).optional(),
+  phase:z.enum(['admit','settled','defer-local-save']).optional(),
+  // Shared history preserves the acting panel's viewpoint. Bind that view
+  // before drawing, never by accepting a different pose in the final receipt.
+  historyScene:sceneSchema.optional(),
   allowReplacement:z.literal(true).optional(),
   recoveryFailed:z.literal(true).optional(),
   scene:sceneSchema.optional(),failure:z.enum(INSPECTION_FAILURE_CODES).optional(),
@@ -1126,9 +1203,14 @@ export const completeInspectionSchema = inspectionBindingSchema.extend({panelId:
   // difference was an intentional clearance fit on that claimed panel.
   placementAdjusted:z.literal(true).optional(),
   placementFit:placementFitSchema.optional(),
+  // The wearer moved, turned or resized the structure while a lesson that
+  // keeps the placement (`frame:false`) drew, and made no other local edit.
+  // The scene carries where the wearer put it; the panel checked the rest.
+  wearerPlacement:z.literal(true).optional(),
   recenterCompletion:recenterCompletionSchema.optional(),
   geometryBudget:geometryBudgetReceiptSchema.optional(),
 }).refine(v => v.phase ? !v.scene && !v.failure : Boolean(v.scene) !== Boolean(v.failure),'Supply a rendered scene or a failure, or a lifecycle phase without either.')
+  .refine(v => !v.historyScene || v.phase==='admit','A history viewpoint needs command admission.')
   .refine(v => !v.failureReason || Boolean(v.failure),'A failure reason needs a failure.')
   .refine(v => !v.tourCommand || Boolean(v.failure) || v.phase==='settled','A transferred tour claim can report only failure or settled cancellation here.')
   .refine(v => !v.allowReplacement || Boolean(v.scene),'A replacement needs the older rendered scene.')
@@ -1136,6 +1218,7 @@ export const completeInspectionSchema = inspectionBindingSchema.extend({panelId:
   .refine(v => !v.namedViewIntent || Boolean(v.scene),'A named-view intent needs a captured scene.')
   .refine(v => !v.geometryBudget || Boolean(v.scene),'Applied geometry needs a rendered scene.')
   .refine(v => !v.placementAdjusted || Boolean(v.scene),'A placement adjustment needs a rendered scene.')
+  .refine(v => !v.wearerPlacement || Boolean(v.scene),'A wearer placement needs a rendered scene.')
   .refine(v => !v.recenterCompletion || Boolean(v.scene),'A Reset completion needs a rendered scene.')
   .refine(v => !v.scaleAppliesOnNextEntry || Boolean(v.scene),'A pending framebuffer scale needs a rendered scene.');
 
@@ -1151,6 +1234,10 @@ export function expectedInspection(scene:InspectionScene, change:InspectionChang
     if(next.inspection.lessonFigure && Object.hasOwn(change.patch,'representation'))
       next.inspection.lessonFigure=withFigureRepresentation(next.inspection.lessonFigure,change.patch.representation);
   }
+  else if(change.kind==='measurement') {
+    if(change.patch.lines.length) next.inspection.measurementLines=structuredClone(change.patch.lines);
+    else delete next.inspection.measurementLines;
+  }
   else if(change.kind==='styles') {
     if(change.patch.styles.length) next.inspection.styles=normalizeStyles(change.patch.styles);
     else delete next.inspection.styles;
@@ -1158,7 +1245,9 @@ export function expectedInspection(scene:InspectionScene, change:InspectionChang
   // A Reset's seat is the panel's to solve, so nothing is expected of it here;
   // `matchesInspectionChange` takes the placement it saves as the answer.
   else if(change.kind==='placement') { if(!isRecenterChange(change)) next.inspection.placement=normalizePlacement(change.patch,scene.inspection.placement); }
-  else if(change.kind==='selection' || change.kind==='focus') next.selectionKeys=[...change.patch.selectionKeys];
+  else if(change.kind==='selection' || change.kind==='focus') {
+    next.selectionKeys=[...change.patch.selectionKeys]; if(next.inspection) delete next.inspection.lessonSelection;
+  }
   else if(change.kind==='camera') next.camera={...next.camera,...cameraPose(change.patch.camera)};
   else if(change.kind==='emphasis') next.inspection.emphasis=structuredClone(change.patch);
   // A companion patch either supplies a verified source, edits its own look
@@ -1298,7 +1387,45 @@ export const inspectionJson = (value:unknown):string => JSON.stringify(value, (_
     ? Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))) : item);
 
 export function matchesInspectionChange(scene:InspectionScene, expected:InspectionScene, change:InspectionChange,
-  catalog?:EmphasisCatalog, placementAdjusted=false, placementFit?:PlacementFitEvidence):boolean {
+  catalog?:EmphasisCatalog, placementAdjusted=false, placementFit?:PlacementFitEvidence, wearerPlacement=false):boolean {
+  // Ordinary edits do not own the molecular clock or renderer diagnostics.
+  // mutate() refreshes body representations and publishes a newer sample even
+  // when only emphasis changed. Compare the edit against that live sample,
+  // retaining the definition, chapter/id and playback controls as invariants.
+  // Playback commands and lesson/tour installation have their own gates below.
+  if (!['animation', 'lesson', 'tour'].includes(change.kind)
+    && scene.inspection.animation && expected.inspection.animation) {
+    expected = structuredClone(expected);
+    const actual = scene.inspection.animation.playback;
+    const prior = expected.inspection.animation!.playback;
+    if (prior.state === 'playing') {
+      prior.timeSeconds = actual.timeSeconds;
+      // A non-looping chapter may finish naturally while the edit draws.
+      if (!prior.loop && actual.timeSeconds === prior.durationSeconds && actual.state === 'paused')
+        prior.state = 'paused';
+    }
+    if (actual.representationCounts) prior.representationCounts = structuredClone(actual.representationCounts);
+    else delete prior.representationCounts;
+  }
+  // These controls do not own the lesson key. A resumed page may re-derive it;
+  // validate and save that actual key without making it part of this receipt.
+  // Source identity, requested placement and animation draw evidence stay checked.
+  if (change.kind === 'animation' || change.kind === 'placement') {
+    expected = structuredClone(expected);
+    if (scene.inspection.emphasis) expected.inspection.emphasis = structuredClone(scene.inspection.emphasis);
+    else delete expected.inspection.emphasis;
+  }
+  if (change.kind === 'animation' || change.kind === 'measurement') {
+    // Playback is checked against the requested controls by the receipt gate.
+    // Ordinary measurement edits use the same clock rule as other visual edits.
+    const comparable = structuredClone(scene);
+    if(change.kind==='measurement') comparable.camera.radiusMax=expected.camera.radiusMax;
+    if (scene.inspection.animation && expected.inspection.animation) {
+      if (inspectionJson(scene.inspection.animation.definition) !== inspectionJson(expected.inspection.animation.definition)) return false;
+      if(change.kind==='animation') comparable.inspection.animation = structuredClone(expected.inspection.animation);
+    }
+    return inspectionJson(comparable) === inspectionJson(expected);
+  }
   if(placementAdjusted) {
     const geometryChange=(kind:string)=>['placement','appearance','styles','companion-structure'].includes(kind);
     const hasGeometry=geometryChange(change.kind) || change.kind==='compound'
@@ -1343,7 +1470,29 @@ export function matchesInspectionChange(scene:InspectionScene, expected:Inspecti
   // A named tour is a renderer-owned sequence of multiple appearance,
   // selection and placement operations. validateScene still validates the
   // complete result and canonical identities before the claim is committed.
-  // A tour may not replace the source, model or assembly.
+  // A tour may not replace the source, model or assembly. A lesson that
+  // keeps the placement keeps the admitted one, unless the wearer moved the
+  // structure while it drew: that placement is theirs, as it is for a tour.
+  if(change.kind==='lesson') {
+    if(scene.sourceSha256!==expected.sourceSha256 || scene.modelNumber!==expected.modelNumber || scene.assemblyId!==expected.assemblyId
+      || inspectionJson(scene.selectionKeys)!==inspectionJson(expected.selectionKeys)
+      || (!change.patch.frame && !wearerPlacement && (inspectionJson(scene.inspection.placement)!==inspectionJson(expected.inspection.placement)
+      || inspectionJson({...scene.camera,radiusMax:expected.camera.radiusMax})!==inspectionJson(expected.camera)))) return false;
+    const playback=scene.inspection.lessonPlayback;
+    const previousChapter=expected.inspection.lessonPlayback?.chapterId;
+    if((change.patch.start || change.patch.frame || previousChapter) && !playback) return false;
+    const target=change.patch.start?.chapterId ?? (change.patch.lesson.chapters.some(chapter=>chapter.id===previousChapter)
+      ? previousChapter : change.patch.lesson.chapters[0].id);
+    if(playback && playback.chapterId!==target) return false;
+    if(playback) {
+      const chapter=change.patch.lesson.chapters.find(chapter=>chapter.id===playback.chapterId);
+      if(playback.tourId!==`lesson-${change.patch.lesson.id}` || !chapter) return false;
+      if(change.patch.start?.chapterId && playback.chapterId!==change.patch.start.chapterId) return false;
+      if(inspectionJson(scene.inspection.lessonFigure)!==inspectionJson(chapter.immersive?.figure)) return false;
+      if(inspectionJson(scene.inspection.animation?.definition)!==inspectionJson(chapter.animation)) return false;
+    }
+    return true;
+  }
   if(change.kind==='tour') return scene.sourceSha256===expected.sourceSha256
     && scene.modelNumber===expected.modelNumber && scene.assemblyId===expected.assemblyId;
   // A focus is renderer-owned framing over a caller-owned region. The exact
@@ -1379,11 +1528,31 @@ export function matchesInspectionChange(scene:InspectionScene, expected:Inspecti
   // The headset's Reset seats the structure from the wearer's
   // head and the room's floor, neither known here, so the placement it saves is
   // the answer, as a stop's angle is. The camera bound follows the new size.
-  // Everything else must hold.
+  // Reset also stops the current chapter and molecular clock. Their source,
+  // chapter, baseline and animation definition must hold; the stopped cursor
+  // and the progress baked while stopping are renderer-owned results.
   if(isRecenterChange(change)) {
     const seated=structuredClone(scene);
     seated.inspection.placement=structuredClone(expected.inspection.placement);
     seated.camera.radiusMax=expected.camera.radiusMax;
+    const playback=seated.inspection.lessonPlayback, prior=expected.inspection.lessonPlayback;
+    if(playback && prior) {
+      if(!playback.stopped || playback.motionPlaying===true) return false;
+      const identity=({stopped:_stopped,motionProgress:_progress,motionPlaying:_playing,...rest}:LessonPlayback)=>rest;
+      if(inspectionJson(identity(playback))!==inspectionJson(identity(prior))) return false;
+      seated.inspection.lessonPlayback=structuredClone(prior);
+    }
+    if(seated.inspection.animation && expected.inspection.animation) {
+      if(seated.inspection.animation.playback.state!=='paused') return false;
+      seated.inspection.animation.playback.state=expected.inspection.animation.playback.state;
+    }
+    // A cutaway can hide every room seat. Native Reset removes that depth
+    // clip before solving its seat, with the same camera-bound effects as an
+    // explicit clipping edit; other appearance and camera fields still hold.
+    if(expected.inspection.appearance.clipping>0 && seated.inspection.appearance.clipping===0) {
+      seated.inspection.appearance.clipping=expected.inspection.appearance.clipping;
+      for(const key of ['radius','fog','clipFar'] as const) (seated.camera as any)[key]=expected.camera[key];
+    }
     return inspectionJson(seated)===inspectionJson(expected);
   }
   // Emphasis is layers over the representation, so nothing else in the scene
@@ -1505,6 +1674,7 @@ export type ReadinessItem = {
   nextAction: string;
 };
 export type Readiness = {
+  voiceDelivery?: ReadinessFacts['voiceDelivery'];
   ready: boolean;
   blocking: ReadinessCapability[];
   items: ReadinessItem[];
@@ -1522,6 +1692,7 @@ export const readinessSchema = z.object({
 
 /** The measured facts, gathered by the host; assembling them is pure. */
 export type ReadinessFacts = {
+  voiceDelivery?: { mode: 'channel' | 'polling' | 'none'; channelActive: boolean; acknowledgement: 'unavailable'; assistant: string | null };
   hasScene: boolean;
   panels: ReadonlyArray<{ surface?: string; availability?: string; current?: boolean }>;
   share?: { expiresAt: string; pairedDevices: number; headsetsPaired: number; target?: CompanionHeadset; headset?: 'vision-pro'; connected?: boolean };
@@ -1608,6 +1779,11 @@ function readinessShare(facts: ReadinessFacts): ReadinessItem {
 }
 
 function readinessAgent(facts: ReadinessFacts): ReadinessItem {
+  if (facts.voiceDelivery?.channelActive) return {
+    capability: 'agent', label: 'agent', state: facts.actionAgeMs !== undefined && facts.actionAgeMs <= facts.listenWindowMs ? 'ok' : 'not-checked',
+    detail: `${facts.voiceDelivery.assistant ?? 'Claude'} is listening (channel); delivery is best effort, without acknowledgement`,
+    nextAction: 'Keep Claude Code open with the channel enabled; verify a scene action or spoken reply. Use listen_voice to recover a dropped push.',
+  };
   const seconds = facts.listenAgeMs === undefined ? undefined : Math.round(facts.listenAgeMs / 1000);
   if (facts.listenAgeMs === undefined || facts.listenAgeMs > facts.listenWindowMs) {
     return { capability: 'agent', label: 'agent', state: 'missing',
@@ -1710,8 +1886,10 @@ function readinessHeadset(facts: ReadinessFacts): ReadinessItem {
 export function assembleReadiness(facts: ReadinessFacts): Readiness {
   const items = [readinessStructure(facts), readinessShare(facts), readinessAgent(facts),
     readinessTranscription(facts), readinessReplies(facts), readinessHeadset(facts)];
-  const blocking = items.filter(item => item.state === 'missing' || (item.capability === 'transcription' && item.state === 'not-checked')).map(item => item.capability);
-  return { ready: blocking.length === 0, blocking, items, checkedAt: facts.checkedAt };
+  const blocking = items.filter(item => item.state === 'missing' || ((item.capability === 'transcription'
+    || (item.capability === 'agent' && facts.voiceDelivery?.channelActive)) && item.state === 'not-checked')).map(item => item.capability);
+  return { ready: blocking.length === 0, blocking, items, checkedAt: facts.checkedAt,
+    ...(facts.voiceDelivery ? {voiceDelivery: facts.voiceDelivery} : {}) };
 }
 
 /**

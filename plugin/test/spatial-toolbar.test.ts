@@ -21,7 +21,7 @@ const dot = (a:Point, b:Point) => a.reduce((sum,value,index) => sum + value * b[
 const unit = (a:Point) => { const length = Math.hypot(...a); return a.map(value => value / length); };
 
 const readingFrameContains = (points: number[][], panel: any, peripheral: boolean) => {
-  const right = peripheral ? panel.right : [1, 0, 0], forward = peripheral ? panel.normal : [0, 0, -1];
+  const right = [1, 0, 0], forward = [0, 0, -1];
   for (const side of [-1, 1]) for (const point of points) {
     const relative = point.map((value, axis) => value - eye[axis] - side * HALF_IPD_METERS * right[axis]);
     const depth = dot(relative, forward);
@@ -75,13 +75,13 @@ describe('spatial control geometry', () => {
    * is the middle of the view, and a molecule is looked at continuously while
    * a menu is read by choice.
    *
-   * So the panel is now held out of a 60 degree cone about the entry gaze,
+   * The panel now fits the forward lens while reserving its central cone,
    * measured over everything it draws -- plates, backing glass, caption glass,
    * status line -- and over every depth band a molecular cutaway can hand it,
    * because the clamp scales the anchor and must not swing it inboard.
    */
   it('leaves the structure its cone, and the eye its frame, for every shipped row set', () => {
-    const readout = Array.from({length:8}, (_,index) => ({ text: `Caption line ${index + 1} of the welcome` }));
+    const readout = Array.from({length:8}, (_,index) => ({ text: `Caption line ${index + 1} of the welcome`, forwardView: true }));
     const coneDegrees = (point:Point) => {
       const [x, y, z] = [point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]];
       return Math.acos(-z / Math.hypot(x, y, z)) * 180 / Math.PI;
@@ -126,12 +126,11 @@ describe('spatial control geometry', () => {
         // The expanded grid is two columns, 26 degrees of field, and the band
         // between the cone and the frame margin is 23. It gets its own number
         // rather than a quiet exemption; the geometry module carries why.
-        const cone = collapsed ? 30 : EXPANDED_GRID_CONE_HALF_ANGLE_DEGREES;
+        const cone = collapsed ? CENTRAL_CONE_HALF_ANGLE_DEGREES : EXPANDED_GRID_CONE_HALF_ANGLE_DEGREES;
         for (const point of drawn) {
           if (seated.includes(constants)) {
             expect(coneDegrees(point), `${name} inside its cone`).toBeGreaterThanOrEqual(cone);
           }
-
         }
         expect(readingFrameContains(drawn, panel, collapsed),
           `${name}: all caption and control glass fits both eyes in its reading frame`).toBe(true);
@@ -593,7 +592,7 @@ describe('spatial control geometry', () => {
    * the seat is 0.95 m away.
    */
   it('keeps every caption line and its plate inside both eyes at its intended reading pose', () => {
-    const readout = Array.from({ length: 10 }, (_, index) => ({ text: `Caption line ${index + 1} of the welcome` }));
+    const readout = Array.from({ length: 10 }, (_, index) => ({ text: `Caption line ${index + 1} of the welcome`, forwardView: true }));
     // Rise over depth on the entry gaze. The eye's own tangent at 45 degrees
     // of half-angle is 1, so anything under 1 is on the frame.
     const riseOverDepth = (point: Point) => {

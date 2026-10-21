@@ -63,7 +63,7 @@ test('two consecutive XR losses preserve the scientific camera despite zero-buff
  for(const name of ['fitDesktopPreview','releaseDesktopPreviewLimit','restoreImmersiveCamera'])vm.runInContext(pageFunction(source,name),h.c);
  // Use the actual leave callback and actual camera math. On the second loss,
  // teardown can enter before the viewer's contextLost listener retains state.
- h.c.canRebuildForXr=()=>false;
+ h.c.canRebuildForXr=()=>false;h.c.releaseFigurePlates=()=>{};
  const leave=vm.runInContext('('+source.match(/onLeavingPresentation: (async \(\) => \{[^\n]+\})/)[1]+')',h.c);
  h.c.retainCurrent=()=>({...h.record,inspection:{...h.record.inspection,camera:camera.getSnapshot()}});
  h.c.restoreRecord=async previous=>{camera.setState(cameraSnapshot(previous.inspection.camera),0);await h.c.waitForFrame(previous,{recovering:true});return previous;};

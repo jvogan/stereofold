@@ -1,3 +1,5 @@
+// @ts-ignore Shared menu status used by the extracted inspector closure.
+import { assistantStatus } from '../../lab/browser-roundtrip/assistant-status.mjs';
 // The heartbeat must not be behind the slow half of the beat.
 //
 // On the second wearer run every first command after an utterance
@@ -28,7 +30,7 @@ afterEach(() => { setConnectionStatus(); vi.useRealTimers(); });
 
 const inspectorSource = await readFile(new URL('../src/inspector.ts', import.meta.url), 'utf8');
 const inspectorAst = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
-const WANTED = ['armPoll', 'beatSuspended', 'busyBeat', 'poll', 'problemMessage', 'showProblem',
+const WANTED = ['armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'poll', 'problemMessage', 'showProblem',
   'showConnectionProblem', 'registerComparisonSources', 'stepAsideWhileHidden'];
 const beatFunctions = inspectorAst.statements
   .filter(node => ts.isFunctionDeclaration(node) && WANTED.includes(node.name?.text ?? ''))
@@ -52,8 +54,9 @@ function companionPage(options: { slow?: () => Promise<any>; delivery?: () => an
   const h: any = vm.createContext({
     failedSourceLoad: undefined, pollBackoff: createPollBackoff(() => Date.now(), () => 0.5),
     // Page state the extracted functions read and write.
-    closed: false, experiencePreparing: false, pollInFlight: false, beatInFlight: false, pollTimer: undefined,
+    closed: false, experiencePreparing: false, pollInFlight: false, beatInFlight: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, pollTimer: undefined,
     generation: 1, dirty: false, blocked: false, remote: false, loading: false, edits: 0,
+    heldComparisons: new Map(), comparisonRegistration: 0,
     binding: { sessionId: 's', serverEpoch: 'e', sourceToken: 't', stateRevision: 1, inspectionRevision: 1 },
     panelId: 'panel', savedScene: scene, pendingReceipt: undefined, pendingReceiptFields: undefined,
     isCompanion: true, repairNeeded: false, nextRepairAt: 0, replyOnThisBeat: false,
@@ -69,11 +72,12 @@ function companionPage(options: { slow?: () => Promise<any>; delivery?: () => an
     app: { getHostCapabilities: () => ({}) },
     // Collaborators, all fast unless the test says otherwise.
     workspace: { snapshot: () => ({ ready: true, interactionActive: false, xrPresenting: true }),
-      capture: () => scene, viewer: { xr: { spatialContext: () => ({ distance: 1 }) } } },
+      capture: () => scene, serializeCapture() { return JSON.stringify(this.capture()); },
+      viewer: { xr: { spatialContext: () => ({ distance: 1 }) } } },
     expected: () => ({ sessionId: 's', serverEpoch: 'e', sourceToken: 't', baseStateRevision: 1, baseInspectionRevision: 1 }),
     liveAvailability: () => h.blocked || h.dirty ? 'unsaved' : 'ready', tourHeartbeat: () => ({}), tourPlayer: undefined, panelTour: undefined, experiencePlayer: undefined, experienceView: undefined,
     xrStartupReport: () => ({ presenting: true }), isRendererHeartbeatFailure: () => false,
-    noteRendererHeartbeat: () => {}, noteAgentPresence: () => {}, noteNamedViews: () => {},
+    noteRendererHeartbeat: () => {}, noteAgentPresence: () => {}, assistantStatus, noteNamedViews: () => {},
     receiveSpokenReply: () => {}, recordTalkReplyDelivery: () => {}, requestHeadsetViewCapture: () => {},
     showOutcome: () => {}, retireStaleHud: () => {}, syncHandoff: () => {}, scheduleSave: () => {},
     handoffSpokenRequest: async () => {}, voiceBindingKey: () => 'key',

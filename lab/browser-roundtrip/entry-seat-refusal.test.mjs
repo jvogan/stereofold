@@ -62,6 +62,44 @@ test('a seat the solver accepts is placed once and never solved again', async ()
   assert.deepEqual([h.captions, h.outcomes(), h.errors], [[], [], []]);
 });
 
+test('plain entry rechecks its controls once after the final seat and initial draw', async () => {
+  for (const selectedId of [null, 'authored-lesson']) {
+    const h = harness(() => SEAT), checks = [];
+    let ready = false;
+    h.context.spatialTour = { getState: () => ({ selectedId }) };
+    h.context.immersiveSession = { whenReady: async () => { ready = true; }, refreshToolbar: async options => {
+      assert.equal(ready, true);
+      assert.deepEqual(h.seat(), h.placement());
+      checks.push(plain(options));
+    } };
+    await h.frames(6);
+    assert.deepEqual(h.errors, []);
+    assert.deepEqual(checks, selectedId ? [] : [{ recheckClearance: true }]);
+  }
+});
+
+test('the lesson receives tracked entry only after the seat, labels and controls finish', async () => {
+  const h = harness(() => SEAT);
+  const framed = [];
+  let finishLabels, finishControls;
+  h.context.rebuildComponentLabels = () => new Promise(resolve => { finishLabels = resolve; });
+  h.context.immersiveSession = { whenReady: () => new Promise(resolve => { finishControls = resolve; }) };
+  h.context.spatialTour = { current: () => ({ frameXrEntry: async () => {
+    framed.push(h.seat());
+    assert.equal(h.context.pendingRoomSeat, false);
+  } }) };
+  const settled = h.context.settleInRoom({}, {});
+  await flush();
+  assert.equal(framed.length, 0, 'a committed placement alone is too early');
+  finishLabels(); await flush();
+  assert.equal(framed.length, 0, 'the initial control draw must also finish');
+  assert.equal(typeof finishControls, 'function', 'entry must join the initial control draw');
+  finishControls(); await settled;
+  assert.deepEqual(framed, [h.placement()]);
+  await h.frames(6);
+  assert.equal(framed.length, 1, 'frame tracking does not repeat chapter framing');
+});
+
 test('entry waits for both eye views before solving', async () => {
   const h = harness(() => SEAT);
   h.context.latestRoomPlacementPose.labelViews = [{ eye: 'left' }];

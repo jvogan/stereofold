@@ -175,6 +175,9 @@ export function splitHeadsetSpeech(value: unknown,
 }
 
 export const sayToHeadsetSchema = z.object({
+  // Ignored: a reply follows its utteranceId. Accepted so a copied scene
+  // binding costs the caller nothing rather than a refused call.
+  sessionId:z.string().max(128).optional().describe('Ignored; a reply follows its utteranceId.'),
   commandId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).optional(),
   utteranceId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).optional(),
   // The bound is on the whole answer, and it is a refusal that names itself.
@@ -274,6 +277,10 @@ export type HeadsetCaption = {
    * caption it speaks for.
    */
   voiceFor?: string;
+  /** Position of this spoken batch in the original reply; positive values append. */
+  voiceOffset?: number;
+  /** Total segments in the original reply, including batches still rendering. */
+  speechTotal?: number;
   /** The complete spoken text; `text` remains the complete caption. */
   speechText?: string;
   truncated?: boolean;
@@ -353,6 +360,8 @@ export type HeadsetCaptionQueue = {
     refusalScope?: HeadsetCaption['refusalScope'];
     refusal?: HeadsetCaption['refusal'];
     voiceFor?: string;
+    voiceOffset?: number;
+    speechTotal?: number;
   }): HeadsetCaption;
   /**
    * Hang rendered speech on a caption no page has taken yet.
@@ -462,7 +471,8 @@ export function createHeadsetCaptionQueue({ now = Date.now, ttlMs = 60_000, maxP
       // segments plays the opening of the answer rather than nothing at all.
       const audio = speak ? (segments ? segments[0]?.audio : extra?.audio) : undefined;
       const caption: HeadsetCaption = {
-        ...(extra?.voiceFor ? { voiceFor: extra.voiceFor } : {}),
+        ...(extra?.voiceFor ? { voiceFor: extra.voiceFor, ...(extra.voiceOffset === undefined ? {} : { voiceOffset: extra.voiceOffset }) } : {}),
+        ...(extra?.speechTotal ? { speechTotal: extra.speechTotal } : {}),
         ...(extra?.refusal ? { refusal: { ...extra.refusal } } : {}),
         ...(extra?.refusalScope ? { refusalScope: { ...extra.refusalScope } } : {}),
         id: extra?.id ?? randomUUID(), seq: ++seq, text,

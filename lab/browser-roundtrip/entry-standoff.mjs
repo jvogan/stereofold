@@ -6,7 +6,7 @@ const cell = (object, name) => object?.values?.[name]?.ref?.value;
 // Mol* 5.11 assign-color-varying reads this same per-instance/group texture.
 // The material shader treats transparency below 0.09 as fully lit. A smoothed
 // volume retains the source group texture, so use its lit membership there.
-function litVertex(object, vertex, instance) {
+export function litVertex(object, vertex, instance) {
   if (!cell(object, 'dTransparency')) return true;
   const type = cell(object, 'dTransparencyType');
   const instanceId = cell(object, 'aInstance')?.[instance] ?? instance;

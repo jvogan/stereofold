@@ -33,7 +33,9 @@ function fixture(options: { delayedOldHeartbeat?: boolean } = {}) {
     if (name === 'get_inspection_state') return { structuredContent: summary(args.commandId as string) };
     if (name === 'say_to_headset') return { structuredContent: { queued: true } };
     expect(name).toBe('update_inspection');
-    const input = args as any;
+    // The CLI leaves update_inspection's revisions to the host, which fills
+    // them with the binding current on arrival (`fillImplicitBinding`).
+    const input = { baseStateRevision: binding.stateRevision, baseInspectionRevision: binding.inspectionRevision, ...args } as any;
     if (input.change.kind === 'utterance') return { structuredContent: { lifecycle: commands.controlUtterance(input, binding) } };
     return { structuredContent: { command: commands.enqueue(input, binding, saved) } };
   };

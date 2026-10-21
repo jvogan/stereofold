@@ -36,3 +36,6 @@ __pycache__/
 
 # Agent scratch
 .claude/
+
+# Local browser captures and verification output are not release source.
+/output/

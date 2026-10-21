@@ -133,3 +133,116 @@ test('an aimed press reaches the same action the toolbar runs for a trigger', as
   assert.equal(actions.length, 0, 'the harness toolbar owns its own action sink');
   await h.toolbar.dispose();
 });
+
+for (const kind of ['trigger', 'grip']) test(`bounded synthetic ${kind} drag holds across real frame callbacks, then releases without activating a row`, async () => {
+  const runtime = await toolbarFrameRuntime();
+  const actions = [], offsets = [];
+  const h = toolbarFrameHarness(runtime, { state: { voice: { state: 'idle' } }, onAction: action => actions.push(action),
+    presentation: { setRoomOffset(_target, offset) { offsets.push([...offset]); } } });
+  await h.toolbar.update();
+  const dispose = installSpatialAimHook({ readRows: () => h.toolbar.rows(), aim: target => h.toolbar.aimSynthetic(target) });
+  try {
+    const hook = globalThis.__stereofoldAim;
+    const begun = await hook.beginDrag({ id: 'talk', kind });
+    assert.equal(begun.accepted, true);
+    assert.equal(begun.method, 'synthetic-menu-drag');
+    assert.match(begun.simulates, /not a hand or a wearer/);
+    const moved = await hook.moveDrag([-.12, 0, 0]);
+    assert.equal(moved.accepted, true);
+    assert.equal(moved.current.holding, true);
+    await new Promise(resolve => setImmediate(resolve));
+    await h.frames(24);
+    const held = await hook.dragState();
+    assert.equal(held.current.heldFeedback, true);
+    assert.equal(held.current.holding, true, 'normal XR frames do not lose the bounded synthetic source');
+    assert.ok(held.current.geometry.rows.some(row => row.id === 'talk'));
+    assert.ok(held.current.geometry.plates.some(plate => plate.kind === 'controls'));
+    assert.deepEqual(held.current.anchor, moved.current.anchor);
+    assert.deepEqual(h.session.inputSources, [], 'diagnostic never modifies the native session input list');
+    assert.equal(hook.at('talk').fired, false);
+    const released = await hook.endDrag();
+    assert.equal(released.rowActions, 0);
+    assert.equal(released.current.holding, false);
+    assert.equal(released.current.heldFeedback, false);
+    assert.equal(released.current.points.length, held.current.points.length);
+    released.current.points.forEach((point, i) => point.forEach((v, axis) =>
+      assert.ok(Math.abs(v - held.current.points[i][axis]) < 1e-8)));
+    assert.deepEqual(actions, []);
+    assert.ok(offsets.some(offset => offset[0] < -.1));
+    await h.frames(12); await h.toolbar.update();
+    assert.deepEqual((await hook.dragState()).current.points, released.current.points);
+  } finally { dispose(); await h.toolbar.dispose(); }
+});
+
+for (const end of ['end', 'cancel', 'dispose', 'hide', 'blur']) test(`synthetic menu drag cleanup on ${end} never clicks its starting row`, async () => {
+  const runtime = await toolbarFrameRuntime();
+  const actions = [];
+  const h = toolbarFrameHarness(runtime, { state: { voice: { state: 'idle' } }, onAction: action => actions.push(action),
+    presentation: { setRoomOffset() {} } });
+  await h.toolbar.update();
+  const dispose = installSpatialAimHook({ readRows: () => h.toolbar.rows(), aim: target => h.toolbar.aimSynthetic(target) });
+  try {
+    const hook = globalThis.__stereofoldAim;
+    const before = h.toolbar.platePoints();
+    assert.equal((await hook.beginDrag({ id: 'talk' })).accepted, true);
+    if (end !== 'end') await hook.moveDrag([-.1, 0, 0]);
+    if (end === 'end') await hook.endDrag();
+    if (end === 'cancel') await hook.cancelDrag();
+    if (end === 'dispose') dispose();
+    if (end === 'hide') h.toolbar.setHidden(true);
+    if (end === 'blur') h.toolbar.blur();
+    assert.equal((await hook.dragState()).active, false);
+    assert.equal(h.toolbar.isHandOnPanel('right'), false);
+    assert.deepEqual(actions, []);
+    if (end !== 'hide') assert.deepEqual(h.toolbar.platePoints(), before);
+  } finally { dispose(); await h.toolbar.dispose(); }
+});
+
+test('synthetic drag refuses unbounded travel and expires after its fixed hold window', async () => {
+  const runtime = await toolbarFrameRuntime(undefined, { instrumentTimers: true });
+  let expire;
+  runtime.setTimers({ setTimeout(fn, ms) { if (ms === 30000) { expire = fn; return 12345; } return setTimeout(fn, ms); },
+    clearTimeout(id) { if (id !== 12345) clearTimeout(id); }, setInterval, clearInterval });
+  const h = toolbarFrameHarness(runtime, { state: { voice: { state: 'idle' } }, presentation: { setRoomOffset() {} } });
+  await h.toolbar.update();
+  try {
+    const aim = drag => h.toolbar.aimSynthetic({ drag });
+    assert.equal((await aim({ phase: 'begin', id: 'talk', kind: 'grip' })).accepted, true);
+    const before = h.toolbar.platePoints();
+    for (const offset of [[3, 0, 0], [Infinity, 0, 0], ['1', 0, 0], [0, 0]])
+      assert.equal((await aim({ phase: 'move', offset })).accepted, false);
+    assert.deepEqual(h.toolbar.platePoints(), before);
+    assert.equal(typeof expire, 'function'); expire();
+    await new Promise(resolve => setImmediate(resolve));
+    const last = await aim({ phase: 'state' });
+    assert.equal(last.active, false); assert.equal(last.ended, 'timeout');
+    assert.equal(last.current.holding, false);
+  } finally { await h.toolbar.dispose(); }
+});
+
+test('trigger diagnostic waits for the actual held representation task instead of two microtasks', async () => {
+  const runtime = await toolbarFrameRuntime();
+  let gate, unlock;
+  const h = toolbarFrameHarness(runtime, { state: { voice: { state: 'idle' } },
+    runTask: async task => { if (gate) await gate; return task.run(); }, presentation: { setRoomOffset() {} } });
+  await h.toolbar.update();
+  try {
+    const aim = drag => h.toolbar.aimSynthetic({ drag });
+    await aim({ phase: 'begin', id: 'talk', kind: 'trigger' });
+    gate = new Promise(resolve => { unlock = resolve; });
+    let completed = false;
+    const pending = aim({ phase: 'move', offset: [-.12, .04, .10] }).then(value => { completed = true; return value; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(completed, false, 'move receipt waits for asynchronous Mol* work');
+    const building = await aim({ phase: 'state' });
+    assert.equal(building.current.holding, true);
+    assert.equal(building.current.heldFeedback, false);
+    assert.equal(building.current.feedbackPending, true);
+    unlock(); gate = undefined;
+    const moved = await pending;
+    assert.equal(moved.current.heldFeedback, true);
+    assert.equal(moved.current.feedbackPending, false);
+    assert.equal(moved.current.feedbackError, null);
+    await aim({ phase: 'cancel' });
+  } finally { unlock?.(); await h.toolbar.dispose(); }
+});

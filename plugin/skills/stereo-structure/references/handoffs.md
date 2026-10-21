@@ -107,13 +107,15 @@ companion returns, use `say_to_headset` if an audible reply is wanted.
 
 ## Lessons and illustrated scenes
 
-`inspect_lesson` takes absolute `filePath` and `lessonPath`, optional
-`densityPath`, and optional `assemblyId` declared by the source. Every chapter
-needs explicit supported `immersive` intentions. An optional
-`provenance.sourceSha256` must match the exact coordinates, or density bytes
-for a density lesson. Source metadata is authored provenance, rather than a
-live viewer binding. Read the installed `molecular-presentation` skill to author
-and compile lessons, or to use native desktop `structure.apply_scene` plans.
+`inspect_lesson` accepts `source` plus inline `lesson`, including prepared
+composite handles, for desktop and headset panels. The offline file route uses
+absolute `filePath` and `lessonPath`, optional `densityPath`, and source-declared
+`assemblyId`. Every chapter needs explicit `immersive` intent. Bind
+`provenance.sourceSha256` to the coordinate digest (or density bytes for density
+lessons). Read the installed `molecular-presentation` skill for live authoring
+and offline plans. For an existing session, read `lessonManifest` with
+`get_inspection_state({sessionId,includeLesson:true})`, edit it, then
+`install_lesson` and verify its rendered receipt.
 
 Use the named demo index to choose source, digest, and assembly. The
 `daraxonrasib` demo uses PDB 9AX6, biological assembly `"1"`, and

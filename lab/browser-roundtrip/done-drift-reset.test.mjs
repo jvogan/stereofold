@@ -81,7 +81,7 @@ for (const route of ['menu', 'aim']) test(`command sequence holds its room seat 
     assert.equal(reset.placement().scale, reset.original.scale);
     assert.deepEqual(reset.placement().rotation, reset.original.rotation);
     assert.ok(reset.events.indexOf('rendered') < reset.events.indexOf('View reset.'));
-    assert.ok(menuSeatWithinGlance([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose, h.toolbar.seatAnchor()));
+    assert.ok(menuSeatWithinView([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose));
   } finally { await h.toolbar.dispose(); }
 });
 
@@ -109,13 +109,13 @@ test('host, tour and status redraws keep the seat after head drift', async () =>
     assert.equal(h.toolbar.head(), seated);
     assert.deepEqual(h.toolbar.seatAnchor(), anchor);
     h.toolbar.runAction({ kind: 'recenter-menu' }); await flush();
-    assert.ok(menuSeatWithinGlance([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose, h.toolbar.seatAnchor()));
-    assert.equal(h.toolbar.menuWithinView(h.frame), false, 'peripheral recovery still requires a deliberate glance');
+    assert.ok(menuSeatWithinView([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose));
+    assert.equal(h.toolbar.menuWithinView(h.frame), true, 'recovery keeps the entire glass inside the forward lens');
     const recoveredAnchor = h.toolbar.seatAnchor(), x = pose.position.x, y = pose.position.y;
     const angle = Math.atan2(x - recoveredAnchor[0], -recoveredAnchor[2]);
     pose = { position: { x, y, z: 0 }, matrix: [Math.cos(angle), 0, -Math.sin(angle), 0, 0, 1, 0, 0,
       Math.sin(angle), 0, Math.cos(angle), 0, x, y, 0, 1] };
-    assert.equal(h.toolbar.menuWithinView(h.frame), true, 'complete glass is visible after turning toward its held room anchor');
+    assert.equal(h.toolbar.menuWithinView(h.frame), false, 'turning toward the column puts the independent forward card outside the new gaze');
   } finally { await h.toolbar.dispose(); }
 });
 
@@ -171,7 +171,7 @@ for (const kind of ['collapse', 'recenter-menu']) test(`${kind} recovers the men
     await h.toolbar.update(); pose = head(-40);
     assert.equal(menuSeatWithinView(h.toolbar.drawnMenuPoints(), pose), false);
     h.toolbar.runAction({ kind, value: true }); await flush();
-    assert.ok(menuSeatWithinGlance([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose, h.toolbar.seatAnchor()));
+    assert.ok(menuSeatWithinView([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose));
   } finally { await h.toolbar.dispose(); }
 });
 
@@ -184,11 +184,12 @@ for (const refusal of ['Enter VR and wait for tracking before recentring the str
   try {
     await h.toolbar.update(); pose = head(-40);
     const reset = resetHarness(h.toolbar), before = structuredClone(reset.placement()); reset.refuse(refusal);
+    const menuBefore = structuredClone(h.toolbar.drawnMenuPoints());
     await assert.rejects(reset.run(), { message: refusal });
     assert.deepEqual(reset.placement(), before);
     assert.ok(reset.events.includes(refusal));
     assert.ok(!reset.events.includes('View reset.') && !reset.events.includes('rendered'));
-    assert.ok(menuSeatWithinGlance([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose, h.toolbar.seatAnchor()));
+    assert.deepEqual(h.toolbar.drawnMenuPoints(), menuBefore, 'a refusal cannot move just the menu');
   } finally { await h.toolbar.dispose(); }
 });
 
@@ -200,9 +201,9 @@ for (const radius of [0, NaN]) test(`Menu and Move recover even when molecular b
     h.setBounds({ center: [0, 0, 0], radius });
     pose = head(-40);
     h.toolbar.runAction({ kind: 'collapse', value: true }); await flush();
-    assert.ok(menuSeatWithinGlance([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose, h.toolbar.seatAnchor()));
+    assert.ok(menuSeatWithinView([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose));
     pose = head(40);
     h.toolbar.runAction({ kind: 'recenter-menu' }); await flush();
-    assert.ok(menuSeatWithinGlance([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose, h.toolbar.seatAnchor()));
+    assert.ok(menuSeatWithinView([...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()], pose));
   } finally { await h.toolbar.dispose(); }
 });

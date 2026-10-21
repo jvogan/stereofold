@@ -476,3 +476,14 @@ test('the plate rule preserves lesson names across chapter and command ownership
   assert.equal(platesWanted({ componentLabels: true }, false, 'lesson'), true);
   assert.equal(platesWanted({ componentLabels: true }, false, 'resting'), false);
 });
+
+test('hydrating a saved chapter records the resting key without repainting its focus', async () => {
+  const v=viewer();
+  const resting={emphasis:{parts:[{id:'a',chain:'A',label:'A',color:'#ff0000'}]},componentLabels:true};
+  await v.chapter(resting.emphasis.parts, ['a']);
+  const before=v.snapshot(), count=v.paints.length;
+  await v.lesson.install({...resting,emphasis:{...resting.emphasis,focus:[]}}, {preserveEmphasis:true});
+  assert.deepEqual(v.snapshot(),before); assert.equal(v.paints.length,count);
+  assert.equal(v.lesson.state().componentLabels,true);
+  await v.lesson.clear(); assert.equal(v.snapshot().origin,'resting');
+});

@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as contract from '../src/inspection-contract.js';
 import { choosePanel, fillAgentArguments, PANEL_BLUR_POLL_MS, PANEL_BLUR_WAIT_MS } from '../scripts/agent-arguments.js';
 import { bindArguments } from '../scripts/inspection-agent.js';
 import { detectHiddenSession, HIDDEN_SESSION_ADVICE } from '../scripts/headset-drive.js';
+import { panelAvailability } from '../src/inspection-panel-recovery.js';
+import { sameEntryScene } from '../src/inspection-render-settle.js';
 
 const hiddenAdvice = 'The headset\'s own dialog or guardian has suspended the immersive session. '
   + 'A person must clear it on the headset (press Confirm or reset the boundary). Retrying will not help while the session stays hidden.';
@@ -114,5 +119,57 @@ describe('busy refusal diagnosis', () => {
       expect(detectHiddenSession({ presenting: true, sessionVisibility })).toBe(cause === 'hidden-session');
     expect(detectHiddenSession({ presenting: false, sessionVisibility: 'hidden' })).toBe(false);
     expect(detectHiddenSession(null)).toBe(false);
+  });
+});
+
+/**
+ * Unsaved work that only moved the structure or the camera.
+ *
+ * Reported as `unsaved`, it turned a queued `control_tour start` into
+ * "The target panel has newer or unsaved local work." each time the wearer
+ * scaled the molecule or the page seated it on VR entry. It is a save in
+ * flight that the waiting command follows, which is what `busy` says.
+ */
+describe('a panel whose only unsaved work is placement', () => {
+  const idle = { blocked: false, dirty: true, ready: true, interactionActive: false, navigating: false };
+
+  it('is busy, while scientific unsaved work and a blocked panel stay unsaved', () => {
+    expect(panelAvailability({ ...idle, placementOnly: true })).toBe('busy');
+    expect(panelAvailability({ ...idle, placementOnly: false })).toBe('unsaved');
+    expect(panelAvailability({ ...idle, blocked: true, placementOnly: true })).toBe('unsaved');
+    expect(panelAvailability({ ...idle, dirty: false, placementOnly: true })).toBe('ready');
+  });
+
+  const inspector = readFileSync(new URL('../src/inspector.ts', import.meta.url), 'utf8');
+  const ast = ts.createSourceFile('inspector.ts', inspector, ts.ScriptTarget.Latest, true);
+  const source = ast.statements.filter(node => ts.isFunctionDeclaration(node)
+    && ['liveAvailability', 'placementOnlyWork'].includes(node.name?.text ?? '')).map(node => node.getText(ast)).join('\n');
+  /** The page's own availability beat, over a synthetic workspace. */
+  function page(captured: (scene: any) => any, flags: { dirty?: boolean; blocked?: boolean; refuses?: boolean } = {}) {
+    const saved = { sourceSha256: 'a'.repeat(64), selectionKeys: ['one'], camera: { position: [0, 0, 10] },
+      inspection: { appearance: { opacity: 1 }, placement: { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 } } };
+    const h: any = vm.createContext({ panelAvailability, sameEntryScene, savedScene: saved, dirty: flags.dirty ?? true,
+      blocked: flags.blocked ?? false, isCompanion: true, panelTour: undefined, tourPlayer: undefined,
+      workspace: { snapshot: () => ({ ready: true, interactionActive: false }), viewer: { xr: { blind: () => false } },
+        capture: () => { if (flags.refuses) throw Error('Unidentified scene.'); return captured(structuredClone(saved)); } } });
+    vm.runInContext(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, h);
+    return h.liveAvailability();
+  }
+  const placed = (scene: any) => { scene.inspection.placement = { translation: [.4, -.2, -1.6], rotation: [0, 30, 0], scale: 1.9 };
+    scene.camera.position = [0, 1.6, 0]; return scene; };
+
+  it('reports a grab, a stick nudge or the entry seat as busy from the page itself', () => {
+    expect(page(placed)).toBe('busy');
+    // Key order is transport syntax, not a change.
+    expect(page(scene => placed({ inspection: { placement: scene.inspection.placement, appearance: scene.inspection.appearance },
+      camera: scene.camera, selectionKeys: scene.selectionKeys, sourceSha256: scene.sourceSha256 }))).toBe('busy');
+  });
+
+  it('reports a colour, a selection, a blocked save or an unreadable capture as unsaved', () => {
+    expect(page(scene => { scene.inspection.appearance.opacity = .4; return placed(scene); })).toBe('unsaved');
+    expect(page(scene => { scene.selectionKeys = []; return scene; })).toBe('unsaved');
+    expect(page(placed, { blocked: true })).toBe('unsaved');
+    expect(page(placed, { refuses: true })).toBe('unsaved');
+    expect(page(placed, { dirty: false })).toBe('ready');
   });
 });

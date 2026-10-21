@@ -180,6 +180,21 @@ describe('standalone setup doctor', () => {
       } finally { await rm(repo, { recursive: true, force: true }); }
     });
 
+  it.each(['extract-core.cjs', 'cif-field-compat.cjs'])(
+    'notices changed shared scientific parsing input %s', async name => {
+      const repo = await mkdtemp(join(tmpdir(), 'stereofold-identity-input-'));
+      const root = join(repo, 'plugin'), identity = join(repo, 'lab/identity');
+      try {
+        await mkdir(identity, { recursive: true });
+        await mkdir(join(root, 'src'), { recursive: true });
+        await writeFile(join(root, 'src/server.ts'), 'unchanged server');
+        await writeFile(join(identity, name), 'original parser');
+        const before = await hashBuildInputs(root);
+        await writeFile(join(identity, name), 'changed parser');
+        expect((await hashBuildInputs(root))!.hash).not.toBe(before!.hash);
+      } finally { await rm(repo, { recursive: true, force: true }); }
+    });
+
   it('checks an explicit control file without returning its capability', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'stereofold-doctor-control-'));
     const path = join(directory, 'control.json'); const token = 'a'.repeat(64);

@@ -12,7 +12,7 @@ export function createStructureSubjectReader() {
       priorSource = source; priorModel = model; priorModelNumber = snapshot.modelNumber; priorAssembly = assembly;
       const title = model?.sourceData?.data?.db?.struct?.title?.value(0);
       const displayProvenance = demoSourceIdentity(source.sha256);
-      const entry = [displayProvenance?.pdbId, source.pdbId, source.code, model?.entryId]
+      const entry = (displayProvenance?.kind === 'bundled-file' ? [displayProvenance.pdbId] : [displayProvenance?.pdbId, source.pdbId, source.code, model?.entryId])
         .find(value => typeof value === 'string' && /^[a-z0-9]{4}$/iu.test(value) && value.toUpperCase() !== 'XXXX');
       const pdbId = typeof entry === 'string' && /^[a-z0-9]{4}$/iu.test(entry) ? entry.toUpperCase() : undefined;
       rows = (source.catalog?.rows ?? []).filter(row => row.coordinateState === 'resolved'
@@ -46,6 +46,38 @@ export function createStructureSubjectReader() {
       ...(emphasis?.parts?.length ? { emphasisCount: emphasis.parts.length, focus, contextOpacity: emphasis.contextOpacity } : {}),
       ...(snapshot.styles?.length ? { styles: snapshot.styles } : {}) };
   };
+}
+
+/** Whole words fitted with the renderer's current font and line allocation. */
+function entryTextFits(text, measureText, width, maxLines) {
+  let lines = 1, current = '';
+  for (const word of text.split(' ')) {
+    if (measureText(word) > width) return false;
+    const next = current ? `${current} ${word}` : word;
+    if (current && measureText(next) > width) { lines += 1; current = word; }
+    else current = next;
+  }
+  return lines <= maxLines;
+}
+
+/**
+ * "5 PDB entries: 5SYF 9L7M 8RHB 1BG2 3KIN". IDs are kept whole. If they would
+ * pass the row's two lines, as many whole IDs as fit are shown, then "+k more".
+ */
+export function compositeEntryLine(entries, modelled = [], { measureText = text => text.length, width = 26, maxLines = 2 } = {}) {
+  const label = modelled.map(source => source.label || source.note || source.id).join(', ').replace(/\s+/gu, ' ').trim();
+  // Keep disclosure even when the author's note is too long for this row.
+  const shortLabel = label.length <= 12 ? label : 'parts';
+  if (!entries.length && modelled.length) return `Local modelled ${shortLabel}`;
+  const header = `${entries.length} PDB entries${modelled.length ? ` + modelled ${shortLabel}` : ''}:`;
+  for (const heading of [header, `${entries.length} PDB${modelled.length ? ' + modelled' : ''}:`]) {
+    for (let shown = entries.length; shown >= 0; shown -= 1) {
+      const more = shown < entries.length ? ` +${entries.length - shown} more` : '';
+      const text = `${heading}${shown ? ` ${entries.slice(0, shown).join(' ')}` : ''}${more}`;
+      if (entryTextFits(text, measureText, width, maxLines)) return text;
+    }
+  }
+  return `${header} +${entries.length} more`;
 }
 
 /**
@@ -117,6 +149,17 @@ export function structureDescriptionPages(subject) {
 }
 
 /**
+ * Names in first-seen order, each once. A name that repeats carries its count,
+ * so "Alpha tubulin, Beta tubulin, Alpha tubulin, Beta tubulin" reads
+ * "Alpha tubulin ×2, Beta tubulin ×2".
+ */
+export function countedNames(names) {
+  const counts = new Map();
+  for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
+  return [...counts].map(([name, count]) => (count > 1 ? `${name} ×${count}` : name));
+}
+
+/**
  * Semantic rows; the shared geometry wraps within the existing glass.
  *
  * `descriptionPage` is which page of the description to draw, counted from
@@ -139,8 +182,16 @@ export function structureReadout(subject, { descriptionPage = 0 } = {}) {
   const chainCount = Number.isInteger(subject.chains)
     ? Number.isInteger(subject.shownChains) ? `${subject.shownChains} of ${subject.chains} chains shown`
       : `${subject.chains} ${subject.chains === 1 ? 'chain' : 'chains'}` : '';
-  const identity = [subject.pdbId, chainCount, assembly].filter(Boolean).join(' · ');
-  const hidden = [...(subject.hiddenChains ?? []), ...(subject.hiddenEntities ?? []).map(id => `entity ${id}`),
+  // A prepared composite is named by the deposited entries it was built from.
+  // Its copy chains (A1_1, K1T_2 …) are generated, so they are never read out.
+  const isComposite = subject.displayProvenance?.kind === 'prepared-rigid-composite';
+  const entries = isComposite ? subject.displayProvenance.entries : undefined;
+  const modelled = subject.displayProvenance?.sources?.filter(source => source.kind === 'modelled') ?? [];
+  const composite = modelled.length ? compositeEntryLine(entries ?? [], modelled) : entries?.length === 1 ? `${entries[0]} · prepared from one entry`
+    : entries?.length ? compositeEntryLine(entries) : isComposite ? 'Prepared composite · source metadata unavailable' : '';
+  const bundled = subject.displayProvenance?.kind === 'bundled-file';
+  const identity = composite || [bundled ? subject.displayProvenance.sourceId : subject.pdbId, chainCount, assembly].filter(Boolean).join(' · ');
+  const hidden = [...(isComposite || bundled ? [] : subject.hiddenChains ?? []), ...(subject.hiddenEntities ?? []).map(id => `entity ${id}`),
     ...(subject.hiddenClasses ?? []).map(name => ({ ligand: 'ligands', ion: 'ions', polymer: 'polymer', water: 'water' })[name] ?? name)];
   const visibility = [hidden.length ? `${hidden.join(', ')} hidden` : '', subject.showOnlySelection ? 'only selection shown' : ''].filter(Boolean).join(' · ');
   const appearance = value => {
@@ -152,14 +203,15 @@ export function structureReadout(subject, { descriptionPage = 0 } = {}) {
   const styles = [...new Set((subject.styles ?? []).map(appearance).filter(Boolean))];
   const style = subject.figure ? 'labelled molecular scene'
     : [appearance(subject), styles.length ? `partial: ${styles.join(', ')}` : ''].filter(Boolean).join(' · ');
-  const focus = subject.focus?.length ? `focus: ${subject.focus.join(', ')}` : subject.emphasisCount ? `${subject.emphasisCount} parts emphasized` : '';
+  const focus = subject.focus?.length ? `focus: ${countedNames(subject.focus).join(', ')}` : subject.emphasisCount ? `${subject.emphasisCount} parts emphasized` : '';
   const emphasis = [focus, focus && Number.isFinite(subject.contextOpacity) && subject.contextOpacity < 1
     ? `context ${Math.round(subject.contextOpacity * 100)}%` : ''].filter(Boolean).join(' · ');
   const detailed = Boolean(visibility || emphasis || styles.length);
-  const compactIdentity = Number.isInteger(subject.shownChains) ? `${subject.shownChains}/${subject.chains} chains shown`
+  const compactIdentity = composite ? composite : Number.isInteger(subject.shownChains) ? `${subject.shownChains}/${subject.chains} chains shown`
     : [subject.pdbId, chainCount].filter(Boolean).join(' · ');
   return [description,
-    { text: identity, maxLines: 2, keepTogether: ['asymmetric unit', 'biological assembly'], ...(detailed ? { compactText: compactIdentity } : {}) },
+    { text: identity, maxLines: 2, ...(isComposite && entries?.length > 1
+      ? { fitText: options => compositeEntryLine(entries, modelled, options) } : {}), keepTogether: ['asymmetric unit', 'biological assembly'], ...(detailed ? { compactText: compactIdentity } : {}) },
     ...(visibility ? [{ text: visibility, maxLines: 2 }] : []),
     { text: detailed ? style : `${style}${style ? ' · ' : ''}${subject.selectionCount ?? 0} selected`, maxLines: 2 },
     ...(detailed ? [{ text: `${subject.selectionCount ?? 0} selected`, maxLines: 1 }] : []),

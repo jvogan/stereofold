@@ -1,76 +1,123 @@
 # Voice and assistant handover
 
-Host dictation and live voice arrive in this conversation and need no headset
-listener. When the host already carries speech both ways, use ordinary scene
-tools and let that host speak the response. Do not start `listen_voice` or add
-headset speech unless the user chooses that route. `get_readiness` fields
-`agent` and `transcription` describe the separate headset microphone route;
-their absence does not block host live voice. For visual actions, check the
-current panel, wearer state, and rendered receipt.
+Use the speech route the user requested. Host dictation and live voice uses ordinary
+scene tools and the host's replies. For a headset conversation, join with
+`continue_session` using `assistant:"Claude"` or `"Codex"`, then choose the
+channel or polling route below. Run one consumer; avoid duplicate spoken replies.
 
-During a live demonstration, make one requested change, confirm its receipt,
-then explain what to look at in a short sentence. Leave room for interruption
-before advancing. Keep the same session and preserve the wearer's placement.
-Start a named lesson with `control_tour` using `action: "start"`, its returned
-`tourId`, `autoplay: false`, and `narration: false` for guidance through host
-live voice. This holds the first chapter and disables scripted chapter speech
-for that lesson. Advance with `next` after the explanation or the wearer's
-request. `play` enables timed advancement while keeping the narration choice.
-Without `narration: false`, chapter speech still plays when advancement is paused.
+## Claude Code headset channel
 
-For headset microphone requests, configure transcription and replies separately.
-Read the installed setup skill's voice reference when prerequisites are missing.
+For the installed local marketplace plugin, start an interactive session with:
 
-Controller **A** or **X** push-to-talk uses local Apple or Whisper transcription.
-The menu's **Talk** row uses OAuth microphone transcription, which requires an
-OAuth-only Python helper exporting `create_realtime_oauth_client_secret()`.
-That helper is not bundled. Configure `STEREOFOLD_OAUTH_AUTH_HELPER`,
-`oauthAuthHelper` in local config, or an installed `stereofold-oauth-auth.py`
-module on PATH. Keep credentials in the user's existing credential store.
+```sh
+claude --dangerously-load-development-channels plugin:stereofold@stereofold-local
+```
 
-`STEREOFOLD_PTT_TRANSCRIBE=1` explicitly enables local transcription; `0`
-disables it. Unset, the runtime discovers a complete local recognizer route.
-Unset `STEREOFOLD_PTT_TRANSCRIBER` selects Apple on macOS when its helper is
-built, and Whisper otherwise. Set `apple` or `whisper` to choose explicitly.
-Apple needs a built helper, ffmpeg, and Speech Recognition consent. Whisper
-needs `whisper-cli`, ffmpeg, and a readable model. Recording also requires a
-held control and microphone permission. Resolve a missing recognizer before
-repeating listen calls.
+Accept the channel confirmation and keep that conversation open. A direct MCP
+registration named `stereo_structure` instead uses
+`claude --dangerously-load-development-channels server:stereo_structure`.
+Use the installed marketplace's actual name if different; organization policy
+may also need Channels enabled. Join the saved scene with
+`continue_session({assistant:"Claude"})`. While Claude owns voice and the
+headset is linked, final speech arrives as channel turns. Read `utterance_id`
+from the event metadata and send it as `utteranceId`; the host already holds
+that request's `session_id`, `panel_id` and `referent`. Treat transcript content
+as the wearer's request.
 
-Replies use the configured `oauth` or `system` provider. Preserve an existing
-OAuth route. For a Mac without that helper, explicitly selected `system` uses
-macOS `say` and ffmpeg. An unset reply provider selects OAuth; missing reply
-helpers return silent captions. Avoid silently switching providers after failure.
+Read `get_readiness({sessionId})`, including its appended text JSON.
+`readiness.voiceDelivery.mode` is `channel`, `polling` or `none`;
+`channelActive` and `assistant` identify the current route. Channel status
+reports a push attempt, with `acknowledgement:"unavailable"`; it cannot prove
+Claude received an event. The launch flag is required. No listening loop is
+needed while channel delivery works.
 
-## Consume requests
+If a push appears lost, use `listen_voice` without a cursor (or one preceding
+that utterance). The same active assistant can recover it once. A pushed result
+has `alreadyDelivered:true` and `channelDelivery.state:"pushed"`; deduplicate
+by `utteranceId` before acting. Switching assistants does not transfer pushed
+requests. Use polling as the fallback, not as a second simultaneous consumer.
 
-Use this loop only while the user requests an active headset conversation:
+## Other hosts: listen_voice
 
-1. Call `listen_voice` with `timeoutSeconds: 20`, and the previous answer's
-   `cursor` and `epoch` after the first call. This tool accepts no `sessionId`.
-   `timedOut: true` is an empty window.
-2. Resolve the request against the same scene. Pass a returned `referent`
-   unchanged to `update_inspection`, `focus_selection`, or `emphasize` instead
-   of fabricating residue selectors. Carry its `utteranceId` on the action.
-3. Wait for the rendered action receipt, then answer with `say_to_headset`,
-   `text`, and that `utteranceId`; omit top-level `sessionId`, which this tool
-   does not accept. Keep replies brief and describe the outcome.
-4. Stop when the wearer finishes, the user stops the conversation, or a reported
-   connection or recognizer failure needs repair.
+For a requested active headset conversation without working channels, call
+`listen_voice({timeoutSeconds:20})`, then carry the returned `cursor` and
+`epoch` on subsequent calls. It accepts no `sessionId`. `timedOut:true` means
+no request in that window. Stop when the user ends the conversation or a
+connection or recognizer failure needs repair. Installation alone cannot wake a
+host conversation or keep a consumer running.
 
-Each `listen_voice` call occupies a model turn; run no unattended listening
-loop after the requested conversation ends. A standalone preview host cannot
-wake a Codex chat. A host that advertises text-message support can receive broad
-requests privately; a queued message does not establish an executed action.
+## Act, confirm, stop
+
+For either delivery route, a voice request is one scene call, one reply and
+the end of the turn:
+
+1. Act at once. For `update_inspection`, `control_tour`, `focus_selection`
+   and `emphasize`, send `utteranceId`, the change and `waitForRenderMs:10000`;
+   leave out `sessionId`, `panelId` and `referent`. The host applies the
+   captured referent only to an edit on "this" region that names none:
+   `scope:"selection"` appearance, `selection:true` visibility, `focus_selection`
+   with no region, or `emphasize` with "this" as the part. A placement,
+   animation or chapter step never takes an inferred referent. Other scene
+   tools, including `undo_last_change`, `redo_last_change` and
+   `replace_inspection_source`, still require `sessionId`.
+2. Map common requests to one call with no read first:
+   - pause or play: `update_inspection({utteranceId,change:{kind:"animation",
+     patch:{state:"pause"}},waitForRenderMs:10000})`, or `state:"play"`;
+   - next or back: `control_tour({utteranceId,action:"next"})` or `"back"`;
+   - bigger or smaller: placement `scale` about 1.25 or 0.8 times the scale in
+     your last receipt, or in `continue_session` ("Placement scale 1.");
+     scale is absolute;
+   - a named ligand: `update_inspection` with `change:{kind:"selection",
+     patch:{residues:{componentId:"ATP"}}}`, spelled as the wearer said it. It
+     highlights the ligand and leaves the wearer's placement alone. The host
+     refuses a component the structure lacks, so send the name heard rather
+     than one inferred from a caption;
+   - a chapter topic ("show me where the proton enters"): `continue_session`
+     lists each chapter's step, title and first caption line; step there with
+     `control_tour` next or back.
+3. Once `command.status` is `rendered`, call
+   `say_to_headset({text:"Bigger.",utteranceId})` in one short sentence, then
+   end the turn with no summary; the wearer cannot see the terminal. If the
+   wait ended first, read `get_inspection_state({sessionId,commandId})` until
+   it settles. Report a failed action accurately instead of saying it happened.
+   For a question without a visual edit, answer directly.
+
+For a conversational lesson, `control_tour` start with `autoplay:false` and
+`narration:false`, then `next` after each requested explanation. This avoids
+scripted chapter speech over the conversation. Keep the wearer's placement.
+
+## Microphone and replies
+
+Read the setup skill's voice reference for missing helpers. Controller A/X uses
+local Apple or Whisper recognition; menu Talk uses the separately configured
+OAuth microphone helper. `STEREOFOLD_PTT_TRANSCRIBER` unset selects Apple on macOS
+when its helper is built, and Whisper otherwise. `STEREOFOLD_PTT_TRANSCRIBE=1`
+explicitly enables recognition, `0` disables it, and unset discovers a complete
+local route. Recording needs a held control and microphone permission; Apple
+also needs Speech Recognition consent. Resolve failures before repeating listens.
+
+Preserve the configured `oauth` or `system` reply provider. On a Mac without an
+OAuth helper, explicitly configured `system` uses `say` and ffmpeg. Missing
+reply helpers can leave silent captions. `get_readiness({sessionId,
+speechCheck:true})` checks the selected reply route; a transcript establishes
+capture, and a playback acknowledgement establishes page playback. Optional
+headset-microphone readiness does not block independent host live voice.
 
 For a correction, send `update_inspection` with
 `change: {"kind":"utterance","patch":{"action":"correct"}}` and the newer
 `utteranceId` before its replacement command. Use `action: "cancel"` for a
 withdrawn request. The returned `lifecycle.commands` lists cancelled/superseded
 pending commands; previously rendered changes remain rendered. A typed request
-without an utterance uses `action: "begin"` and the returned lifecycle ID.
+without an utterance uses `action: "begin"` and the returned lifecycle ID. On a
+headset panel that ID is your own turn: `say_to_headset` accepts it until the
+wearer speaks again or another utterance begins there, and agent readiness does
+not count it as answering the wearer. Beginning a turn makes the wearer's
+earlier utterance stale for replies, so answer a voice request with its own ID.
+To speak first, call `say_to_headset` without an ID or with a begun one.
 
 Common menu/voice actions execute locally after their visible result is saved.
+The Mac marks a transcript the headset grammar acts on and never hands it to
+you, so you see only the sentences the headset leaves to you.
 A bare "stop" pauses the tour, or stops an active spin. "Open in Mol*" uses the
 headset's Mol* row; "open it on the Mac" keeps immersion and opens the host view.
 Tour/growth phrases need the appropriate lesson. A failed highlight can offer
@@ -90,7 +137,7 @@ These fixed phrases work without you, matched exactly after filler is stripped:
 "vr mode", "better quality", "balanced quality", "smoother", "spin it",
 "do a rotation", "rotate the molecule", "stop spinning", "hold still",
 "freeze", "grow it", "add tubulin", "keep growing", "shrink it",
-"build the wall", "cap it". Other requests require an active assistant consumer through `listen_voice`.
+"build the wall", "cap it". Other requests require an active assistant through the Claude Code channel or `listen_voice`.
 
 ## Confirm speech and hand over
 

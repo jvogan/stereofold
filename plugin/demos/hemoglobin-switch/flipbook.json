@@ -1,0 +1,1842 @@
+{
+  "version": 1,
+  "id": "hemoglobin-switch-flipbook",
+  "title": "Hemoglobin, T state to R state",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/2DN2"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/2DN1"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2006.05.036"
+      }
+    ],
+    "sourceSha256": "e0d5bebbe4c27094560799e461f86203ebc464bcf625e6fd7741fdb248bb02ac",
+    "note": "Human hemoglobin from one study, both at 1.25 Angstrom by X-ray diffraction: deoxy (T state, entry 2DN2) and oxy (R state, entry 2DN1). The coordinates are the prepared composite hemoglobin-tr-flipbook, built from its recipe: twelve chains, each its own state copy. Every atom is a deposited atom of 2DN2 or 2DN1 moved by one rigid-body transform: the 2DN2 chains are unmoved, the 2DN1 dimer and its assembly-operator copy are fitted on the T alpha 1 beta 1 pair, and the intermediate positions are fractions of the measured screw motion of the T alpha 2 beta 2 pair (14.1 degrees about one axis, 1.3 Angstrom along it). Waters and the two toluene molecules of 2DN1 are left out. The path between the two deposited structures is illustrative; only the T and R end points are measured. Dashed lines show measured heavy-atom distances."
+  },
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "t-state",
+      "title": "T state, no oxygen",
+      "caption": "Human deoxyhemoglobin, entry 2DN2, X-ray structure at 1.25 \u00c5: the T state, with no bound oxygen. Four subunits, each with one heme. Green: the alpha 1 beta 1 pair. Blue: the alpha 2 beta 2 pair. Gold: iron.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "Deoxyhemoglobin, T state: four subunits, four hemes, no bound oxygen.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#a85bd0",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#d3a0ea",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#e8962e",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#f6c77d",
+              "chain": "H"
+            },
+            {
+              "id": "alpha2-t-third",
+              "label": "Alpha 2, T, one third of the turn",
+              "color": "#3f86dc",
+              "chain": "I"
+            },
+            {
+              "id": "beta2-t-third",
+              "label": "Beta 2, T, one third of the turn",
+              "color": "#8bbdf2",
+              "chain": "J"
+            },
+            {
+              "id": "alpha2-t-twothirds",
+              "label": "Alpha 2, T, two thirds of the turn",
+              "color": "#3f86dc",
+              "chain": "K"
+            },
+            {
+              "id": "beta2-t-twothirds",
+              "label": "Beta 2, T, two thirds of the turn",
+              "color": "#8bbdf2",
+              "chain": "L"
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-b",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "B",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "C",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-d",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "D",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            }
+          ],
+          "labels": [
+            {
+              "id": "name-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 8,
+                  "to": 8
+                }
+              },
+              "text": "Alpha 1",
+              "color": "#08745a",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": 2
+            },
+            {
+              "id": "name-b",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 12,
+                  "to": 12
+                }
+              },
+              "text": "Beta 1",
+              "color": "#176b55",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": -2
+            },
+            {
+              "id": "name-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 11,
+                  "to": 11
+                }
+              },
+              "text": "Alpha 2",
+              "color": "#3f86dc",
+              "sizeFactor": 1.2,
+              "offsetX": -4,
+              "offsetY": 2
+            },
+            {
+              "id": "name-d",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 9,
+                  "to": 9
+                }
+              },
+              "text": "Beta 2",
+              "color": "#285c91",
+              "sizeFactor": 1.2,
+              "offsetX": -4,
+              "offsetY": -2
+            }
+          ],
+          "distances": []
+        }
+      }
+    },
+    {
+      "id": "dimer-still",
+      "title": "One half stays put",
+      "caption": "Green: alpha 1 beta 1 in T. Violet: the same pair in R. Fitted on each other, they match to 0.9 \u00c5 RMS over 285 alpha-carbon atoms. The turn is measured against this pair.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 10
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "A",
+            "B",
+            "E",
+            "F"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "Alpha 1 beta 1 keeps its shape: green is T, violet is R.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#a85bd0",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#d3a0ea",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#e8962e",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#f6c77d",
+              "chain": "H"
+            },
+            {
+              "id": "alpha2-t-third",
+              "label": "Alpha 2, T, one third of the turn",
+              "color": "#3f86dc",
+              "chain": "I"
+            },
+            {
+              "id": "beta2-t-third",
+              "label": "Beta 2, T, one third of the turn",
+              "color": "#8bbdf2",
+              "chain": "J"
+            },
+            {
+              "id": "alpha2-t-twothirds",
+              "label": "Alpha 2, T, two thirds of the turn",
+              "color": "#3f86dc",
+              "chain": "K"
+            },
+            {
+              "id": "beta2-t-twothirds",
+              "label": "Beta 2, T, two thirds of the turn",
+              "color": "#8bbdf2",
+              "chain": "L"
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-b",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "B",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "E",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "F",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-o2-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            }
+          ],
+          "labels": [
+            {
+              "id": "name-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 8,
+                  "to": 8
+                }
+              },
+              "text": "Alpha 1, T",
+              "color": "#08745a",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": 3.5
+            },
+            {
+              "id": "name-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 8,
+                  "to": 8
+                }
+              },
+              "text": "Alpha 1, R",
+              "color": "#75408f",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": -3.5
+            },
+            {
+              "id": "name-b",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 12,
+                  "to": 12
+                }
+              },
+              "text": "Beta 1, T",
+              "color": "#176b55",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": 3.5
+            },
+            {
+              "id": "name-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 12,
+                  "to": 12
+                }
+              },
+              "text": "Beta 1, R",
+              "color": "#75408f",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": -3.5
+            }
+          ],
+          "distances": []
+        }
+      }
+    },
+    {
+      "id": "r-state",
+      "title": "R state, oxygen bound",
+      "caption": "Human oxyhemoglobin, entry 2DN1, X-ray structure at 1.25 \u00c5: the R state. Violet: alpha 1 beta 1, placed on the T pair. Amber: alpha 2 beta 2, turned 14.1 degrees from its T position. One O2 (white) is on each heme.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "E",
+            "F",
+            "G",
+            "H"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "This is oxyhemoglobin, the R state: O2 on every heme.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#a85bd0",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#d3a0ea",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#e8962e",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#f6c77d",
+              "chain": "H"
+            },
+            {
+              "id": "alpha2-t-third",
+              "label": "Alpha 2, T, one third of the turn",
+              "color": "#3f86dc",
+              "chain": "I"
+            },
+            {
+              "id": "beta2-t-third",
+              "label": "Beta 2, T, one third of the turn",
+              "color": "#8bbdf2",
+              "chain": "J"
+            },
+            {
+              "id": "alpha2-t-twothirds",
+              "label": "Alpha 2, T, two thirds of the turn",
+              "color": "#3f86dc",
+              "chain": "K"
+            },
+            {
+              "id": "beta2-t-twothirds",
+              "label": "Beta 2, T, two thirds of the turn",
+              "color": "#8bbdf2",
+              "chain": "L"
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "E",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "F",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "G",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "H",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-o2-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            }
+          ],
+          "labels": [
+            {
+              "id": "name-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 8,
+                  "to": 8
+                }
+              },
+              "text": "Alpha 1",
+              "color": "#75408f",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": 2
+            },
+            {
+              "id": "name-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 12,
+                  "to": 12
+                }
+              },
+              "text": "Beta 1",
+              "color": "#75408f",
+              "sizeFactor": 1.2,
+              "offsetX": 4,
+              "offsetY": -2
+            },
+            {
+              "id": "name-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 14,
+                  "to": 14
+                }
+              },
+              "text": "Alpha 2",
+              "color": "#e8962e",
+              "sizeFactor": 1.2,
+              "offsetX": -4,
+              "offsetY": 2
+            },
+            {
+              "id": "o2-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY",
+                "atomName": "O2"
+              },
+              "text": "O2",
+              "color": "#303840",
+              "sizeFactor": 1.0,
+              "offsetX": 4,
+              "offsetY": -3
+            }
+          ],
+          "distances": []
+        }
+      }
+    },
+    {
+      "id": "compare",
+      "title": "T and R overlaid",
+      "caption": "Green and blue: T. Violet and amber: R. With alpha 1 beta 1 fitted (green over violet), alpha 2 beta 2 in R (amber) is turned 14.1 degrees about one axis and shifted 1.3 \u00c5 along it. Its alpha carbons lie 5.2 \u00c5 RMS from their T positions (blue). The two dashed lines are contacts where the two pairs meet, across the alpha 1 beta 2 interface: in T, alpha 1 Tyr 42 to beta 2 Asp 99, 2.51 \u00c5; in R, alpha 1 Asp 94 to beta 2 Asn 102, 2.83 \u00c5.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "Overlaid: one subunit pair is turned 14 degrees from its T position.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#a85bd0",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#d3a0ea",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#e8962e",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#f6c77d",
+              "chain": "H"
+            },
+            {
+              "id": "alpha2-t-third",
+              "label": "Alpha 2, T, one third of the turn",
+              "color": "#3f86dc",
+              "chain": "I"
+            },
+            {
+              "id": "beta2-t-third",
+              "label": "Beta 2, T, one third of the turn",
+              "color": "#8bbdf2",
+              "chain": "J"
+            },
+            {
+              "id": "alpha2-t-twothirds",
+              "label": "Alpha 2, T, two thirds of the turn",
+              "color": "#3f86dc",
+              "chain": "K"
+            },
+            {
+              "id": "beta2-t-twothirds",
+              "label": "Beta 2, T, two thirds of the turn",
+              "color": "#8bbdf2",
+              "chain": "L"
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-b",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "B",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "C",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-d",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "D",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "E",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "F",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "G",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "H",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-o2-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            }
+          ],
+          "labels": [
+            {
+              "id": "t-pair",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 42,
+                  "to": 42
+                },
+                "componentId": "TYR",
+                "atomName": "OH"
+              },
+              "text": "T: Tyr 42\u2013Asp 99, 2.51 \u00c5",
+              "color": "#08745a",
+              "sizeFactor": 0.9,
+              "offsetX": -4,
+              "offsetY": 5
+            },
+            {
+              "id": "r-pair",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "ND2"
+              },
+              "text": "R: Asp 94\u2013Asn 102, 2.83 \u00c5",
+              "color": "#805016",
+              "sizeFactor": 0.9,
+              "offsetX": 4,
+              "offsetY": -5
+            }
+          ],
+          "distances": [
+            {
+              "id": "t-contact",
+              "a": {
+                "chain": "A",
+                "residues": {
+                  "from": 42,
+                  "to": 42
+                },
+                "componentId": "TYR",
+                "atomName": "OH"
+              },
+              "b": {
+                "chain": "D",
+                "residues": {
+                  "from": 99,
+                  "to": 99
+                },
+                "componentId": "ASP",
+                "atomName": "OD1"
+              },
+              "color": "#ffffff",
+              "expectedAngstrom": 2.51,
+              "offsetY": 0,
+              "sizeFactor": 0.6,
+              "offsetX": 0,
+              "showText": false
+            },
+            {
+              "id": "r-contact",
+              "a": {
+                "chain": "E",
+                "residues": {
+                  "from": 94,
+                  "to": 94
+                },
+                "componentId": "ASP",
+                "atomName": "OD2"
+              },
+              "b": {
+                "chain": "H",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "ND2"
+              },
+              "color": "#ffffff",
+              "expectedAngstrom": 2.83,
+              "offsetY": 0,
+              "sizeFactor": 0.6,
+              "offsetX": 0,
+              "showText": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "heme",
+      "title": "Iron and oxygen",
+      "caption": "One alpha 1 heme: T (green) over R (violet). Gold: iron. In T the iron is 0.39 \u00c5 above the plane of the four ring nitrogens, toward His 87. In R it is 0.04 \u00c5 from that plane, with O2 1.82 \u00c5 from the iron. The other dashed line measures 2.70 \u00c5 between O2 and His 58.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "A",
+            "E"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "Iron: 0.4 \u00c5 above in T; within 0.05 \u00c5 of the plane in R.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#a85bd0",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#d3a0ea",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#e8962e",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#f6c77d",
+              "chain": "H"
+            },
+            {
+              "id": "alpha2-t-third",
+              "label": "Alpha 2, T, one third of the turn",
+              "color": "#3f86dc",
+              "chain": "I"
+            },
+            {
+              "id": "beta2-t-third",
+              "label": "Beta 2, T, one third of the turn",
+              "color": "#8bbdf2",
+              "chain": "J"
+            },
+            {
+              "id": "alpha2-t-twothirds",
+              "label": "Alpha 2, T, two thirds of the turn",
+              "color": "#3f86dc",
+              "chain": "K"
+            },
+            {
+              "id": "beta2-t-twothirds",
+              "label": "Beta 2, T, two thirds of the turn",
+              "color": "#8bbdf2",
+              "chain": "L"
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "E",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-o2-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-his87-t",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 87,
+                  "to": 87
+                },
+                "componentId": "HIS"
+              },
+              "representation": "ball-and-stick",
+              "color": "#20b58c",
+              "opacity": 1,
+              "sizeFactor": 0.25
+            },
+            {
+              "id": "lay-his87-r",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 87,
+                  "to": 87
+                },
+                "componentId": "HIS"
+              },
+              "representation": "ball-and-stick",
+              "color": "#a85bd0",
+              "opacity": 1,
+              "sizeFactor": 0.25
+            },
+            {
+              "id": "lay-his58-r",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 58,
+                  "to": 58
+                },
+                "componentId": "HIS"
+              },
+              "representation": "ball-and-stick",
+              "color": "#a85bd0",
+              "opacity": 1,
+              "sizeFactor": 0.25
+            }
+          ],
+          "labels": [
+            {
+              "id": "fe-t",
+              "text": "Fe, T",
+              "color": "#08745a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM",
+                "atomName": "FE"
+              },
+              "offsetX": -12,
+              "offsetY": -10,
+              "sizeFactor": 0.8
+            },
+            {
+              "id": "fe-r",
+              "text": "Fe, R",
+              "color": "#75408f",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM",
+                "atomName": "FE"
+              },
+              "offsetX": 12,
+              "offsetY": -10,
+              "sizeFactor": 0.8
+            },
+            {
+              "id": "o2",
+              "text": "O2",
+              "color": "#303840",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY",
+                "atomName": "O2"
+              },
+              "offsetX": 6,
+              "offsetY": 10,
+              "sizeFactor": 0.8
+            }
+          ],
+          "distances": [
+            {
+              "id": "fe-o",
+              "a": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM",
+                "atomName": "FE"
+              },
+              "b": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY",
+                "atomName": "O1"
+              },
+              "color": "#ffffff",
+              "expectedAngstrom": 1.82,
+              "offsetY": -2,
+              "sizeFactor": 0.6,
+              "showText": false
+            },
+            {
+              "id": "o2-his58",
+              "a": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY",
+                "atomName": "O2"
+              },
+              "b": {
+                "chain": "E",
+                "residues": {
+                  "from": 58,
+                  "to": 58
+                },
+                "componentId": "HIS",
+                "atomName": "NE2"
+              },
+              "color": "#ffffff",
+              "expectedAngstrom": 2.7,
+              "offsetY": 2,
+              "sizeFactor": 0.6,
+              "showText": false
+            }
+          ],
+          "focus": [
+            {
+              "chain": "A",
+              "residues": {
+                "from": 142,
+                "to": 142
+              },
+              "componentId": "HEM"
+            },
+            {
+              "chain": "E",
+              "residues": {
+                "from": 142,
+                "to": 143
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

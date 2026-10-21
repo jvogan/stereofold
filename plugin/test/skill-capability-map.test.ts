@@ -148,6 +148,18 @@ describe('the headset capability map', () => {
     }
   });
 
+  it('teaches a voice request as one call with its utteranceId, one reply and no summary', () => {
+    const voice = readFileSync(new URL('../skills/stereo-structure/references/voice.md', import.meta.url), 'utf8');
+    expect(voice).toContain('## Act, confirm, stop');
+    expect(voice).toMatch(/leave out `sessionId`, `panelId` and `referent`/u);
+    expect(voice).toContain('Other scene');
+    expect(voice).toContain('`replace_inspection_source`, still require `sessionId`');
+    expect(voice).toMatch(/end the turn with no summary/u);
+    for (const request of ['pause or play', 'next or back', 'bigger or smaller', 'a named ligand', 'a chapter topic'])
+      expect(voice).toContain(`   - ${request}`);
+    expect(voice).not.toMatch(/referent[`]? unchanged/u);
+  });
+
   it('is pointed at from the Claude Code quest skill', () => {
     const pointer = readFileSync(POINTER_PATH, 'utf8');
     expect(pointer).toContain('relevant references');

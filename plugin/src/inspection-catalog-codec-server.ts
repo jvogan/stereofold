@@ -80,15 +80,11 @@ const megabytes = (bytes: number) => `${(bytes / 1_000_000).toFixed(1)} MB`;
  */
 export function inspectionCatalogWire(catalog: any,
   json = Buffer.from(JSON.stringify(catalog), 'utf8')): { catalogWire: InspectionCatalogWire } {
-  const plain = plainWire(json, catalog);
+  // Canonical catalogs factor repeated identity/coordinate fields losslessly.
+  // Compress that transport once. Building a second full canonical gzip only
+  // to discard it blocked source delivery; legacy catalogs keep the plain path.
   const factored = factoredWire(catalog, json);
-  // Prefer the smaller complete representation. Factoring is now a transfer
-  // saving rather than the difference between opening and being refused: a
-  // desktop panel pulls whichever wire this returns in 96 KiB chunks.
-  if (plain && factored) return factored.catalogWire.compressedBytes < plain.catalogWire.compressedBytes ? factored : plain;
-  // The only way to reach this is a catalog past this Mac's 64 MiB decode
-  // policy, which is a memory bound on the machine rather than a viewer limit.
-  return plain ?? factored
+  return factored ?? plainWire(json, catalog)
     ?? (() => { throw new Error('Structure and sequence catalog exceeds the 64 MiB this plugin decodes in one browser.'
       + ` It is ${megabytes(json.byteLength)} uncompressed. ${INSPECTION_SIZE_GUIDE}`); })();
 }

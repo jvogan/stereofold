@@ -53,7 +53,7 @@ describe('inactive growth landing', () => {
     it(`opens the incoming chapter when a lesson is on screen (autoplay=${autoplay})`, async () => {
       const h = harness();
       await h.open(h.lesson, true, autoplay, false);
-      expect(h.startLesson).toHaveBeenCalledExactlyOnceWith(autoplay);
+      expect(h.startLesson).toHaveBeenCalledExactlyOnceWith(autoplay, undefined, { narration: undefined, preserveContinuation: false });
       expect(h.viewer.paints).toHaveLength(0);
     });
   }

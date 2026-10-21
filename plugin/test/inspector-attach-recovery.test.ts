@@ -18,7 +18,7 @@ const scene=(sha='a')=>({sourceSha256:sha.repeat(64),selectionKeys:['custom-resi
   inspection:{placement:{translation:[.5,-.2,-1.4],rotation:[0,.3,0],scale:3.5},labels:[{text:'Custom ligand'}],figure:{id:'custom-scientific-figure'}},
   camera:{position:[0,0,10],target:[0,0,0]}});
 
-function fixture(options:{changedSource?:boolean;onRead?:(page:any)=>void;error?:Error;alwaysStale?:boolean;lostResponse?:boolean;sourceGeometryBudgetSupported?:boolean;geometryBudget?:any}={}) {
+function fixture(options:{changedSource?:boolean;onRead?:(page:any)=>void;error?:Error;alwaysStale?:boolean;lostResponse?:boolean;sourceGeometryBudgetSupported?:boolean;geometryBudget?:any;renderedSourceIdentitySupported?:boolean}={}) {
   let now=1000;
   const host=new InspectionCommands(()=>now);
   const original={sessionId:'11111111-1111-4111-8111-111111111111',serverEpoch:'22222222-2222-4222-8222-222222222222',sourceToken:'33333333-3333-4333-8333-333333333333',stateRevision:1,inspectionRevision:1};
@@ -29,13 +29,14 @@ function fixture(options:{changedSource?:boolean;onRead?:(page:any)=>void;error?
   const element=()=>({textContent:'',dataset:{},setAttribute(){},prepend(){}});
   const h:any=vm.createContext({closed:false,generation:1,edits:0,localInteractionSerial:0,dirty:false,blocked:false,loading:false,remote:false,
     sourceGeometryBudgetSupported:options.sourceGeometryBudgetSupported===true,sourceGeometryBudget,
+    renderedSourceIdentitySupported:options.renderedSourceIdentitySupported===true,
     announceSourceGeometryBudget:(receipt:any)=>notices.push(receipt),
     panelId:undefined,attaching:undefined,attachRetryAt:0,pendingReceipt:undefined,binding:original,
     savedScene:scene(),drawn:scene(),isCompanion:true,experiencePreparing:false,experiencePlayer:undefined,
     canRefreshInspectionAttach,isStaleInspectionAttach,MAX_ATTACH_REFRESHES,PRIVATE_KEY:'private',HYDRATION_TRANSPORT:{},
     document:{body:{dataset:{}},querySelector:()=>element(),createElement:()=>element()},
     outcome:element(),Date:{now:()=>now},interactionActive:false,
-    workspace:{capture:()=>structuredClone(h.drawn),snapshot:()=>({applied:{geometryBudget:options.geometryBudget},ready:true,interactionActive:h.interactionActive,xrPresenting:true})},
+    workspace:{capture:()=>structuredClone(h.drawn),snapshot:()=>({sourceSha256:h.drawn.sourceSha256,applied:{geometryBudget:options.geometryBudget},ready:true,interactionActive:h.interactionActive,xrPresenting:true})},
     expected:()=>({sessionId:h.binding.sessionId,serverEpoch:h.binding.serverEpoch,sourceToken:h.binding.sourceToken,
       baseStateRevision:h.binding.stateRevision,baseInspectionRevision:h.binding.inspectionRevision}),
     recordHeadsetEvent:(kind:string,detail:any)=>events.push({kind,detail}),
@@ -46,8 +47,10 @@ function fixture(options:{changedSource?:boolean;onRead?:(page:any)=>void;error?
     calls.push(name);
     if(name==='attach_inspection') {
       attachPayloads.push(args);
-      if(!options.sourceGeometryBudgetSupported)
-        inspectionBindingSchema.extend({surface:z.enum(['desktop','companion']).optional(),replacesPanelId:z.string().uuid().optional()}).parse(args);
+      inspectionBindingSchema.extend({surface:z.enum(['desktop','companion']).optional(),replacesPanelId:z.string().uuid().optional(),
+        ...(options.sourceGeometryBudgetSupported?{geometryBudget:z.unknown().optional()}:{}),
+        ...(options.renderedSourceIdentitySupported?{renderedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/).optional()}:{}),
+      }).parse(args);
       if(options.error)throw options.error;
       if(options.alwaysStale) {authoritative={...authoritative,inspectionRevision:authoritative.inspectionRevision+1};throw stale();}
       if(options.lostResponse) {
@@ -163,4 +166,12 @@ it('does not send malformed non-finite source advisories even to a supporting ho
   const f=fixture({sourceGeometryBudgetSupported:true,geometryBudget:{...advisory,budget:Infinity}});
   f.h.binding=f.authoritative();await f.h.attach();
   expect(f.attachPayloads[0]).not.toHaveProperty('geometryBudget');
+});
+for(const supported of [false,true])it(`rendered source identity negotiates attach field with ${supported?'new':'old strict'} host`,async()=>{
+  const f=fixture({renderedSourceIdentitySupported:supported});f.h.binding=f.authoritative();
+  await f.h.attach();
+  expect(f.attachPayloads).toHaveLength(1);
+  if(supported)expect(f.attachPayloads[0].renderedSourceSha256).toBe(f.h.drawn.sourceSha256);
+  else expect(f.attachPayloads[0]).not.toHaveProperty('renderedSourceSha256');
+  expect(f.host.summary(f.authoritative()).panels).toHaveLength(1);
 });

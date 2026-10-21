@@ -1,4 +1,4 @@
-import { CIF } from 'molstar/lib/commonjs/mol-io/reader/cif.js';
+import { CIF } from './compatible-cif.js';
 import { trajectoryFromMmCIF } from 'molstar/lib/commonjs/mol-model-formats/structure/mmcif.js';
 import { Structure, StructureSelection, StructureSymmetry } from 'molstar/lib/commonjs/mol-model/structure.js';
 import { Task } from 'molstar/lib/commonjs/mol-task/task.js';

@@ -1,3 +1,4 @@
+import { assistantStatus } from './assistant-status.mjs';
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import { createConnectionWatchdog, connectionStatus, setConnectionStatus, markTalkLinkLost, LINK_LOST, TALK_LINK_LOST, PAIR_AGAIN } from './connection-liveness.mjs';
@@ -34,7 +35,7 @@ function menu(onAction) {
     actionChain: Promise.resolve(), nextXrTick: async () => true, session: {},
     onActionError: error => { throw error; }, unlatchSeat() {}, update: async () => {},
     wokenAt: 0, standingBack: false, engaged: false, setDimmed() {},
-    notice: undefined, inputLocked: false, recordMenuMotion() {}, requestSeatSolve() {} });
+    notice: undefined, inputLocked: false, recordMenuMotion() {}, requestSeatSolve() {}, syncPlacementSeat() {} });
   vm.runInContext(functions('lab/browser-roundtrip/spatial-toolbar.mjs', ['run']), h);
   return { async press(action) { h.run(action); await h.actionChain; } };
 }
@@ -146,7 +147,7 @@ for (const failure of ['denied microphone', 'missing microphone', 'missing bindi
     let now = 0;
     const h = vm.createContext({ pushToTalkBinding, talkCaption, xrButtons: undefined,
       createXrButtons: options => createXrButtons({ ...options, now: () => now }),
-      pulseController() {}, xrInputSourceFor() {},
+      pulseController() {}, xrInputSourceFor() {}, onLocalEdit() {},
       recordManipulation: (_kind, detail) => dispatches.push(detail),
     });
     const viewer = source('lab/browser-roundtrip/viewer.mjs');
@@ -178,7 +179,7 @@ function page(responses, { dirty = false } = {}) {
   const scene = { molecule: 'fixture', selection: [1], camera: [0, 0, 5] };
   const binding = { sessionId: 'session', sourceToken: 'source', serverEpoch: 'epoch', stateRevision: 1, inspectionRevision: 1 };
   const blank = () => ({ hidden: true, textContent: '' });
-  const h = vm.createContext({ failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined, clearTimeout(id) { cancelledTimers.add(id); },
+  const h = vm.createContext({ failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, beatCompletion:undefined, desktopReceiptInFlight:false, desktopReceiptBeat:undefined, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined, clearTimeout(id) { cancelledTimers.add(id); },
     connectionStatus, setConnectionStatus, LINK_LOST, PAIR_AGAIN, recoverCompanionConnection:async()=>false, registerComparisonSources:async sources=>{assert.equal(sources,undefined);}, exports: {}, Error, AbortSignal, AbortController, Response,
     readPageKey: () => ({ key: 'a'.repeat(64) }),
     fetch: async () => { const next = responses.shift(); if (next instanceof Error) throw next;
@@ -196,12 +197,12 @@ function page(responses, { dirty = false } = {}) {
     details: blank(), detailsText: blank(), retry: blank(), reload: blank(), pairAgain: blank(),
     retryHydrationId: undefined, loadErrorDetails: '', requestedId: 'session',
     workspace: { snapshot: () => ({ ready: true, interactionActive: false, xrPresenting: true }),
-      capture: () => scene, viewer: { xr: {} },
+      capture: () => scene, serializeCapture() { return JSON.stringify(this.capture()); }, viewer: { xr: {} },
       restoreShared: () => mutations.push('restore'), setStatus: () => mutations.push('status') },
     savedScene: scene, document: { body: { dataset: {} } },
     expected: () => binding, syncHandoff() {}, liveAvailability: () => 'ready', tourHeartbeat: () => ({}),
     tourPlayer: undefined, panelTour: undefined, experiencePlayer: undefined, xrStartupReport: () => ({}), showOutcome() {}, retireStaleHud() {},
-    isRendererHeartbeatFailure: () => false, noteRendererHeartbeat() {}, noteAgentPresence() {},
+    isRendererHeartbeatFailure: () => false, noteRendererHeartbeat() {}, noteAgentPresence() {}, assistantStatus,
     voiceBindingKey: () => '', voiceReadyBinding: '', replyOnThisBeat: false, experienceView: undefined,
     receiveSpokenReply() {}, handoffSpokenRequest() {}, followsSourceTransition: () => false,
     save: async () => {}, scheduleSave: () => mutations.push('save'),
@@ -222,7 +223,7 @@ function page(responses, { dirty = false } = {}) {
   vm.runInContext(compile(functions('plugin/src/inspector.ts',
     // `poll` arms its own next tick and hands a beat it cannot
     // serve to `busyBeat`, so both travel with it.
-    ['showProblem', 'showConnectionProblem', 'clearConnectionProblem', 'beatSuspended', 'busyBeat', 'armPoll', 'problemMessage', 'poll'])), h);
+    ['showProblem', 'showConnectionProblem', 'clearConnectionProblem', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'armPoll', 'problemMessage', 'poll'])), h);
   return { h, captions, timers, cancelledTimers, mutations, scene, clock };
 }
 

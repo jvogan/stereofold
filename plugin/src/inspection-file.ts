@@ -23,7 +23,7 @@ function assertMmCifText(structureText: string): void {
  * the one-byte-over-cap read and the stat-read-stat stability check are the
  * same check either way and are written once here.
  */
-async function readStableFile(filePath: string, limit: number, missing: () => Error): Promise<Buffer> {
+export async function readStableFile(filePath: string, limit: number, missing: () => Error): Promise<Buffer> {
   let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
     // O_NOFOLLOW protects the final component. Parent aliases are intentionally

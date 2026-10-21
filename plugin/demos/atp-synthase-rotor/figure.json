@@ -1,0 +1,646 @@
+{
+  "version": 1,
+  "id": "atp-synthase-rotor-figure",
+  "title": "ATP synthase: three rotor states side by side",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/6N2Y"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/6N2Z"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/6N30"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.7554/eLife.43128"
+      }
+    ],
+    "sourceSha256": "4f76aac80a4260e1b4f867a508b774d04997aa3a47aa77fae0fa49c3d728669b",
+    "note": "Three deposited states of Bacillus PS3 ATP synthase from one cryo-EM dataset: 6N2Y (3.0 \u00c5), 6N2Z (3.0 \u00c5) and 6N30 (3.2 \u00c5) (Guo, Suzuki and Rubinstein, eLife 2019). The coordinates are the prepared composite atp-synthase-figure, built from its recipe: the flipbook superposition of states 2 and 3 on state 1 by the stator, then one more rigid turn that puts the rotor axis along the line of sight, head toward the viewer, and one shift per state that sets the three states 140 Angstrom apart. Each state keeps its three beta subunits, gamma and epsilon as N, CA, C, O and CB atoms, plus Mg-ADP and putative phosphate. The alpha subunits, delta, the peripheral stalk, subunit a and the c-ring are left out. Mg-ADP marks the closed site; putative phosphate marks one open site; the other is empty. Fitted gamma orientations differ by 119.4 degrees from state 1 to 2 and 121.2 degrees from state 2 to 3, counterclockwise seen from the head."
+  },
+  "chapters": [
+    {
+      "id": "figure",
+      "title": "Three rotor states side by side",
+      "caption": "Three deposited states of Bacillus PS3 ATP synthase, seen from the head; alpha, delta, the peripheral stalk and membrane parts are omitted. Beta sites: amber, closed with Mg-ADP (white); blue, open with putative phosphate (pink, Pi?); green, open and empty. The beta sites change shape around the rotor. Solid red gamma and orange epsilon show the rotor. Gamma differs by about 119 then 121 degrees counterclockwise across panels; angles start at state 1. A different beta site is closed in each state.",
+      "durationSeconds": 20,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 20
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-1",
+            "E-1",
+            "F-1",
+            "G-1",
+            "H-1",
+            "D-2",
+            "E-2",
+            "F-2",
+            "G-2",
+            "H-2",
+            "D-3",
+            "E-3",
+            "F-3",
+            "G-3",
+            "H-3"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "Gamma turns about a third each state; a new beta site closes.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d1",
+              "label": "Beta D, state 1, open, empty",
+              "color": "#35c46a",
+              "chain": "D-1",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e1",
+              "label": "Beta E, s1, putative Pi",
+              "color": "#4a90e2",
+              "chain": "E-1",
+              "residues": {
+                "from": 1,
+                "to": 470
+              }
+            },
+            {
+              "id": "beta-f1",
+              "label": "Beta F, state 1, closed, ADP",
+              "color": "#f5a623",
+              "chain": "F-1",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma1",
+              "label": "Gamma, state 1",
+              "color": "#d7263d",
+              "chain": "G-1",
+              "residues": {
+                "from": 2,
+                "to": 284
+              }
+            },
+            {
+              "id": "epsilon1",
+              "label": "Epsilon, state 1",
+              "color": "#f46036",
+              "chain": "H-1",
+              "residues": {
+                "from": 4,
+                "to": 132
+              }
+            },
+            {
+              "id": "beta-d2",
+              "label": "Beta D, state 2, closed, ADP",
+              "color": "#f5a623",
+              "chain": "D-2",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e2",
+              "label": "Beta E, state 2, open, empty",
+              "color": "#35c46a",
+              "chain": "E-2",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-f2",
+              "label": "Beta F, s2, putative Pi",
+              "color": "#4a90e2",
+              "chain": "F-2",
+              "residues": {
+                "from": 1,
+                "to": 469
+              }
+            },
+            {
+              "id": "gamma2",
+              "label": "Gamma, state 2",
+              "color": "#d7263d",
+              "chain": "G-2",
+              "residues": {
+                "from": 2,
+                "to": 285
+              }
+            },
+            {
+              "id": "epsilon2",
+              "label": "Epsilon, state 2",
+              "color": "#f46036",
+              "chain": "H-2",
+              "residues": {
+                "from": 2,
+                "to": 131
+              }
+            },
+            {
+              "id": "beta-d3",
+              "label": "Beta D, s3, putative Pi",
+              "color": "#4a90e2",
+              "chain": "D-3",
+              "residues": {
+                "from": 1,
+                "to": 469
+              }
+            },
+            {
+              "id": "beta-e3",
+              "label": "Beta E, state 3, closed, ADP",
+              "color": "#f5a623",
+              "chain": "E-3",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-f3",
+              "label": "Beta F, state 3, open, empty",
+              "color": "#35c46a",
+              "chain": "F-3",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma3",
+              "label": "Gamma, state 3",
+              "color": "#d7263d",
+              "chain": "G-3",
+              "residues": {
+                "from": 2,
+                "to": 285
+              }
+            },
+            {
+              "id": "epsilon3",
+              "label": "Epsilon, state 3",
+              "color": "#f46036",
+              "chain": "H-3",
+              "residues": {
+                "from": 4,
+                "to": 131
+              }
+            }
+          ],
+          "focus": [
+            "beta-d1",
+            "beta-e1",
+            "beta-f1",
+            "gamma1",
+            "epsilon1",
+            "beta-d2",
+            "beta-e2",
+            "beta-f2",
+            "gamma2",
+            "epsilon2",
+            "beta-d3",
+            "beta-e3",
+            "beta-f3",
+            "gamma3",
+            "epsilon3"
+          ],
+          "contextOpacity": 0.15,
+          "framing": "fill"
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "po4-e1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "adp-f1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "mg-f1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "gamma-solid-1",
+              "target": {
+                "chain": "G-1"
+              },
+              "representation": "spacefill",
+              "color": "#d7263d",
+              "opacity": 1
+            },
+            {
+              "id": "epsilon-solid-1",
+              "target": {
+                "chain": "H-1"
+              },
+              "representation": "spacefill",
+              "color": "#f46036",
+              "opacity": 1
+            },
+            {
+              "id": "adp-d2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "mg-d2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "po4-f2",
+              "target": {
+                "chain": "F-2",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "gamma-solid-2",
+              "target": {
+                "chain": "G-2"
+              },
+              "representation": "spacefill",
+              "color": "#d7263d",
+              "opacity": 1
+            },
+            {
+              "id": "epsilon-solid-2",
+              "target": {
+                "chain": "H-2"
+              },
+              "representation": "spacefill",
+              "color": "#f46036",
+              "opacity": 1
+            },
+            {
+              "id": "po4-d3",
+              "target": {
+                "chain": "D-3",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "adp-e3",
+              "target": {
+                "chain": "E-3",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "mg-e3",
+              "target": {
+                "chain": "E-3",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a",
+              "opacity": 1,
+              "sizeFactor": 0.45
+            },
+            {
+              "id": "gamma-solid-3",
+              "target": {
+                "chain": "G-3"
+              },
+              "representation": "spacefill",
+              "color": "#d7263d",
+              "opacity": 1
+            },
+            {
+              "id": "epsilon-solid-3",
+              "target": {
+                "chain": "H-3"
+              },
+              "representation": "spacefill",
+              "color": "#f46036",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "title-1",
+              "target": {
+                "chain": "D-1",
+                "residues": {
+                  "from": 39,
+                  "to": 39
+                },
+                "atomName": "CA"
+              },
+              "text": "State 1, \u03b3 at 0\u00b0",
+              "color": "#1c2530",
+              "offsetX": 0,
+              "offsetY": 4.2,
+              "sizeFactor": 0.95
+            },
+            {
+              "id": "title-2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 39,
+                  "to": 39
+                },
+                "atomName": "CA"
+              },
+              "text": "State 2, \u03b3 \u2248120\u00b0",
+              "color": "#1c2530",
+              "offsetX": 0,
+              "offsetY": 4.6,
+              "sizeFactor": 0.95
+            },
+            {
+              "id": "title-3",
+              "target": {
+                "chain": "D-3",
+                "residues": {
+                  "from": 39,
+                  "to": 39
+                },
+                "atomName": "CA"
+              },
+              "text": "State 3, \u03b3 \u2248240\u00b0",
+              "color": "#1c2530",
+              "offsetX": 0,
+              "offsetY": 4.4,
+              "sizeFactor": 0.95
+            },
+            {
+              "id": "adp-1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 115,
+                  "to": 115
+                },
+                "atomName": "CA"
+              },
+              "text": "closed, ADP",
+              "color": "#805000",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "pi-1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 114,
+                  "to": 114
+                },
+                "atomName": "CA"
+              },
+              "text": "open Pi?",
+              "color": "#1f5fa8",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "empty-1",
+              "target": {
+                "chain": "D-1",
+                "residues": {
+                  "from": 114,
+                  "to": 114
+                },
+                "atomName": "CA"
+              },
+              "text": "open, empty",
+              "color": "#18713a",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7,
+              "maxOffsetEm": 5
+            },
+            {
+              "id": "adp-2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 114,
+                  "to": 114
+                },
+                "atomName": "CA"
+              },
+              "text": "closed, ADP",
+              "color": "#805000",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "pi-2",
+              "target": {
+                "chain": "F-2",
+                "residues": {
+                  "from": 114,
+                  "to": 114
+                },
+                "atomName": "CA"
+              },
+              "text": "open Pi?",
+              "color": "#1f5fa8",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "empty-2",
+              "target": {
+                "chain": "E-2",
+                "residues": {
+                  "from": 115,
+                  "to": 115
+                },
+                "atomName": "CA"
+              },
+              "text": "open, empty",
+              "color": "#18713a",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "adp-3",
+              "target": {
+                "chain": "E-3",
+                "residues": {
+                  "from": 115,
+                  "to": 115
+                },
+                "atomName": "CA"
+              },
+              "text": "closed, ADP",
+              "color": "#805000",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "pi-3",
+              "target": {
+                "chain": "D-3",
+                "residues": {
+                  "from": 114,
+                  "to": 114
+                },
+                "atomName": "CA"
+              },
+              "text": "open Pi?",
+              "color": "#1f5fa8",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7
+            },
+            {
+              "id": "empty-3",
+              "target": {
+                "chain": "F-3",
+                "residues": {
+                  "from": 114,
+                  "to": 114
+                },
+                "atomName": "CA"
+              },
+              "text": "open, empty",
+              "color": "#18713a",
+              "offsetX": 0,
+              "offsetY": 0.0,
+              "sizeFactor": 0.7,
+              "maxOffsetEm": 5
+            }
+          ],
+          "distances": []
+        }
+      }
+    }
+  ],
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  }
+}

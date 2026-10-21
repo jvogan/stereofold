@@ -30,6 +30,7 @@ import { PRIVATE_INSPECTION_META_KEY as PRIVATE_KEY } from '../src/inspection-co
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 import { createPushToTalkTranscriber } from '../src/push-to-talk-transcribe.js';
 import { REFERENT_INLINE_KEY_LIMIT, createReferentKeyStore, referentKeyDigest } from '../src/inspection-operation.js';
+import { voicedWav } from './helpers/voiced-wav.js';
 
 const hemoglobin = await readFile(new URL('../../fixtures/4HHB.cif', import.meta.url), 'utf8');
 const crambin = await readFile(new URL('../../fixtures/1CRN.cif', import.meta.url), 'utf8');
@@ -52,7 +53,7 @@ function fakeSpawner() {
     child.stdin = new Writable({ write(_chunk, _encoding, done) { done(); } });
     child.kill = () => true;
     void Promise.resolve().then(async () => {
-      if (command.includes('ffmpeg')) { await writeFile(args[args.length - 1]!, Buffer.from('RIFFfake')); child.emit('close', 0); return; }
+      if (command.includes('ffmpeg')) { await writeFile(args[args.length - 1]!, voicedWav()); child.emit('close', 0); return; }
       if (command.includes('whisper')) { await writeFile(`${args[args.indexOf('-of') + 1]!}.txt`, `${HEARD}\n`); child.emit('close', 0); return; }
       child.emit('close', 0);
     });

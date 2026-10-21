@@ -25,7 +25,7 @@ export const MENU_IDLE_ALPHA = Object.freeze({ plates: 0.80, labels: 1, readout:
  * drops below idle — the menu reads as standing back — but the backing stays
  * in the 70% band so filled white type still has a dark card under it.
  */
-export const MENU_PLAY_ALPHA = Object.freeze({ plates: 0.70, labels: 0.55, readout: 1 });
+export const MENU_PLAY_ALPHA = Object.freeze({ plates: 0.70, labels: 0.90, readout: 1 });
 
 /** The alpha the three menu layers want when the menu is standing back. */
 export const menuAlpha = (standingBack) => standingBack ? MENU_PLAY_ALPHA : MENU_IDLE_ALPHA;
@@ -39,6 +39,7 @@ export const menuAlpha = (standingBack) => standingBack ? MENU_PLAY_ALPHA : MENU
  */
 export const TOOLBAR_TEXT_DRAW = Object.freeze({
   sizeFactor: 1,
+  fontFamily: 'sans-serif', fontWeight: 'bold', fontQuality: 2,
   background: false,
   attachment: 'middle-center',
   offsetZ: 0,

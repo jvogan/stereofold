@@ -167,7 +167,7 @@ test('chooser survives a minute, repeated hydration and default selection; Menu 
   const panel = createPanelTourController(lesson, experience);
   const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
   const begin = source.indexOf("        if (action.kind === 'collapse')"), end = source.indexOf('        // A spoken "next" or "back" with no lesson running starts', begin);
-  const dispatch = action => vm.runInNewContext(`(async()=>{${source.slice(begin, end)}})()`, { action, spatialTour: panel });
+  const dispatch = action => vm.runInNewContext(`(async()=>{${source.slice(begin, end)}})()`, { action, spatialTour: panel, talkCaption: undefined, recordManipulation() {} });
   const actionErrors = [];
   const frame = toolbarFrameHarness({ ...runtime, createSpatialToolbar: options => runtime.createSpatialToolbar({
     ...options, onAction: dispatch, onActionError: error => actionErrors.push(error),

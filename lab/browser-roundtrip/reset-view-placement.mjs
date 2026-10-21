@@ -63,6 +63,59 @@ function headCentredSubjectTangent(geometry) {
 }
 
 export function resetViewPlacement(options) {
+  // Lesson framing owns the molecular size. Try complete alternate glass at
+  // that exact pose before the ordinary fitter spends distance or scale.
+  // Reset and saved wearer placements retain their existing seating policy.
+  if (options.preferMenuRelocation && options.fit && !options.centered && !options.restoreSaved) {
+    const rendered = options.renderedGeometry ?? (options.geometry && resetEntryGeometry({ ...options.geometry,
+      cameraScale: options.cameraScale, renderFromRoom: options.renderFromRoom }));
+    const menus = [{ points: options.points ?? [] }, ...(options.menuCandidates ?? [])].filter(menu => !menu.hide);
+    if (rendered) for (const menu of menus) {
+      const geometry = menu.views ? { ...rendered, views: menu.views } : rendered;
+      if (resetEntryLateralTravel({ geometry, points: menu.points, right: options.headInRoom.slice(0, 3),
+        clearance: 0, centreLimit: FREE_FIELD_CENTRE_TANGENT }) === 0)
+        return menu.id === undefined ? options.seat : { ...options.seat, menuRelocation: menu.id };
+    }
+    // A previous orbit can leave the authored origin off centre. Recover it
+    // sideways at the same depth before the general fit retreats to 4 m.
+    if (rendered) for (const menu of menus) {
+      const fitted = fixedViewPlacement({ ...options, points: menu.points, bounded: true,
+        renderedGeometry: menu.views ? { ...rendered, views: menu.views } : rendered });
+      if (fitted) return menu.id === undefined ? fitted : { ...fitted, menuRelocation: menu.id };
+    }
+  }
+  try { return fitViewPlacement(options); }
+  catch (error) {
+    if (!options.recoverVisible || !options.fit || options.allowOffscreen
+      || !error.message.startsWith('Could not reset: the entry size cannot fit')) throw error;
+    // Automatic Reset/chapter framing must show a subject even when the glass
+    // fills its entire field. Recenter vertically as well as laterally, prove
+    // a fit in both eyes, then ask the caller to move or hide the glass.
+    const { seat, headInRoom, renderFromRoom, cameraScale, center, radius, geometry } = options;
+    const anchor = center.map((v, i) => (v + seat.translation[i] * radius) * cameraScale);
+    const roomPoint = headInRoom.slice(12, 15).map((v, i) => v - ENTRY_STANDOFF_RANGE.max * headInRoom[8 + i]);
+    const moved = applyMatrix4(roomPoint, renderFromRoom);
+    const candidate = { ...seat, roomPoint, translation: moved.map((v, i) => (v / cameraScale - center[i]) / radius) };
+    const rendered = options.renderedGeometry ?? (geometry && resetEntryGeometry({ ...geometry, cameraScale, renderFromRoom }));
+    const renderedGeometry = rendered && fitEntryGeometry(rendered, { anchor, moved, ratio: 1 });
+    const fit = { ...options, seat: candidate, renderedGeometry, centered: false, restoreSaved: false,
+      retainFreeFieldSeat: false, recoverVisible: false };
+    for (const menu of options.menuCandidates ?? []) {
+      if (menu.hide) continue;
+      try {
+        const fitted = fitViewPlacement({ ...fit, points: menu.points,
+          renderedGeometry: menu.views && renderedGeometry ? { ...renderedGeometry, views: menu.views } : renderedGeometry });
+        return { ...fitted, menuRelocation: menu.id };
+      } catch (next) {
+        if (!next.message.startsWith('Could not reset: the entry size cannot fit')) throw next;
+      }
+    }
+    const fitted = fitViewPlacement({ ...fit, points: [] });
+    return { ...fitted, menuRecovery: Boolean(options.points?.length), menuRelocation: options.points?.length ? 'hidden' : undefined };
+  }
+}
+
+function fitViewPlacement(options) {
   if (!options.fit) return fixedViewPlacement(options);
   const { seat, headInRoom, renderFromRoom, cameraScale, center, radius, geometry } = options;
   const anchor = center.map((v, i) => (v + seat.translation[i] * radius) * cameraScale);
@@ -266,18 +319,25 @@ function fixedViewPlacement({ seat, points = [], headInRoom, renderFromRoom, cam
         for (const sign of [-1, 1]) intervals = clip(intervals,
           tangent * dot(relative, forward) + sign * dot(relative, axis) - roomRadius * Math.hypot(1, tangent), tangent);
       }
-      const visible = points.map(point => point.map((value, axis) => value - eye[axis]))
-        .filter(point => dot(point, forward) > 0);
-      if (!visible.length) continue;
-      const clear = [];
-      for (let degrees = 0; degrees < 360; degrees += 5) {
-        const angle = degrees * Math.PI / 180;
-        const normal = right.map((value, axis) => value * Math.cos(angle) + up[axis] * Math.sin(angle));
-        const edge = Math.max(...visible.map(point => dot(point, normal) / dot(point, forward))) + Math.tan(Math.PI / 180);
-        clear.push(...clip(intervals, dot(relative, normal) - edge * dot(relative, forward)
-          - roomRadius * Math.hypot(1, edge), -edge));
+      for (const plate of points.plates ?? [points]) {
+        const visible = plate.map(point => point.map((value, axis) => value - eye[axis]))
+          .filter(point => dot(point, forward) > 0);
+        if (!visible.length) continue;
+        const clear = [];
+        for (let degrees = 0; degrees < 360; degrees += 5) {
+          const angle = degrees * Math.PI / 180;
+          const normal = right.map((value, axis) => value * Math.cos(angle) + up[axis] * Math.sin(angle));
+          const edge = Math.max(...visible.map(point => dot(point, normal) / dot(point, forward))) + Math.tan(Math.PI / 180);
+          clear.push(...clip(intervals, dot(relative, normal) - edge * dot(relative, forward)
+            - roomRadius * Math.hypot(1, edge), -edge));
+        }
+        intervals = [];
+        for (const range of clear.sort((a, b) => a[0] - b[0])) {
+          const last = intervals.at(-1);
+          if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+          else intervals.push(range);
+        }
       }
-      intervals = clear;
     }
     if (!intervals.length || !Number.isFinite(roomRadius) || roomRadius <= 0)
       throw Error('Could not reset: the entry size cannot fit inside both eyes and clear the menu within 4 m. Press Fit, or move the menu.');
@@ -311,13 +371,23 @@ function fixedViewPlacement({ seat, points = [], headInRoom, renderFromRoom, cam
     // A plane through the eye at the menu's inboard tangent separates every
     // point of the menu from the sphere. One degree of air in tangent units
     // avoids contact without changing any menu dimensions or scale limits.
-    const edge = Math.max(...points.map(point => {
-      const v = relative(point, eye);
-      return dot(v, basis.right) / dot(v, basis.forward);
-    })) + Math.tan(Math.PI / 180);
-    const v = relative(roomCenter, eye);
-    shift = Math.max(shift, edge * dot(v, basis.forward) - dot(v, basis.right)
-      + roomRadius * Math.hypot(1, edge));
+    for (const plate of points.plates ?? [points]) {
+      const v = relative(roomCenter, eye), depth = dot(v, basis.forward), rise = dot(v, basis.up);
+      const ys = plate.map(point => { const p = relative(point, eye); return dot(p, basis.up) / dot(p, basis.forward); });
+      if (depth > roomRadius && ys.length) {
+        const spread = roomRadius * Math.sqrt(rise * rise + depth * depth - roomRadius * roomRadius);
+        const denominator = depth * depth - roomRadius * roomRadius;
+        const bottom = (rise * depth - spread) / denominator, top = (rise * depth + spread) / denominator;
+        if (top + Math.tan(Math.PI / 180) < Math.min(...ys)
+          || bottom - Math.tan(Math.PI / 180) > Math.max(...ys)) continue;
+      }
+      const edge = Math.max(...plate.map(point => {
+        const v = relative(point, eye);
+        return dot(v, basis.right) / dot(v, basis.forward);
+      })) + Math.tan(Math.PI / 180);
+      shift = Math.max(shift, edge * dot(v, basis.forward) - dot(v, basis.right)
+        + roomRadius * Math.hypot(1, edge));
+    }
   }
   const roomPoint = roomCenter.map((value, axis) => value + shift * basis.right[axis]);
   if (bounded && typeof measured !== 'number') {

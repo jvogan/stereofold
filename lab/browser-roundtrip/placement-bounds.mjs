@@ -1,4 +1,3 @@
-import { calculateTransformBoundingSphere } from 'molstar/lib/mol-gl/renderable/util.js';
 import { Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { Sphere3D } from 'molstar/lib/mol-math/geometry/primitives/sphere3d.js';
 import { ValueCell } from 'molstar/lib/mol-util/value-cell.js';
@@ -20,7 +19,7 @@ function radiusScale(a, i) {
 // Pick the centre of the spheres' axis-aligned bounds, then measure the farthest
 // centre distance + radius. Extrema of the original mesh are deliberately not
 // used: they do not necessarily enclose the full invariant sphere or its padding.
-function encloseSpheres(spheres, start, end, indices) {
+function encloseSpheres(spheres, start, end, indices, out) {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   for (let j = start; j < end; j++) {
@@ -29,14 +28,15 @@ function encloseSpheres(spheres, start, end, indices) {
     minY = Math.min(minY, spheres[i + 1] - r); maxY = Math.max(maxY, spheres[i + 1] + r);
     minZ = Math.min(minZ, spheres[i + 2] - r); maxZ = Math.max(maxZ, spheres[i + 2] + r);
   }
-  const center = Vec3.create((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
+  const center = out.center;
+  Vec3.set(center, (minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
   let radius = 0;
   for (let j = start; j < end; j++) {
     const i = (indices ? indices[j] : j) * 4;
     radius = Math.max(radius, Math.hypot(spheres[i] - center[0], spheres[i + 1] - center[1],
       spheres[i + 2] - center[2]) + spheres[i + 3]);
   }
-  return Sphere3D.create(center, radius);
+  out.radius = radius; return out;
 }
 
 function writeGridSphere(array, index, sphere) {
@@ -58,16 +58,23 @@ function writeGridSphere(array, index, sphere) {
  * Run after setState({ transform }) and before canvas.update(repr, false).
  * The renderer reads the cell directly; the canvas update also invalidates
  * aggregate scene bounds and uploads the changed transform attributes. This
- * belongs to placement/rebuild work, never to an idle head-frame callback.
+ * reuses scratch storage after geometry setup, including during molecular motion.
  */
-export function updatePlacementBounds(repr) {
-  for (const { values } of repr.renderObjects) {
+const boundsScratch = new WeakMap();
+export function updatePlacementBounds(repr, objects = repr.renderObjects) {
+  for (const { values } of objects) {
     const { boundingSphere, invariantBoundingSphere, aTransform, instanceCount } = values;
     const invariant = invariantBoundingSphere.ref.value, transforms = aTransform.ref.value;
     const count = instanceCount.ref.value, grid = values.instanceGrid?.ref.value;
-    let spheres;
+    let scratch = boundsScratch.get(values);
+    if (!scratch || scratch.count !== count || scratch.extremaCount !== (invariant.extrema?.length ?? 0)) {
+      const sphere = Sphere3D();
+      if (count === 1 && invariant.extrema) sphere.extrema = invariant.extrema.map(() => Vec3());
+      scratch = {count, extremaCount:invariant.extrema?.length ?? 0, spheres:new Float64Array(count * 4), sphere, gridSphere:Sphere3D()};
+      boundsScratch.set(values, scratch);
+    }
+    const {spheres, sphere} = scratch;
     if (count > 1 || (count > 0 && grid?.cellSize > 0)) {
-      spheres = new Float64Array(count * 4);
       for (let i = 0; i < count; i++) {
         Vec3.transformMat4Offset(spheres, invariant.center, transforms, i * 4, 0, i * 16);
         spheres[i * 4 + 3] = invariant.radius * radiusScale(transforms, i * 16);
@@ -78,26 +85,28 @@ export function updatePlacementBounds(repr) {
     // placement scale, but an extra nonuniform transform can shear those axes.
     // Mol*'s multi-instance radius branch assumes rigid transforms; placement
     // scaling violates that assumption even when aTransform has the right data.
-    const sphere = count > 1 ? encloseSpheres(spheres, 0, count)
-      : calculateTransformBoundingSphere(invariant, transforms, count, 0);
-    if (count === 1 && values.hasExtraTransform?.ref.value) {
-      sphere.radius = Math.max(sphere.radius, invariant.radius * radiusScale(transforms, 0));
-    }
+    if (count > 1) encloseSpheres(spheres, 0, count, undefined, sphere);
+    else if (count === 1) {
+      Vec3.transformMat4Offset(sphere.center, invariant.center, transforms, 0, 0, 0);
+      sphere.radius = invariant.radius * radiusScale(transforms, 0);
+      for (let i = 0; i < scratch.extremaCount; i++)
+        Vec3.transformMat4Offset(sphere.extrema[i], invariant.extrema[i], transforms, 0, 0, 0);
+    } else { Vec3.copy(sphere.center, invariant.center); sphere.radius = invariant.radius; }
     ValueCell.update(boundingSphere, sphere);
 
     // Renderer.cull uses these at camera.scale === 1 (including desktop); XR
     // normally uses a molecular-to-room scale and bypasses the grid. Reuse its
     // existing instance ordering and membership, repairing only culling bounds.
     if (count > 0 && grid?.cellSize > 0) {
-      const cellSpheres = grid.cellSpheres.slice(), batchSpheres = grid.batchSpheres.slice();
+      const {cellSpheres, batchSpheres} = grid;
       for (let i = 0; i < grid.cellCount; i++) {
-        writeGridSphere(cellSpheres, i, encloseSpheres(spheres, grid.cellOffsets[i], grid.cellOffsets[i + 1]));
+        writeGridSphere(cellSpheres, i, encloseSpheres(spheres, grid.cellOffsets[i], grid.cellOffsets[i + 1], undefined, scratch.gridSphere));
       }
       for (let i = 0; i < grid.batchCount; i++) {
         writeGridSphere(batchSpheres, i, encloseSpheres(cellSpheres,
-          grid.batchOffsets[i], grid.batchOffsets[i + 1], grid.batchCell));
+          grid.batchOffsets[i], grid.batchOffsets[i + 1], grid.batchCell, scratch.gridSphere));
       }
-      ValueCell.update(values.instanceGrid, { ...grid, cellSpheres, batchSpheres });
+      ValueCell.update(values.instanceGrid, grid);
     }
   }
 }

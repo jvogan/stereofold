@@ -512,7 +512,7 @@ test('final Done uses active-button paint and only waits during navigation', () 
     assert.equal(done.state, undefined);
     assert.equal(done.accent, undefined);
     const props = toolbarTextProps(menuAlpha(quiet).labels);
-    assert.equal(props.alpha, quiet ? 0.55 : 1);
+    assert.equal(props.alpha, quiet ? 0.9 : 1);
     assert.equal(props.borderWidth, 0);
     assert.equal(props.background, false);
     const navigating = button({ ...FINAL_CHAPTER_TOUR, navigating: true }, 'Done');

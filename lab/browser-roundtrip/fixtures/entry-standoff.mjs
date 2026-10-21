@@ -1,3 +1,5 @@
+import { framingEnvelopeObject } from '../chapter-field.mjs';
+import { createAssistantStatus } from '../assistant-status.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -59,14 +61,15 @@ export function entryStandoffHarness(recordCost) {
  * test reads a record. `records` collects what the producer wrote.
  */
 export function entryProducerHarness({ geometry = entryGeometry(), head, rows = [], tourReadout = () => [],
+  chapterFieldBounds = () => undefined, presentationTransform = () => identity(),
   getState = () => ({ tour: { selectedId: 'demo', active: false, step: -1 } }),
   seatedStandoff = 0, depthRange = {}, toolbarTextWidth = text => text.length * .6 } = {}) {
   const viewer = read('../viewer.mjs'), toolbar = read('../spatial-toolbar.mjs'), session = read('../immersive-session.mjs');
-  const providerStart = viewer.indexOf('      getEntryGeometry: () => ({');
+  const providerStart = viewer.indexOf('      getEntryGeometry: (');
   assert.ok(providerStart >= 0, 'viewer.mjs must supply getEntryGeometry to the immersive session');
-  const providerEnd = viewer.indexOf('\n      }),', providerStart);
+  const providerEnd = viewer.indexOf('\n      },', providerStart);
   assert.ok(providerEnd > providerStart, 'the provider is one object property');
-  const provider = viewer.slice(providerStart, providerEnd + '\n      }),'.length);
+  const provider = viewer.slice(providerStart, providerEnd + '\n      },'.length);
   assert.match(session, /createSpatialToolbar\(\{[\s\S]{0,600}?\bgetEntryGeometry\b/,
     'immersive-session.mjs must hand getEntryGeometry to the toolbar');
   const producerStart = toolbar.indexOf('  function seatEntryMenu() {');
@@ -77,6 +80,8 @@ export function entryProducerHarness({ geometry = entryGeometry(), head, rows = 
   assert.match(producer, /record\?\.\('plate-standoff', \{ \.\.\.seat\.measured, phase: 'entry'/,
     'the producer records the shared per-eye measurement');
   const page = vm.createContext({
+    chapterFieldBounds, presentationTransform, framingEnvelopeObject,
+    scientificRepresentations: () => [{ renderObjects: geometry.objects }],
     representation: { obj: { data: { repr: { renderObjects: geometry.objects } } } }, ligandOverlay: null,
     canvas: { camera: { scale: geometry.cameraScale } },
     latestRoomPlacementPose: { labelViews: geometry.views, renderFromRoom: geometry.renderFromRoom },
@@ -86,6 +91,7 @@ export function entryProducerHarness({ geometry = entryGeometry(), head, rows = 
   // The entry seat no longer reads `notice`, so the strict
   // producer binds only what the merged closure uses.
   const context = vm.createContext({
+    assistantStatus:createAssistantStatus(),
     committedDepthRange: depthRange, toolbarLayoutForStandoff, toolbarLayoutForDepthRange, seatedStandoff,
     entryMenuSeat, toolbarTextWidth, rows: () => rows, entryHead: head, getEntryGeometry, tourReadout, getState,
     __stereofoldDiagnostics: { record: (kind, detail) => records.push({ kind, detail }) },

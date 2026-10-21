@@ -1,6 +1,6 @@
 # Cinematic demos
 
-Ten authored lessons plus two staged demos for WebXR headset browsers.
+Authored lessons and staged demos for WebXR headset browsers.
 Ask your assistant to open a lesson by name, such as “Teach me hemoglobin
 using the bundled lesson and matching coordinates.” Follow
 [QUICKSTART.md](../QUICKSTART.md) for the download and opening steps. Lesson
@@ -21,9 +21,13 @@ paths and coordinate URLs with their expected SHA-256 digests are in
 | `glucose-transporter` | 4PYP | Human GLUT1, a membrane transporter with its cavity |
 | `microtubule-growth` | 5SYF, 3JAK, EMD-6347 | Seven tiers, monomer to complete tube to EB3 on the lattice |
 | `microtubule-arrival` | 5SYF, EMD-6347 | Tubulin copies appear in place, followed by a large density tube overhead |
+| `binder-gallery` | Pinned published binder dataset | 17 study-qualified designs with toxin names, Adaptyv KD labels and a fixed-target comparison |
+| `binder-gallery-extended` | Same dataset | The 17 first, then one representative pairing for each other tested design, in bounded local batches |
 
 Every lesson carries its own entry URL and primary
 citation DOI in `provenance.sourceRefs`, and `index.json` repeats them.
+
+During playback, a manual camera or placement choice carries across ordinary chapters. A chapter takes over once on entry (including Back, autoplay and shared-panel entry) if it changes an authored `immersive.view` (including the selection for `focus`), an explicitly supplied placement axis or scale, framed emphasis or its resolved focus targets (including labelled placement’s implicit context framing), or `figure.focus` (absent focus means the whole source). Compare against the preceding chapter in lesson order, inheriting omitted placement axes; omitted framing fields do not themselves request a frame. Repeated framing, selection or emphasis focus used only for highlighting, colours, visibility, figure decorations and animation are ordinary. A takeover replaces the hold and frames locally in front of the wearer; subsequent manual input holds again. Untouched views retain all authored chapter framing, and Recenter, Fit, Reset, Done and a new source still release ownership.
 
 ## The illustrated demo and live exploration
 
@@ -268,6 +272,24 @@ cinematic desktop intentions.
 
 Two immersive fields are about what the wearer notices in the first second.
 
+Chapter placement uses the source structure's centre and radius, including
+while molecular animation plays. Animation bounds guide framing without
+redefining saved placement units. Ordinary animated chapters frame all tracked
+bodies over their keyframes (including rotation arcs), together with authored
+emphasis and focus, using fill framing with a 10% radius margin; static context
+may extend offscreen.
+When the previous chapter showed every initially visible tracked body, headset
+scale stays between 80% and 125% of that chapter's scale. A larger required
+physical size moves the subject farther forward by the same ratio to keep all
+travel in view. Explicit chapter close-ups and placement apply once and are not
+replaced by this automatic fit. Manual holds win; Fit and Reset still frame the
+whole structure, including travel. Grip, two-hand scaling, desktop orbit and
+zoom leave molecular playback and chapter autoplay running. Once the user
+manipulates the view, chapters and shared updates retain local placement and
+the desktop camera. Recenter, Fit molecule, Reset orientation and loading a new
+source release that hold, so the next chapter frames as authored. Headset
+framing requires current tracking and never falls back to a desktop camera fit.
+
 `motion` is `spin` or `hold`, the continuous presentation turn. The player
 applies placement and motion before it touches a representation, because a
 transform lands in the next frame while a rebuild costs seconds on a Quest 2. An
@@ -321,6 +343,105 @@ and the 200,000-atom-site cap beside it were never measured against a viewer,
 so both are gone; the source-byte download policy is unchanged. What a headset
 will actually hold is the measured ceiling above: `tube` is the one tier a
 quest2-class device is refused.
+
+## Composite demos
+
+`kinesin-walk` defaults to **Kinesin walks hand over hand** (`motion`):
+a two-step clip in its `two-steps` chapter. The chapter lasts 28 seconds and
+contains a 7-second, non-looping rigid-body animation. Its first moving
+keyframes begin about 0.35 seconds after the clip starts. The animation clock
+then stops at the final pose; it does not add a separate timed end hold. When
+the tour advances automatically, that pose stays on screen for the rest of the
+chapter before the still `both-bound` overview. When navigating manually, it
+stays until **Next**. The motion composite has 27,232 atom sites.
+**Kinesin's steps, one at a time** (`flipbook`) holds nine chapters using
+36,672 atom sites. Both use a 5SYF protofilament, a 9L7M
+empty head, an 8RHB AMP-PNP head, a 1BG2 ADP head and the 3KIN neck coiled
+coil (residues 339-370 of chains B and D, rat kinesin-1). The coil placement,
+its path and the free-head path are illustrative; AMP-PNP stands in for ATP
+and ADP·Pi. Both stages include schematic neck linkers from `kinesin-walk/motion-model.cif`:
+four rigid pieces per head, three based on 8RHB's docked geometry and one
+containing modelled L335–T336. Gold marks resolved linker residues and pale
+ribbons mark the modelled portions. An idealised poly-Ala coiled coil supplies
+the short stalk; distal stalk and cargo are omitted. The animated chapter has
+no dashed tethers. Its paths and timing are authored illustrations.
+The recipes retain tubulin backbone and C-beta atoms to stay within the atom
+budget; neither stage is an energy-minimized model or a measured trajectory.
+
+The distance readout uses Angstroms, with separate labels in nanometres:
+81.5 Å between adjacent sites (8.2 nm rounded), and 163 Å between alternate
+sites. The latter is measured from the loaded atoms; the schema's
+`expectedAngstrom` field is capped at 100, so it is omitted for that distance.
+
+Animated chapters may add `animation.tethers: [{"id":"dimer","from":{"chain":"H1","residue":325,"atom":"CA"},"to":{"chain":"H2","residue":325,"atom":"CA"},"color":"#ffffff","label":"Dimer"}]`, using author chain ids, author residue numbers and atom names that each resolve to one loaded atom.
+At most 16 uniquely named tethers may join different animation tracks, or one track and a static part; optional `color` is a hex color and optional `label` is fixed text of up to 80 characters.
+Optional per-tether `offsetX` and `offsetY` move only the caption in the
+camera-facing plane, using the same molecular (Å) units and finite inclusive
+range `[-100, 100]` as figure label offsets. For example, `"offsetX": 0,
+"offsetY": 20` places the caption above the moving midpoint. Supplying either
+field selects authored placement; an omitted axis is zero. Explicit zeros are
+preserved. The usual label readability scaling applies in XR; desktop uses the
+same pixel scaling, offset cap and collision handling as other figure labels.
+
+With neither field supplied, the caption sits perpendicular to the projected
+connector, on the side away from the source molecule's centre. Its distance
+includes the plate's full extent toward the line plus a plate-height gap for
+nearby measurement text. Centred or end-on connectors use an up-and-right fallback.
+Desktop collisions move automatic captions farther along that outward normal.
+This is local clearance, not a guarantee against every crowded scene or view.
+Both eyes share the placement decision. The anchor follows the moving midpoint;
+the dashed line and its endpoints stay attached to their atoms. Pose and sizing
+updates reuse stored vectors and uniforms without rebuilding geometry. Tethers
+appear only while both endpoint bodies are visible, and disappear in chapters
+without animation.
+
+A composite ships a version-1 JSON recipe: source ids, RCSB download URLs and
+SHA-256 digests, followed by bodies in output order. Each body selects author
+chains from the first model, an optional inclusive author residue range,
+`atoms: "all"` or `"backbone"` (N, CA, C, O, CB), optional ligand component ids,
+a unique output `chain`, and a 3×4 row-major matrix applied as `x' = R x + t`
+in Angstroms. The rotation must be orthonormal with determinant +1 within 1e-4.
+Ranges and backbone trimming apply to polymers; listed ligands from the chosen
+chains stay whole. Waters are always dropped.
+
+Recipe bodies use deposited coordinates or explicitly declared modelled local
+sources, moved by rigid-body transforms. Preparation adds no atoms beyond
+those source files. Modelled sources carry their own digests and provenance;
+the Kinesin linkers and stalk are examples. Helix and sheet annotations follow
+the selected residues and new chains. Coordinates are written to three decimal places, deterministically.
+Deposited connections are retained when both endpoints survive in the same
+body and both symmetry codes are `1_555`; crystal-mate connections are omitted.
+
+Every atom in a body keeps its output `chain` as its author chain id. Each
+retained source asym chain gets a distinct label chain and a matching entity
+and `struct_asym` row, with deposited entity-local sequence numbers. The first
+retained polymer uses the body's `chain` (or the first retained asym if there
+is no polymer). Remaining asym chains use `<chain>_1`, `<chain>_2`, etc. in
+source atom order, skipping ids reserved by other bodies. Thus a single
+polymer plus heme on body `H` has label chains `H` and `H_1`. A body combining
+two polymers plus two hemes has `H`, `H_1`, `H_2`, `H_3`.
+
+Lesson `immersive.visibility.chains` resolves **label** chains, not author
+chains. To show the whole polymer-plus-heme body, list
+`{"op":"only","chains":["H","H_1"]}`. Listing only `"H"` hides its heme.
+For a body containing more asym chains, list every label id from its output
+`struct_asym` rows. Omit `classes` to show all retained components, or include
+both `"polymer"` and `"ligand"` (plus `"ion"` if retained); `classes:["polymer"]`
+hides ligands even when their label chains are listed. Author-chain atom
+selections still address every retained component of the body.
+
+Register `coordinates.derivation` as
+`{"kind":"prepared-rigid-composite","recipe":"<recipe path>"}`, with the
+recipe path relative to the demos folder.
+Record the final SHA-256, byte count and atom-site count in the coordinate
+entry; `download` is optional for this kind. Use that same final digest in the
+lesson provenance. The launcher and live growth verify cached source digests,
+download missing sources, rebuild the recipe, verify the final digest, and
+write the result through a unique `.partial` file and rename, then verify the
+published digest. Within one process, conflicting concurrent digests for one
+cache path are refused. Matching composites are reused from the cache.
+Rebuild existing composites and refresh their index digest, byte count and
+lesson provenance after changing label chains or retained connections.
 
 ## Verifying
 

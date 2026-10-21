@@ -27,7 +27,7 @@ for (const button of [ButtonsType.Flag.Secondary, ButtonsType.Flag.Primary]) {
   for (const firstReleased of ['left', 'right']) {
     test(`actual Mol* two-controller button ${button}, ${firstReleased} release first, leaves no desktop interaction latch`, () => withObserver(input => {
       const c = vm.createContext({ canvas: { input, xr: { isPresenting: { value: true } } },
-        inputInteraction: false, xrInputHeld: false, mouseHeld: false, touchHeld: false,
+        hostLoadDepth: 0, inputInteraction: false, xrInputHeld: false, mouseHeld: false, touchHeld: false,
         XR_TRIGGER_BUTTON: ButtonsType.Flag.Trigger, syncPresentationMotion() {} });
       vm.runInContext(subscriptions + '\nconst interactionActive=()=>mouseHeld||touchHeld||inputInteraction||xrInputHeld;', c);
       input.trackedPointers.subscribe(p => { c.xrInputHeld = p.some(pointerManipulates); });

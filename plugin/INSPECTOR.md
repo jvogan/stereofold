@@ -28,7 +28,7 @@ Without `modelNumber` or `assemblyId`, the inspector starts with the first
 source model in the asymmetric unit.
 Its scientific identities retain author/label numbering and missing positions.
 
-Stereofold exposes thirty-seven model-visible tools, among them `inspect`,
+Stereofold exposes forty-one model-visible tools, among them `inspect`,
 `inspect_file`, `inspect_scene`, `inspect_lesson`, `inspect_experience`,
 `list_experiences`, `navigate_experience`, `grow_structure`, `manage_companion`,
 `open_companion`, `open_inspector`, `control_tour`, `get_inspection_state`, `get_readiness`,

@@ -164,7 +164,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -233,7 +233,7 @@
     {
       "id": "guide-rna",
       "title": "GUIDE RNA",
-      "caption": "Only the guide RNA is opaque; the rest of the complex stays faintly visible so you can see where it sits. Chain B, 97 nucleotides. Its first twenty choose the target, and its PAM-proximal end is the seed that has to match.",
+      "caption": "Only the orange guide RNA is opaque. Chain B: 97 of its 102 nucleotides are modeled. Bases 1–20 are the spacer that picks the target; the PAM-proximal seed is the most sensitive to mismatches.",
       "durationSeconds": 45,
       "changes": [
         {
@@ -275,7 +275,7 @@
         }
       ],
       "immersive": {
-        "narration": "Orange is the guide RNA. Its first twenty bases choose which DNA gets cut.",
+        "narration": "Orange is the guide RNA. Its bases one to twenty pick the target.",
         "motion": "spin",
         "appearance": {
           "representation": "cartoon",
@@ -363,7 +363,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -563,7 +563,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -629,6 +629,9 @@
             "target",
             "pam_flank",
             "pam"
+          ],
+          "alsoLit": [
+            "nontarget"
           ],
           "framing": "fill"
         },
@@ -774,7 +777,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -844,7 +847,7 @@
     {
       "id": "nucleases",
       "title": "NUCLEASES",
-      "caption": "Both nucleases in green, with their two active sites in red. HNH is one compact domain, canonical residues 775 to 908, and it cuts the target strand. RuvC is one active site built from three separate stretches of the same chain. Neither works here: both catalytic residues are alanine, HNH sits 32 Angstrom from the target-strand phosphate it would cut, and the piece of non-target strand RuvC would cut is not in the model.",
+      "caption": "Both nucleases in green, with their two active sites in red. HNH is one compact domain, canonical residues 775 to 908, and it cuts the target strand. RuvC is one active site built from three separate stretches of the same chain. Neither works here: the key catalytic residues Asp10 and His840 are replaced by alanine. HNH sits 32 Angstrom from the target-strand phosphate it would cut, and the piece of non-target strand RuvC would cut is not in the model.",
       "durationSeconds": 48,
       "changes": [
         {
@@ -887,14 +890,14 @@
         }
       ],
       "immersive": {
-        "narration": "Green marks both nucleases, red both cut sites. HNH cuts magenta, RuvC cuts blue.",
+        "narration": "Nucleases are inactive. Red marks mutated active-site regions.",
         "motion": "spin",
         "appearance": {
           "representation": "cartoon",
           "color": "uniform",
           "uniformColor": "#9aa5b0",
           "opacity": 1,
-          "labels": true,
+          "labels": false,
           "clipping": 0,
           "fog": 25
         },
@@ -975,7 +978,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -1053,13 +1056,93 @@
             "from": 838,
             "to": 842
           }
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "site-hnh",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 838,
+                  "to": 842
+                }
+              },
+              "representation": "spacefill",
+              "color": "#ff3b30",
+              "opacity": 1,
+              "sizeFactor": 0.9
+            },
+            {
+              "id": "site-ruvc",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 8,
+                  "to": 12
+                }
+              },
+              "representation": "spacefill",
+              "color": "#ff3b30",
+              "opacity": 1,
+              "sizeFactor": 0.9
+            }
+          ],
+          "labels": [
+            {
+              "id": "name-hnh",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 840,
+                  "to": 840
+                },
+                "atomName": "CA"
+              },
+              "text": "HNH active site, around H840A",
+              "color": "#a3160f",
+              "offsetX": 0,
+              "offsetY": 8,
+              "sizeFactor": 0.5
+            }
+          ],
+          "focus": [
+            {
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              }
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              }
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              }
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              }
+            }
+          ]
         }
       }
     },
     {
       "id": "recap-guide",
       "title": "RECAP: RNA",
-      "caption": "One of four. The guide RNA in orange, chain B, 97 nucleotides. Its first twenty bases are what chose this target.",
+      "caption": "One of four. Orange guide RNA, chain B: 97 of 102 nucleotides modeled. Bases 1–20 are the spacer that chose this target.",
       "durationSeconds": 14,
       "changes": [
         {
@@ -1190,7 +1273,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -1391,7 +1474,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -1456,6 +1539,9 @@
             "target",
             "pam_flank",
             "pam"
+          ],
+          "alsoLit": [
+            "nontarget"
           ],
           "contextOpacity": 0.35,
           "framing": "fill"
@@ -1603,7 +1689,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -1673,7 +1759,7 @@
     {
       "id": "recap-nucleases",
       "title": "RECAP: CUTS",
-      "caption": "Four of four. Both nucleases in green and both would-be cut sites in red. That is the whole colour key: grey Cas9, orange guide RNA, magenta target DNA, blue non-target DNA, yellow PAM, purple REC, green nucleases, red cut sites. Point at one part and say what it is.",
+      "caption": "Four of four. Both nucleases in green; their mutated active-site regions in red. The whole colour key: grey Cas9, orange guide RNA, magenta target DNA, blue non-target DNA, yellow PAM, purple REC, green nucleases, red active-site regions. Point at one part and say what it is.",
       "durationSeconds": 20,
       "changes": [
         {
@@ -1716,14 +1802,14 @@
         }
       ],
       "immersive": {
-        "narration": "Four. Both nucleases in green, both cut sites in red. Point at one part and name it.",
+        "narration": "Four. Green nucleases, red mutated active-site regions. Point at one part and name it.",
         "motion": "hold",
         "appearance": {
           "representation": "cartoon",
           "color": "uniform",
           "uniformColor": "#9aa5b0",
           "opacity": 1,
-          "labels": true,
+          "labels": false,
           "clipping": 0,
           "fog": 25
         },
@@ -1804,7 +1890,7 @@
               "label": "Single-guide RNA",
               "color": "#ff8a1f",
               "chain": "B",
-              "note": "Chain B, 97 nucleotides. Spacer is the 5-prime 20 nt; its 3-prime end is PAM-proximal."
+              "note": "Chain B: 97 of 102 nucleotides modeled. Spacer: bases 1–20; its 3-prime end is PAM-proximal."
             },
             {
               "id": "target",
@@ -1873,8 +1959,17 @@
             "site_hnh",
             "site_ruvc"
           ],
+          "alsoLit": [
+            "cas9",
+            "rec",
+            "guide",
+            "target",
+            "nontarget",
+            "pam_flank",
+            "pam"
+          ],
           "contextOpacity": 0.35,
-          "framing": "fill"
+          "framing": "context"
         },
         "selection": {
           "chain": "A",
@@ -1882,6 +1977,68 @@
             "from": 838,
             "to": 842
           }
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "site-hnh",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 838,
+                  "to": 842
+                }
+              },
+              "representation": "spacefill",
+              "color": "#ff3b30",
+              "opacity": 1,
+              "sizeFactor": 0.9
+            },
+            {
+              "id": "site-ruvc",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 8,
+                  "to": 12
+                }
+              },
+              "representation": "spacefill",
+              "color": "#ff3b30",
+              "opacity": 1,
+              "sizeFactor": 0.9
+            }
+          ],
+          "focus": [
+            {
+              "chain": "A",
+              "residues": {
+                "from": 775,
+                "to": 908
+              }
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 1,
+                "to": 59
+              }
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 718,
+                "to": 769
+              }
+            },
+            {
+              "chain": "A",
+              "residues": {
+                "from": 909,
+                "to": 1098
+              }
+            }
+          ]
         }
       }
     }

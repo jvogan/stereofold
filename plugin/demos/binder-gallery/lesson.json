@@ -1,0 +1,2708 @@
+{
+  "version": 1,
+  "id": "binder-gallery-steady-target",
+  "title": "Steady target · three-second slideshow",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://www.anthropic.com/research/claude-scorpion-toxin-binder-design"
+      }
+    ],
+    "sourceSha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+    "note": "Published ESMFold2 models with stable neutral display aliases; numbers are identifiers, not rankings. The displayed target is a single group reference. Binders are rigidly target-aligned into this comparison frame. Original pairs remain in a separate lesson and in the retained source files. Contact sidechains are proximity-only selections calculated against the displayed geometry. Exact transforms, hashes, identities and credits are in binder-gallery/manifest.json. These 17 designs meet the published binder criteria; they are not a ranked top 17. Adaptyv KD is a published binding measurement, not a neutralization result; ≤ marks an upper bound and ≈ an approximate fit."
+  },
+  "presentation": {
+    "captionCard": "hidden",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "binder-01",
+      "title": "Binder 01 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B01",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 01",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B01"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B01"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B01",
+                "residueNumbers": [
+                  1,
+                  47,
+                  75,
+                  102
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  13,
+                  15,
+                  21,
+                  24
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B01"
+              },
+              "text": "Binder 01 · Adaptyv KD 112 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 01 · Target 1 · Cn2\nPublished name: Cn2-B4 · target: Cn2\nDataset record: 02090d8c · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD 112 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID 02090d8c and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-02",
+      "title": "Binder 02 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B02",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 02",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B02"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B02"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B02"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B02",
+                "residueNumbers": [
+                  5,
+                  12,
+                  96,
+                  100
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  15,
+                  17,
+                  24,
+                  28
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B02"
+              },
+              "text": "Binder 02 · Adaptyv KD ≤3.1 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 02 · Target 1 · Cn2\nPublished name: Cn2-B1 · target: Cn2\nDataset record: 888c8f04 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/888c8f04/888c8f04_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD ≤3.1 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID 888c8f04 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-03",
+      "title": "Binder 03 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B03",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 03",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B03"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B03"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B03"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B03",
+                "residueNumbers": [
+                  15,
+                  31,
+                  98,
+                  101
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  4,
+                  15,
+                  18,
+                  22
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B03"
+              },
+              "text": "Binder 03 · Adaptyv KD 162 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 03 · Target 1 · Cn2\nPublished name: Cn2-B3 · target: Cn2\nDataset record: 8ac202c8 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/8ac202c8/8ac202c8_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD 162 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID 8ac202c8 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-04",
+      "title": "Binder 04 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B04",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 04",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B04"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B04"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B04"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B04",
+                "residueNumbers": [
+                  16,
+                  19,
+                  31,
+                  52
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  13,
+                  15,
+                  40,
+                  64
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B04"
+              },
+              "text": "Binder 04 · Adaptyv KD 5.57 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 04 · Target 1 · Cn2\nPublished name: Cn2-B2 · target: Cn2\nDataset record: 66c2cc29 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/66c2cc29/66c2cc29_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD 5.57 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID 66c2cc29 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-05",
+      "title": "Binder 05 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B05",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 05",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B05"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B05"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B05"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B05",
+                "residueNumbers": [
+                  20,
+                  49,
+                  56,
+                  66
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  15,
+                  18,
+                  24,
+                  27
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B05"
+              },
+              "text": "Binder 05 · Adaptyv KD 350 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 05 · Target 1 · Cn2\nPublished name: Cn2-B7 · target: Cn2\nDataset record: 5f5b71ad · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/5f5b71ad/5f5b71ad_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD 350 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID 5f5b71ad and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-06",
+      "title": "Binder 06 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B06",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 06",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B06"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B06"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B06"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B06",
+                "residueNumbers": [
+                  59,
+                  66,
+                  69,
+                  107
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  13,
+                  15,
+                  40,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B06"
+              },
+              "text": "Binder 06 · Adaptyv KD 88.6 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 06 · Target 1 · Cn2\nPublished name: Cn2-B5 · target: Cn2\nDataset record: 9d008884 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/9d008884/9d008884_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD 88.6 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID 9d008884 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-07",
+      "title": "Binder 07 · Target 1 · Cn2",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B07",
+            "T01"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 07",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B07"
+          },
+          {
+            "id": "target",
+            "label": "Target 1 · Cn2",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 1",
+              "Cn2"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T01"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T01"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B07"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B07"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B07",
+                "residueNumbers": [
+                  14,
+                  35,
+                  39,
+                  50
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T01",
+                "residueNumbers": [
+                  15,
+                  22,
+                  27,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B07"
+              },
+              "text": "Binder 07 · Adaptyv KD 63.3 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T01"
+              },
+              "text": "Target 1 · Cn2",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 07 · Target 1 · Cn2\nPublished name: Cn2-B6 · target: Cn2\nDataset record: b6d46ba0 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/b6d46ba0/b6d46ba0_esmfold2-cn2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 02090d8c · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/02090d8c/02090d8c_esmfold2-cn2.pdb\nPublished binding: Adaptyv KD 63.3 nM against Cn2. design.csv: Cn2_Adaptyv_KD_nM; joined by UUID b6d46ba0 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-08",
+      "title": "Binder 08 · Target 2 · AaH II",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B08",
+            "T08"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 08",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B08"
+          },
+          {
+            "id": "target",
+            "label": "Target 2 · AaH II",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 2",
+              "AaH II"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T08"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T08"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B08"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B08"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B08",
+                "residueNumbers": [
+                  4,
+                  8,
+                  11,
+                  90
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T08",
+                "residueNumbers": [
+                  18,
+                  19,
+                  42,
+                  49
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B08"
+              },
+              "text": "Binder 08 · Adaptyv KD 21 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T08"
+              },
+              "text": "Target 2 · AaH II",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 08 · Target 2 · AaH II\nPublished name: AaHII-B4 · target: AaH II\nDataset record: a199ee01 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/a199ee01/a199ee01_esmfold2-aah2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: a199ee01 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/a199ee01/a199ee01_esmfold2-aah2.pdb\nPublished binding: Adaptyv KD 21 nM against AaH II. design.csv: AaHII_Adaptyv_KD_nM; joined by UUID a199ee01 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-09",
+      "title": "Binder 09 · Target 2 · AaH II",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B09",
+            "T08"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 09",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B09"
+          },
+          {
+            "id": "target",
+            "label": "Target 2 · AaH II",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 2",
+              "AaH II"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T08"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T08"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B09"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B09"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B09",
+                "residueNumbers": [
+                  34,
+                  52,
+                  92,
+                  94
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T08",
+                "residueNumbers": [
+                  15,
+                  18,
+                  19,
+                  38
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B09"
+              },
+              "text": "Binder 09 · Adaptyv KD 78.1 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T08"
+              },
+              "text": "Target 2 · AaH II",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 09 · Target 2 · AaH II\nPublished name: AaHII-B1 · target: AaH II\nDataset record: d2a254ba · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/d2a254ba/d2a254ba_esmfold2-aah2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: a199ee01 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/a199ee01/a199ee01_esmfold2-aah2.pdb\nPublished binding: Adaptyv KD 78.1 nM against AaH II. design.csv: AaHII_Adaptyv_KD_nM; joined by UUID d2a254ba and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-10",
+      "title": "Binder 10 · Target 2 · AaH II",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B10",
+            "T08"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 10",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B10"
+          },
+          {
+            "id": "target",
+            "label": "Target 2 · AaH II",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 2",
+              "AaH II"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T08"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T08"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B10"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B10"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B10",
+                "residueNumbers": [
+                  9,
+                  29,
+                  43,
+                  67
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T08",
+                "residueNumbers": [
+                  13,
+                  15,
+                  19,
+                  38
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B10"
+              },
+              "text": "Binder 10 · Adaptyv KD 200 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T08"
+              },
+              "text": "Target 2 · AaH II",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 10 · Target 2 · AaH II\nPublished name: AaHII-B3 · target: AaH II\nDataset record: 96ee6417 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/96ee6417/96ee6417_esmfold2-aah2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: a199ee01 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/a199ee01/a199ee01_esmfold2-aah2.pdb\nPublished binding: Adaptyv KD 200 nM against AaH II. design.csv: AaHII_Adaptyv_KD_nM; joined by UUID 96ee6417 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-11",
+      "title": "Binder 11 · Target 2 · AaH II",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B11",
+            "T08"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 11",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B11"
+          },
+          {
+            "id": "target",
+            "label": "Target 2 · AaH II",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 2",
+              "AaH II"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T08"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T08"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B11"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B11"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B11",
+                "residueNumbers": [
+                  5,
+                  29,
+                  43,
+                  67
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T08",
+                "residueNumbers": [
+                  13,
+                  15,
+                  19,
+                  38
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B11"
+              },
+              "text": "Binder 11 · Adaptyv KD 176 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T08"
+              },
+              "text": "Target 2 · AaH II",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 11 · Target 2 · AaH II\nPublished name: AaHII-B2 · target: AaH II\nDataset record: 8f156315 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/8f156315/8f156315_esmfold2-aah2.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: a199ee01 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/a199ee01/a199ee01_esmfold2-aah2.pdb\nPublished binding: Adaptyv KD 176 nM against AaH II. design.csv: AaHII_Adaptyv_KD_nM; joined by UUID 8f156315 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-12",
+      "title": "Binder 12 · Target 3 · AaH I",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B12",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 12",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B12"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 · AaH I",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 3",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B12"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B12",
+                "residueNumbers": [
+                  5,
+                  6,
+                  9,
+                  13
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  15,
+                  40,
+                  61,
+                  62
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B12"
+              },
+              "text": "Binder 12 · Adaptyv KD ≈6.46 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 · AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 12 · Target 3 · AaH I\nPublished name: AaHI-B1 · target: AaH I\nDataset record: 30fc4a66 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 30fc4a66 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb\nPublished binding: Adaptyv KD ≈6.46 nM against AaH I. design.csv: AaHI_Adaptyv_KD_nM; joined by UUID 30fc4a66 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-13",
+      "title": "Binder 13 · Target 3 · AaH I",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B13",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 13",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B13"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 · AaH I",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 3",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B13"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B13"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B13",
+                "residueNumbers": [
+                  11,
+                  88,
+                  89,
+                  92
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  8,
+                  10,
+                  15,
+                  35
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B13"
+              },
+              "text": "Binder 13 · Adaptyv KD ≈62.9 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 · AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 13 · Target 3 · AaH I\nPublished name: AaHI-B2 · target: AaH I\nDataset record: 03131527 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/03131527/03131527_esmfold2-aah1.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 30fc4a66 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb\nPublished binding: Adaptyv KD ≈62.9 nM against AaH I. design.csv: AaHI_Adaptyv_KD_nM; joined by UUID 03131527 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-14",
+      "title": "Binder 14 · Target 3 · AaH I",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B14",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 14",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B14"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 · AaH I",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 3",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B14"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B14"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B14",
+                "residueNumbers": [
+                  14,
+                  15,
+                  18,
+                  71
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  8,
+                  17,
+                  26,
+                  42
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B14"
+              },
+              "text": "Binder 14 · Adaptyv KD ≈89.8 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 · AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 14 · Target 3 · AaH I\nPublished name: AaHI-B4 · target: AaH I\nDataset record: 9cad7527 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/9cad7527/9cad7527_esmfold2-aah1.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 30fc4a66 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb\nPublished binding: Adaptyv KD ≈89.8 nM against AaH I. design.csv: AaHI_Adaptyv_KD_nM; joined by UUID 9cad7527 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-15",
+      "title": "Binder 15 · Target 3 · AaH I",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks. Use Fit molecule or zoom out to see its full length.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B15",
+            "T12"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 15",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B15"
+          },
+          {
+            "id": "target",
+            "label": "Target 3 · AaH I",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 3",
+              "AaH I"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T12"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T12"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B15"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B15"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B15",
+                "residueNumbers": [
+                  142,
+                  145,
+                  160,
+                  161
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T12",
+                "residueNumbers": [
+                  8,
+                  10,
+                  17,
+                  18
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B15",
+                "residueNumbers": [
+                  134,
+                  137,
+                  138,
+                  139,
+                  140,
+                  141,
+                  142,
+                  144,
+                  145,
+                  160,
+                  161,
+                  164,
+                  165,
+                  167,
+                  168,
+                  171,
+                  172,
+                  175,
+                  187,
+                  190,
+                  194,
+                  198,
+                  214,
+                  217,
+                  218,
+                  222,
+                  225,
+                  229
+                ]
+              },
+              "text": "Binder 15 · Adaptyv KD ≈59.3 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 12,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T12"
+              },
+              "text": "Target 3 · AaH I",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 15 · Target 3 · AaH I\nPublished name: AaHI-B3 · target: AaH I\nDataset record: 8ebe5db2 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/8ebe5db2/8ebe5db2_esmfold2-aah1.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: 30fc4a66 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb\nPublished binding: Adaptyv KD ≈59.3 nM against AaH I. design.csv: AaHI_Adaptyv_KD_nM; joined by UUID 8ebe5db2 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-16",
+      "title": "Binder 16 · Target 4 · LqhIII",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B16",
+            "T16"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 16",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B16"
+          },
+          {
+            "id": "target",
+            "label": "Target 4 · LqhIII",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 4",
+              "LqhIII"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T16"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T16"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B16"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B16"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B16",
+                "residueNumbers": [
+                  12,
+                  13,
+                  45,
+                  67
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T16",
+                "residueNumbers": [
+                  15,
+                  40,
+                  41,
+                  64
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B16"
+              },
+              "text": "Binder 16 · Adaptyv KD 4.34 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T16"
+              },
+              "text": "Target 4 · LqhIII",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 16 · Target 4 · LqhIII\nPublished name: LqhIII-B1 · target: LqhIII\nDataset record: dceea244 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/dceea244/dceea244_esmfold2-lqh3.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: dceea244 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/dceea244/dceea244_esmfold2-lqh3.pdb\nPublished binding: Adaptyv KD 4.34 nM against LqhIII. design.csv: LqhIII_Adaptyv_KD_nM; joined by UUID dceea244 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    },
+    {
+      "id": "binder-17",
+      "title": "Binder 17 · Target 4 · LqhIII",
+      "caption": "3D comparison. The same target stays in place while the binding protein changes. Four close residue pairs appear as thin sticks.",
+      "durationSeconds": 3,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 3
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "background": "#ffffff",
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#d9dfe2",
+          "opacity": 0,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 0
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "B17",
+            "T16"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "selection": "clear",
+        "motion": "hold",
+        "parts": [
+          {
+            "id": "binder",
+            "label": "Binder 17",
+            "aliases": [
+              "binder",
+              "binding protein"
+            ],
+            "color": "#329ec7",
+            "chain": "B17"
+          },
+          {
+            "id": "target",
+            "label": "Target 4 · LqhIII",
+            "aliases": [
+              "target",
+              "target protein",
+              "Target 4",
+              "LqhIII"
+            ],
+            "color": "#d9dfe2",
+            "chain": "T16"
+          }
+        ],
+        "figure": {
+          "layers": [
+            {
+              "id": "target-surface",
+              "target": {
+                "chain": "T16"
+              },
+              "representation": "gaussian-surface",
+              "color": "#d9dfe2",
+              "opacity": 0.72
+            },
+            {
+              "id": "binder-ribbon",
+              "target": {
+                "chain": "B17"
+              },
+              "representation": "cartoon",
+              "color": "#329ec7",
+              "opacity": 1
+            },
+            {
+              "id": "binder-envelope",
+              "target": {
+                "chain": "B17"
+              },
+              "representation": "gaussian-surface",
+              "color": "#65bfdf",
+              "opacity": 0.14
+            },
+            {
+              "id": "binder-nearby-sidechains",
+              "target": {
+                "chain": "B17",
+                "residueNumbers": [
+                  42,
+                  48,
+                  55,
+                  63
+                ]
+              },
+              "representation": "sticks",
+              "color": "#247fa2",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            },
+            {
+              "id": "target-nearby-sidechains",
+              "target": {
+                "chain": "T16",
+                "residueNumbers": [
+                  15,
+                  18,
+                  41,
+                  64
+                ]
+              },
+              "representation": "sticks",
+              "color": "#929ba1",
+              "opacity": 1,
+              "sizeFactor": 0.14
+            }
+          ],
+          "labels": [
+            {
+              "id": "binder-label",
+              "target": {
+                "chain": "B17"
+              },
+              "text": "Binder 17 · Adaptyv KD 40.6 nM",
+              "color": "#17343e",
+              "offsetX": 0,
+              "offsetY": 25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.7,
+              "desktopSizePx": 32,
+              "placement": "outside-figure"
+            },
+            {
+              "id": "target-label",
+              "target": {
+                "chain": "T16"
+              },
+              "text": "Target 4 · LqhIII",
+              "color": "#46545c",
+              "offsetX": 0,
+              "offsetY": -25,
+              "maxOffsetEm": 5,
+              "sizeFactor": 1.3,
+              "desktopSizePx": 26,
+              "placement": "outside-figure"
+            }
+          ],
+          "distances": []
+        }
+      },
+      "details": "Display labels: Binder 17 · Target 4 · LqhIII\nPublished name: LqhIII-B2 · target: LqhIII\nDataset record: dbb87a88 · predictor: ESMFold2\nDisplay: fixed reference target for this group, with each binding protein aligned to it. This comparison differs from the original predicted complex; choose Original pairs to inspect that model.\nSticks: a small illustrative subset of four residue pairs, chosen by the smallest side-chain heavy-atom distances at or below 4.5 Å, without reusing a residue. Whole selected residues are drawn. These are proximity examples, not key sites or proven interactions; all nearby residues remain in the demo metadata.\nOriginal coordinates: https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/dbb87a88/dbb87a88_esmfold2-lqh3.pdb\nSource: Anthropic, PBC (2026), CC BY 4.0. Dataset and third-party structure credits are retained with this demo.\nDisplayed target reference: dceea244 · https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/dceea244/dceea244_esmfold2-lqh3.pdb\nPublished binding: Adaptyv KD 40.6 nM against LqhIII. design.csv: LqhIII_Adaptyv_KD_nM; joined by UUID dbb87a88 and target. This measures binding, not toxin neutralization. ≤ is an upper bound; ≈ is approximate. The 17 meet published binder criteria, not a ranked top 17."
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { emptyMolecularAnimationBinding } from './empty-lesson-figure.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -13,7 +14,7 @@ import { createStructureRepresentationParams } from 'molstar/lib/mol-plugin-stat
 import { createInspectionState } from '../inspection-state.mjs';
 import { createGesturePivot } from '../gesture-pivot.mjs';
 import { pageFunction } from './label-action-harness.mjs';
-import { createSelectionAdapter } from '../selection.mjs';
+import { createSelectionAdapter, createSelectionAdapterAsync } from '../selection.mjs';
 import { experienceVisibilityExpression } from '../experience-visibility.mjs';
 import { preserveSourceTransitionAnchor } from '../source-transition-anchor.mjs';
 import { runTransitionTask, prepareRepresentationUploads } from '../scene-transition.mjs';
@@ -43,7 +44,7 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
     createElement: () => ({ setAttribute: noop }), head: { appendChild: noop, removeChild: noop } };
   const plugin = new PluginContext(DefaultPluginSpec());
   try { await plugin.init(); } finally { globalThis.document = document; }
-  const representations = new Set(), subscribers = new Set(), frames = [], writes = [];
+  const representations = new Set(), subscribers = new Set(), frames = [], writes = [], placementReleases = [];
   const session = { environmentBlendMode: 'alpha-blend', frameRate: 72 };
   const inspectionState = createInspectionState();
   const cameraState = clone(initialScene.camera);
@@ -76,9 +77,9 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
     },
   };
   plugin.canvas3d = canvas;
-  const c = vm.createContext({
+  const c = vm.createContext({ ...emptyMolecularAnimationBinding(),
     console, crypto, Error, setTimeout, clearTimeout, performance, structuredClone,
-    plugin, canvas, Task, StateTransforms, BoundaryHelper, ModelSymmetry, MolScriptBuilder, createSelectionAdapter,
+    plugin, canvas, Task, StateTransforms, BoundaryHelper, ModelSymmetry, MolScriptBuilder, createSelectionAdapter, createSelectionAdapterAsync,
     experienceVisibilityExpression, preserveSourceTransitionAnchor, runTransitionTask, prepareRepresentationUploads,
     createStructureRepresentationParams, cameraSnapshot, checkDrawnRecord, drawnRecordIsVisible, geometryBudgetReceipt,
     __stereofoldDiagnostics: { record },
@@ -88,8 +89,9 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
     state: { status: 'empty', generation: 0, revision: 0, drawCount: 0, contextLossCount: 0, loadCount: 0, mutationCounts: { load: 0 }, selectionKeys: [] },
     appearanceWork: undefined, busy: false, activeLoad: undefined, activeWork: undefined, pendingContextLoss: undefined, nextTest: {}, frameWaiters: new Set(),
     gesturePivot: createGesturePivot(), focusPivotRequest: undefined, xrPlacementFollowup: undefined,
-    inspectionState, motionMutationPaused: false, motionToolPaused: false, motionAngle: 0,
+    inspectionState, lessonSelection: undefined, motionMutationPaused: false, motionToolPaused: false, motionAngle: 0,
     desktopPreviewCamera: undefined, orientationReference: undefined, pendingGrowthTurn: false,
+    initialFigureFrame: undefined, sourceCoordinateFrame: undefined,
     candidateRecords: new Set(), retainedRepresentationCount: 0, styleLayers: [], companionRecord: undefined,
     lessonFigure: { drawn: () => true }, // This fixture has no lesson annotations.
     volume: undefined, volumeIsoExtent: undefined, representation: undefined, structure: undefined, sourceRecord: undefined,
@@ -98,10 +100,11 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
     currentXrSession: () => canvas.xr.isPresenting.value ? session : undefined,
     checkedFixture: async (source, settings) => ({ source, settings }),
     interactionActive: () => false, syncPresentationMotion: noop,
+    releaseWearerPlacement: reason => { placementReleases.push(reason); },
     coverCurrentFrame: noop, removeFrameCover: noop, removeInspectionLabels: noop, removeLigandOverlay: noop, removeComponentLabels: noop,
     assertContext: noop, assertLoad(operation) { if (operation.cancelled) throw operation.cancelled; },
     checkpoint: async (_operation, phase) => { if (c.failAt === phase) throw Error(`Injected ${phase} failure`); },
-    markRecord: noop, catalogVisibleBounds: () => undefined,
+    markRecord: noop, markSelection: keys => { c.state.selectionKeys = [...keys]; }, catalogVisibleBounds: () => undefined,
     selectedKeys: keys => [...keys],
     geometryFor: (representation, data) => requireGeometryBudget({ representation, ...structureGeometryCounts(data), presenting: canvas.xr.isPresenting.value, deviceClass: 'quest2', quality: 'low' }),
     xrRepresentationQuality: () => 'low', xrRepresentationMaterial: () => undefined, xrColorParams: () => undefined, xrBallAndStickParams: () => ({}),
@@ -122,7 +125,7 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
       drawCount: c.state.drawCount, inspection: inspectionState.snapshot() }),
   });
   for (const name of ['cancelXrPlacementFollowup', 'invalidateGesturePivot']) vm.runInContext(pageFunction(source, name), c);
-  for (const name of ['asViewerRepresentation', 'liveScene', 'beginWork', 'transitionGuard', 'commitRepresentationUpdate',
+  for (const name of ['recordCost', 'asViewerRepresentation', 'liveScene', 'beginWork', 'transitionGuard', 'commitRepresentationUpdate',
     'buildTransitionCell', 'buildCandidate', 'yieldUploadFrame', 'prepareUploads', 'recordBoundingSphere', 'transitionBounds',
     'transitionRoomAnchor', 'setXrCameraScale', 'waitForFrame', 'showCandidate', 'restoreRecord', 'rollbackLoad', 'load']) install(c, name);
   try {
@@ -131,7 +134,7 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
     canvas.xr.isPresenting.value = true; canvas.camera.scale = .02;
   } catch (error) { plugin.canvas3d = undefined; plugin.dispose(); throw error; }
   return {
-    context: c, canvas, session, frames, writes,
+    context: c, canvas, session, frames, writes, placementReleases,
     load: (next, options = {}) => c.load(next, { modelNumber: next.catalog.modelNumbers[0], assemblyId: next.catalog.assemblyId,
       preserveRoomPlacement: true, ...options }),
     snapshot: c.snapshot,

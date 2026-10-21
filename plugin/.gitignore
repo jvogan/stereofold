@@ -14,6 +14,8 @@ dist/*
 !dist/viewer.html
 !dist/inspector.html
 !dist/inspector.css
+!dist/inspector-script-1.js
+!dist/inspector-script-2.js
 !dist/inspector-host.js
 !dist/molstar/
 !dist/molstar/*

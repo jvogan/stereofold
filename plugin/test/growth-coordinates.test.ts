@@ -9,12 +9,15 @@
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   GROWTH_FETCH_SPOKEN, ensureGrowthCoordinates, growthRecoveryCommand,
 } from '../src/growth-coordinates.js';
 import { readGrowthIndex, growthStages } from '../src/molecular-growth.js';
+import { compositeRecipePath } from '../src/demo-composite-cache.js';
+import { compositeSha256, parseRigidCompositeRecipe } from '../src/demo-rigid-composite.js';
+import { readBundledDemoCoordinates } from '../src/bundled-demo-coordinates.js';
 
 /** Three chains, one per assembly operator, as the subset tests use. */
 const ASSEMBLY = [
@@ -133,6 +136,20 @@ describe('every staged tier the index records', () => {
     const stages = growthStages(await readGrowthIndex());
     expect(stages.length).toBeGreaterThan(0);
     for (const entry of stages) {
+      if (entry.stage.coordinates.derivation?.kind === 'bundled-file') {
+        await readBundledDemoCoordinates(entry.stage.coordinates.derivation.path, entry.stage.coordinates.sha256);
+        continue;
+      }
+      if (entry.stage.coordinates.derivation?.kind === 'prepared-rigid-composite') {
+        const recipe = parseRigidCompositeRecipe(await readFile(compositeRecipePath(entry.stage.coordinates.derivation.recipe), 'utf8'));
+        // Deposited sources are public downloads; a modelled source ships beside its recipe.
+        for (const source of recipe.sources) {
+          if ('url' in source) expect(source.url.startsWith('https://files.rcsb.org/download/')).toBe(true);
+          else expect(compositeSha256(await readFile(resolve(dirname(compositeRecipePath(entry.stage.coordinates.derivation.recipe)), source.file), 'utf8'))).toBe(source.sha256);
+        }
+        expect(entry.stage.coordinates.sha256).toMatch(/^[0-9a-f]{64}$/);
+        continue;
+      }
       const volume = entry.stage.coordinates.volume;
       const download = volume ? volume.structure.download : entry.stage.coordinates.download;
       expect(download, `${entry.lessonId} download`).toMatch(/^https:\/\//);

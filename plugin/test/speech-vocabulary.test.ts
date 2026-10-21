@@ -4,7 +4,7 @@ import { voiceLines } from '../scripts/converse.js';
 import { chainReferent } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
 import { transcriptJsonLine } from '../scripts/voice-transcript-consumer.js';
 import { CATALOG_ENTRY_CODES, CATALOG_ENTRY_NAMES } from '../src/molecular-experience.js';
-import { buildSpeechVocabulary, createSpeechSceneReader, normalizeSpeechText,
+import { buildSpeechVocabulary, createSpeechSceneReader, isSpeechVocabularyEcho, normalizeSpeechText, WHISPER_DOMAIN_HINT,
   SPEECH_MAX_PHRASES, SPEECH_MAX_PHRASE_CHARS, SPEECH_MAX_VOCABULARY_CHARS,
   type SpeechSceneContext } from '../src/speech-vocabulary.js';
 
@@ -526,5 +526,21 @@ describe('CLI transcript consumers', () => {
       normalizedText: 'Show me crambin', normalizationRules: normalized.normalizationRules });
     expect(JSON.parse(transcriptJsonLine(transcript)).normalizationRules)
       .toEqual([{ rule: 'heard-molecule-name', from: 'Crandon', to: 'crambin', sceneTerm: 'crambin (1CRN)' }]);
+  });
+});
+
+
+describe('hint-only transcript guard',()=>{
+  it('rejects prompt lists and bare scene terms, before normalization',()=>{
+    const context=scene({residueNumbers:[15]});
+    expect(isSpeechVocabularyEcho(buildSpeechVocabulary(context).whisperPrompt,context)).toBe(true);
+    expect(isSpeechVocabularyEcho(WHISPER_DOMAIN_HINT,context)).toBe(true);
+    for(const text of ['Residue 15. Hide chain A.','residue 15 hide chain A','ATP. ATP.','Crambin.'])
+      expect(isSpeechVocabularyEcho(text,context),text).toBe(true);
+  });
+  it('keeps acoustically decoded requests, including one repeated command',()=>{
+    for(const text of ['Go back. Go back.','Hide chain A.','Pause the animation. Pause the animation.',
+      'Highlight the ATP.','What is the role of ATP in the motor?'])
+      expect(isSpeechVocabularyEcho(text,scene()),text).toBe(false);
   });
 });

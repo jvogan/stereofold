@@ -75,6 +75,18 @@ const figureCells = (plugin: any) => [...plugin.state.data.cells.values()].filte
   cell.transform.tags?.includes('stereofold-lesson-figure')) as any[];
 
 describe('molecular figure layer reuse with the real state tree and geometry', () => {
+  it('rebuilds a changed noncontiguous residue set and reuses its identical reordered set', async () => fixture(async ({ renderer }) => {
+    const make = (residueNumbers: number[]) => lessonFigureSchema.parse({ layers: [{ id: 'contacts',
+      target: { chain: 'A', residueNumbers }, representation: 'ball-and-stick', color: '#2288cc' }] });
+    await renderer.install(make([2, 7]));
+    const original = identity(renderer.molecular()[0]);
+    const oldAtoms = renderer.snapshot().atomSites;
+    await renderer.install(make([7, 2]));
+    retained(renderer.molecular()[0], original);
+    await renderer.install(make([2, 7, 11]));
+    expect(renderer.molecular()[0]).not.toBe(original.repr);
+    expect(renderer.snapshot().atomSites).toBeGreaterThan(oldAtoms);
+  }));
   it('retains render objects and buffers through alpha, context, focus and annotation edits', async () => fixture(async ({ plugin, renderer, drawn }) => {
     const beforeCells = plugin.state.data.cells.size;
     const first = authored();
@@ -85,7 +97,7 @@ describe('molecular figure layer reuse with the real state tree and geometry', (
     next.layers[1].opacity = .08;
     next.focus = [{ chain: 'A', residues: { from: 21, to: 22 } }];
     next.labels = [{ id: 'name', target: { chain: 'A', residues: { from: 21, to: 21 } }, text: 'Detail',
-      color: '#d6ad20', sizeFactor: .6, offsetX: 1, offsetY: -1 }];
+      color: '#d6ad20', sizeFactor: .6, offsetX: 1, offsetY: -1, maxOffsetEm: 2 }];
     next.distances = [{ id: 'contact', a: { chain: 'A', residues: { from: 21, to: 21 }, atomName: 'CA' },
       b: { chain: 'A', residues: { from: 22, to: 22 }, atomName: 'CA' }, color: '#777777', showText: false,
       sizeFactor: .6, offsetX: 0, offsetY: 0 }];
@@ -100,6 +112,8 @@ describe('molecular figure layer reuse with the real state tree and geometry', (
     const label = [...plugin.state.data.cells.values()].find((cell: any) =>
       cell.transform.transformer.id === StateTransforms.Representation.StructureSelectionsLabel3D.id) as any;
     expect(label.params.values.customText).toBe('Detail');
+    expect(label.obj.data.repr.renderObjects.every((o: any) => o.state.stereofoldLessonLabel)).toBe(true);
+    expect(renderer.molecular().every((repr: any) => repr.renderObjects.every((o: any) => !o.state.stereofoldLessonLabel))).toBe(true);
     expect(renderer.annotations()).toHaveLength(2); expect(drawn.size).toBe(renderer.count());
     expect(renderer.snapshot().distances[0].angstrom).toBeGreaterThan(0);
     for (const ref of refs) expect(plugin.state.data.cells.has(ref)).toBe(true);
@@ -302,7 +316,7 @@ describe('molecular figure layer reuse with the real state tree and geometry', (
 
   it.each(['before', 'after'])('restores live geometry and reused opacity when retiring old annotations fails %s commit', async phase => fixture(async ({ plugin, renderer }) => {
     const first = authored();
-    first.labels = [{ id: 'old', target: { chain: 'A', residues: { from: 21, to: 21 } }, text: 'Old', color: '#777777', sizeFactor: .6, offsetX: 0, offsetY: 0 }];
+    first.labels = [{ id: 'old', target: { chain: 'A', residues: { from: 21, to: 21 } }, text: 'Old', color: '#777777', sizeFactor: .6, offsetX: 0, offsetY: 0, maxOffsetEm: 2 }];
     await renderer.install(first);
     const before = renderer.molecular().map(identity), count = plugin.state.data.cells.size;
     const next = structuredClone(first); next.layers[0].opacity = .12; next.labels = [];
@@ -360,7 +374,7 @@ describe('molecular figure layer reuse with the real state tree and geometry', (
   it.each(['alpha', 'retirement'])('does not resurrect forgotten figures during an awaited %s commit', async phase => fixture(async ({ plugin, renderer, drawn }) => {
     const baseline = plugin.state.data.cells.size;
     const first = authored();
-    first.labels = [{ id: 'old', target: { chain: 'A', residues: { from: 21, to: 21 } }, text: 'Old', color: '#777777', sizeFactor: .6, offsetX: 0, offsetY: 0 }];
+    first.labels = [{ id: 'old', target: { chain: 'A', residues: { from: 21, to: 21 } }, text: 'Old', color: '#777777', sizeFactor: .6, offsetX: 0, offsetY: 0, maxOffsetEm: 2 }];
     await renderer.install(first);
     const reprRef = [...plugin.state.data.cells.values()].find((cell: any) =>
       cell.obj?.data?.repr === renderer.molecular()[0]).transform.ref;
@@ -395,3 +409,33 @@ describe('molecular figure layer reuse with the real state tree and geometry', (
   }));
 
 });
+
+it('reuses opaque suffixes and unchanged label objects across chapters, ID changes and external geometry; source changes invalidate both', async () => fixture(async ({plugin,renderer,structure,replaceSource}) => {
+  const first=authored(); first.layers.splice(1,1);
+  first.labels=lessonFigureSchema.parse({layers:first.layers,labels:[{id:'name',target:{chain:'A'},text:'Protein',color:'#123456'}]}).labels;
+  await renderer.install(first);
+  const layers=renderer.molecular().map(identity),label=identity(renderer.annotations()[0]);
+  const external=await plugin.builders.structure.representation.addRepresentation(structure(),{type:'cartoon',typeParams:{quality:'low'}});
+  const next=structuredClone(first);next.layers[0].color='#ffffff';next.labels[0].id='chapter-name';
+  await renderer.install(next);
+  expect(renderer.molecular()[0]).not.toBe(layers[0].repr);retained(renderer.molecular()[1],layers[1]);retained(renderer.annotations()[0],label);
+  expect(renderer.snapshot().preparation.reusedLayers).toBe(1);expect(renderer.snapshot().preparation.reusedLabels).toBe(1);
+  const reordered=structuredClone(next);reordered.layers.reverse();await renderer.install(reordered);
+  retained(renderer.molecular()[0],layers[1]);retained(renderer.annotations()[0],label);
+  await replaceSource();await renderer.install(reordered);
+  expect(renderer.molecular()[0]).not.toBe(layers[1].repr);expect(renderer.annotations()[0]).not.toBe(label.repr);
+  await plugin.build().delete(external.ref).commit();
+}));
+
+it('reused labels survive staging failure and live label edits invalidate reuse', async () => fixture(async ({plugin,renderer}) => {
+  const first=authored();first.labels=lessonFigureSchema.parse({layers:first.layers,labels:[{id:'name',target:{chain:'A'},text:'Protein',color:'#123456'}]}).labels;
+  await renderer.install(first);const before=identity(renderer.annotations()[0]);
+  const next=structuredClone(first);next.layers.push({...first.layers[2],id:'new',target:{chain:'A',residues:{from:25,to:25}}});
+  const owner=plugin.builders.structure.representation,original=owner.addRepresentation;
+  owner.addRepresentation=async()=>{throw Error('injected');};await expect(renderer.install(next)).rejects.toThrow('injected');owner.addRepresentation=original;
+  retained(renderer.annotations()[0],before);
+  const cell=[...plugin.state.data.cells.values()].find((c:any)=>c.obj?.data?.repr===before.repr) as any;
+  await plugin.build().to(cell.transform.ref).update({customText:'Live edit'}).commit();
+  await renderer.install(first);expect(renderer.annotations()[0]).not.toBe(before.repr);
+  expect(renderer.annotations()[0].props.customText).toBe('Protein');
+}));

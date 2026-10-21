@@ -29,12 +29,13 @@ export const SOURCE_LIMIT = `Only https URLs to UTF-8 mmCIF or PDB files are sup
  * source fetch policy and a separately tested Quest 2 growth tier. Neither
  * establishes a universal device capacity.
  */
-export const SOURCE_DESCRIPTION = 'Supply source with kind pdb (four-character id), alphafold (UniProt accession, model_v6), url (https mmCIF or PDB, content-sniffed), file (absolute local .cif/.mmcif path), or pasted (coordinates). '
+export const SOURCE_DESCRIPTION = 'Supply source with kind pdb (four-character id), alphafold (UniProt accession, model_v6), url (https mmCIF or PDB, content-sniffed), file (absolute local .cif/.mmcif path), pasted (coordinates), or composite (handle from prepare_composite). '
   + `This plugin fetches or reads at most ${MAX_STRUCTURE_SOURCE_BYTES.toLocaleString('en-US')} bytes (${STRUCTURE_SOURCE_SIZE_LABEL}) of structure text, which is its own download policy rather than a viewer ceiling, and no residue-position or atom-site count refuses an inspection. `
   + `${INSPECTION_SIZE_GUIDE} `
   + 'So do not tell a person that a GroEL-sized assembly is too large for the desktop viewer: 1AON and other entries that earlier builds refused now open, but admission alone does not establish rendering speed or memory use on a headset. Missing AlphaFold v6 files are refused without a version fallback. PDB inspection requires declared polymer SEQRES; coordinate-only PDB remains available through open.';
 const accession = /^[OPQ][0-9][A-Z0-9]{3}[0-9]$|^[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}$/;
 export const structureSourceSchema = z.discriminatedUnion('kind', [
+  z.object({kind:z.literal('composite'),handle:z.string().uuid().describe('Opaque handle returned by prepare_composite on this runtime host.')}).strict(),
   z.object({kind:z.literal('pdb'),id:z.string().regex(/^[A-Za-z0-9]{4}$/)}).strict(),
   z.object({kind:z.literal('alphafold'),accession:z.string().transform(v=>v.toUpperCase()).pipe(z.string().regex(accession))}).strict(),
   z.object({kind:z.literal('url'),url:z.string().min(1).max(8192)}).strict(),
@@ -42,7 +43,7 @@ export const structureSourceSchema = z.discriminatedUnion('kind', [
   z.object({kind:z.literal('pasted'),text:z.string().min(20).max(MAX_STRUCTURE_SOURCE_BYTES),format:z.enum(['pdb','mmcif']).optional()}).strict(),
 ]);
 export type StructureSourceRequest = z.output<typeof structureSourceSchema>;
-export type ResolvedStructureSource = {kind:StructureSourceRequest['kind'];structureText:string;format:'mmcif'|'pdb';pdbId?:string;accession?:string;version?:string;cacheKey?:string};
+export type ResolvedStructureSource = {kind:StructureSourceRequest['kind'];structureText:string;format:'mmcif'|'pdb';pdbId?:string;accession?:string;version?:string;cacheKey?:string;sourceFilename?:string};
 export type StructureSelection = {modelNumber?:number;assemblyId?:string};
 export const structureSelectionShape = {modelNumber:z.number().int().positive().optional(),assemblyId:z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional()};
 const refuse = (reason:string) => Error(reason.endsWith(SOURCE_LIMIT)?reason:`${reason} ${SOURCE_LIMIT}`);
@@ -114,14 +115,23 @@ export function assertStructureSourceRequest(raw:unknown):StructureSourceRequest
   return request;
 }
 /** Public databases only: sources/<kind>-<id>[-v6].cif. URLs and private inputs never persist. */
-export async function resolveStructureSource(raw:unknown, options:{fetch?:typeof fetch;fetchPdbText?:(id:string,signal?:AbortSignal)=>Promise<string>;cacheRoot?:string|false;signal?:AbortSignal}={}):Promise<ResolvedStructureSource> {
+export async function resolveStructureSource(raw:unknown, options:{fetch?:typeof fetch;fetchPdbText?:(id:string,signal?:AbortSignal)=>Promise<string>;cacheRoot?:string|false;signal?:AbortSignal;resolveComposite?:(handle:string)=>Promise<string>}={}):Promise<ResolvedStructureSource> {
   const startedAt=Date.now();
   options.signal?.throwIfAborted();
   const request=assertStructureSourceRequest(raw);
+  if(request.kind==='composite') {
+    if(!options.resolveComposite) throw Error('Composite handles require the runtime that prepared them.');
+    const structureText=await options.resolveComposite(request.handle);
+    sniffStructureFormat(structureText);
+    return {kind:'composite',structureText,format:'mmcif'};
+  }
   if(request.kind==='file') {
-    try {const structureText=(await readInspectionFile(request.path)).structureText;
+    try {const {structureText,filename}=await readInspectionFile(request.path);
+      // Display provenance only: never retain a directory or infer a public
+      // entry identity from the user's filename. The digest identifies bytes.
+      const sourceFilename=filename.replace(/[\p{Cc}\p{Cf}]/gu,' ').slice(0,160);
       console.debug('[stereofold:timing] source-fetched', {at:Date.now(),elapsedMs:Date.now()-startedAt,kind:request.kind,bytes:Buffer.byteLength(structureText)});
-      return {kind:'file',format:'mmcif',structureText};}
+      return {kind:'file',format:'mmcif',structureText,sourceFilename};}
     catch(error) {throw refuse(error instanceof Error?error.message:'The local file is unavailable.');}
   }
   if(request.kind==='pasted') {

@@ -23,7 +23,14 @@ export const MeshBuilder={
 };
 export const Mesh={Utils:{kind:'mesh'}};
 // Mol*'s TextBuilder.add is (text, x, y, z, depth, scale, group).
-export const TextBuilder={create:()=>({entries:[],add(text,x,y,z,_depth,size,group){this.entries.push({text,point:[x,y,z],size,group});},getText(){return {kind:'text',entries:this.entries};}})};
+export const TextBuilder={create:()=>({entries:[],add(text,x,y,z,_depth,size,group){this.entries.push({text,point:[x,y,z],size,group});},getText(){
+  const positions=[],mappings=[],groups=[];
+  for(const entry of this.entries)for(const corner of [[-.3,.4],[-.3,-.4],[.3,.4],[.3,-.4]]){
+    positions.push(...entry.point);mappings.push(...corner.map(value=>value*entry.size));groups.push(entry.group);
+  }
+  const cell=value=>({ref:{value:new Float32Array(value)}});
+  return {kind:'text',entries:this.entries,charCount:this.entries.length,centerBuffer:cell(positions),mappingBuffer:cell(mappings),groupBuffer:cell(groups)};
+}})};
 export const Text={Utils:{kind:'text'}};
 export const Shape={create:(name,sourceData,geometry,getColor,getSize,getLabel)=>({name,geometry,getColor,getSize,getLabel})};
 export const ShapeRepresentation=getShape=>{

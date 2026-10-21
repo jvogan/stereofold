@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CAPTION_FULL_MS, captionExpanded, createPlacementHold, latchedStandoff } from './wearer-placement.mjs';
+import { createPlacementHold, latchedStandoff } from './wearer-placement.mjs';
 // The size words a wearer says, through the same two tables the headset
 // reads.
 import { spatialVoiceAction } from './voice-command-runner.mjs';
@@ -83,13 +83,4 @@ test('an unlatched stand-off takes the measurement, rounded up to a step', () =>
   assert.equal(latchedStandoff({ current: 0.3, required: 0.29, latched: false }), 0.3, 'inside the release band it holds');
   assert.equal(Number(latchedStandoff({ current: 0.3, required: 0.01, latched: false }).toFixed(2)), 0.05);
   assert.equal(latchedStandoff({ current: 0.3, required: Number.NaN, latched: false }), 0.3);
-});
-
-test('the caption shows its full text only while held, playing, or just after a chapter', () => {
-  assert.equal(captionExpanded({ talking: true, nowMs: 10_000, chapterStartedAt: 0 }), true);
-  assert.equal(captionExpanded({ playing: true, nowMs: 10_000, chapterStartedAt: 0 }), true);
-  assert.equal(captionExpanded({ nowMs: 100, chapterStartedAt: 0 }), true);
-  assert.equal(captionExpanded({ nowMs: CAPTION_FULL_MS - 1, chapterStartedAt: 0 }), true);
-  assert.equal(captionExpanded({ nowMs: CAPTION_FULL_MS, chapterStartedAt: 0 }), false, 'half open at the far end');
-  assert.equal(captionExpanded({ nowMs: 10_000 }), false, 'no chapter, no window');
 });

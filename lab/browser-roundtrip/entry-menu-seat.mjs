@@ -90,7 +90,7 @@ export function menuSeatClears(measured, geometry, clearance = PLATE_CLEARANCE_L
  * @param {readonly number[]} [options.factors] the ladder to try
  * @returns {{factor:number, clear:boolean, constants:object, rect:object|null, subject:object}|undefined}
  */
-export function entryMenuSeat({ rows, head, constants, readout = [], status = '',
+export function entryMenuSeat({ rows, head, constants, readout = [], status = '', assistantLines = [],
   subjectLens = ENTRY_SUBJECT_LENS, clearance = PLATE_CLEARANCE_LENS,
   factors = ENTRY_MENU_OUTBOARD_FACTORS, geometry, measureText, seatAnchor, measureStandoff } = {}) {
   const basis = toolbarSeatBasis(head);
@@ -108,7 +108,7 @@ export function entryMenuSeat({ rows, head, constants, readout = [], status = ''
     const seat = toolbarLayoutForOutboard(factor, constants);
     let rect, eyes, measured, points, panel;
     try {
-      panel = createToolbarPanel({ rows, head, constants: seat, readout, status, measureText, seatAnchor });
+      panel = createToolbarPanel({ rows, head, constants: seat, readout, status, assistantLines, measureText, seatAnchor });
       points = [...toolbarDrawnMenuPoints(panel), ...toolbarCaptionPoints(panel)];
       if (geometry) measured = measure(points);
       rect = lensRectFromPoints({ points, origin: basis.origin, basis });
@@ -122,8 +122,7 @@ export function entryMenuSeat({ rows, head, constants, readout = [], status = ''
     const nominalClear = eyes?.every(eye => eye && !lensRectsOverlap(eye, subject, clearance)) === true;
     // Production always supplies geometry. Unreadable stereo geometry cannot
     // claim that the nominal centre band is a measured silhouette.
-    const withinView = constants.peripheralSeat === true && rows.length <= constants.maxRows
-      ? menuSeatWithinGlance(points, head, panel?.anchor) : menuSeatWithinView(points, head);
+    const withinView = menuSeatWithinView(points, head);
     const clear = withinView && (geometry ? menuSeatClears(measured, geometry, clearance) : nominalClear);
     const candidate = { factor, clear, constants: seat, rect, subject: geometry ? null : subject, measured };
     last = candidate;
@@ -132,8 +131,8 @@ export function entryMenuSeat({ rows, head, constants, readout = [], status = ''
     // greatest gap rather than assuming the last bearing overlaps least.
     const gap = geometry ? Math.min(measured?.clearanceLeft ?? -Infinity, measured?.clearanceRight ?? -Infinity)
       : Math.min(...(eyes ?? []).map(eye => eye ? Math.max(subject.left - eye.right, eye.left - subject.right) : -Infinity));
-    if (withinView && (!best || gap > bestGap)) { best = candidate; bestGap = gap; }
-    if (!fallback || gap > fallbackGap) { fallback = candidate; fallbackGap = gap; }
+    if (withinView && (!best || gap > bestGap + 1e-8)) { best = candidate; bestGap = gap; }
+    if (!fallback || gap > fallbackGap + 1e-8) { fallback = candidate; fallbackGap = gap; }
   }
   // With no stereo score, the ladder gives no basis to prefer an earlier rung.
   return Number.isFinite(bestGap) || Number.isFinite(fallbackGap) ? best ?? fallback : last;

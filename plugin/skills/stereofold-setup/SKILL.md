@@ -11,6 +11,36 @@ existing server entries, skills, and voice providers. Configure helpers needed
 for the task. Optional voice, launch, and debugging helpers affect their own
 features rather than general structure inspection.
 
+For “show me the ATP synthase demo on my headset”, keep the session returned
+by `continue_session` and make one call:
+`replace_inspection_source({sessionId,demo:"atp-synthase-rotor",stage:"motion",waitForRenderMs:40000})`.
+Bundled demos default to a bounded 40-second render wait; use
+`waitForRenderMs:0` to return immediately. If that wait ends first, the result
+says "still drawing" with `sourceRenderStatus.status:"rendering"` and a pollable
+`commandId`. This is pending work: poll
+`get_inspection_state({sessionId,commandId})` for the current source receipt; do
+not report failure or resend the load. Only a current ready rendered receipt
+establishes that it is shown.
+
+`demo` names an entry in the bundled `demos/index.json`; omit `stage` for its
+default or name a listed stage. This verifies cached coordinates, fetches missing
+coordinates under the existing policy, installs the complete bundled lesson and
+starts its opening chapter with `autoplay:false,narration:false`. Motion within
+a chapter still plays. The joined headset page and wearer placement rules stay
+in effect; no new session or launch is needed. Use the same route for
+`kinesin-walk`, `hemoglobin-switch`, single-source demos, or
+`demo:"microtubule-growth",stage:"monomer"` followed by `grow_structure`.
+Prepared density maps must already be cached; follow the returned preparation
+command on a cache miss. Confirm `sourceRenderStatus.rendered:true`, or poll
+`sourceRenderReceipt` for the current source and ready panel before reporting
+it shown. Later lesson edits can use
+`install_lesson({sessionId,lessonPath})` with the resolved absolute path of
+`demos/atp-synthase-rotor/motion.json` instead of inlining JSON. `lessonPath` is restricted to the plugin's bundled demos;
+supply exactly one of `lesson` or `lessonPath`, and omit `start` to retain intent.
+Routine `get_inspection_state` summarises styles, selection ownership and
+animation definitions; use `includeViewDetails:true` only for the exact saved
+view, and `includeLesson:true` only for the editable lesson manifest.
+
 ## 1. Discover
 
 Find the plugin root: `plugin/` in a repository clone, `plugins/stereofold/` in
@@ -65,9 +95,10 @@ For desktop lesson planning alone, copy the entire
 location. A common Codex location is `~/.codex/skills/`;
 Claude Code uses `.claude/skills/` in the project or `~/.claude/skills/` for
 personal skills. Claude Science offers skill upload and GitHub import in its
-settings. Preserve the folder's scripts and assets. The standalone planner
-uses Node 22 and the separately installed Molecular Structure Viewer for live
-`structure.*` interaction. It does not require the Stereofold MCP server.
+settings. Preserve the folder's references, scripts and assets. Offline planning uses
+Node 22 without a server. For live desktop or headset lessons, register the
+Stereofold runtime: `inspect_lesson` opens an inline lesson and `install_lesson`
+edits it in the same session. No separate viewer is required.
 The `stereo-structure` skill additionally needs the runtime tools it describes.
 Those tools can come from the source runtime or a plugin installation. Copying
 skills alone does not register the server for live inspection or headset use.
@@ -83,10 +114,11 @@ debugging over USB or authorized Wi-Fi are optional routes described in
 ## 4. Check the runtime
 
 Keep `dist/server.mjs`, `dist/viewer.html`, `dist/inspector.html`,
-`dist/inspector.css`, and `dist/inspector-host.js` from the same build.
+`dist/inspector.css`, `dist/inspector-script-1.js`,
+`dist/inspector-script-2.js`, and `dist/inspector-host.js` from the same build.
 `stereo_structure.open_inspector` requires `dist/inspector-host.js` to serve
 its browser panel. The shipped inspector HTML marker is reconstructed with its
-CSS companion at runtime; preserve both files. A headset-host installation
+CSS and script companions at runtime; preserve all four files. A headset-host installation
 also includes `dist/headset-host.mjs`, `dist/serve-inspection.mjs`, and
 `dist/scene-socket-relay.mjs`. Use a complete release rather than mixing bundles.
 
@@ -107,6 +139,14 @@ connection or start a new conversation to expose newly installed tools.
 For generated shares, register the complete marketplace root using
 `stereofold@stereofold-local`.
 
+For Claude Science, check the connector's sandbox route before opening a new
+scene. A kernel folder grant does not establish connector file access, and a
+connected MCP server does not establish permission to listen on localhost.
+If `continue_session` returns `kind:"external-owner-unavailable"` or a browser
+launch reports `listen EPERM`, follow the
+[Claude Science recovery sequence](references/hosts.md#claude-science-recovery-sequence).
+Use the requested bundled or local coordinates instead of fetching a placeholder PDB.
+
 ## 6. Verify the requested workflow
 
 From the plugin root, check that the runtime starts and opens the bundled
@@ -119,13 +159,19 @@ node skills/stereofold-setup/scripts/open-check.mjs
 `OPEN PASS` establishes server startup and fixture loading. It does not
 establish an embedded card, headset connection, or voice readiness. Check the
 host's actual tool list for the Stereofold namespace; avoid relying on a
-hardcoded tool count.
+hardcoded tool count. Compare the first result with
+`toolSetVersion: "2026-10-14.demo.1"`; if it differs, or a tool rejects or
+ignores a documented field, re-list that tool's schema before working around it.
 
 For focused inspection or a headset:
 
 1. Unless the user requests a separate session, call `continue_session` with
    the actual assistant label (`Codex` or `Claude`).
-   Reuse an existing session and companion.
+   For a new source requested with “put it in my headset” in an already shared
+   headset session, use
+   `prepare_composite` → `replace_inspection_source` in that joined session →
+   `install_lesson` with `start:{chapterId,autoplay:false,narration:false}`;
+   the request authorizes delivery without a new session or connection question.
    If `role: "none"` includes `retry: true`, retry after 5 seconds and keep the
    existing scene. After 60 seconds without recovery, inspect `recordPath` and
    its process. Preserve a live Stereofold host; create a new scene only if its
@@ -144,8 +190,8 @@ For focused inspection or a headset:
    is capped at 40 seconds; if needed, poll `get_inspection_state`
    until `hasScene: true`
    and the intended panel's `current: true`, `availability: "ready"`.
-4. For a headset, call `open_companion` directly. It creates a browser renderer
-   when needed. Use `connection: "lan"` with `headset: "meta", launch: "auto"`,
+4. With no shared headset session, call `open_companion` directly; it creates
+   a browser renderer when needed. Use `connection: "lan"` with `headset: "meta", launch: "auto"`,
    `headset: "apple", launch: "auto"`, or `headset: "auto", launch: "none"`.
    Continue a `sharePending` operation with the same arguments. Follow the
    returned pairing instructions and verify the current companion's rendered
@@ -167,12 +213,37 @@ available. Read the `stereo-structure` skill for current connection controls.
 
 ## Optional voice
 
-Read [Voice and helper configuration](references/voice.md) when the task needs
-headset microphone transcription or spoken replies. Preserve existing voice
-providers. After opening a saved scene, call `get_readiness` with
-`speechCheck: true`, test microphone capture, and confirm a transcript and
-playback acknowledgement. An installed helper alone does not establish consent
-or an active assistant consumer.
+Host dictation and live voice uses that host's ordinary conversation and replies.
+For a requested headset conversation, read [Voice and helper configuration](references/voice.md)
+to configure transcription and replies, preserving existing providers.
+
+For Claude Code with the installed local marketplace package, launch:
+
+```sh
+claude --dangerously-load-development-channels plugin:stereofold@stereofold-local
+```
+
+Accept its channel confirmation, then join with
+`continue_session({assistant:"Claude"})`. Final headset transcripts arrive in
+that conversation while Claude owns voice. A direct MCP registration named
+`stereo_structure` instead uses
+`claude --dangerously-load-development-channels server:stereo_structure`.
+For other hosts or unavailable channels, use `listen_voice({timeoutSeconds:20})`
+and retain its `cursor` and `epoch`. Use one delivery route at a time.
+
+Read `get_readiness({sessionId,speechCheck:true})`. In its appended JSON text,
+`readiness.voiceDelivery.mode` distinguishes `channel`, `polling` and `none`;
+`channelActive` and `assistant` identify the route. A channel push has
+`acknowledgement:"unavailable"`; verify an actual transcript, not status alone.
+Microphone consent and an active consumer are separate from installed helpers.
+
+For a spoken edit: carry the event's `utterance_id` as `utteranceId` on supported
+scene tools, wait for `command.status:"rendered"` (poll `get_inspection_state`
+with `commandId` if pending), then `say_to_headset({text,utteranceId})`.
+Neither `listen_voice` nor `say_to_headset` accepts `sessionId`. Read
+[the voice workflow](../stereo-structure/references/voice.md) for lost-push
+recovery, deduplication and playback acknowledgement. Confirm microphone capture
+and reply playback before reporting voice ready.
 
 ## Repair a failure
 

@@ -6,9 +6,9 @@ import { toolbarFrameRuntime, toolbarFrameHarness, identity } from './fixtures/t
 import { syntheticViews } from './fixtures/component-label-diagnostics.mjs';
 import { solveAppearanceFit } from './appearance-fit-worker.mjs';
 import { resetEntryGeometry, resetEntryLateralBreakdown } from './reset-entry-geometry.mjs';
-import { createToolbarPanel, hitToolbarPanel } from './spatial-toolbar-geometry.mjs';
-import { spatialToolbarRows } from './spatial-toolbar-content.mjs';
-import { menuSeatWithinView } from './menu-view-band.mjs';
+import { createToolbarPanel } from './spatial-toolbar-geometry.mjs';
+import { menuSeatWithinView, menuSeatInEyeViews } from './menu-view-band.mjs';
+import { glassPlatesOverlap } from './glass-overlap.mjs';
 import { pageFunction } from './fixtures/label-action-harness.mjs';
 import { menuDragOffset } from './menu-relocation.mjs';
 
@@ -143,7 +143,7 @@ const dispatch = (t, type, source) => {
   t.session.dispatchEvent(event);
 };
 const ray = source => ({ origin: [0, 1.6, 0], direction: source.targetRaySpace.pose.transform.matrix.slice(8, 11).map(v => -v) });
-const builtPanel = (t, rows = t.toolbar.rows()) => createToolbarPanel({ rows, head: t.toolbar.head(), constants: t.toolbar.layout(), seatAnchor: t.toolbar.seatAnchor(), measureText: runtime.toolbarTextWidth });
+const builtPanel = (t, rows = t.toolbar.rows(), stableLesson = false) => createToolbarPanel({ stableLesson, rows, head: t.toolbar.head(), constants: t.toolbar.layout(), seatAnchor: t.toolbar.seatAnchor(), measureText: runtime.toolbarTextWidth });
 
 for (const hand of ['left', 'right']) test(`${hand} menu drag works with the controller ten centimetres from the row`, async () => {
   let clock = 0; const offsets = [];
@@ -240,19 +240,19 @@ for (const hand of ['left', 'right']) test(`${hand} trigger drags the menu witho
     clock = 250; source.targetRaySpace = pointer([1.5, 1.6, -.4], hand).targetRaySpace;
     t.toolbar.syncInput(t.frame);
     assert.ok(offsets.some(offset => Math.hypot(...offset) > .1));
-    assert.equal(runtime.counts.ShapeRepresentation, builds, 'drag changes uniforms, not mesh/text buffers');
+    assert.equal(runtime.counts.ShapeRepresentation, builds + 1, 'drag builds one held rim, retaining every existing glyph and plate');
     assert.equal(ownership.filter(event => event.phase === 'start').length, 1);
     assert.equal(ownership.filter(event => ['end', 'cancel'].includes(event.phase)).length, 0, 'menu retains the whole held press');
     dispatch(t, 'select', source); dispatch(t, 'selectend', source);
     await new Promise(resolve => setImmediate(resolve));
     assert.notDeepEqual(t.toolbar.seatAnchor(), before);
     assert.equal(actions.length, 0, 'menu drag dispatches no molecular action');
-    // A quick tap retains the ordinary summon behavior at the held menu.
+    // A quick Menu tap changes its form while preserving the held seat.
     const moved = t.toolbar.seatAnchor();
     source.targetRaySpace = pointer(builtPanel(t).buttons.find(button => button.action.kind === 'collapse').point, hand).targetRaySpace;
     dispatch(t, 'selectstart', source); dispatch(t, 'select', source); dispatch(t, 'selectend', source);
     await new Promise(resolve => setImmediate(resolve));
-    assert.notDeepEqual(t.toolbar.seatAnchor(), moved);
+    assert.deepEqual(t.toolbar.seatAnchor(), moved, 'Menu expansion preserves the dragged position');
   } finally { await t.toolbar.dispose(); }
 });
 
@@ -276,7 +276,7 @@ for (const hand of ['left', 'right']) for (const quality of [false, true, undefi
       source.targetRaySpace.pose.emulatedPosition = quality;
       clock += 14; t.toolbar.syncInput(t.frame);
       assert.ok(offsets.some(offset => Math.hypot(...offset) > .1), 'orientation still moves the menu');
-      assert.equal(runtime.counts.ShapeRepresentation, builds);
+      assert.equal(runtime.counts.ShapeRepresentation, builds + (quality === false ? 0 : 1), 'one held rim per drag, never per frame');
     } finally { await t.toolbar.dispose(); }
   });
 }
@@ -319,24 +319,28 @@ for (const hand of ['left', 'right']) for (const interruption of ['tracked-to-em
   });
 }
 
-for (const hand of ['left', 'right']) test(`${hand} quiet-footprint wake keeps ownership through redraw until trigger release`, async () => {
+for (const hand of ['left', 'right']) test(`${hand} lesson press keeps ownership through redraw until trigger release`, async () => {
   const ownership = [];
   const state = { voice: { state: 'idle' }, tour: { selectedId: 'g', active: true, step: 1, canBack: true, canNext: true, chapterStartedAt: 0 } };
   const t = await menu({ state, onConsumeSelect: event => ownership.push(event) });
   try {
-    const quiet = builtPanel(t);
-    const full = builtPanel(t, spatialToolbarRows({ ...state, collapsed: true, quiet: false }));
-    const button = full.buttons.find(button => !hitToolbarPanel(quiet, ray(pointer(button.point, hand))));
-    assert.ok(button, 'the quiet panel leaves a full-menu wake footprint');
+    // Lessons retain the same 2×2 controls when woken. Aim at the actual
+    // stable grid, not a removed row of the old full-column footprint.
+    const quiet = builtPanel(t, t.toolbar.rows(), true);
+    const button = quiet.buttons.find(button => button.action.kind === 'tour-play');
+    const before = t.toolbar.drawnMenuPoints();
+    assert.ok(button, 'the lesson keeps its Play control');
     const source = pointer(button.point, hand); t.session.inputSources = [source];
     dispatch(t, 'selectstart', source); await new Promise(resolve => setImmediate(resolve));
+    await t.toolbar.update();
+    assert.deepEqual(t.toolbar.drawnMenuPoints(), before, 'a wake retains the complete lesson grid');
     source.targetRaySpace = pointer([0, 1.6, -3], hand).targetRaySpace;
     t.toolbar.syncInput(t.frame);
-    assert.ok(t.toolbar.isHandOnPanel(hand), 'moving off the footprint cannot turn the wake into a molecule grab');
+    assert.ok(t.toolbar.isHandOnPanel(hand), 'moving off the control cannot turn the press into a molecule grab');
     assert.deepEqual(ownership.map(event => event.phase), ['start']);
     dispatch(t, 'select', source); dispatch(t, 'selectend', source);
     assert.deepEqual(ownership.map(event => event.phase), ['start', 'end']);
-    assert.equal(ownership[0].action.kind, 'wake-menu');
+    assert.equal(ownership[0].action.kind, 'tour-play');
   } finally { await t.toolbar.dispose(); }
 });
 
@@ -368,17 +372,20 @@ for (const hand of ['left', 'right']) for (const revealFirst of [false, true]) {
   });
 }
 
-for (const hand of ['left', 'right']) test(`${hand} a hidden quiet-menu wake releases ownership immediately`, async () => {
+for (const hand of ['left', 'right']) test(`${hand} a hidden lesson press releases ownership immediately`, async () => {
   const ownership = [], actions = [];
   const state = { voice: { state: 'idle' }, tour: { selectedId: 'g', active: true, step: 1, canBack: true, canNext: true, chapterStartedAt: 0 } };
   const t = await menu({ state, onConsumeSelect: event => ownership.push(event), onAction: action => actions.push(action) });
   try {
-    const quiet = builtPanel(t);
-    const full = builtPanel(t, spatialToolbarRows({ ...state, collapsed: true, quiet: false }));
-    const button = full.buttons.find(button => !hitToolbarPanel(quiet, ray(pointer(button.point, hand))));
+    // Lessons retain the same 2×2 controls when woken. Aim at the actual
+    // stable grid, not a removed row of the old full-column footprint.
+    const quiet = builtPanel(t, t.toolbar.rows(), true);
+    const button = quiet.buttons.find(button => button.action.kind === 'tour-play');
+    const before = t.toolbar.drawnMenuPoints();
     const source = pointer(button.point, hand); t.session.inputSources = [source];
     dispatch(t, 'selectstart', source); await new Promise(resolve => setImmediate(resolve));
     assert.equal(t.toolbar.isHandOnPanel(hand), true);
+    assert.deepEqual(t.toolbar.drawnMenuPoints(), before, 'a press keeps the lesson grid');
     t.toolbar.setHidden(true); t.toolbar.setHidden(true);
     assert.equal(t.toolbar.isHandOnPanel(hand), false, 'hidden controls cannot reserve a hand');
     assert.equal(t.toolbar.isRayOnPanel(ray(source)), false);
@@ -398,7 +405,7 @@ test('a surrounding subject uses the hidden fallback with diagnostics and a work
   const t = await menu();
   try {
     const candidates = t.toolbar.prepareRelocation({ headInRoom: head, labelViews: views(), renderFromRoom: identity });
-    assert.ok(candidates.some(value => value.parked), 'side candidates use separate measurement eyes');
+    assert.ok(candidates.filter(value => !value.hide).every(value => !value.parked), 'an occupied forward view cannot admit glass beyond it');
     const input = fitInput(t.toolbar.platePoints(), [0, 1.6, 0], candidates);
     input.geometry.objects[0].values.aPosition = cell([ -10, 10 ].flatMap(x => [ -10, 10 ].flatMap(y => [ -10, 10 ].flatMap(z => [x, y + 1.6, z]))));
     const result = solveAppearanceFit(input);
@@ -416,7 +423,7 @@ test('a surrounding subject uses the hidden fallback with diagnostics and a work
 });
 
 
-test('a wide front wall parks complete controls to a measured side without moving the requested pose', async () => {
+test('a wide front wall uses the off fallback instead of parking controls beyond the lens', async () => {
   const t = await menu();
   try {
     const candidates = t.toolbar.prepareRelocation({ headInRoom: head, labelViews: views(), renderFromRoom: identity });
@@ -424,9 +431,58 @@ test('a wide front wall parks complete controls to a measured side without movin
     input.geometry.objects[0].values.aPosition = cell([-2, 2].flatMap(x => [.1, 3].flatMap(y => [-1.1, -.9].flatMap(z => [x, y, z]))));
     const result = solveAppearanceFit(input);
     const candidate = candidates.find(value => value.id === result.menuRelocation);
-    assert.equal(candidate?.parked, true);
+    assert.equal(candidate?.hide, true);
     assert.deepEqual(result.translation, input.seat.translation);
     await t.toolbar.commitRelocation(candidate);
+    assert.deepEqual(t.toolbar.platePoints(), []);
+  } finally { await t.toolbar.dispose(); }
+});
+
+
+test('wearer menu intent is synchronous; programmatic Reset menu seating emits no local edit',async()=>{
+  const intents=[];
+  const t=toolbarFrameHarness(runtime,{onActionIntent:(action,{origin})=>{if(origin==='wearer')intents.push(action.kind);}});
+  try {
+    await t.toolbar.update();
+    t.toolbar.runAction({kind:'recenter-menu'},{origin:'programmatic'});
+    assert.deepEqual(intents,[]);
+    t.toolbar.runAction({kind:'recenter-menu'});
+    assert.deepEqual(intents,['recenter-menu'],'intent precedes the toolbar action queue');
+  } finally {await t.toolbar.dispose();}
+});
+
+
+test('worker-approved reduced-status candidate outside a lesson commits and rolls back its exact glass', async () => {
+  const metrics = JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url)));
+  const measuredRuntime = await toolbarFrameRuntime(undefined, { glyphAdvances: metrics.advances });
+  measuredRuntime.assistantStatus.update({ microphone: 'idle' });
+  const t = toolbarFrameHarness(measuredRuntime, { state: { subject: { title: 'Contact', description: 'See the contact.' } } });
+  await t.toolbar.update();
+  try {
+    const before = t.toolbar.platePoints();
+    // The plain card is now above the gaze. The old 1.4x vertical projection
+    // clips that card even with status removed, so no visible seat is legal.
+    const clippedViews = views().map(view => { view.projectionMatrix[5] *= 1.4; return view; });
+    assert.ok(t.toolbar.prepareRelocation({ headInRoom: head, labelViews: clippedViews, renderFromRoom: identity })
+      .every(value => value.hide), 'never admit a card outside either lens');
+    const labelViews = views();
+    const candidates = t.toolbar.prepareRelocation({ headInRoom: head, labelViews, renderFromRoom: identity });
+    const candidate = candidates.find(value => !value.hide && value.statusAside && value.anchor[0] > 0);
+    assert.ok(candidate, 'binocular admission supplies a zero-status candidate');
+    assert.ok(candidate.panel.captionBacking, 'keep the overhead information card');
+    assert.equal(candidate.panel.statusBacking, undefined, 'exercise the reduced-status draw');
+    assert.ok(menuSeatInEyeViews(candidate.points, labelViews, identity), 'all retained glass is visible in both eyes');
+    assert.equal(glassPlatesOverlap(candidate.glass, labelViews), false, 'the retained plates do not cover each other');
+    const input = fitInput(before, t.toolbar.seatAnchor(), [candidate]);
+    input.geometry.views = labelViews;
+    const fitted = solveAppearanceFit(input);
+    assert.equal(fitted.menuRelocation, candidate.id);
+    const receipt = await t.toolbar.commitRelocation(candidate);
     assert.deepEqual(t.toolbar.platePoints(), candidate.points);
+    const geometry = resetEntryGeometry({ ...input.geometry, cameraScale: 1, renderFromRoom: identity });
+    assert.ok(resetEntryLateralBreakdown({ geometry, points: t.toolbar.platePoints(), clearance: 0 }).eyes
+      .every(eye => eye.separated), 'the committed glass clears the structure in both eyes');
+    await receipt.rollback();
+    assert.deepEqual(t.toolbar.platePoints(), before);
   } finally { await t.toolbar.dispose(); }
 });

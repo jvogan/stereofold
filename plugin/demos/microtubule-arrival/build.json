@@ -25,7 +25,7 @@
     {
       "id": "alpha",
       "title": "Alpha arrives",
-      "caption": "In 5SYF, alpha tubulin is the blue half of a microtubule building block.",
+      "caption": "5SYF reveal: blue alpha appears first; assembly adds preformed alpha-beta dimers.",
       "durationSeconds": 5,
       "changes": [
         {
@@ -43,7 +43,7 @@
             "polymer"
           ]
         },
-        "narration": "Blue alpha tubulin arrives. Walk around it.",
+        "narration": "Blue alpha tubulin. Walk around it. This reveal is illustrative; real growth adds alpha-beta pairs.",
         "motion": "hold",
         "appearance": {
           "representation": "cartoon",
@@ -192,7 +192,7 @@
     {
       "id": "dimer",
       "title": "Its partner arrives",
-      "caption": "Amber beta joins blue alpha to make one tubulin dimer.",
+      "caption": "Amber beta and blue alpha form a preformed tubulin dimer.",
       "durationSeconds": 5,
       "changes": [
         {
@@ -211,7 +211,7 @@
             "polymer"
           ]
         },
-        "narration": "Amber beta joins alpha. A tubulin pair appears.",
+        "narration": "Beta appears beside alpha, its preformed dimer partner.",
         "motion": "hold",
         "emphasis": {
           "parts": [

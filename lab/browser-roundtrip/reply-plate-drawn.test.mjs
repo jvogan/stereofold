@@ -1,3 +1,4 @@
+import { createAssistantStatus } from './assistant-status.mjs';
 import { recordTalkReplySeat } from './talk-reply-diagnostics.mjs';
 import { menuSeatWithinView } from './menu-view-band.mjs';
 /**
@@ -71,7 +72,7 @@ function captionHarness({ clearance = () => ({ views: eyesAt(0), renderFromRoom:
   const source = readFileSync(new URL('./talk-caption.mjs', import.meta.url), 'utf8');
   const live = new Set(), records = [], quads = [], textDraws = [];
   let time = 0;
-  const context = vm.createContext({ menuSeatWithinView, connectionStatus, TALK_LINK_LOST, ...geometry, measureReplyCard, measureReplyCardClearance,
+  const context = vm.createContext({ assistantStatus: createAssistantStatus(), menuSeatWithinView, connectionStatus, TALK_LINK_LOST, ...geometry, measureReplyCard, measureReplyCardClearance,
     replyCardOffsetAsync: (args, options) => replyCardOffsetAsync(args, { ...options, now: () => 0 }),
     MeshBuilder: { createState: () => ({}), addTriangleWithNormal(state, a, b, c) { quads.push([a, b, c]); }, getMesh: () => ({}) },
     Mesh: { Utils: {} }, TextBuilder: { create: () => { const glyphs = []; return { add: glyph => glyphs.push(glyph), getText: () => { textDraws.push(glyphs.join('')); return {}; } }; } }, Text: { Utils: {} },

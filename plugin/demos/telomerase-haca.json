@@ -371,7 +371,7 @@
     {
       "id": "highlight",
       "title": "Highlight",
-      "caption": "Small subunits NOP10, NHP2 and GAR1 pack around each dyskerin and grip the RNA hairpins.",
+      "caption": "NOP10, NHP2 and GAR1 flank dyskerin. RNA contacts differ by hairpin; GAR1 binds dyskerin, not RNA.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -551,7 +551,7 @@
     {
       "id": "site",
       "title": "The working part",
-      "caption": "Close on one dyskerin active site, where the enzyme would reshape a target uridine.",
+      "caption": "Close on dyskerin’s pseudouridylation site. No target uridine occupies it in this structure.",
       "durationSeconds": 11,
       "changes": [
         {
@@ -616,7 +616,7 @@
           ],
           "scale": 2.4
         },
-        "narration": "One active site, poised to modify RNA",
+        "narration": "Dyskerin's active site has no target uridine",
         "emphasis": {
           "parts": [
             {

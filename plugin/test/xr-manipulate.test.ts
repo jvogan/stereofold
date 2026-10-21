@@ -1377,7 +1377,7 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     expect(offsets).toEqual([['left', [0, 0, -0.2]]]);
   });
 
-  it('keeps growing and travelling beyond the former saved-pose limits while held', () => {
+  it('bounds held resizing to five times entry size while preserving wearer travel', () => {
     const source = readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs', import.meta.url), 'utf8');
     const start = source.indexOf('  function applyGrabDelta(');
     const end = source.indexOf('\n  }\n', start) + 5;
@@ -1386,7 +1386,7 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     inspectionState.place({ scale: 4, translation: [9, 0, -9] }, 'fixture');
     const drawn: any[] = [];
     const context: any = vm.createContext({
-      Mat4, Vec3, PLACEMENT_MAX_TRANSLATION, clampPlacementScale,
+      Mat4, Vec3, PLACEMENT_MAX_TRANSLATION, clampPlacementScale, roomEntry: { seat: { scale: 4 } },
       canManipulateNow: () => true,
       inspectionSnapshot: () => inspectionState.snapshot(),
       loadedSphere: () => ({ radius: 2 }),
@@ -1400,10 +1400,10 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     for (let step = 0; step < 3; step += 1) {
       context.applyGrabDelta({ translation: [0.4, 0, -0.4], scale: 2 });
     }
-    expect(drawn.map(frame => frame.scale * 4)).toEqual([8, 16, 32]);
+    expect(drawn.map(frame => frame.scale * 4)).toEqual([8, 16, 20]);
     const translation = inspectionState.snapshot().placement.translation.map((value: number, axis: number) => value + context.grabOffset[axis] / 2);
     expect(translation).toEqual([15, 0, -15]);
-    expect(normalizePlacement({ scale: context.grabScale * 4, translation }).scale).toBe(32);
+    expect(normalizePlacement({ scale: context.grabScale * 4, translation }).scale).toBe(20);
   });
 
   it.each([
@@ -1464,7 +1464,7 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     expect(inspectionState.snapshot().placement.scale).toBeCloseTo(original.scale * scaleFactor, 10);
     original.rotation.forEach((value, axis) => expect(inspectionState.snapshot().placement.rotation[axis]).toBeCloseTo(value, 10));
     expect(camera).toEqual(cameraBefore);
-    expect(cleared).toEqual([{ allowOffscreen: true, keepWearer: true, kind: 'retained-pose',
+    expect(cleared).toEqual([{ allowOffscreen: true, keepWearer: true, kind: 'retained-pose', announce: false,
       signal: expect.any(AbortSignal), isCurrent: expect.any(Function) }]);
     expect(cleared[0].isCurrent(), 'completed followup relinquishes ownership').toBe(false);
     expect(records.some(record => record.event === 'menu-clearance-deferred')).toBe(outcome !== 'clear');

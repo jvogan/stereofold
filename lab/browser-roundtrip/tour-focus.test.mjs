@@ -40,6 +40,7 @@ for (const path of ['voice', 'tour']) test(`${path}: framed emphasis emits one l
     .map(([id, cell]) => [id, JSON.parse(JSON.stringify(cell.params))]);
   const platesBefore = plateParams();
   const cellsBefore = new Map(h.labels.cells);
+  const commitsBefore = h.labels.commits.length;
   if (path === 'voice') {
     const { spatialVoiceAction } = await import('./voice-command-runner.mjs');
     const command = spatialVoiceAction('show me dyskerin', { lessonParts: h.h.emphasisState.parts });
@@ -51,13 +52,19 @@ for (const path of ['voice', 'tour']) test(`${path}: framed emphasis emits one l
     () => true, false, undefined, error => { throw error; });
   }
   assert.notDeepEqual(plateParams(), platesBefore, 'the real framing commits changed plate uniforms');
-  assert.deepEqual([...h.labels.cells.keys()], [...cellsBefore.keys()], 'framing retains the primitive topology');
-  for (const [id, cell] of h.labels.cells) {
-    assert.equal(cell, cellsBefore.get(id));
-    assert.ok(!id.endsWith('-leader') && !id.endsWith('-text'));
-  }
+  // Framing keeps every primitive it found. The focused plate it carried off
+  // its part gains that part's colour key in the same commit.
+  for (const [id, cell] of cellsBefore) assert.equal(h.labels.cells.get(id), cell, `framing retains ${id}`);
+  assert.deepEqual([...h.labels.cells.keys()].filter(id => !cellsBefore.has(id)), ['plate-1-key']);
+  assert.equal(h.labels.cells.get('plate-1-key').params.alpha, 1, 'Dyskerin, away from its part, shows its key');
+  for (const id of h.labels.cells.keys()) assert.ok(!id.endsWith('-leader') && !id.endsWith('-text'));
   assert.equal(h.records.filter(r => r.kind === 'xr-focus').length, 1);
   assert.equal(h.records.filter(r => r.kind === 'component-label-layout').length, 1);
   assert.equal(h.records.filter(r => r.kind === 'plate-update').length, 1);
   assert.equal(h.records.find(r => r.kind === 'component-label-layout').reason, 'emphasis+placement');
+  assert.equal(h.labels.session.passes(), 1, 'focus must not rebuild any text geometry');
+  assert.equal(h.labels.commits.length, commitsBefore + 1, 'one atomic uniform update');
+  assert.ok(h.labels.commits.at(-1).operations.every(op => op === 'update' || op === 'label'));
+  assert.equal(h.labels.cells.get('plate-0-backing').params.alpha, 0, 'GAR1 context disappears');
+  assert.equal(h.labels.cells.get('plate-1-backing').params.alpha, 1, 'Dyskerin retains full contrast');
 });

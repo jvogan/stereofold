@@ -1,4 +1,4 @@
-import { CIF } from 'molstar/lib/mol-io/reader/cif.js';
+import { CIF } from './compatible-cif.js';
 
 /**
  * The name the panel heading gives a structure.

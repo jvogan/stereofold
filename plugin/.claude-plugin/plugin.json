@@ -1,6 +1,6 @@
 {
   "name": "stereofold",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "description": "Put molecules in your headset and keep changing them with Claude. Reveal binding pockets, highlight residues, and explore molecular lessons while your computer and headset stay connected. Includes desktop stereo viewing and a local MCP server.",
   "author": {
     "name": "Jacob Vogan"

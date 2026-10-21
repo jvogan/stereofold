@@ -113,8 +113,10 @@ describe('the growth tiers', () => {
     // The filament carries no atoms at all, so an atom-site budget would wave
     // a mesh of any size through; a triangle budget applied to the atomic tube
     // would wave through the tier that drops the session. Both directions:
+    const coordinates = at('filament').stage.coordinates;
+    if (!coordinates.volume) throw Error('Expected a density tier');
     const huge: DemoStage = { ...at('filament').stage,
-      coordinates: { ...at('filament').stage.coordinates, volume: { ...at('filament').stage.coordinates.volume!, triangles: 600_000 } } };
+      coordinates: { ...coordinates, volume: { ...coordinates.volume, triangles: 600_000 } } };
     expect(at('filament').stage.coordinates.atomSites).toBe(0);
     expect(stageFitsTier(huge, 'quest2')).toBe(false);
     expect(stageFitsTier(huge, 'quest3')).toBe(true);
@@ -123,8 +125,10 @@ describe('the growth tiers', () => {
   });
 
   it('refuses a density tier in the unit it is actually measured in', () => {
+    const coordinates = at('filament').stage.coordinates;
+    if (!coordinates.volume) throw Error('Expected a density tier');
     const huge: DemoStage = { ...at('filament').stage,
-      coordinates: { ...at('filament').stage.coordinates, volume: { ...at('filament').stage.coordinates.volume!, triangles: 600_000 } } };
+      coordinates: { ...coordinates, volume: { ...coordinates.volume, triangles: 600_000 } } };
     const refusal = resolveGrowthTarget(stages.map(entry => entry.stage.id === 'filament' ? { ...entry, stage: huge } : entry),
       at('wall'), 'next', 'quest2');
     expect(refusal.refused).toBe(true);

@@ -115,7 +115,9 @@ test('the shipped getSpatialState carries the rendered subject, appearance and c
   const getterStart = viewer.indexOf('      getSpatialState:');
   const rows = [{ coordinateState: 'resolved', entityType: 'polymer', identity: { modelNumber: 2, copyId: 'copy', labelChain: 'A' } }];
   const state = { selectionKeys: ['a', 'b'] };
+  let placementMoves = 0;
   const context = vm.createContext({ ...emptyLessonFigureBinding(), readStructureSubject: createStructureSubjectReader(), state, representation: { obj: {} },
+    wearerPlacement: { state: () => ({ moves: placementMoves }) },
     paintedContextOpacity: value => value, visibilityState: { hiddenClasses: [] }, VISIBILITY_LAYER_REF: {}, plugin: { state: { data: { cells: new Map() } } }, emphasisState: { parts: [], focus: [] }, styleLayers: [], volume: undefined,
     sourceRecord: { pdbId: '4HHB', sha256: 'hash', title: 'Hemoglobin tetramer', catalog: { rows, assemblyId: '1' } },
     structure: { obj: { data: { model: { modelNum: 2 } } } },
@@ -129,6 +131,9 @@ test('the shipped getSpatialState carries the rendered subject, appearance and c
   vm.runInContext(viewer.slice(subjectStart, viewer.indexOf('\n  let sourceRecord', subjectStart)), context);
   const getter = vm.runInContext(`({${viewer.slice(getterStart, viewer.indexOf('      // The tour controller itself', getterStart))}}).getSpatialState`, context);
   assert.equal(getter().subject, undefined, 'no subject before a rendered snapshot');
+  assert.equal(getter().placementMoves, 0);
+  placementMoves++;
+  assert.equal(getter().placementMoves, 1, 'a grab takeover reaches the menu before molecular placement commits');
   assert.deepEqual(getter().representations, ['cartoon', 'spacefill']);
   assert.deepEqual(getter().history, { undoCount: 1, redoCount: 0, canUndo: true, canRedo: false });
   const rendered = { ready: true, modelNumber: 2, assemblyId: '1', selectionKeys: state.selectionKeys, representation: 'cartoon', color: 'chain-id' };
@@ -204,7 +209,7 @@ test('the compact hidden-chain plate keeps its title, visibility, appearance and
     selectionKeys: ['asu-B'], visibility: { hiddenChains: [{ labelChain: 'A', copyId: 'asu' }] } });
   const head = { position: { x: 0, y: 1.6, z: 0 }, matrix: [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1] };
   for (const collapsed of [true, false]) {
-    const panel = createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed }), readout: structureReadout(hidden) });
+    const panel = createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed }), readout: structureReadout(hidden), measureText: text => [...text].reduce((n, c) => n + (metrics.advances[c] ?? .6), 0) });
     const lines = panel.readoutPoints.map(row => row.text), text = lines.join(' ');
     assert.match(text, /Human deoxyhaemoglobin/u);
     assert.match(text, /3(?:\/| of )4 chains shown/u);
@@ -212,16 +217,28 @@ test('the compact hidden-chain plate keeps its title, visibility, appearance and
     assert.match(text, /cartoon by chain/u);
     assert.match(text, /1 selected/u);
     assert.ok(lines.length <= panel.readoutLineBudget);
-    assert.ok(lines.every(line => line.length <= panel.readoutWrapWidth));
+    assert.ok(lines.every(line => [...line].reduce((n, c) => n + (metrics.advances[c] ?? .6), 0) * panel.readoutFontMeters <= 2 * panel.captionBacking.halfWidth));
     assert.ok(panel.readoutPoints.every(row => row.point.every(Number.isFinite)));
   }
 });
 
-test('journey feedback appears above the retained structure and hidden chapter chrome keeps the readout', () => {
+test('journey feedback stays available while a hidden chapter card has no replacement source card', () => {
   const rows = runtime.tourReadout({ active: false, feedbackError: true, feedback: 'Could not render.' }, subject);
   assert.equal(rows[0].text, 'Could not render.');
-  assert.deepEqual(rows.slice(1), structureReadout(subject));
-  assert.deepEqual(runtime.tourReadout({ active: true, selectedId: 'lesson', captionCard: 'hidden' }, subject), structureReadout(subject));
+  assert.deepEqual(rows.slice(1), structureReadout(subject).map(line => ({ ...line, forwardViewCap: true })));
+  assert.deepEqual(runtime.tourReadout({ active: true, selectedId: 'lesson', captionCard: 'hidden' }, subject), []);
+});
+
+test('hidden gallery cards stay quiet during preparation but explicit Menu and errors remain readable', () => {
+  const tour = { active: true, selectedId: 'lesson', captionCard: 'hidden',
+    chapterPreview: { progress: 'Scene 2 / 17', title: 'Binder 02', bodyPage: 'Published metric' } };
+  assert.deepEqual(runtime.tourReadout({ ...tour, navigating: true }, subject), []);
+  assert.deepEqual(runtime.tourReadout({ ...tour, active: false, navigating: true }, subject), []);
+  assert.ok(runtime.tourReadout({ ...tour, chapterPreview: undefined, menuOpen: true }, subject).length > 0);
+  assert.equal(runtime.tourReadout({ ...tour, feedbackError: true, feedback: 'Could not render.' }, subject)[0].text,
+    'Could not render.');
+  assert.ok(runtime.tourReadout({ ...tour, active: false, chapterPreview: undefined }, subject).length > 0,
+    'finishing the lesson restores the ordinary source card');
 });
 
 // `Above us` moved the structure three metres over the
@@ -234,26 +251,24 @@ test('a placement sentence rides above the structure readout, in every caption s
   const placement = { text: 'Above you · look up' };
   const idle = runtime.tourReadout({ active: false, menuOpen: false }, subject, undefined, { placement });
   assert.equal(idle[0].text, 'Above you · look up');
-  assert.deepEqual(idle.slice(1), structureReadout(subject));
+  assert.deepEqual(idle.slice(1), structureReadout(subject).map(line => ({ ...line, forwardViewCap: true })));
   // The journey's own feedback still comes first: it is the answer to what the
   // wearer just asked for, and the placement is context under it.
   const failed = runtime.tourReadout({ active: false, feedbackError: true, feedback: 'Could not render.' },
     subject, undefined, { placement });
   assert.deepEqual(failed.map(row => row.text).slice(0, 2), ['Could not render.', 'Above you · look up']);
-  // Inside a running chapter the sentence sits under the narration and over the
-  // readout, never between the title and its progress row.
+  // Inside a running chapter the sentence sits under the narration, never
+  // between the title line and the caption. The chapter card carries none of
+  // the structure readout: that belongs to the menu readout.
   const chapter = runtime.tourReadout({ active: true, selectedId: 'lesson', title: 'Meet the tetramer',
-    progress: 'Scene 1 / 20', bodyPage: 'Four subunits.', autoplay: true }, subject, 0, { placement });
-  const texts = chapter.map(row => row.text);
-  assert.deepEqual(texts.slice(0, 3), ['Meet the tetramer', 'Scene 1 / 20', 'Four subunits.']);
-  assert.equal(texts[3], 'Above you · look up');
-  assert.deepEqual(chapter.slice(4), structureReadout(subject).map(row => ({ ...row, optional: true })));
-  assert.equal(chapter[0].whole, true, 'the title retains priority over structure details');
-  assert.equal(chapter[2].whole, true, 'the narration retains priority over structure details');
+    progress: 'Scene 1 / 20', step: 0, total: 20, bodyPage: 'Four subunits.', autoplay: true }, subject, 0, { placement });
+  assert.deepEqual(chapter.map(row => row.text), ['Meet the tetramer · 1/20', 'Four subunits.', 'Above you · look up']);
+  assert.equal(chapter[0].whole, true, 'the title is never cut');
+  assert.equal(chapter[1].whole, true, 'the narration is never cut');
   // A lesson that has asked for a bare structure gets one: no chrome, and no
   // placement line either.
   assert.deepEqual(runtime.tourReadout({ active: true, selectedId: 'lesson', captionCard: 'hidden' },
-    subject, undefined, { placement }), structureReadout(subject));
+    subject, undefined, { placement }), []);
   // No note, and the plate is byte-for-byte what it was before this change.
   assert.deepEqual(runtime.tourReadout({ active: false }, subject, undefined, {}),
     runtime.tourReadout({ active: false }, subject));
@@ -323,7 +338,7 @@ test('spoken reply and readout coexist through refreshes and stale clears until 
   assert.match(captionText({ outcome: 'Now in sticks.' }), /Link to the Mac lost/u);
 });
 
-const metrics = JSON.parse(readFileSync(new URL('./fixtures/toolbar-font-metrics.json', import.meta.url)));
+const metrics = JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url)));
 const measureText = text => Array.from(text).reduce((sum, glyph) => sum + (metrics.advances[glyph] ?? .6), 0);
 const measuredRuntime = await toolbarFrameRuntime(new URL('./', import.meta.url), { glyphAdvances: metrics.advances });
 
@@ -481,7 +496,7 @@ test('the plate says the journey chooser closed, and takes the sentence back dow
     feedback: runtime.CHOOSER_CLOSED_LINE, chapterStartedAt: closedAt };
   const drawn = runtime.tourReadout(shut, subject, closedAt + 250);
   assert.equal(drawn[0].text, 'Tour chooser closed');
-  assert.deepEqual(drawn.slice(1), structureReadout(subject));
+  assert.deepEqual(drawn.slice(1), structureReadout(subject).map(line => ({ ...line, forwardViewCap: true })));
   // A reading window, not a state: the resting caption comes back on its own.
   assert.deepEqual(runtime.tourReadout(shut, subject, closedAt + runtime.CHOOSER_CLOSED_WINDOW_MS),
     runtime.tourReadout({ active: false, menuOpen: false }, subject));
@@ -532,8 +547,8 @@ test('both players write the sentence the plate draws, and stamp the clock it re
  */
 test('the description paging is published to the menu hook, from the plate through to the driver', () => {
   const toolbar = readFileSync(new URL('./spatial-toolbar.mjs', import.meta.url), 'utf8');
-  assert.match(toolbar, /readout: \(\) => descriptionPaging\(getState\(\)\?\.subject\)/u,
-    'the toolbar publishes the same paging call its Pg row label is drawn from');
+  assert.match(toolbar, /readout: \(\) => \{ const state = presentationState\(\); return \{ \.\.\.readoutPaging\(state\), cardHoldMs: cardHoldMs\(state\) \}; \}/u,
+    'the toolbar publishes the same paging call its Pg row label is drawn from, with the card\'s reading hold');
   const session = readFileSync(new URL('./immersive-session.mjs', import.meta.url), 'utf8');
   assert.match(session, /toolbarReadout: \(\) =>/u, 'the session forwards it');
   const viewer = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');

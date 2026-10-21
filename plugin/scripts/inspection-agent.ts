@@ -12,6 +12,12 @@
  * yours is used unchanged, so a deliberate stale-revision call still fails the
  * way it should.
  *
+ * `control_tour`, `install_lesson` and `update_inspection` are sent without
+ * the two revisions unless you supply them. The host fills them on arrival,
+ * and a command waiting for the headset then follows the wearer's placement
+ * saves (a grab, a stick nudge, the VR entry seat) instead of conflicting
+ * with them; a scientific edit made meanwhile still refuses it.
+ *
  * `--panel` names the surface instead of a panel ID, for the calls where the
  * surface is the point: a change meant for the Mac's own tab, or the
  * return-to-desktop view action the server refuses anywhere else. Without it
@@ -19,7 +25,10 @@
  *
  * `--utterance` declares an utterance before the call it wraps and threads the
  * ID the host allocated into it, which is how a correction reaches the queue
- * ahead of the request it corrects instead of racing it.
+ * ahead of the request it corrects instead of racing it. On a headset panel
+ * the allocated ID is the agent's own turn: `say_to_headset --utterance begin`
+ * is shown and spoken, and a reply bound to that ID is refused as stale once
+ * the wearer speaks again or another utterance begins there.
  *
  * The result prints as the host's own sentences, followed by what the command
  * receipt says: a command tool answers `queued`, and only `rendered` means the
@@ -284,7 +293,8 @@ export async function bindArguments(state: ControlState, name: string, requested
  * that came before it, so they have to reach the queue before the replacement
  * command rather than beside it. The ID comes back in `lifecycle.utterance`,
  * and threading it into the wrapped call is what ties the two together; without
- * it the replacement is one more command in the same race.
+ * it the replacement is one more command in the same race. `begin` opens a
+ * turn with nothing to supersede, which is how the agent speaks first.
  */
 export async function declareUtterance(state: ControlState, action: UtteranceAction, requested: Record<string, unknown>, request = callLocalAgent):
   Promise<{ utteranceId: string; panelId: string; sequence?: number; superseded: number }> {
@@ -474,7 +484,9 @@ async function sendBoundAgentCall(state: ControlState, call: AgentCall, wait:Rec
     // reports the same error again and can displace the host's scoped caption.
     // Keep the declaration's exact target while the superseded render rolls
     // back. Re-selecting here would turn its busy heartbeat into a blur wait.
-    requested = { ...requested, panelId, utteranceId: declared.utteranceId };
+    // A reply names no panel: its utterance ID already says which turn it
+    // answers, and say_to_headset's strict schema refuses a panelId.
+    requested = { ...requested, ...(name === 'say_to_headset' ? {} : { panelId }), utteranceId: declared.utteranceId };
     utterance = { action: call.utterance, ...declared };
   }
 

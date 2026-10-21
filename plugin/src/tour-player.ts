@@ -8,10 +8,14 @@ import { READOUT_PAGE_LINE_WIDTH, READOUT_PAGE_LINES, pageCaptionText } from '..
 // @ts-ignore Shared JavaScript voice narration slot. the
 // page's own aside channel, the one a chapter's narration gate does not govern.
 import { voiceCommandSpeaker } from '../../lab/browser-roundtrip/voice-command-speaker.mjs';
-import type { ChapterMotion, ChapterMotionObject, LessonVisibility } from './molecular-lesson.js';
+import type { ChapterMotion, ChapterMotionObject, LessonVisibility, LessonStart } from './molecular-lesson.js';
+import type { MolecularAnimation } from './molecular-animation.js';
+import type { AnimationPatch } from '@stereo/motion';
 import type { LessonFigure } from './lesson-figure.js';
 // @ts-ignore Shared inspection visibility resolution, including absent chains.
 import { availableChains, componentClassesPresent, emptyVisibility, resolveVisibility, visibilityHidesEverything } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
+// @ts-ignore Shared saved selection ownership identity.
+import { selectionSignature } from '../../lab/browser-roundtrip/selection-paint.mjs';
 
 /** Chapter dwell constant for autoplay (holds for narration length plus dwell). */
 export const TOUR_AUTOPLAY_DWELL_MS = 2_500;
@@ -26,7 +30,8 @@ export type NormalizedChapterMotion =
   | { kind: 'hold' }
   | { kind: 'turntable'; continuous: true }
   | { kind: 'turntable'; continuous: false; degrees: number; seconds: number }
-  | { kind: 'orbit'; axis: 'x' | 'y' | 'z'; degrees: number; seconds: number }
+  | { kind: 'orbit'; axis: 'x' | 'y' | 'z' | readonly [number, number, number]; degrees: number; seconds: number;
+      delaySeconds?: number; easing?: TourCameraSpin['easing'] }
   | { kind: 'dolly'; metres: number; seconds: number };
 
 export function normalizeChapterMotion(motion?: ChapterMotion): NormalizedChapterMotion | undefined {
@@ -65,6 +70,47 @@ export function normalizeChapterMotion(motion?: ChapterMotion): NormalizedChapte
   return undefined;
 }
 
+/**
+ * The chapter motion this presentation plays.
+ *
+ * The authored immersive motion always wins. A headset chapter that authors
+ * none plays its desktop camera spin instead, as the same in-place orbit an
+ * authored one ticks. The flat page plays only what it always played.
+ */
+export function presentedChapterMotion(step: TourStep | undefined, xr: boolean): NormalizedChapterMotion | undefined {
+  const authored = normalizeChapterMotion(step?.motion);
+  if (authored || !xr || !step?.cameraSpin) return authored;
+  const { axis, degrees, seconds, delaySeconds, easing } = step.cameraSpin;
+  return { kind: 'orbit', axis, degrees, seconds, delaySeconds, easing };
+}
+
+/** A chapter's turn in the headset, as the viewer solves its seat for it. */
+export type ChapterTurnSweep = { axis: [number, number, number]; degrees: number; continuous: boolean };
+
+/**
+ * What a chapter's own turn sweeps in the headset, or nothing for a still one.
+ *
+ * `axis` is in render space and `degrees` is how far the drawn molecule turns
+ * about it. A spin is the presentation turn about render up, without end. An
+ * orbit or a timed turntable turns the camera about the drawn centre, so the
+ * molecule turns the other way by the same amount.
+ */
+export function chapterTurnSweep(step: TourStep | undefined, xr: boolean): ChapterTurnSweep | undefined {
+  if (!xr) return undefined;
+  const motion = presentedChapterMotion(step, xr);
+  if (motion?.kind === 'turntable')
+    return motion.continuous ? { axis: [0, 1, 0], degrees: 360, continuous: true }
+      : { axis: [0, 1, 0], degrees: -motion.degrees, continuous: false };
+  if (motion?.kind !== 'orbit' || !Number.isFinite(motion.degrees) || motion.degrees === 0) return undefined;
+  const axis = typeof motion.axis === 'string'
+    ? ({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] } as const)[motion.axis] : motion.axis;
+  return { axis: [axis[0], axis[1], axis[2]], degrees: -motion.degrees, continuous: false };
+}
+
+const easings: Record<TourCameraSpin['easing'], (u: number) => number> = {
+  linear: u => u, ease_in: u => u * u * u, ease_out: u => 1 - Math.pow(1 - u, 3), ease_in_out: easeInOut,
+};
+
 export type TourSelection = 'clear' | {
   chain?: string;
   componentIds?: string[];
@@ -82,6 +128,7 @@ export type TourSelection = 'clear' | {
 export type TourEmphasisPart = {
   id: string;
   label: string;
+  aliases?: readonly string[];
   color: string;
   chain?: string;
   residues?: { from: number; to: number };
@@ -89,6 +136,8 @@ export type TourEmphasisPart = {
 export type TourEmphasis = {
   parts: readonly TourEmphasisPart[];
   focus?: string | readonly string[];
+  /** Parts drawn in their key colour beside the focus, neither framed nor explained. */
+  alsoLit?: readonly string[];
   contextOpacity?: number;
   framing?: 'fill' | 'context';
   /** Whole-structure wall chapters shade one lightness step per protofilament. */
@@ -118,32 +167,138 @@ export type TourView = 'fit' | 'focus' | 'reset-orientation' | {
  * grabbing the structure.
  */
 export type LessonCameraMove =
-  | { kind: 'orbit'; axis: 'x' | 'y' | 'z'; degrees: number }
+  | { kind: 'orbit'; axis: 'x' | 'y' | 'z' | readonly [number, number, number]; degrees: number }
   | { kind: 'dolly'; factor: number };
+
+/**
+ * A lesson chapter's desktop `camera_spin`, carried for the headset.
+ *
+ * A chapter's `changes` drive the desktop movie and never reached a headset,
+ * so a "Slow orbit" chapter that turned only through `camera_spin` landed its
+ * authored placement and stood still in front of the wearer. A chapter that
+ * authors no immersive motion carries its first spin here: `degrees` about the
+ * spin's own `axis`, starting `delaySeconds` into the chapter (after the
+ * changes authored before it) and lasting `seconds`, with its easing. Only a
+ * presenting headset plays it (`presentedChapterMotion`).
+ */
+export type TourCameraSpin = {
+  axis: readonly [number, number, number];
+  degrees: number;
+  seconds: number;
+  delaySeconds: number;
+  easing: 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out';
+};
 
 export type TourStep = {
   id: string;
   title: string;
   body?: string;
   description?: string;
+  /** Optional desktop source disclosure, excluded from captions and speech. */
+  details?: string;
   appearance?: Record<string, unknown>;
   /** Several visual changes in their deliberate presentation order. */
   appearances?: readonly Record<string, unknown>[];
   placement?: Record<string, unknown>;
   /** The lesson colour key plus the one part this scene emphasises. */
   emphasis?: TourEmphasis;
+  /** Authored name catalog; aliases and extra targets never become chapter plates. */
+  parts?: readonly TourEmphasisPart[];
   visibility?: LessonVisibility;
   figure?: LessonFigure;
+  animation?: MolecularAnimation;
   selection?: TourSelection;
   view?: TourView;
   /** The continuous presentation turn or authored cinematic motion this scene wants. */
   motion?: ChapterMotion;
+  /** The desktop camera spin a headset plays when `motion` is absent. */
+  cameraSpin?: TourCameraSpin;
   /** One spoken line, said at scene start. Falls back to the caption glass alone. */
   narration?: string;
   /** Minimum dwell for a lesson scene, including its caption. */
   durationMs?: number;
-  sources?: readonly { title: string; url: string }[];
+  sources?: readonly { title: string; url?: string }[];
 };
+
+/**
+ * An authored scale this many times the inherited one is a close-up. The
+ * tolerance keeps an exact 1.5× (1.1 → 1.65) one despite floating point.
+ */
+const CLOSE_UP_ENLARGEMENT = 1.5, CLOSE_UP_TOLERANCE = 1e-9;
+
+/** Stable framing identity excludes colour, labels, visibility and molecular motion. */
+function framingValue(value: unknown): string {
+  return JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
+}
+
+/** The desktop rule: any changed authored placement, view, framing or figure. */
+function desktopChapterAuthorsFraming(tour: Tour, index: number): boolean {
+  const entry = tour.steps[index], previous = tour.steps[index - 1];
+  if (!entry) return false;
+  const changed = (value: unknown, prior: unknown) => value !== undefined && framingValue(value) !== framingValue(prior);
+  // Placement is a patch: omitted axes inherit, and repeating one axis is ordinary.
+  const placement = Object.assign({}, ...tour.steps.slice(0, index).map(step => step.placement));
+  if (entry.placement && Object.entries(entry.placement).some(([key, value]) => changed(value, placement[key]))) return true;
+  const view = (step?: TourStep) => step?.view === 'focus'
+    ? { view: step.view, selection: step.selection } : step?.view;
+  if (changed(view(entry), view(previous))) return true;
+  const emphasis = (step?: TourStep) => {
+    if (!step) return undefined;
+    const authored = stepEmphasis(step, lessonRestingState(tour));
+    if (!authored.framing) return undefined;
+    const focus = [authored.focus ?? []].flat();
+    return { framing: authored.framing, targets: focus.length ? authored.parts
+      .filter(part => focus.includes(part.id))
+      .map(part => ({ chain: part.chain, residues: part.residues }))
+      .map(framingValue).sort() : 'whole' };
+  };
+  if (changed(emphasis(entry), emphasis(previous))) return true;
+  // A figure without focus frames the whole source, irrespective of its layers.
+  const figure = (step?: TourStep) => step?.figure
+    ? (step.figure.focus?.map(framingValue).sort() ?? 'whole') : undefined;
+  return changed(figure(entry), figure(previous));
+}
+
+/**
+ * Whether this chapter is an authored close-up, which may take over the
+ * wearer's placement. Compare with the authored predecessor, so Back uses the
+ * same entry rule as Next.
+ *
+ * In the headset (`xr`), only a new authored seat, a marked enlargement,
+ * `view: 'focus'`, a figure focus or a targeted emphasis framing is a
+ * close-up. A turn or a small resize is not: the templated orbit chapters keep
+ * the wearer's placement. Neither is a whole-source view, figure or framing,
+ * and an opening chapter is no close-up merely because nothing precedes it.
+ * The desktop keeps its rule, where every authored change applies.
+ */
+export function chapterAuthorsFraming(tour: Tour, index: number, { xr = true }: { xr?: boolean } = {}): boolean {
+  if (!xr) return desktopChapterAuthorsFraming(tour, index);
+  const entry = tour.steps[index], previous = tour.steps[index - 1];
+  if (!entry) return false;
+  const changed = (value: unknown, prior: unknown) => value !== undefined && framingValue(value) !== framingValue(prior);
+  // Placement is a patch: omitted axes inherit, and repeating one axis is ordinary.
+  const placement: Record<string, unknown> = Object.assign({ translation: [0, 0, 0], scale: 1 }, ...tour.steps.slice(0, index).map(step => step.placement));
+  if (changed(entry.placement?.translation, placement.translation)) return true;
+  if (Number(entry.placement?.scale) >= CLOSE_UP_ENLARGEMENT * Number(placement.scale) * (1 - CLOSE_UP_TOLERANCE)) return true;
+  const view = (step?: TourStep) => step?.view === 'focus'
+    ? { view: step.view, selection: step.selection } : undefined;
+  if (changed(view(entry), view(previous))) return true;
+  const emphasis = (step?: TourStep) => {
+    if (!step) return undefined;
+    const authored = stepEmphasis(step, lessonRestingState(tour));
+    const focus = [authored.focus ?? []].flat();
+    if (!authored.framing || !focus.length) return undefined;
+    return { framing: authored.framing, targets: authored.parts
+      .filter(part => focus.includes(part.id))
+      .map(part => ({ chain: part.chain, residues: part.residues }))
+      .map(framingValue).sort() };
+  };
+  if (changed(emphasis(entry), emphasis(previous))) return true;
+  const figure = (step?: TourStep) => step?.figure?.focus?.length
+    ? step.figure.focus.map(framingValue).sort() : undefined;
+  return changed(figure(entry), figure(previous));
+}
 
 export type Tour = { id: string; title: string; summary: string; steps: readonly TourStep[]; presentation?: TourPresentation };
 
@@ -156,15 +311,16 @@ export type Tour = { id: string; title: string; summary: string; steps: readonly
  * counter and narration lines — is not drawn; narration and the Talk button
  * keep working.
  */
-export type TourPresentation = { captionCard: 'hidden' | 'shown'; end?: 'rest' | 'hold' };
+export type TourPresentation = { captionCard: 'hidden' | 'shown'; end?: 'rest' | 'hold'; continueToStage?: string; coordinateFrame?: string };
+export type StageContinuationIntent = { isCurrent(): boolean; beginTransition(): void; shouldAutoplay(): boolean };
 type Scene = unknown;
 export type SavedLessonPlayback = {
-  tourId: string; chapterId: string; stopped: boolean; narration?: boolean; startingScene: any;
+  tourId: string; chapterId: string; stopped: boolean; narration?: boolean; entry?: 'start'; motionProgress?: number; motionPlaying?: boolean; cameraFrame?: 'desktop' | 'xr'; startingScene: any;
 };
 /** Keep Done's baseline finite even when a lesson is restarted mid-chapter. */
 export function withoutLessonPlayback(scene: any): any {
   const result = structuredClone(scene);
-  if (result?.inspection) delete result.inspection.lessonPlayback;
+  if (result?.inspection) { delete result.inspection.lessonPlayback; delete result.inspection.animation; }
   return result;
 }
 /** Check the source and current catalog before hydration can change the viewer. */
@@ -175,19 +331,53 @@ export function savedLessonPlayback(scene: any, tours: readonly Tour[]): SavedLe
   if (!saved || typeof saved.tourId !== 'string' || typeof saved.chapterId !== 'string'
       || typeof saved.stopped !== 'boolean' || !start?.inspection || start.inspection.lessonPlayback !== undefined
       || (saved.narration !== undefined && typeof saved.narration !== 'boolean')
+      || (saved.entry !== undefined && saved.entry !== 'start')
+      || (saved.cameraFrame !== undefined && saved.cameraFrame !== 'desktop' && saved.cameraFrame !== 'xr')
+      || (saved.motionPlaying !== undefined && typeof saved.motionPlaying !== 'boolean')
+      || (saved.motionProgress !== undefined && (!Number.isFinite(saved.motionProgress) || saved.motionProgress < 0 || saved.motionProgress > 1))
       || start.sourceSha256 !== scene.sourceSha256 || start.modelNumber !== scene.modelNumber
       || start.assemblyId !== scene.assemblyId)
     throw Error('The saved lesson does not match this source, model and assembly.');
-  const tour = tours.find(entry => entry.id === saved.tourId);
-  if (!tour?.steps.some(entry => entry.id === saved.chapterId))
-    throw Error('The saved lesson chapter is unavailable in this source.');
+  const chapter = savedLessonChapter(saved, tours);
+  if (!chapter) throw Error('The saved lesson chapter is unavailable in this source.');
+  if (playsWithoutAnimation(scene, saved, chapter))
+    throw Error(`The saved lesson is playing "${chapter.title}" without its animation. Restart the chapter to draw it again.`);
   return structuredClone(saved);
+}
+const savedLessonChapter = (saved: any, tours: readonly Tour[]): TourStep | undefined =>
+  tours.find(entry => entry.id === saved?.tourId)?.steps.find(entry => entry.id === saved?.chapterId);
+/**
+ * A playing chapter that moves is only whole with its clock.
+ *
+ * Without it the bodies sit at rest with every copy and label showing, and the
+ * animation controls answer that there is nothing to play. A stopped lesson may
+ * have lost it to the wearer; a paused clock is still saved.
+ */
+const playsWithoutAnimation = (scene: any, saved: any, chapter: TourStep): boolean =>
+  saved?.stopped === false && Boolean(chapter.animation)
+    && scene?.inspection?.animation?.playback?.chapterId !== chapter.id;
+/**
+ * Open a saved lesson that plays without its animation as stopped.
+ *
+ * Scenes saved before chapters were drawn whole can hold that cursor, and
+ * `savedLessonPlayback` refuses it, so a page hydrating one would never open.
+ * Stopped, it opens on the same chapter and Rejoin draws the chapter again.
+ * Any other scene comes back as it was, for `savedLessonPlayback` to judge.
+ */
+export function stopUnanimatedLessonPlayback<T>(scene: T, tours: readonly Tour[]): T {
+  const saved = (scene as any)?.inspection?.lessonPlayback;
+  const chapter = savedLessonChapter(saved, tours);
+  if (!chapter || !playsWithoutAnimation(scene, saved, chapter)) return scene;
+  const result = structuredClone(scene) as any;
+  result.inspection.lessonPlayback.stopped = true;
+  return result;
 }
 type WorkspaceRow = { key: string; entityType?: string; identity: { authorChain?: string; authorResidue?: number | string | null; componentId?: string;
   labelChain?: string; copyId?: string; modelNumber?: number } };
 type TourSceneVisibility = { hiddenChains: { labelChain: string; copyId: string }[]; hiddenClasses: string[]; showOnlySelection: boolean };
 export type Workspace = {
-  snapshot(): { ready?: boolean; status?: string; sourceSha256?: string; xrPresenting?: boolean; interactionActive?: boolean; selectionKeys?: string[]; modelNumber?: number;
+  snapshot(): { ready?: boolean; status?: string; sourceSha256?: string; xrPresenting?: boolean; interactionActive?: boolean; selectionKeys?: string[]; modelNumber?: number; assemblyId?: string;
+    animation?: { timeSeconds: number; durationSeconds: number; loop: boolean } | null;
     /** The tier's size, which is what a scene's bounds scale with. */
     atomCount?: number;
     /**
@@ -206,19 +396,31 @@ export type Workspace = {
       wall?: number; crown?: number; other?: number; uniform?: string | null } | null;
     inspection?: { appearance?: Record<string, unknown>; placement?: Record<string, unknown> } };
   rows(): WorkspaceRow[];
+  /** Residue metadata without the expensive atom-coordinate clone. */
+  identityRows?(): WorkspaceRow[];
   capture(): Scene;
   runTour(action: () => Promise<void>): Promise<unknown>;
   setStatus(message: string, error?: boolean): void;
   viewer: {
-    xr?: { refreshToolbar?(): Promise<unknown> };
-    select(keys: string[]): Promise<unknown>;
+    xr?: { refreshToolbar?(): Promise<unknown>; toolbarReadout?(): { cardHoldMs?: number } | null };
+    /** `lesson` marks a selection the lesson made: its colour key marks those rows, not the selection mark. */
+    select(keys: string[], action?: string, options?: { lesson?: boolean }): Promise<unknown>;
     focus(keys: string[]): Promise<unknown>;
+    focusSelection?(options: { wholeStructure: boolean; liftEmphasis: boolean; elevationDegrees: number }): Promise<unknown>;
     inspection: {
+      /** Chapter mutations preserve live manipulation and do not require release. */
+      supportsConcurrentPlayback?: boolean;
+      /** Source-owned interchangeable figures keep their established view. */
+      preservesFigureFrame?(): boolean;
+      /** Bind verified lesson coordinate metadata to this exact loaded source. */
+      setSourceCoordinateFrame?(frame: string | undefined, expectedSource: string): unknown;
       /** Page viewers settle placement, appearance and emphasis with one label solve. */
       batchComponentLabels?(operation: () => Promise<void>): Promise<void>;
       configure(patch: Record<string, unknown>): Promise<unknown>;
       place(patch: Record<string, unknown>, action?: string): Promise<unknown>;
       fit(): Promise<unknown>;
+      /** Seat a new source as XR entry does, after its opening chapter paints. */
+      seatForEntry?(): Promise<unknown>;
       resetOrientation(): Promise<unknown>;
       orbit(axis: 'x' | 'y' | 'z', degrees: number): Promise<unknown>;
       dolly(factor: number): Promise<unknown>;
@@ -242,6 +444,13 @@ export type Workspace = {
       setVisibility?(value: TourSceneVisibility): Promise<unknown>;
       visibility?(): TourSceneVisibility;
       visibilityChains?(): { labelChain: string; copyId: string }[];
+      prepareMolecularAnimation?(animation: MolecularAnimation): Promise<unknown>;
+      animationFramingContext?(animation?: MolecularAnimation): unknown;
+      setMolecularAnimation?(animation?: MolecularAnimation, chapterId?: string,
+        framing?: { frame?: boolean; context?: unknown; framing?: 'fill' | 'context' }): Promise<unknown>;
+      setAnimatedChapter?(animation: MolecularAnimation, chapterId: string | undefined, figure: LessonFigure | undefined,
+        framing?: { frame?: boolean; context?: unknown; framing?: 'fill' | 'context'; toolbarReady?: Promise<unknown> }): Promise<unknown>;
+      controlMolecularAnimation?(patch: AnimationPatch): unknown;
       setLessonFigure?(value: LessonFigure | undefined, options?: { frame?: boolean }): Promise<unknown>;
       /** Metadata only: it must not emit a viewer mutation or replay a chapter. */
       setLessonPlayback?(value: SavedLessonPlayback | undefined): void;
@@ -256,6 +465,15 @@ export type Workspace = {
        * always did.
        */
       holdsWearerPlacement?(): boolean;
+      /** Release local ownership once on entry to a changed authored frame. */
+      beginChapterFraming?(): void;
+      /**
+       * The tour starts painting this chapter, or ends (undefined). Until the
+       * chapter's own animation installs, the motion drawn is another's.
+       */
+      chapterPainting?(chapterId: string | undefined, options?: { turn?: ChapterTurnSweep }): void;
+      /** Whether the chapter was framed as a close-up the wearer stands inside, so its spin holds still. */
+      holdsTurnStill?(chapterId: string): boolean;
       /**
        * Take this lesson's fade off, if it is still ours.
        * A no-op when the live key was asked for by the wearer or an agent.
@@ -270,13 +488,13 @@ export type Workspace = {
        * and the next release repainted the structure in its colours.
        * Optional: a viewer built before the baseline existed answers nothing.
        */
-      setLessonRestingState?(value: LessonRestingState | undefined): Promise<unknown>;
+      setLessonRestingState?(value: LessonRestingState | undefined, options?: { preserveEmphasis?: boolean }): Promise<unknown>;
       // Immersive presentation owns the wearer camera. A rich saved scene
       // remains complete, but XR tour playback must not replay its desktop
       // camera snapshot into a live headset view.
-      restore(scene: Scene, options?: { preserveCamera?: boolean; preservePlacement?: boolean }): Promise<unknown>;
+      restore(scene: Scene, options?: { preserveCamera?: boolean; preservePlacement?: boolean; restorePlacement?: boolean }): Promise<unknown>;
       /** Restore the XR column after the starting scene and resting state land. */
-      restoreTourSeat?(): Promise<unknown>;
+      restoreTourSeat?(options?: { restart?: boolean }): Promise<unknown>;
     };
   };
 };
@@ -295,14 +513,12 @@ export type TourPlayerState = Readonly<{
   /**
    * When the live chapter's scene landed, on `performance.now()`.
    *
-   * The headset caption plate shows a chapter's whole spoken line for
-   * `CAPTION_FULL_MS` (4 s, `wearer-placement.mjs`) and then keeps only the
-   * title and the page row, so the captions stop filling the space
-   * in front of a molecule the wearer is trying to look at. The clock has to
-   * be the one `spatial-toolbar.mjs` reads the window against — since page
-   * load, not since the epoch — or every window is closed before it opens.
-   * Absent until a scene has landed, and cleared by anything that leaves the
-   * lesson: no chapter, no window.
+   * Autoplay counts the dwell already spent from it, and the headset plate
+   * times its chooser-closed sentence from it, so the clock has to be the one
+   * `spatial-toolbar.mjs` reads — since page load, not since the epoch — or
+   * every window is closed before it opens. Absent
+   * until a scene has landed, and cleared by anything that leaves the lesson:
+   * no chapter, no window.
    */
   chapterStartedAt?: number;
   /** Incoming caption only; step/active and receipts still describe the rendered chapter. */
@@ -482,9 +698,11 @@ export async function placeLessonScene(workspace: Workspace, options: {
   placeExperienceStep?: () => Promise<void>;
   /** Fresh source only; saved scenes already carry their current hidden set. */
   applyInitialVisibility?: boolean;
+  /** A saved chapter already owns its drawn key. */
+  preserveEmphasis?: boolean;
 }): Promise<void> {
   if (options.placeExperienceStep) await workspace.runTour(options.placeExperienceStep);
-  await workspace.viewer.inspection.setLessonRestingState?.(lessonRestingState(options.tour));
+  await workspace.viewer.inspection.setLessonRestingState?.(lessonRestingState(options.tour), { preserveEmphasis: options.preserveEmphasis });
   if (options.applyInitialVisibility) await applyTourVisibility(workspace, options.tour?.steps[0]?.visibility);
 }
 
@@ -493,18 +711,28 @@ export async function placeLessonScene(workspace: Workspace, options: {
  * controller. The actions intentionally expose no scene or camera access.
  */
 export type TourPlayer = Readonly<{
-  pause(reason?: string): void;
+  /** Admission bookkeeping must leave the saved molecular playback untouched. */
+  pause(reason?: string, options?: { preserveMolecularPlayback?: boolean }): void;
   /**
    * Agent edits and XR manipulation keep the chapter playing. Source changes
    * and explicit playback controls still stop it.
    */
-  notifyMutation(snapshot?: { sourceSha256?: string; xrPresenting?: boolean; interactionActive?: boolean }, options?: { agent?: boolean; interaction?: boolean }): void;
-  stop(reason?: string, options?: { restoreResting?: boolean }): void;
+  notifyMutation(snapshot?: { sourceSha256?: string; xrPresenting?: boolean; interactionActive?: boolean }, options?: { agent?: boolean; interaction?: boolean; origin?: 'automatic-clearance' | 'xr-entry' }): void;
+  /** Frame a pending map opening only after the tracked entry seat settles. */
+  frameXrEntry(): Promise<void>;
+  stop(reason?: string, options?: { restoreResting?: boolean; preserveScene?: boolean; preserveContinuation?: boolean }): void;
+  /**
+   * What the last chapter, lesson install or Done left on screen, captured
+   * inside its workspace action before anything queued behind it could land.
+   * `serial` counts those actions. A page putting a failed command's scene
+   * back reads the wearer's later edits against this.
+   */
+  drawnScene?(): { scene: Scene; serial: number } | undefined;
   getState(): TourPlayerState;
-  select(id: string): Promise<void>;
+  select(id: string, options?: { preserveMolecularPlayback?: boolean; preserveContinuation?: boolean }): Promise<void>;
   cycleTour(): Promise<void>;
   /** `startAt` opens the lesson at one chapter; 'last' is its closing scene. */
-  start(autoStart?: boolean, startAt?: number | 'last', options?: { narration?: boolean }): Promise<void>;
+  start(autoStart?: boolean, startAt?: number | 'last', options?: { narration?: boolean; waitForXrEntry?: boolean; preserveContinuation?: boolean }): Promise<void>;
   restoreStart(): Promise<void>;
   /** End the visit and restore its starting view, including an early Done. */
   finish(reason?: 'completed' | 'done'): Promise<void>;
@@ -516,9 +744,12 @@ export type TourPlayer = Readonly<{
    * comes back rejects. The chapter is already on screen either way.
    */
   retryEmphasis(): Promise<string>;
-  replaceTours(tours: readonly Tour[]): Promise<void>;
+  replaceTours(tours: readonly Tour[], options?: { preservePlayback?: boolean; preserveMolecularPlayback?: boolean; preserveContinuation?: boolean }): Promise<void>;
+  installLesson(tour: Tour, start?: LessonStart, confirm?: () => Promise<void>, frame?: boolean | 'auto' | 'entry'): Promise<void>;
+  /** Resume a pending installation only after its rendered receipt is confirmed. */
+  confirmLessonInstallation(): void;
   /** Adopt the already-restored scene and cursor silently, with autoplay off. */
-  restorePlayback(scene: Scene): void;
+  restorePlayback(scene: Scene, options?: { frame?: boolean; waitForXrEntry?: boolean }): void | Promise<void>;
   validatePlayback(scene: Scene): void;
   back(): Promise<void>;
   next(): Promise<void>;
@@ -595,7 +826,7 @@ export function xrStepChanges(
   // is the most visible thing a chapter can do, but appearance and placement
   // are identical across those chapters, so without this every chapter after
   // the first reads as a silent no-op and the first press skips past them.
-  return [...(step.motion ? ['motion'] : []), ...(step.emphasis ? ['emphasis'] : []),
+  return [...(step.motion || step.cameraSpin ? ['motion'] : []), ...(step.emphasis ? ['emphasis'] : []),
     ...(step.figure ? ['figure'] : []), ...(step.visibility ? ['visibility'] : []),
     ...differing(step.appearance, live?.appearance, XR_SUBTLE_APPEARANCE, 'appearance'),
     ...differing(step.placement, live?.placement, new Set(), 'placement')];
@@ -655,23 +886,24 @@ export const captionLine = (step?: TourStep): string => step?.narration?.trim() 
 /**
  * The caption pages one scene owes the plate.
  *
- * A spoken line is never paginated: every bundled one is under a dozen words,
- * and the plate wraps it at its own width, adding rows or easing the type
- * before it would ever cut. Only the fallback -- a catalog lesson's long
- * prose, which no eye holds at once -- keeps the `Page n/m` paging.
+ * The plate line goes whole. The chapter card wraps it at the width it draws
+ * and turns its own pages of three lines (`readoutPage` in the toolbar
+ * geometry). Cutting a catalog lesson's prose into 45-character pages here
+ * as well put one line a page on a card three lines deep, each ending `…`.
  */
 export const wearerPages = (step?: TourStep): string[] => {
-  const spoken = step?.narration?.trim();
-  return spoken ? [spoken] : pageText(text(step));
+  const line = captionLine(step);
+  return line ? [line] : pageText(line);
 };
 
 /**
- * Chapter autoplay dwell time. Holds for narration length (~3 words/sec) plus TOUR_AUTOPLAY_DWELL_MS (2.5s).
+ * Silent playback respects authored duration; otherwise reserve caption/speech reading time.
  */
-export function tourStepDwellMs(step?: TourStep, defaultDelayMs = 0): number {
+export function tourStepDwellMs(step?: TourStep, defaultDelayMs = 0, narration = true): number {
   if (!step) return defaultDelayMs;
-  const narration = captionLine(step);
-  const words = narration.trim().split(/\s+/u).filter(Boolean).length;
+  if (!narration && step.durationMs !== undefined) return Math.max(step.durationMs, defaultDelayMs);
+  const line = captionLine(step);
+  const words = line.trim().split(/\s+/u).filter(Boolean).length;
   const narrationDurationMs = words > 0 ? Math.ceil(words / 3 * 1_000) : 0;
   return Math.max(narrationDurationMs + TOUR_AUTOPLAY_DWELL_MS, step.durationMs ?? 0, defaultDelayMs);
 }
@@ -812,9 +1044,31 @@ export function tourOperationTimeoutMs(atomCount?: number): number {
   return Math.min(TOUR_OPERATION_TIMEOUT_CAP_MS,
     TOUR_OPERATION_TIMEOUT_MS + Math.ceil(over / 1_000) * TOUR_MS_PER_1K_ATOM_SITES);
 }
-/** The outer net, never tighter than the operations it has to contain. */
+/**
+ * The bound on one molecular animation install: bodies, framing and figure.
+ *
+ * Measured on a Quest 2, the whole install never took longer than 2.4 s over
+ * about fifty chapter starts and changes of the three motion demos. The
+ * 32,916-site kinesin walk took 0.6 to 2.4 s, and the 34,413-site ATP synthase
+ * rotor, the largest, took 0.3 to 1.3 s. The per-operation rule gives these 40
+ * and 42 s, more than sixteen times the slowest, so it stays the install's
+ * bound. The emulated Quest 2 on a Mac took 43 to 72 s for the same install.
+ * That session draws one to three frames a second against the headset's 72,
+ * and the install builds its bodies frame by frame. A longer bound would only
+ * leave a wearer looking at a hung chapter for longer.
+ */
+export function tourAnimationInstallTimeoutMs(atomCount?: number): number {
+  return tourOperationTimeoutMs(atomCount);
+}
+/**
+ * The outer net, never tighter than the operations it has to contain.
+ *
+ * A failed chapter puts back the scene it found before it gives up. That can
+ * add one operation bound waiting for the abandoned work to settle, and one
+ * more for the restore, on top of the operation that failed.
+ */
 export function tourSceneTimeoutMs(atomCount?: number): number {
-  return Math.max(TOUR_SCENE_TIMEOUT_MS, 2 * tourOperationTimeoutMs(atomCount));
+  return Math.max(TOUR_SCENE_TIMEOUT_MS, 3 * tourOperationTimeoutMs(atomCount));
 }
 /** A spoken line that never comes back is recorded, never awaited by a scene. */
 export const TOUR_NARRATION_TIMEOUT_MS = 30_000;
@@ -848,8 +1102,12 @@ export const EMPHASIS_RETRY_FAILURE_LINE = 'The retry failed too. We carry on.';
  * message, so the copy stays free to change.
  */
 const TOUR_DEADLINE = Symbol.for('stereofold.tourDeadline');
-function tourDeadlineError(message: string): Error {
-  return Object.assign(Error(message), { [TOUR_DEADLINE]: true });
+/** The work a bound stopped waiting for; it is still running in the viewer. */
+const TOUR_ABANDONED = Symbol.for('stereofold.tourAbandoned');
+function tourDeadlineError(message: string, abandoned?: Promise<unknown>): Error {
+  const error = Object.assign(Error(message), { [TOUR_DEADLINE]: true });
+  if (abandoned) Object.defineProperty(error, TOUR_ABANDONED, { value: abandoned });
+  return error;
 }
 /** Whether this rejection is a bound firing rather than the work failing. */
 export function isTourDeadlineError(error: unknown): boolean {
@@ -867,12 +1125,49 @@ export function withTourDeadline<T>(label: string, work: Promise<T> | T | undefi
     defer(() => {
       if (settled) return;
       settled = true;
-      reject(tourDeadlineError(`This lesson scene's ${label} did not finish within ${Math.round(timeoutMs / 1_000)} seconds.`));
+      reject(tourDeadlineError(`This lesson scene's ${label} did not finish within ${Math.round(timeoutMs / 1_000)} seconds.`, pending));
     }, timeoutMs);
     pending.then(
       value => { if (!settled) { settled = true; resolve(value); } },
       error => { if (!settled) { settled = true; reject(error as Error); } });
   });
+}
+
+/**
+ * Run one chapter operation within its bound, and again if the viewer was busy.
+ *
+ * The viewer refuses work with `viewer_busy` before it changes anything, so
+ * the same call can go again once the viewer reports ready. On an emulated
+ * Quest 2 a menu clearance held the viewer just as the kinesin lesson's second
+ * chapter asked for its appearance, and that one refusal rolled the chapter
+ * back and left the lesson paused on chapter 1. Every attempt shares the
+ * operation's one bound, so a viewer still busy at its end fails the chapter
+ * with the refusal, as it did before. `current` ends the retry once the visit
+ * has been withdrawn, so a changed source never receives the old chapter's work.
+ */
+function withViewerRetry<T>(workspace: Workspace, label: string, start: () => Promise<T> | T | undefined,
+  timeoutMs: number, current: () => boolean = () => true): Promise<T | undefined> {
+  const began = Date.now(), until = began + timeoutMs;
+  // Each attempt runs against the operation's deadline, not a fresh bound.
+  const deadline = (callback: () => void) => setTimeout(callback, Math.max(0, until - Date.now()));
+  const attempt = () => {
+    try { return withTourDeadline(label, start(), timeoutMs, deadline); }
+    catch (error) { return Promise.reject(error); }
+  };
+  const retry = async (error: unknown): Promise<T | undefined> => {
+    if ((error as { code?: string } | null)?.code !== 'viewer_busy') throw error;
+    do {
+      if (Date.now() >= until) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.min(50, until - Date.now())));
+    } while (!workspace.snapshot().ready);
+    if (Date.now() >= until || !current()) throw error;
+    try {
+      (globalThis as { __stereofoldDiagnostics?: { record?: (kind: string, detail: unknown) => unknown } })
+        .__stereofoldDiagnostics?.record?.('tour-retry', { phase: label, reason: 'viewer_busy', waitedMs: Date.now() - began });
+    } catch { /* Diagnostics cannot fail a chapter. */ }
+    return attempt().catch(retry);
+  };
+  return attempt().catch(retry);
 }
 
 /** An overview keeps the lesson key and names, with no chapter focus or fade. */
@@ -890,11 +1185,35 @@ function stepEmphasis(entry: TourStep, resting?: LessonRestingState): TourEmphas
   return emphasis;
 }
 
+/** An explicitly framed focus keeps its close-up when a figure adds annotations. */
+function framesEmphasisFocus(entry: TourStep): boolean {
+  return Boolean(entry.emphasis?.framing && entry.emphasis.focus?.length);
+}
+
+// identityRows returns a detached metadata snapshot. Keep it private to the
+// player: a chapter needs the same immutable source/model/assembly identities,
+// not a fresh clone of every residue twice per step. Older adapters without a
+// digest or identity reader retain their original live read on each request.
+const tourIdentityCache = new WeakMap<Workspace, { source: string; model: number | undefined;
+  assembly: string | undefined; reader: Workspace['identityRows']; rows: WorkspaceRow[] }>();
+function tourIdentityRows(workspace: Workspace): WorkspaceRow[] {
+  if (!workspace.identityRows) return workspace.rows();
+  const current = workspace.snapshot();
+  if (!current.sourceSha256) return workspace.identityRows();
+  const cached = tourIdentityCache.get(workspace);
+  if (cached?.source === current.sourceSha256 && cached.model === current.modelNumber
+    && cached.assembly === current.assemblyId && cached.reader === workspace.identityRows) return cached.rows;
+  const rows = workspace.identityRows();
+  tourIdentityCache.set(workspace, { source: current.sourceSha256, model: current.modelNumber,
+    assembly: current.assemblyId, reader: workspace.identityRows, rows });
+  return rows;
+}
+
 /** Resolve the authored subset against this source before changing a chapter. */
 function resolveTourVisibility(workspace: Workspace, patch: LessonVisibility): TourSceneVisibility {
   const inspection = workspace.viewer.inspection;
   if (!inspection.setVisibility) throw Error('This viewer does not support lesson visibility. Update Stereofold before opening this lesson.');
-  const rows = workspace.rows();
+  const rows = tourIdentityRows(workspace);
   const modelNumber = workspace.snapshot().modelNumber;
   const wanted = resolveVisibility(inspection.visibility?.() ?? emptyVisibility(), patch,
     inspection.visibilityChains?.() ?? availableChains(rows, modelNumber),
@@ -926,8 +1245,23 @@ function tourViewerIsSettling(live: ReturnType<Workspace['snapshot']>): boolean 
   return !live.ready && (live.status === undefined || ['ready', 'mutating', 'recovering'].includes(live.status));
 }
 
+/**
+ * Let the viewer finish work of its own while the visit still owns it.
+ *
+ * A chapter's paint can start a follow-up in the viewer, such as the menu
+ * clearance move its new card needs, which holds the viewer for a frame or
+ * two after the chapter's own operation has returned. That is the chapter
+ * still drawing, not a withdrawal: only a lost owner, a failed viewer or the
+ * bound ends the wait.
+ */
+async function untilViewerSettles(workspace: Workspace, owned: () => boolean, until: number): Promise<void> {
+  while (tourViewerIsSettling(workspace.snapshot()) && owned() && Date.now() < until)
+    await new Promise(resolve => setTimeout(resolve, Math.min(50, Math.max(0, until - Date.now()))));
+}
+
 /** Yield the workspace queue quickly when a hand still owns the structure. */
 async function waitForTourInteraction(workspace: Workspace, admitted: () => boolean): Promise<void> {
+  if (workspace.viewer.inspection.supportsConcurrentPlayback) return;
   const until = Date.now() + 1_000;
   while (workspace.snapshot().interactionActive && admitted()) {
     if (Date.now() >= until) throw Object.assign(Error('The next chapter is waiting for the molecular drag to finish.'), { code: 'interaction_active' });
@@ -951,44 +1285,84 @@ async function waitForTourInteraction(workspace: Workspace, admitted: () => bool
  * `admitted` is rechecked between calls so an explicit pause or a
  * source change abandons the rest of the scene instead of finishing it.
  */
+const sameKeys = (a: readonly string[] = [], b: readonly string[] = []) =>
+  a.length === b.length && [...a].sort().every((key, i) => key === [...b].sort()[i]);
+
 export async function applyTourStep(workspace: Workspace, entry: TourStep,
   admitted: () => boolean, includeDesktopView: boolean,
   timeoutMs = tourOperationTimeoutMs(workspace.snapshot().atomCount),
   onEmphasisFailure: (error: unknown) => void = () => {},
-  resting?: LessonRestingState, labelsBatched = false): Promise<void> {
+  resting?: LessonRestingState, labelsBatched = false, restoredContent = false, authoredTakeover = false, deferFigure = false): Promise<void> {
   if (!labelsBatched && workspace.viewer.inspection.batchComponentLabels) {
     return workspace.viewer.inspection.batchComponentLabels(() => applyTourStep(workspace, entry,
-      admitted, includeDesktopView, timeoutMs, onEmphasisFailure, resting, true));
+      admitted, includeDesktopView, timeoutMs, onEmphasisFailure, resting, true, restoredContent, authoredTakeover, deferFigure));
   }
   // Every await below is bounded. One of them not being bounded is what put a
   // wearer in front of a half-played lesson for seven minutes.
-  const bound = <T>(label: string, work: Promise<T> | T | undefined) =>
-    withTourDeadline(label, work, timeoutMs);
+  const bound = async <T>(label: string, work: () => Promise<T> | T | undefined) => {
+    const began = readoutClock();
+    try { return await withViewerRetry(workspace, label, work, timeoutMs, admitted); }
+    finally {
+      try {
+        (globalThis as { __stereofoldDiagnostics?: { record?: (kind: string, detail: unknown) => unknown } })
+          .__stereofoldDiagnostics?.record?.('tour-phase',
+            { chapter: entry.id, phase: label, elapsedMs: readoutClock() - began });
+      } catch { /* Diagnostics cannot fail a chapter. */ }
+    }
+  };
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
   // Missing or ambiguous chains must fail before appearance or placement edits.
   const visibility = entry.visibility ? resolveTourVisibility(workspace, entry.visibility) : undefined;
-  // The wearer's hands outrank the authored seat. See
-  // `holdsWearerPlacement` above; the chapter still runs, it just leaves the
-  // molecule where the wearer put it.
+  // The next overview removes the preceding cutaway. Its placement must be
+  // measured after that depth change: an old near plane beyond the room cap
+  // makes every otherwise-visible fit impossible, even without a menu.
+  if (entry.placement && entry.appearance?.clipping === 0 && workspace.snapshot().xrPresenting
+    && Number(workspace.snapshot().inspection?.appearance?.clipping) > 0
+    && workspace.viewer.inspection.holdsWearerPlacement?.() !== true)
+    await bound('chapter depth', () => workspace.viewer.inspection.configure({ clipping: 0 }));
+  // Entry may release the prior hold for a changed authored frame. Any new
+  // input during this operation owns placement again; never release it here.
   if (entry.placement && workspace.viewer.inspection.holdsWearerPlacement?.() !== true)
     // This is an authored automatic seat, not a new agent/wearer room intent.
-    await bound('placement', workspace.viewer.inspection.place(entry.placement, 'tour-placement'));
+    await bound('placement', () => workspace.viewer.inspection.place(entry.placement!, 'tour-placement'));
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
-  if (entry.motion) {
-    const norm = normalizeChapterMotion(entry.motion);
+  const xr = workspace.snapshot().xrPresenting === true;
+  if ((entry.motion || (xr && entry.cameraSpin)) && !restoredContent) {
+    const norm = presentedChapterMotion(entry, xr);
     const pauseTurn = !norm || norm.kind === 'hold' || norm.kind === 'orbit' || norm.kind === 'dolly' || (norm.kind === 'turntable' && !norm.continuous);
-    await bound('turn', workspace.viewer.inspection.setMotion({ paused: pauseTurn }));
+    await bound('turn', () => workspace.viewer.inspection.setMotion({ paused: pauseTurn }));
   }
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
   let rebuilt = false;
-  if (entry.appearance) { await bound('appearance', workspace.viewer.inspection.configure(entry.appearance)); rebuilt = true; }
-  for (const appearance of entry.appearances ?? []) {
+  if (entry.appearance && !restoredContent) { await bound('appearance', () => workspace.viewer.inspection.configure(entry.appearance!)); rebuilt = true; }
+  for (const appearance of restoredContent ? [] : entry.appearances ?? []) {
     await waitForTourInteraction(workspace, admitted);
     if (!admitted()) return;
-    await bound('appearance', workspace.viewer.inspection.configure(appearance)); rebuilt = true;
+    await bound('appearance', () => workspace.viewer.inspection.configure(appearance)); rebuilt = true;
+  }
+  // Frame the focus before adding its annotations, including on cached entry.
+  // Otherwise chapterFieldBounds fits the old figure's full silhouette instead
+  // of retaining the emphasis close-up.
+  const focusBeforeFigure = Boolean(entry.figure && framesEmphasisFocus(entry));
+  if (focusBeforeFigure && workspace.viewer.inspection.holdsWearerPlacement?.() !== true) {
+    try {
+      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(undefined, { frame: false }));
+    } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
+    await waitForTourInteraction(workspace, admitted);
+    if (!admitted()) return;
+  }
+  if (restoredContent && !focusBeforeFigure) {
+    try {
+      if (entry.figure && !workspace.viewer.inspection.setLessonFigure)
+        throw Error('This viewer does not support molecular figures.');
+      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(entry.figure,
+        { frame: !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true && (!entry.animation || Boolean(entry.placement || entry.view === 'focus' || entry.emphasis?.framing || entry.figure?.focus)) }));
+    } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
+    await waitForTourInteraction(workspace, admitted);
+    if (!admitted()) return;
   }
   // Emphasis is a layer over the representation, so it has to follow the
   // rebuild that `appearance` may have just asked for; a rebuild drops it.
@@ -1030,12 +1404,13 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
     const densityScene = (live.atomCount ?? 0) === 0 && (live.triangleCount ?? 0) > 0;
     const emphasis: TourEmphasis = abandoned ? { parts: [], origin: 'lesson' as const }
       : stepEmphasis(entry, resting);
-    if (workspace.viewer.inspection.holdsWearerPlacement?.() === true || (!entry.emphasis?.framing && includeDesktopView))
+    if (workspace.viewer.inspection.holdsWearerPlacement?.() === true || (!entry.emphasis?.framing && includeDesktopView && !authoredTakeover))
       emphasis.framing = undefined;
     if (!abandoned && densityScene && !entry.emphasis?.framing
         && workspace.viewer.inspection.holdsWearerPlacement?.() !== true) emphasis.framing = 'fill';
+    if ((entry.figure && !framesEmphasisFocus(entry)) || (entry.animation && !entry.emphasis?.framing)) emphasis.framing = undefined;
     try {
-      await bound('colour emphasis', workspace.viewer.inspection.emphasize?.(emphasis));
+      await bound('colour emphasis', () => workspace.viewer.inspection.emphasize?.(emphasis));
     } catch (error) {
       // A key that never came back is a different animal: the viewer is still
       // holding the work, so the scene fails as it always did.
@@ -1047,34 +1422,57 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
   // must cancel the remaining chapter writes as well.
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
-  if (workspace.viewer.inspection.setLessonFigure) {
-    await bound('molecular figure', workspace.viewer.inspection.setLessonFigure(entry.figure, { frame: workspace.viewer.inspection.holdsWearerPlacement?.() !== true }));
-  } else if (entry.figure) {
+  if ((!restoredContent || focusBeforeFigure) && !deferFigure && workspace.viewer.inspection.setLessonFigure) {
+    try {
+      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure!(entry.figure, { frame: !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true && (!entry.animation || Boolean(entry.placement || entry.view === 'focus' || entry.emphasis?.framing || entry.figure?.focus)) }));
+    } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
+  } else if ((!restoredContent || focusBeforeFigure) && !deferFigure && entry.figure) {
     throw Error('This viewer does not support molecular figures. Update Stereofold before opening this lesson.');
   }
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
-  if (entry.selection) await bound('selection', workspace.viewer.select(resolveTourSelection(workspace.rows(), entry.selection)));
+  if (entry.selection) {
+    await bound('selection', () => workspace.viewer.select(entry.selection === 'clear' ? [] : resolveTourSelection(tourIdentityRows(workspace), entry.selection!),
+      'selection', { lesson: true }));
+  } else {
+    // Saved ownership is authoritative even when the wearer picked the same
+    // keys the lesson selected. Remembering those keys cannot authorize a clear.
+    const scene = workspace.capture?.() as any;
+    const ours = scene?.selectionKeys;
+    if (ours?.length && scene?.inspection?.lessonSelection === selectionSignature(ours)
+        && sameKeys(workspace.snapshot().selectionKeys, ours)) await bound('selection', () => workspace.viewer.select([]));
+  }
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
   // Apply the full mask last, after colour and selection transparency updates.
-  if (visibility) await bound('visibility', workspace.viewer.inspection.setVisibility!(visibility));
+  if (visibility) await bound('visibility', () => workspace.viewer.inspection.setVisibility!(visibility));
+  // A placement-only or view-only takeover also needs a fresh tracked seat.
+  // Emphasis and figures already solve their own subject in front of the wearer.
+  if (authoredTakeover && workspace.snapshot().xrPresenting && admitted()
+      && !workspace.viewer.inspection.holdsWearerPlacement?.()
+      && !entry.figure && !stepEmphasis(entry, resting).framing) {
+    await bound('chapter framing', () => workspace.viewer.focusSelection?.({
+      wholeStructure: entry.view !== 'focus', liftEmphasis: false, elevationDegrees: 0 }));
+  }
   // Head pose is a transient XR-local input. Desktop camera operations have
   // no physical interpretation there and can make a wearer feel teleported.
-  if (!includeDesktopView || !admitted() || !entry.view) return;
-  if (entry.view === 'fit') await bound('view', workspace.viewer.inspection.fit());
-  else if (entry.view === 'reset-orientation') await bound('view', workspace.viewer.inspection.resetOrientation());
-  else if (entry.view === 'focus') await bound('view', workspace.viewer.focus(workspace.snapshot().selectionKeys ?? []));
-  else if ('orbit' in entry.view) await bound('view', workspace.viewer.inspection.orbit(entry.view.orbit.axis, entry.view.orbit.degrees));
-  else await bound('view', workspace.viewer.inspection.dolly(entry.view.dolly));
+  if (!includeDesktopView || !admitted() || !entry.view || workspace.viewer.inspection.holdsWearerPlacement?.()) return;
+  if (entry.animation && entry.view === 'fit' && !entry.placement && !entry.emphasis?.framing && !entry.figure?.focus) return;
+  const view = entry.view;
+  if (view === 'fit') await bound('view', () => workspace.viewer.inspection.fit());
+  else if (view === 'reset-orientation') await bound('view', () => workspace.viewer.inspection.resetOrientation());
+  else if (view === 'focus') await bound('view', () => workspace.viewer.focus(workspace.snapshot().selectionKeys ?? []));
+  else if ('orbit' in view) await bound('view', () => workspace.viewer.inspection.orbit(view.orbit.axis, view.orbit.degrees));
+  else await bound('view', () => workspace.viewer.inspection.dolly(view.dolly));
 }
 
 export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, onExplore, narrate,
-  aside = (line: string) => voiceCommandSpeaker()?.(line) }: {
+  continueStage, aside = (line: string) => voiceCommandSpeaker()?.(line) }: {
   workspace: Workspace;
   tours: readonly Tour[];
   after: Element;
   autoDelayMs?: number;
+  continueStage?: (stage: string, intent: StageContinuationIntent) => Promise<unknown>;
   onExplore?: (kind: 'structure' | 'sequence') => void;
   /**
    * Say one scene's line out loud. Registering a narrator is the opt-in: a page
@@ -1110,7 +1508,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   root.setAttribute('aria-label', 'Guided tours');
   root.innerHTML = `<div class="tour-player-heading"><div class="eyebrow">LESSON</div><label>Choose a lesson <select data-tour-menu aria-label="Tours"><option value="">Choose a tour</option></select></label></div>
     <p class="tour-player-summary" data-tour-summary></p>
-    <div class="tour-player-scene" aria-live="polite"><div class="eyebrow" data-tour-progress>READY</div><h3 data-tour-title>Select a tour</h3><p class="tour-player-body" data-tour-body></p><p class="tour-player-sources" data-tour-sources></p><p class="tour-player-status" data-tour-status role="status"></p></div>
+    <div class="tour-player-reading"><div class="tour-player-scene" role="region" aria-label="Lesson caption and sources" tabindex="0" aria-live="polite"><div class="eyebrow" data-tour-progress>READY</div><h3 data-tour-title>Select a tour</h3><p class="tour-player-body" data-tour-body></p><p class="tour-player-sources" data-tour-sources></p><details class="tour-player-details" data-tour-details-disclosure hidden><summary>Source &amp; details</summary><p data-tour-details></p></details><p class="tour-player-status" data-tour-status role="status"></p></div><span class="tour-player-scroll-hint" data-tour-scroll-hint aria-hidden="true" hidden>Scroll for more ↓</span></div>
     <div class="tour-player-actions">
       <button type="button" class="primary tour-wide" data-tour-start>Start lesson</button><button type="button" class="primary tour-wide" data-tour-rejoin hidden>Rejoin lesson</button>
       <div class="tour-transport"><button type="button" data-tour-back aria-label="Previous scene">← Back</button><button type="button" class="primary" data-tour-play>Play</button><button type="button" data-tour-next aria-label="Next scene">Next →</button></div>
@@ -1125,7 +1523,72 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   const title = $<HTMLHeadingElement>('[data-tour-title]');
   const body = $<HTMLParagraphElement>('[data-tour-body]');
   const sources = $<HTMLParagraphElement>('[data-tour-sources]');
+  const detailsDisclosure = $<HTMLDetailsElement>('[data-tour-details-disclosure]');
+  const details = $<HTMLParagraphElement>('[data-tour-details]');
   const status = $<HTMLParagraphElement>('[data-tour-status]');
+  const captionRegion = $<HTMLDivElement>('.tour-player-scene');
+  const captionHint = $<HTMLSpanElement>('[data-tour-scroll-hint]');
+  const captionDocument = root.ownerDocument ?? document;
+  const captionWindow = captionDocument.defaultView ?? window;
+  let captionIdentity = '', captionSourcesIdentity = '';
+  let captionSuspended = false, captionFrame: number | undefined, captionTimer: ReturnType<typeof setTimeout> | undefined;
+  const captionVisible = () => !captionSuspended && !captionDocument.hidden && root.isConnected !== false;
+  const cancelCaptionScroll = () => {
+    if (captionFrame !== undefined) captionWindow.cancelAnimationFrame(captionFrame);
+    if (captionTimer !== undefined) clearTimeout(captionTimer);
+    captionFrame = undefined; captionTimer = undefined;
+  };
+  const refreshCaptionScroll = () => {
+    cancelCaptionScroll();
+    if (!captionVisible()) return;
+    const height = captionRegion.clientHeight;
+    const hidden = height <= 0 || captionRegion.scrollTop + height >= captionRegion.scrollHeight - 2;
+    if (captionHint.hidden !== hidden) captionHint.hidden = hidden;
+  };
+  // ResizeObserver runs after layout. Scroll events and older browsers use
+  // one task after a rendered frame, never a geometry read after sync's writes.
+  const scheduleCaptionScroll = () => {
+    if (!captionVisible() || captionFrame !== undefined || captionTimer !== undefined) return;
+    const afterFrame = () => {
+      captionFrame = undefined;
+      if (captionVisible()) captionTimer = setTimeout(() => { captionTimer = undefined; refreshCaptionScroll(); }, 0);
+    };
+    if (typeof captionWindow.requestAnimationFrame === 'function') captionFrame = captionWindow.requestAnimationFrame(afterFrame);
+    else afterFrame();
+  };
+  const captionResize = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(refreshCaptionScroll);
+  const captionChanged = () => { if (!captionResize) scheduleCaptionScroll(); };
+  const setCaptionText = (element: HTMLElement, value: string) => {
+    if (element.textContent === value) return;
+    element.textContent = value; captionChanged();
+  };
+  const setCaptionFlag = (element: HTMLButtonElement | HTMLSelectElement, key: 'hidden' | 'disabled', value: boolean) => {
+    if (element[key] === value) return;
+    element[key] = value; captionChanged();
+  };
+  const setCaptionData = (key: string, value: string) => {
+    if (root.dataset[key] === value) return;
+    root.dataset[key] = value; captionChanged();
+  };
+  const suspendCaption = () => {
+    captionSuspended = true; cancelCaptionScroll(); captionResize?.disconnect();
+  };
+  const observeCaption = () => {
+    captionSuspended = false;
+    if (!captionVisible()) return;
+    if (captionResize) {
+      captionResize.disconnect();
+      for (const element of [captionRegion, progress, title, body, sources, detailsDisclosure, status]) captionResize.observe(element);
+    } else scheduleCaptionScroll();
+  };
+  captionRegion.addEventListener('scroll', scheduleCaptionScroll, { passive: true });
+  $<HTMLDetailsElement>('.tour-more').addEventListener('toggle', captionChanged, { passive: true });
+  detailsDisclosure.addEventListener('toggle', captionChanged, { passive: true });
+  captionWindow.addEventListener('resize', captionChanged);
+  captionDocument.addEventListener('visibilitychange', () => {
+    if (captionDocument.hidden) suspendCaption(); else observeCaption();
+  });
+  observeCaption();
   const start = $<HTMLButtonElement>('[data-tour-start]');
   const rejoinButton = $<HTMLButtonElement>('[data-tour-rejoin]');
   const back = $<HTMLButtonElement>('[data-tour-back]');
@@ -1156,7 +1619,17 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   let step = -1, applying = false, autoplay = false, stopped = false, menuOpen = false, menuCursor = -1, readoutPage = 0;
   let narrationEnabled = true;
   let manipulationPending = false;
+  let continuationEpoch = 0, continuationPending = false;
+  // Reset changes the live pose while retaining the chapter's content. Play
+  // resumes that exact scene; replaying chapter one would restore its old seat.
+  let stoppedScene: { tour: Tour; step: number; source: string | undefined } | undefined;
   let deferredVisit: { target: number; restoreBaseline: boolean; preserveLiveScene: boolean; token: number } | undefined;
+  // Whether a start or restart opened the current chapter. It travels with the
+  // saved playback, so a peer's start never takes the wearer's placement here.
+  let openedByStart = false;
+  // The starting view of a lesson that was put down with one of its chapters
+  // still drawn. A restart begins from it, not from the chapter it found.
+  let retainedStart: { scene: Scene; source: string } | undefined;
   // When the live chapter landed, on the readout's clock.
   let chapterStartedAt: number | undefined;
   let resumeOnVisible = false;
@@ -1166,7 +1639,17 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   let chapterPreview: TourPlayerState['chapterPreview'];
   const listeners = new Set<() => void>();
   const intents = createTourIntentGate();
-  const scenes = new Map<number, Scene>();
+  const scenes = new Map<number, { scene: Scene; held: boolean }>();
+  // A held capture proves chapter content, not its authored pose. It can be
+  // restored while a live hold preserves camera/placement, but after Reset it
+  // must not suppress the authored framing that was skipped during that hold.
+  const cacheScene = (index: number, scene: Scene) => scenes.set(index,
+    { scene, held: workspace.viewer.inspection.holdsWearerPlacement?.() === true });
+  const cachedScene = (index: number): Scene | undefined => {
+    const cached = scenes.get(index);
+    return cached && (!cached.held || workspace.viewer.inspection.holdsWearerPlacement?.() === true)
+      ? cached.scene : undefined;
+  };
   const clearTimer = () => { if (timer) clearTimeout(timer); timer = undefined; };
   const active = () => selected != null && baseline != null && step >= 0 && !stopped;
   // One diagnostics line per tour decision. A headset log carried
@@ -1181,7 +1664,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         });
     } catch { /* Diagnostics are advisory; a tour never fails because of them. */ }
   };
-  const setStatus = (message = '') => { status.textContent = message; };
+  const setStatus = (message = '') => { setCaptionText(status, message); };
   /**
    * The line this visit has already spoken, so one scene is never narrated
    * twice while it is on screen.
@@ -1196,7 +1679,12 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   let spokenLine: string | undefined;
   const forgetSpokenLine = () => { spokenLine = undefined; };
   let motionTimer: ReturnType<typeof setTimeout> | undefined;
-  let motionActive = false;
+  let motionActive = false, waitingForXrEntry = false;
+  let pendingMapStart: { tour: Tour; source?: string; autoplay: boolean; narration: boolean } | undefined;
+  let cameraFrame: SavedLessonPlayback['cameraFrame'];
+  // capture() pins the pre-turn camera until a bake. Persist its baked
+  // fraction, so handoff resumes unfinished moves without replaying saved ones.
+  let motionProgress = 1, pendingMotionProgress: (() => number) | undefined;
   // Manual chapter advancement still runs authored motion. Only an explicit
   // pause withdraws its permission to resume after a grip.
   let continuousMotionPaused = false;
@@ -1218,9 +1706,11 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   const bakeChapterMotion = () => {
     const inspection = workspace.viewer.inspection as typeof workspace.viewer.inspection
       & { bakeLessonMotion?: () => unknown };
+    if (pendingMotionProgress) motionProgress = pendingMotionProgress();
     try { inspection.bakeLessonMotion?.(); } catch { /* A presentation bake is advisory. */ }
   };
-  const stopChapterMotion = (reason?: string, resumable = false) => {
+  const stopChapterMotion = (reason?: string, resumable = false, preserveMolecularPlayback = false) => {
+    if (!preserveMolecularPlayback && reason !== 'restart' && reason !== 'hidden' && reason !== 'restored') workspace.viewer.inspection.controlMolecularAnimation?.({ state: 'pause' });
     if (resumable && motionActive) suspendChapterMotion?.();
     else if (!resumable) { suspendChapterMotion = undefined; resumeChapterMotion = undefined; resumeMotionOnVisible = false; }
     if (motionTimer) {
@@ -1239,6 +1729,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   const resumeContinuousAfterInteraction = () => {
     const motion = active() ? normalizeChapterMotion(selected?.steps[step]?.motion) : undefined;
     if (motion?.kind !== 'turntable' || !motion.continuous || applying || continuousMotionPaused || motionTimer) return;
+    if (workspace.viewer.inspection.holdsTurnStill?.(selected!.steps[step]!.id) === true) return;
     const chapter = step, tour = selected;
     const resume = () => {
       motionTimer = undefined;
@@ -1250,13 +1741,17 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     motionTimer = setTimeout(resume, 50);
   };
 
-  const pause = (reason = 'Paused.') => {
+  const pause = (reason = 'Paused.', options?: { preserveMolecularPlayback?: boolean }) => {
+    continuationEpoch++;
+    const wasAutoplay = autoplay;
+    pendingMapStart = undefined;
     continuousMotionPaused = true;
-    stopChapterMotion('paused', true);
+    stopChapterMotion('paused', true, options?.preserveMolecularPlayback);
     intents.invalidate();
     autoplay = false; clearTimer();
     resumeOnVisible = false; resumeMotionOnVisible = false; forgetSpokenLine();
     if (active()) setStatus(reason);
+    record('pause', { reason, wasAutoplay, preserveMolecularPlayback: options?.preserveMolecularPlayback === true });
     sync();
   };
   const state = (): TourPlayerState => {
@@ -1290,46 +1785,78 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       ...(activeMotionKind ? { motionKind: activeMotionKind } : {}),
     });
   };
+  const playbackCursor = (stoppedNow = stopped): SavedLessonPlayback | undefined =>
+    selected && baseline && step >= 0 && baselineSource === source(workspace)
+      ? { tourId: selected.id, chapterId: selected.steps[step].id, stopped: stoppedNow, narration: narrationEnabled,
+        ...(openedByStart ? { entry: 'start' as const } : {}), motionProgress, motionPlaying: motionActive, cameraFrame, startingScene: withoutLessonPlayback(baseline) } : undefined;
+  /**
+   * Mark the saved cursor stopped while a chapter is being drawn.
+   *
+   * A save can land between a scene's operations. Until the new chapter is
+   * whole, the old cursor would claim a chapter whose animation has already
+   * been taken down, which is the state a saved lesson is refused for.
+   */
+  const holdPlaybackCursor = () => workspace.viewer.inspection.setLessonPlayback?.(playbackCursor(true));
   const sync = () => {
     // Never publish the old cursor over an in-flight chapter's new geometry.
-    if (!applying && !navigating) workspace.viewer.inspection.setLessonPlayback?.(
-      selected && baseline && step >= 0 && baselineSource === source(workspace)
-        ? { tourId: selected.id, chapterId: selected.steps[step].id, stopped, narration: narrationEnabled,
-          startingScene: withoutLessonPlayback(baseline) } : undefined);
+    if (!applying && !navigating) workspace.viewer.inspection.setLessonPlayback?.(playbackCursor());
     const currentState = state();
     const available = currentState.total > 0;
     const current = available && step >= 0 ? selected!.steps[step] : undefined;
-    summary.textContent = selected?.summary ?? 'Choose a tour to see its scenes. Tours change the real molecular workspace and pause when you take over.';
-    progress.textContent = current ? `SCENE ${step + 1} / ${selected!.steps.length}${autoplay ? ' · AUTOPLAY' : ''}` : available ? `${selected!.steps.length} SCENES READY` : 'READY';
-    title.textContent = current?.title ?? (selected ? selected.title : 'Select a tour');
+    const nextTitle = current?.title ?? (selected ? selected.title : 'Select a tour');
+    const nextBody = current ? text(current) : (selected?.summary ?? '');
+    const nextCaptionIdentity = JSON.stringify([selected?.id, current?.id, nextTitle,
+      nextBody, current?.sources, current?.details, currentState.bodyPageIndex]);
+    if (nextCaptionIdentity !== captionIdentity) {
+      captionIdentity = nextCaptionIdentity;
+      // Reset before changing content, retaining the same identity semantics
+      // without forcing a read of the newly dirtied caption layout.
+      captionRegion.scrollTop = 0;
+    }
+    setCaptionText(summary, selected?.summary ?? 'Choose a tour to see its scenes. Tours change the real molecular workspace and pause when you take over.');
+    setCaptionText(progress, current ? `SCENE ${step + 1} / ${selected!.steps.length}${autoplay ? ' · AUTOPLAY' : ''}` : available ? `${selected!.steps.length} SCENES READY` : 'READY');
+    setCaptionText(title, nextTitle);
     // Choosing a lesson is itself a readable tour state. Keep its overview in
     // the desktop panel too, matching the full summary already sent to the
     // in-headset readout before the first scene starts.
-    body.textContent = current ? text(current) : (selected?.summary ?? '');
-    sources.replaceChildren();
-    if (current?.sources?.length) {
-      sources.append('Sources: ');
-      current.sources.forEach((item, index) => {
-        if (index) sources.append(' · ');
-        const link = document.createElement('a'); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
-        link.textContent = item.title; sources.append(link);
-      });
+    setCaptionText(body, nextBody);
+    const nextDetails = current?.details?.trim() ?? '';
+    setCaptionText(details, nextDetails);
+    // Keep the same disclosure node and its native open state across chapters,
+    // including chapters with no details. Only its text and visibility change.
+    if (detailsDisclosure.hidden !== !nextDetails) {
+      detailsDisclosure.hidden = !nextDetails; captionChanged();
     }
-    start.disabled = !available || navigating;
-    start.hidden = step >= 0;
-    rejoinButton.hidden = !selected || !baseline || step < 0 || !stopped;
-    rejoinButton.disabled = navigating;
-    back.disabled = !active() || step === 0 || navigating;
-    next.disabled = !active() || step >= selected!.steps.length - 1 || navigating;
-    play.disabled = !active() || navigating;
-    pace.disabled = !active() || navigating;
-    play.textContent = autoplay ? 'Pause' : 'Play';
-    restart.disabled = !active() || navigating;
-    restore.disabled = !baseline || navigating;
-    root.dataset.active = String(active()); root.dataset.autoplay = String(autoplay);
-    root.dataset.selected = String(available); root.dataset.menuOpen = String(menuOpen);
-    if (active()) root.dataset.exploring = 'false';
-    root.dataset.tourReadoutPage = `${currentState.bodyPageIndex + 1}/${currentState.bodyPageCount}`;
+    const nextSourcesIdentity = JSON.stringify(current?.sources ?? []);
+    if (nextSourcesIdentity !== captionSourcesIdentity) {
+      captionSourcesIdentity = nextSourcesIdentity;
+      sources.replaceChildren();
+      if (current?.sources?.length) {
+        sources.append('Sources: ');
+        current.sources.forEach((item, index) => {
+          if (index) sources.append(' · ');
+          if (!item.url) { sources.append(item.title); return; }
+          const link = document.createElement('a'); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+          link.textContent = item.title; sources.append(link);
+        });
+      }
+      captionChanged();
+    }
+    setCaptionFlag(start, 'disabled', !available || navigating);
+    setCaptionFlag(start, 'hidden', step >= 0);
+    setCaptionFlag(rejoinButton, 'hidden', !selected || !baseline || step < 0 || !stopped);
+    setCaptionFlag(rejoinButton, 'disabled', navigating);
+    setCaptionFlag(back, 'disabled', !active() || step === 0 || navigating);
+    setCaptionFlag(next, 'disabled', !active() || step >= selected!.steps.length - 1 || navigating);
+    setCaptionFlag(play, 'disabled', !active() || navigating);
+    setCaptionFlag(pace, 'disabled', !active() || navigating);
+    setCaptionText(play, autoplay ? 'Pause' : 'Play');
+    setCaptionFlag(restart, 'disabled', !active() || navigating);
+    setCaptionFlag(restore, 'disabled', !baseline || navigating);
+    setCaptionData('active', String(active())); setCaptionData('autoplay', String(autoplay));
+    setCaptionData('selected', String(available)); setCaptionData('menuOpen', String(menuOpen));
+    if (active()) setCaptionData('exploring', 'false');
+    setCaptionData('tourReadoutPage', `${currentState.bodyPageIndex + 1}/${currentState.bodyPageCount}`);
     for (const listener of listeners) { try { listener(); } catch { /* A presentation redraw is advisory. */ } }
   };
   /**
@@ -1416,8 +1943,13 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     record('emphasis', { outcome: 'error', error: String((error as Error)?.message ?? error).slice(0, 200) });
     speakEmphasisFailure(entry);
   };
-  const applyIntent = (entry: TourStep, admitted: () => boolean, includeDesktopView: boolean) =>
-    applyTourStep(workspace, entry, admitted, includeDesktopView, operationBound(), recordEmphasisFailure, lessonRestingState(selected));
+  const applyIntent = (entry: TourStep, admitted: () => boolean, includeDesktopView: boolean, authoredTakeover = false, deferFigure = false) =>
+    applyTourStep(workspace, entry, admitted, includeDesktopView, operationBound(), recordEmphasisFailure, lessonRestingState(selected), false, false, authoredTakeover, deferFigure);
+  // Restored content carries no local framing: solve authored placement and
+  // focus here without replaying appearance or restarting molecular motion.
+  const frameRestoredStep = (entry: TourStep, admitted: () => boolean, authoredTakeover = false) =>
+    applyTourStep(workspace, entry, admitted, !workspace.snapshot().xrPresenting,
+      operationBound(), recordEmphasisFailure, lessonRestingState(selected), false, true, authoredTakeover);
   /**
    * Put the emphasis layers where a restored snapshot cannot.
    *
@@ -1437,18 +1969,18 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     catch (error) { throw Object.assign(error as Error, { visibilityFailure: true }); }
     try {
       if (entry?.figure && !workspace.viewer.inspection.setLessonFigure) throw Error('This viewer does not support molecular figures.');
-      await withTourDeadline('molecular figure', workspace.viewer.inspection.setLessonFigure?.(entry?.figure, { frame: workspace.viewer.inspection.holdsWearerPlacement?.() !== true }), operationBound());
+      await withViewerRetry(workspace, 'molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(entry?.figure, { frame: (!entry || !framesEmphasisFocus(entry)) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true }), operationBound(), admitted);
     } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
     await waitForTourInteraction(workspace, admitted);
     if (!admitted()) return;
     try {
-      return await withTourDeadline('colour emphasis', entry
+      return await withViewerRetry(workspace, 'colour emphasis', () => entry
         ? workspace.viewer.inspection.emphasize?.({ ...stepEmphasis(entry, lessonRestingState(selected)), framing: undefined })
         : (workspace.viewer.inspection.clearLessonEmphasis?.()
-          ?? workspace.viewer.inspection.emphasize?.({ parts: [], origin: 'lesson' })), operationBound());
+          ?? workspace.viewer.inspection.emphasize?.({ parts: [], origin: 'lesson' })), operationBound(), admitted);
     } finally {
       if (visibility && admitted()) {
-        try { await withTourDeadline('visibility', workspace.viewer.inspection.setVisibility!(visibility), operationBound()); }
+        try { await withViewerRetry(workspace, 'visibility', () => workspace.viewer.inspection.setVisibility!(visibility), operationBound(), admitted); }
         catch (error) { throw Object.assign(error as Error, { visibilityFailure: true }); }
       }
     }
@@ -1504,6 +2036,105 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       record('interrupted', { outcome: 'emphasis-retained', error: String((error as Error)?.message ?? error).slice(0, 200) });
     }
   };
+  /** Resume only the part of a chapter move not baked into its saved camera. */
+  const startChapterMotion = (tour: Tour, target: number, token: ReturnType<typeof intents.issue>, progress = 0) => {
+    const startSource = source(workspace);
+    motionProgress = progress; pendingMotionProgress = undefined;
+    const normMotion = presentedChapterMotion(tour.steps[target], workspace.snapshot().xrPresenting === true);
+    // The chapter's own scene work stops the viewer's presentation turn:
+    // a rebuild or an emphasis is a mutation, and an XR framing travel
+    // pauses it outright. The turn started before that work, so a headset
+    // spin chapter stood still once it was shown. Start it again now,
+    // unless the viewer framed it as a close-up the wearer stands inside:
+    // that spin would carry the subject away and the structure through them.
+    if (normMotion?.kind === 'turntable' && normMotion.continuous && workspace.snapshot().xrPresenting
+        && workspace.viewer.inspection.holdsTurnStill?.(tour.steps[target].id) !== true)
+      void Promise.resolve(workspace.viewer.inspection.setMotion({ paused: false })).catch(() => {});
+    if (progress < 1 && normMotion && normMotion.kind !== 'hold' && !(normMotion.kind === 'turntable' && normMotion.continuous)) {
+      stopChapterMotion('restart');
+      motionProgress = progress;
+      motionActive = true;
+      activeMotionKind = normMotion.kind;
+      sync();
+      const motionKind = normMotion.kind;
+      const durationMs = Math.max(200, (normMotion.seconds ?? 8) * 1_000 * (1 - progress));
+      // A carried camera spin keeps its authored start and easing.
+      const delayMs = normMotion.kind === 'orbit' ? (normMotion.delaySeconds ?? 0) * 1_000 : 0;
+      const ease = normMotion.kind === 'orbit' && normMotion.easing ? easings[normMotion.easing] : easeInOut;
+      let startTime = Date.now(), elapsedBeforePause = 0;
+      let lastFraction = 0, lastTickAt = Date.now();
+      pendingMotionProgress = () => progress + (1 - progress) * lastFraction;
+      let currentToken = token;
+      // Pause retains only this visit's remaining motion. Other stop paths
+      // discard this closure, so a new chapter or wearer takeover cannot
+      // inherit an old animation. Resuming does not restore a scene.
+      suspendChapterMotion = () => {
+        elapsedBeforePause += Date.now() - startTime;
+        resumeChapterMotion = () => {
+          if (document.hidden) return;
+          resumeChapterMotion = undefined;
+          if (!active() || navigating || selected !== tour
+              || step !== target || source(workspace) !== startSource || !workspace.snapshot().ready) return;
+          currentToken = intents.issue(); startTime = lastTickAt = Date.now();
+          motionActive = true; activeMotionKind = motionKind;
+          motionTimer = setTimeout(tickMotion, 50);
+        };
+      };
+      const tickMotion = async () => {
+        if (!motionActive || !active() || intents.isCurrent(currentToken) === false) {
+          stopChapterMotion('interrupted');
+          return;
+        }
+        const tickAt = Date.now();
+        const live = workspace.snapshot();
+        if (waitingForXrEntry || live.interactionActive || !live.ready) {
+          // Chapter dwell continues, but its automatic move cannot fight a hand
+          // or accumulate a jump to apply when the hand lets go.
+          startTime += tickAt - lastTickAt; lastTickAt = tickAt;
+          motionTimer = setTimeout(tickMotion, 50); return;
+        }
+        const tickElapsed = tickAt - lastTickAt;
+        lastTickAt = tickAt;
+        const elapsed = elapsedBeforePause + tickAt - startTime;
+        const u = Math.min(1, Math.max(0, (elapsed - delayMs) / durationMs));
+        const currentFraction = ease(u);
+        const deltaFraction = currentFraction - lastFraction;
+        if (deltaFraction > 0) {
+          // The tick goes out through the lesson's own
+          // path. A refused or no-op tick cannot spend the saved turn.
+          // Only accepted camera movement advances its baked fraction.
+          const move: LessonCameraMove = motionKind === 'orbit'
+            ? { kind: 'orbit', axis: normMotion.axis, degrees: normMotion.degrees * (1 - progress) * deltaFraction }
+            : motionKind === 'turntable'
+              ? { kind: 'orbit', axis: 'y', degrees: normMotion.degrees * (1 - progress) * deltaFraction }
+              : { kind: 'dolly', factor: Math.pow(Math.max(0.1, 1 - normMotion.metres * 0.2), (1 - progress) * deltaFraction) };
+          try {
+            const result = await applyMotionTick(move) as { lessonMotionApplied?: boolean } | undefined;
+            if (result?.lessonMotionApplied === false) startTime += tickElapsed;
+            else lastFraction = currentFraction;
+          } catch {
+            // Entry can take admission between the ready sample and the tick.
+            // Keep that interval for the next tracked, admitted frame.
+            startTime += tickElapsed;
+          }
+        }
+        if (!motionActive || !intents.isCurrent(currentToken)) return;
+        if (u < 1 || lastFraction < 1) {
+          motionTimer = setTimeout(tickMotion, 50);
+        } else {
+          motionActive = false;
+          activeMotionKind = undefined;
+          suspendChapterMotion = undefined; resumeChapterMotion = undefined;
+          // The chapter's turn is over, so its last pose becomes the saved
+          // camera in one save rather than 160 ticks of unsaved drift.
+          bakeChapterMotion();
+          sync();
+        }
+      };
+      motionTimer = setTimeout(tickMotion, 50);
+    }
+  };
+
   /**
    * One chapter-motion tick, on the path tagged as the
    * lesson's.
@@ -1521,13 +2152,110 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     const inspection = workspace.viewer.inspection as typeof workspace.viewer.inspection
       & { applyLessonMotion?: (move: LessonCameraMove) => Promise<unknown> };
     if (typeof inspection.applyLessonMotion === 'function') return inspection.applyLessonMotion(move);
-    if (move.kind === 'orbit') return workspace.viewer.inspection.orbit(move.axis, move.degrees);
+    // An older viewer has no spin-axis orbit, so a carried camera spin stays
+    // still there, as it always did.
+    if (move.kind === 'orbit') return typeof move.axis === 'string'
+      ? workspace.viewer.inspection.orbit(move.axis, move.degrees) : Promise.resolve(undefined);
     return workspace.viewer.inspection.dolly(move.factor);
   };
-  const visit = (target: number, restoreBaseline = false, queuedAfter?: Promise<unknown>, preserveLiveScene = false): Promise<void> => {
+  type VisitCheckpoint = { scene: Scene; liveStep: number | undefined; baselineIsLive: boolean };
+  type Rollback = 'restored' | 'failed' | 'skipped' | 'pending';
+  /**
+   * Put back the scene that failed work found.
+   *
+   * This runs inside the failed work's own workspace action, so nothing queued
+   * behind it can land between the failure and the restore. A bound that fired
+   * left its work running, and the viewer refuses a restore while it is busy,
+   * so that work gets one more operation bound to settle first. Work that
+   * outlasts it still holds the workspace queue: `answer` tells the caller now,
+   * with `rollback: 'pending'`, and the found scene goes back once the late
+   * work lands. Otherwise a late install would start a clock behind a player
+   * that has already stopped. A restore that outlasts its own bound is waited
+   * for the same way. The outcome rides on the error as `rollback` and is never
+   * thrown in its place: the caller keeps the sentence that names the part
+   * that stalled.
+   */
+  const putBackFound = async (scene: Scene, error: unknown, foundSource: string | undefined, answer: () => void,
+    options: () => { preserveCamera: boolean; preservePlacement: boolean }): Promise<Rollback> => {
+    // Anything thrown is rolled back; only an object can carry the outcome.
+    const failure = (error && typeof error === 'object' ? error : {}) as { rollback?: Rollback };
+    const skipped = (): Rollback => { failure.rollback = 'skipped'; record('scene', { outcome: 'rollback-skipped' }); return 'skipped'; };
+    // The scene belongs to a structure that is no longer loaded.
+    if (source(workspace) !== foundSource) return skipped();
+    let late = false;
+    const outlast = async (label: string, work: Promise<unknown>): Promise<unknown> => {
+      try { return await withTourDeadline(label, work, operationBound()); }
+      catch (bound) {
+        if (!isTourDeadlineError(bound)) throw bound;
+        if (!late) { late = true; failure.rollback = 'pending'; record('scene', { outcome: 'rollback-pending', phase: label }); answer(); }
+        return work;
+      }
+    };
+    try {
+      const abandoned = (failure as Record<symbol, unknown>)[TOUR_ABANDONED] as Promise<unknown> | undefined;
+      if (abandoned) await outlast('abandoned work', abandoned.then(() => undefined, () => undefined));
+      const until = Date.now() + operationBound();
+      for (;;) {
+        if (source(workspace) !== foundSource) return skipped();
+        if (workspace.snapshot().ready) {
+          try {
+            await outlast('rollback', Promise.resolve().then(() => workspace.viewer.inspection.restore(scene, options())));
+            break;
+          } catch (restoreError) {
+            if ((restoreError as { code?: string }).code !== 'viewer_busy' || Date.now() >= until) throw restoreError;
+          }
+        } else if (Date.now() >= until) throw Error('The viewer was still busy with the abandoned chapter.');
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      failure.rollback = 'restored';
+      record('scene', { outcome: 'rolled-back', ...(late ? { late: true } : {}) });
+      return 'restored';
+    } catch (rollbackError) {
+      failure.rollback = 'failed';
+      record('scene', { outcome: 'rollback-failed', error: String((rollbackError as Error)?.message ?? rollbackError).slice(0, 200) });
+      return 'failed';
+    }
+  };
+  /** Put back the scene a failed chapter found, and the cursor it was captured with. */
+  const rollBackVisit = async (checkpoint: VisitCheckpoint, error: unknown, visitSource: string | undefined, answer: () => void): Promise<void> => {
+    const outcome = await putBackFound(checkpoint.scene, error, visitSource, answer, () => ({
+      preserveCamera: Boolean(workspace.snapshot().xrPresenting || workspace.viewer.inspection.holdsWearerPlacement?.()),
+      preservePlacement: false }));
+    if (outcome === 'skipped') return;
+    if (outcome === 'restored') { liveStep = checkpoint.liveStep; baselineIsLive = checkpoint.baselineIsLive; }
+    else { liveStep = undefined; baselineIsLive = false; }
+    // The found scene brings back the cursor it was captured with. A visit
+    // still drawing republishes its own as it ends; one whose outer bound has
+    // already given up republishes it here.
+    sync();
+  };
+  /**
+   * A failure the workspace action has to outlast reaches its caller here.
+   *
+   * The action itself keeps the workspace queue until the scene it found is
+   * back, so nothing queued behind it can draw over late work.
+   */
+  let lastDrawn: { scene: Scene; serial: number } | undefined, drawSerial = 0;
+  /** Run a lesson action, then record what it left while the queue is still its own. */
+  const noteDrawn = (action: () => Promise<void>) => async (): Promise<void> => {
+    try { await action(); }
+    finally {
+      drawSerial++;
+      try { lastDrawn = { scene: workspace.capture(), serial: drawSerial }; } catch { lastDrawn = undefined; }
+    }
+  };
+  const lateAnswer = () => {
+    let answer: (error: unknown) => void = () => {};
+    const answered = new Promise<never>((_resolve, reject) => { answer = reject; });
+    answered.catch(() => {});
+    return { answered, answer };
+  };
+  const visit = (target: number, restoreBaseline = false, queuedAfter?: Promise<unknown>, preserveLiveScene = false, startRequestedAt?: number): Promise<void> => {
+    const boundaryAt = readoutClock();
     const token = intents.issue(); navigating = true; sync();
     const queue = queuedAfter ?? serial;
     const operation = queue.then(async () => {
+      record('timing', { phase: 'queue', target, elapsedMs: readoutClock() - boundaryAt });
       stopChapterMotion('scene-transition');
       const tour = selected, startScene = baseline, startSource = baselineSource;
       if (!tour || !startScene || target < 0 || target >= tour.steps.length || !intents.isCurrent(token)) {
@@ -1535,7 +2263,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         throw Error('The tour scene was interrupted before rendering.');
       }
       const live = workspace.snapshot();
-      if (source(workspace) === startSource && (live.interactionActive || tourViewerIsSettling(live))) {
+      if (source(workspace) === startSource && ((live.interactionActive && !workspace.viewer.inspection.supportsConcurrentPlayback) || tourViewerIsSettling(live))) {
         deferredVisit = { target, restoreBaseline, preserveLiveScene, token };
         navigating = false;
         const message = live.interactionActive
@@ -1550,44 +2278,123 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         navigating = false; sync();
         throw Error('The structure changed. Choose a tour after the workspace is ready.');
       }
-      const preserveCamera = Boolean(workspace.snapshot().xrPresenting);
-      const admitted = () => Boolean(workspace.snapshot().ready) && source(workspace) === startSource
+      // Whose visit this is. The viewer's readiness is not part of it: the
+      // chapter's own follow-ups hold the viewer for a moment, and the
+      // operations below wait out a busy viewer themselves.
+      const owned = () => source(workspace) === startSource
         && intents.isCurrent(token) && selected === tour && baseline === startScene && baselineSource === startSource;
-      const retainLivePlacement = preserveLiveScene || (preserveCamera && target === step + 1
-        && workspace.viewer.inspection.holdsWearerPlacement?.() === true);
+      const admitted = () => Boolean(workspace.snapshot().ready) && owned();
+      // Judge the visit once the viewer has drawn what this chapter asked of
+      // it. Each follow-up gets its own operation bound, within the scene
+      // deadline: replaying earlier chapters must not spend its waiting time.
+      const settleDeadline = Date.now() + tourSceneTimeoutMs(workspace.snapshot().atomCount);
+      const admittedOnceSettled = async () => {
+        await untilViewerSettles(workspace, owned, Math.min(settleDeadline, Date.now() + operationBound()));
+        return admitted();
+      };
       applying = true;
+      // The scene this visit found, from the moment it starts to change it.
+      let checkpoint: VisitCheckpoint | undefined;
+      const fromStep = step;
+      const { answered, answer } = lateAnswer();
       try {
         await waitForTourInteraction(workspace, admitted);
         let rendered = false;
+        // A chapter is drawn whole or not at all. Any failure after drawing
+        // began puts the found scene back before the workspace queue moves
+        // on. A held drag only defers the chapter, which is drawn again later.
+        const drawWhole = async (draw: () => Promise<void>) => {
+          try { await draw(); }
+          catch (error) {
+            const deferred = (error as { code?: string }).code === 'interaction_active'
+              && intents.isCurrent(token) && source(workspace) === startSource;
+            if (checkpoint && !deferred) await rollBackVisit(checkpoint, error, startSource, () => answer(error));
+            throw error;
+          }
+        };
         // The outer net under the per-operation bounds inside. It also covers
         // the wait for the workspace queue itself, so a chapter whose queue is
         // held by something else still ends in a sentence rather than silence.
-        await withTourDeadline('scene', workspace.runTour(async () => {
+        await withTourDeadline('scene', Promise.race([answered, workspace.runTour(noteDrawn(() => drawWhole(async () => {
           // Recheck after waiting for the workspace queue: hydration or a
           // remote command may have changed the source while we waited.
           if (!workspace.snapshot().ready || source(workspace) !== startSource
               || !intents.isCurrent(token) || selected !== tour || baseline !== startScene)
             throw Error('The tour scene was interrupted before rendering.');
+          checkpoint = { scene: workspace.capture(), liveStep, baselineIsLive };
+          holdPlaybackCursor();
+          const animationFrame = workspace.viewer.inspection.animationFramingContext?.(tour.steps[target].animation);
+          // The outgoing chapter's motion stays drawn while this one paints,
+          // but it is not this chapter's field: a still chapter must not walk
+          // out, or fold its menu, for motion it no longer has.
+          workspace.viewer.inspection.chapterPainting?.(tour.steps[target].id,
+            { turn: chapterTurnSweep(tour.steps[target], workspace.snapshot().xrPresenting === true) });
+          // The opening chapter has no preceding dwell for lookahead. Resolve
+          // source-only animation data while the chapter and toolbar paint;
+          // installation still validates the final live representation layers.
+          const openingAnimation = tour.steps[target].animation;
+          const authoredFraming = Boolean(tour.steps[target].placement || tour.steps[target].view === 'focus'
+            || tour.steps[target].emphasis?.framing || tour.steps[target].figure?.focus);
+          if (openingAnimation && workspace.viewer.inspection.prepareMolecularAnimation) {
+            const prepareAt = readoutClock();
+            void Promise.resolve().then(() => workspace.viewer.inspection.prepareMolecularAnimation!(openingAnimation)).then(
+              () => record('timing', { phase: 'animation-prepare', target, elapsedMs: readoutClock() - prepareAt }),
+              () => record('timing', { phase: 'animation-prepare', target, outcome: 'deferred-to-install' }));
+          }
+          // A start or restart opens where the wearer put the molecule; only a
+          // later close-up chapter may take that placement over. Chapter one,
+          // however it is reached, stands where a start puts it: on the
+          // starting view's seat, or on the wearer's own.
+          const opening = restoreBaseline || target === 0;
+          const reseat = opening && workspace.viewer.inspection.holdsWearerPlacement?.() !== true;
+          const takeover = !opening && target !== step
+            && chapterAuthorsFraming(tour, target, { xr: workspace.snapshot().xrPresenting === true })
+            && workspace.viewer.inspection.holdsWearerPlacement?.() === true;
+          if (takeover) workspace.viewer.inspection.beginChapterFraming?.();
+          // The menu and card go back to the seat they had when the lesson
+          // started, as Done puts them back. A seat a later chapter moved them
+          // to is not the opening chapter's, and the chapter frames against it.
+          const restoreStartingSeat = () => withViewerRetry(workspace, 'tour seat',
+            () => workspace.viewer.inspection.restoreTourSeat?.({ restart: true }), operationBound(), admitted);
+          const preserveCamera = Boolean(workspace.snapshot().xrPresenting || workspace.viewer.inspection.holdsWearerPlacement?.());
+          const retainLivePlacement = preserveLiveScene || (!restoreBaseline && target === step + 1
+            && (takeover || workspace.viewer.inspection.holdsWearerPlacement?.() === true));
+          const cached = restoreBaseline || retainLivePlacement ? undefined : cachedScene(target);
+          const prior = restoreBaseline || retainLivePlacement ? undefined : cachedScene(target - 1);
+          const atomicFigure = Boolean(!cached && openingAnimation && !authoredFraming && workspace.viewer.inspection.setAnimatedChapter);
+          // The animated installer retires the old figure before replacing
+          // its bodies. Clearing here first would draw unposed variant plates
+          // and add a separate teardown/draw to an edited walk's restart.
+          if (!atomicFigure) await withViewerRetry(workspace, 'animation reset', () => workspace.viewer.inspection.setMolecularAnimation?.(undefined), operationBound(), admitted);
           // Speak before the scene is built, not after.
           //
           // Rendering a scene can take seconds; the Mac's voice route takes its
           // own. Starting both here means the wearer hears the line while the
           // structure turns into it, which is the whole difference between a
           // tour and a slideshow. A narrator that throws never fails a scene.
+          let previewPaint: Promise<unknown> | undefined;
           const preview = async (index: number) => {
             chapterPreview = { title: tour.steps[index].title, progress: `Scene ${index + 1} / ${tour.steps.length}`,
               bodyPage: wearerPages(tour.steps[index])[0] };
             sync();
-            await workspace.viewer.xr?.refreshToolbar?.();
+            const paint = workspace.viewer.xr?.refreshToolbar?.();
+            if (index === target && openingAnimation && !authoredFraming) {
+              // Caption geometry can build alongside molecular paint. Join it
+              // before framing, which reads the toolbar's actual plate bounds.
+              previewPaint = paint;
+              void previewPaint?.catch(() => {});
+            } else await paint;
             if (!intents.isCurrent(token) || selected !== tour || baseline !== startScene || source(workspace) !== startSource)
               throw Error('The tour scene was interrupted before rendering.');
           };
-          await preview(target);
+          // The uncached path previews each chapter as it applies it.
           speakScene(tour.steps[target]);
-          const cached = restoreBaseline || retainLivePlacement ? undefined : scenes.get(target);
-          const prior = restoreBaseline || retainLivePlacement ? undefined : scenes.get(target - 1);
+          const paintAt = readoutClock();
           if (cached) {
-            await withTourDeadline('scene restore', workspace.viewer.inspection.restore(cached, { preserveCamera, preservePlacement: preserveCamera && workspace.viewer.inspection.holdsWearerPlacement?.() === true }), operationBound());
+            await preview(target);
+            await withViewerRetry(workspace, 'scene restore', () => workspace.viewer.inspection.restore(cached,
+              reseat ? { preserveCamera, preservePlacement: false, restorePlacement: true } : { preserveCamera, preservePlacement: preserveCamera }), operationBound(), admitted);
+            if (opening) await restoreStartingSeat();
             // A capture carries appearance, placement,
             // selection and camera — it has no notion of the emphasis layers.
             // So a scene reached a second time (Back, or a second play of the
@@ -1595,16 +2402,18 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
             // wearer had just left. The first emulator capture of the rewritten
             // lesson showed chapters 1 and 2 both lit as chapter 3, because
             // both were restored from cache while chapter 3's layers were live.
-            // Framing is deliberately dropped: the placement the capture
-            // restored was baked after this chapter's framing ran, so asking
-            // for it again would only move the molecule a second time.
+            // Desktop captures include their local authored camera. XR kept
+            // its room anchor, so it must solve this chapter's framing again.
             // The restored scene is already on screen, so a key
             // that will not paint is recorded and the chapter still counts.
             pendingEmphasisEntry = tour.steps[target];
-            try { await applyStepEmphasis(tour.steps[target], admitted); }
+            try {
+              if (workspace.snapshot().xrPresenting) await frameRestoredStep(tour.steps[target], owned, takeover);
+              else await applyStepEmphasis(tour.steps[target], owned);
+            }
             catch (error) { if (isTourDeadlineError(error) || (error as { code?: string }).code === 'interaction_active' || (error as { figureFailure?: boolean; visibilityFailure?: boolean }).figureFailure
               || (error as { visibilityFailure?: boolean }).visibilityFailure) throw error; recordEmphasisFailure(error); }
-            if (!admitted())
+            if (!(await admittedOnceSettled()))
               throw Error('The tour scene was interrupted while restoring.');
             liveStep = target;
           } else {
@@ -1615,27 +2424,66 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
             // repaints the frame in front of the wearer. The baseline captured
             // moments ago is the same case before the first scene.
             const showingAlready = retainLivePlacement || (prior ? liveStep === target - 1 : baselineIsLive);
-            if (!showingAlready) await withTourDeadline('scene restore', workspace.viewer.inspection.restore(prior ?? startScene, { preserveCamera, preservePlacement: preserveCamera && workspace.viewer.inspection.holdsWearerPlacement?.() === true }), operationBound());
+            // The starting view brings its own seat back, and its own camera.
+            // A headset's camera maps the structure into the room, and a spin
+            // chapter turns it. Left before its turn came round, that turn
+            // stayed, and chapter one came back seen from another side.
+            const startingView = reseat && !prior;
+            if (!showingAlready) {
+              await withViewerRetry(workspace, 'scene restore', () => workspace.viewer.inspection.restore(prior ?? startScene, { preserveCamera: preserveCamera && !startingView, preservePlacement: preserveCamera && !startingView }), operationBound(), admitted);
+              if (opening && !prior) await restoreStartingSeat();
+            }
             baselineIsLive = false; liveStep = undefined;
             if (!intents.isCurrent(token) || selected !== tour || baseline !== startScene || baselineSource !== startSource)
               throw Error('The tour scene was interrupted while restoring.');
             for (let index = from; index <= target; index++) {
               await preview(index);
               pendingEmphasisEntry = tour.steps[index];
-              await applyIntent(tour.steps[index], () => intents.isCurrent(token) && source(workspace) === startSource, !preserveCamera);
-              if (!workspace.snapshot().ready || source(workspace) !== startSource
-                  || !intents.isCurrent(token) || selected !== tour || baseline !== startScene || baselineSource !== startSource)
+              await applyIntent(tour.steps[index], () => intents.isCurrent(token) && source(workspace) === startSource, !preserveCamera, takeover && index === target, atomicFigure && index === target);
+              if (!(await admittedOnceSettled()))
                 throw Error('The tour scene was interrupted while applying.');
-              scenes.set(index, workspace.capture());
+              // Keep held chapter content without claiming its local pose is
+              // authored. cachedScene excludes it after the hold is released.
+              if (atomicFigure && index === target) scenes.delete(index);
+              else cacheScene(index, workspace.capture());
               liveStep = index;
             }
           }
+          if (!atomicFigure) await previewPaint;
+          record('timing', { phase: 'chapter-paint', target, elapsedMs: readoutClock() - paintAt });
+          const animationAt = readoutClock();
+          if (tour.steps[target].animation && !workspace.viewer.inspection.setMolecularAnimation)
+            throw Error('This viewer does not support molecular animation. Update Stereofold before opening this lesson.');
+          // A chapter is whole only with its clock. A visit withdrawn before or
+          // during the install fails here, inside this action, so the scene it
+          // found is put back instead of a chapter left standing without one.
+          if (!(await admittedOnceSettled())) throw Error('The tour scene was interrupted before installing molecular animation.');
+          const install = () => atomicFigure
+            ? workspace.viewer.inspection.setAnimatedChapter!(openingAnimation!, tour.steps[target].id, tour.steps[target].figure, {context:animationFrame, frame:!tour.steps[target].placement, framing:tour.steps[target].emphasis?.framing, toolbarReady:previewPaint})
+            : workspace.viewer.inspection.setMolecularAnimation?.(tour.steps[target].animation, tour.steps[target].id, {
+            context: animationFrame,
+            // An authored room placement is the author's pose; never refit it.
+            frame: !tour.steps[target].placement,
+            framing: tour.steps[target].emphasis?.framing,
+          });
+          await withViewerRetry(workspace, 'molecular animation', install, tourAnimationInstallTimeoutMs(workspace.snapshot().atomCount), admitted);
+          if (!(await admittedOnceSettled())) {
+            // The withdrawn clock never runs, even if the found scene cannot come back.
+            await workspace.viewer.inspection.setMolecularAnimation?.(undefined);
+            throw Error('The tour scene was interrupted while installing molecular animation.');
+          }
+          // Cache the complete new figure and clock, not the previous
+          // animation retained while this chapter was being painted.
+          if (atomicFigure) cacheScene(target, workspace.capture());
+          record('timing', { phase: 'animation-install-frame', target, elapsedMs: readoutClock() - animationAt });
           rendered = true;
-        }), tourSceneTimeoutMs(workspace.snapshot().atomCount));
-        if (!rendered || !admitted())
+        }).finally(() => workspace.viewer.inspection.chapterPainting?.(undefined))))]), tourSceneTimeoutMs(workspace.snapshot().atomCount));
+        // The chapter is whole here; only something between the action's end
+        // and this line can have withdrawn it. It stays drawn, and stopped.
+        if (!rendered || !(await admittedOnceSettled()))
           throw Error('The tour scene was interrupted before completion.');
         chapterPreview = undefined;
-        step = target; stopped = false;
+        step = target; stopped = false; stoppedScene = undefined; openedByStart = restoreBaseline;
         continuousMotionPaused = false;
         // The caption's reading window opens here, on the clock
         // the headset readout measures it against. See `TourPlayerState`.
@@ -1644,82 +2492,18 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         // The final scene owns a full dwell too; schedule releases it afterwards.
         workspace.setStatus(`Tour scene ${step + 1} of ${tour.steps.length} shown`);
         setStatus(autoplay ? 'Autoplay is running.' : 'Use Back, Next, or Autoplay.');
-        const dwellMs = tourStepDwellMs(tour.steps[step]);
-        record('scene', { outcome: 'shown', title: tour.steps[step]?.title ?? null, dwellMs });
-
-        const normMotion = normalizeChapterMotion(tour.steps[step].motion);
-        if (normMotion && normMotion.kind !== 'hold' && !(normMotion.kind === 'turntable' && normMotion.continuous)) {
-          stopChapterMotion('restart');
-          motionActive = true;
-          activeMotionKind = normMotion.kind;
-          sync();
-          const motionKind = normMotion.kind;
-          const durationMs = Math.max(200, (normMotion.seconds ?? 8) * 1_000);
-          let startTime = Date.now(), elapsedBeforePause = 0;
-          let lastFraction = 0, lastTickAt = Date.now();
-          let currentToken = token;
-          // Pause retains only this visit's remaining motion. Other stop paths
-          // discard this closure, so a new chapter or wearer takeover cannot
-          // inherit an old animation. Resuming does not restore a scene.
-          suspendChapterMotion = () => {
-            elapsedBeforePause += Date.now() - startTime;
-            resumeChapterMotion = () => {
-              if (document.hidden) return;
-              resumeChapterMotion = undefined;
-              if (!active() || navigating || selected !== tour || baseline !== startScene
-                  || step !== target || source(workspace) !== startSource || !workspace.snapshot().ready) return;
-              currentToken = intents.issue(); startTime = lastTickAt = Date.now();
-              motionActive = true; activeMotionKind = motionKind;
-              motionTimer = setTimeout(tickMotion, 50);
-            };
-          };
-          const tickMotion = () => {
-            if (!motionActive || !active() || intents.isCurrent(currentToken) === false) {
-              stopChapterMotion('interrupted');
-              return;
-            }
-            const tickAt = Date.now();
-            if (workspace.snapshot().interactionActive) {
-              // Chapter dwell continues, but its automatic move cannot fight a hand
-              // or accumulate a jump to apply when the hand lets go.
-              startTime += tickAt - lastTickAt; lastTickAt = tickAt;
-              motionTimer = setTimeout(tickMotion, 50); return;
-            }
-            lastTickAt = tickAt;
-            const elapsed = elapsedBeforePause + tickAt - startTime;
-            const u = Math.min(1, Math.max(0, elapsed / durationMs));
-            const currentFraction = easeInOut(u);
-            const deltaFraction = currentFraction - lastFraction;
-            if (deltaFraction > 0) {
-              lastFraction = currentFraction;
-              // The tick goes out through the lesson's own
-              // path. Each call is fired and dropped: a rejected tick (a
-              // viewer mid-save, a lost context) must not fail the chapter,
-              // and the viewer's entry no-ops on its own while a grip is held.
-              if (motionKind === 'orbit') {
-                void applyMotionTick({ kind: 'orbit', axis: normMotion.axis, degrees: normMotion.degrees * deltaFraction }).catch(() => {});
-              } else if (motionKind === 'turntable') {
-                void applyMotionTick({ kind: 'orbit', axis: 'y', degrees: normMotion.degrees * deltaFraction }).catch(() => {});
-              } else if (motionKind === 'dolly') {
-                const totalFactor = Math.max(0.1, 1 - normMotion.metres * 0.2);
-                const stepFactor = Math.pow(totalFactor, deltaFraction);
-                void applyMotionTick({ kind: 'dolly', factor: stepFactor }).catch(() => {});
-              }
-            }
-            if (u < 1 && motionActive) {
-              motionTimer = setTimeout(tickMotion, 50);
-            } else {
-              motionActive = false;
-              activeMotionKind = undefined;
-              suspendChapterMotion = undefined; resumeChapterMotion = undefined;
-              // The chapter's turn is over, so its last pose becomes the saved
-              // camera in one save rather than 160 ticks of unsaved drift.
-              bakeChapterMotion();
-              sync();
-            }
-          };
-          motionTimer = setTimeout(tickMotion, 50);
+        const dwellMs = tourStepDwellMs(tour.steps[step], 0, narrationEnabled);
+        record('scene', { outcome: 'shown', title: tour.steps[step]?.title ?? null, dwellMs, boundaryToShownMs: readoutClock() - boundaryAt });
+        if (startRequestedAt !== undefined) record('timing', { phase: 'start-to-shown', elapsedMs: readoutClock() - startRequestedAt });
+        const nextAnimation = tour.steps[step + 1]?.animation;
+        if (nextAnimation && workspace.viewer.inspection.prepareMolecularAnimation) {
+          const prepareAt = readoutClock();
+          void workspace.viewer.inspection.prepareMolecularAnimation(nextAnimation).then(
+            () => record('timing', { phase: 'animation-prepare', target: target + 1, elapsedMs: readoutClock() - prepareAt }),
+            () => record('timing', { phase: 'animation-prepare', target: target + 1, outcome: 'deferred-to-install' }));
         }
+
+        startChapterMotion(tour, target, token);
       } catch (error) {
         if ((error as { code?: string }).code === 'interaction_active' && intents.isCurrent(token) && source(workspace) === startSource) {
           deferredVisit = { target, restoreBaseline, preserveLiveScene, token };
@@ -1739,14 +2523,19 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         // press that superseded it rather than anything of its own.
         if (intents.isCurrent(token)) intents.invalidate();
         autoplay = false; setStatus(`Tour paused: ${(error as Error).message}`);
-        record('scene', { outcome: 'error', target, error: (error as Error).message });
+        // A failed start leaves no lesson running. A later chapter whose found
+        // scene came back stays on it, paused; any other drawn failure stops.
+        const rollback = (error as { rollback?: string } | null)?.rollback;
+        if (selected === tour && baseline === startScene && baselineSource === startSource
+            && (fromStep < 0 || (checkpoint && rollback !== 'restored'))) stopped = true;
+        record('scene', { outcome: 'error', target, error: (error as Error).message, ...(rollback ? { rollback } : {}) });
         throw error;
-      } finally { chapterPreview = undefined; applying = false; navigating = false; sync(); schedule(); }
+      } finally { chapterPreview = undefined; applying = false; navigating = false; sync(); schedule(true); }
     });
     serial = operation.catch(() => undefined);
     return operation;
   };
-  const schedule = () => {
+  const schedule = (fromPaint = false) => {
     clearTimer();
     if (deferredVisit) {
       const pending = deferredVisit;
@@ -1760,7 +2549,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
             deferredVisit = undefined; autoplay = false;
             setStatus('The lesson is waiting for the viewer to recover.'); sync(); return;
           }
-          if (live.interactionActive || !live.ready) { schedule(); return; }
+          if ((live.interactionActive && !workspace.viewer.inspection.supportsConcurrentPlayback) || !live.ready) { schedule(); return; }
           deferredVisit = undefined;
           void visit(pending.target, pending.restoreBaseline, undefined, pending.preserveLiveScene).catch(reportActionError);
         }, 250);
@@ -1771,12 +2560,17 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     const scheduledTour = selected, scheduledStep = step;
     // The plate shows the spoken line whole, so its own word count sets the
     // dwell and there is never a second page to hold autoplay for.
-    const chapterDwellMs = tourStepDwellMs(scheduledTour.steps[scheduledStep]);
+    const chapterDwellMs = tourStepDwellMs(scheduledTour.steps[scheduledStep], 0, narrationEnabled);
     const multiplier = Number(pace.value);
     const pacedMs = Math.ceil(chapterDwellMs / (Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1));
-    const pages = workspace.snapshot().xrPresenting ? wearerPages(scheduledTour.steps[scheduledStep]) : [];
     const hasNextScene = scheduledStep < scheduledTour.steps.length - 1;
-    const pageDwellMs = pages.length > 1 ? Math.max(3_000, Math.ceil(pacedMs / pages.length)) : pacedMs;
+    const authoredSilent = !narrationEnabled && scheduledTour.steps[scheduledStep].durationMs !== undefined;
+    // A silent timed hold with no caption card owes no reading time to the
+    // toolbar's source/details readout. Keep scene admission and FPS safety.
+    const captionHoldApplies = !(authoredSilent && scheduledTour.presentation?.captionCard === 'hidden'
+      && normalizeChapterMotion(scheduledTour.steps[scheduledStep].motion)?.kind === 'hold');
+    const pages = workspace.snapshot().xrPresenting && captionHoldApplies ? wearerPages(scheduledTour.steps[scheduledStep]) : [];
+    const pageDwellMs = pages.length > 1 ? Math.max(authoredSilent ? 0 : 3_000, Math.ceil(pacedMs / pages.length)) : pacedMs;
     let holdStartedAt: number | undefined;
     const advance = () => {
       // A pause, manual navigation, or source/tour change invalidates this
@@ -1788,12 +2582,54 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         readoutPage++; chapterStartedAt = readoutClock(); sync(); schedule(); return;
       }
       const live = workspace.snapshot();
-      if (live.interactionActive || (source(workspace) === baselineSource && tourViewerIsSettling(live))) {
+      if ((live.interactionActive && !workspace.viewer.inspection.supportsConcurrentPlayback) || (source(workspace) === baselineSource && tourViewerIsSettling(live))) {
         setStatus(live.interactionActive ? 'The next chapter will appear when you release the structure.'
           : 'The next chapter is waiting for the current scene change to finish.');
         timer = setTimeout(advance, 250); return;
       }
+      // The headset card turns its own pages every seven seconds. A chapter
+      // stays until its last page has stood that long, whatever the dwell.
+      const cardHoldMs = live.xrPresenting && captionHoldApplies ? Number(workspace.viewer.xr?.toolbarReadout?.()?.cardHoldMs) : 0;
+      if (cardHoldMs > 0) { timer = setTimeout(advance, Math.min(cardHoldMs, 1_000)); return; }
       if (!hasNextScene) {
+        const nextStage = scheduledTour.presentation?.continueToStage;
+        if (nextStage && continueStage) {
+          // A previous, cancelled request may still be settling. Keep the
+          // newly requested Play alive until it releases the single-flight slot.
+          if (continuationPending) { timer = setTimeout(advance,250); return; }
+          // A source swap cannot bake a live molecular grab. Internal slides
+          // keep advancing while held; only this batch boundary waits.
+          if (live.interactionActive || !live.ready) {
+            setStatus('The next batch will load when you release the structure.');
+            sync(); timer = setTimeout(advance, 250); return;
+          }
+          continuationPending = true;
+          const epoch = continuationEpoch;
+          let transitioning = false;
+          const ownsScene = () => selected === scheduledTour && step === scheduledStep && source(workspace) === baselineSource;
+          const intent: StageContinuationIntent = {
+            isCurrent: () => continuationEpoch === epoch && autoplay && ownsScene(),
+            beginTransition: () => { transitioning = true; },
+            shouldAutoplay: () => continuationEpoch === epoch && (transitioning || autoplay && ownsScene()),
+          };
+          setStatus('Loading the next batch…'); sync();
+          record('continuation', { outcome: 'requested', stage: nextStage });
+          void Promise.resolve().then(() => intent.isCurrent() ? continueStage(nextStage, intent) : undefined).then(() => {
+            if (continuationEpoch === epoch && autoplay && ownsScene())
+              throw Error('The next batch did not replace the current scene');
+            record('continuation', {outcome:continuationEpoch===epoch?'completed':'cancelled',stage:nextStage});
+          }).catch(error => {
+            if (continuationEpoch !== epoch || !ownsScene()) return;
+            if ((error as {code?:string})?.code === 'continuation_deferred') {
+              setStatus('The next batch will load when you release the structure.'); sync();
+              timer = setTimeout(advance,250); return;
+            }
+            autoplay = false; clearTimer();
+            setStatus(`Could not load the next batch: ${(error as Error)?.message ?? String(error)}. Press Play to retry.`);
+            record('continuation', { outcome: 'failed', stage: nextStage, error: String((error as Error)?.message ?? error).slice(0,200) }); sync();
+          }).finally(() => { continuationPending = false; });
+          return;
+        }
         if (scheduledTour.presentation?.end === 'hold') {
           autoplay = false; setStatus('Tour complete. Press Done when ready.'); sync();
         } else void finish('completed').catch(reportActionError);
@@ -1824,7 +2660,8 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       });
 
     };
-    timer = setTimeout(advance, delayFromDocument(pageDwellMs));
+    const elapsed = fromPaint && chapterStartedAt !== undefined ? Math.max(0, readoutClock() - chapterStartedAt) : 0;
+    timer = setTimeout(advance, Math.max(0, delayFromDocument(pageDwellMs) - elapsed));
   };
   /**
    * Where a wearer's single `Start tour` press has to land. A headset press
@@ -1835,7 +2672,20 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   const openingStep = (tour: Tour): number =>
     tour.steps.length > 1 && Boolean(workspace.snapshot().xrPresenting)
       && tourStepIsSilentInXr(tour.steps[0], workspace.snapshot().inspection) ? 1 : 0;
-  const begin = (autoStart = true, startAt?: number | 'last', options?: { narration?: boolean }): Promise<void> => {
+  const begin = (autoStart = true, startAt?: number | 'last', options?: { narration?: boolean; waitForXrEntry?: boolean; preserveContinuation?: boolean }): Promise<void> => {
+    if (!options?.preserveContinuation) continuationEpoch++;
+    const live = workspace.snapshot();
+    if (options?.waitForXrEntry && selected && !live.xrPresenting && (live.atomCount ?? 0) === 0 && (live.triangleCount ?? 0) > 0
+      && (startAt === undefined || startAt === 0)) {
+      // The first map chapter needs tracked framing and a fresh chapter card.
+      // Starting before entry makes the room seat adopt its unframed card.
+      pendingMapStart = { tour: selected, source: source(workspace), autoplay: autoStart, narration: options?.narration !== false };
+      narrationEnabled = options?.narration !== false;
+      setStatus('The opening chapter will start on entering VR.'); sync();
+      return serial;
+    }
+    pendingMapStart = undefined;
+    const startAtClock = readoutClock();
     narrationEnabled = options?.narration !== false;
     setStatus('Starting tour…'); forgetSpokenLine(); forgetEmphasisFailures();
     const token = intents.issue(); navigating = true; sync();
@@ -1847,7 +2697,32 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         await workspace.runTour(async () => {
           setStatus('Capturing starting view…');
           if (!workspace.snapshot().ready || !intents.isCurrent(token) || selected !== tour) return;
-          autoplay = false; stopped = false; scenes.clear(); baseline = withoutLessonPlayback(workspace.capture()); baselineIsLive = true; liveStep = undefined; baselineSource = source(workspace); step = -1; chapterStartedAt = undefined; readoutPage = 0;
+          // A lesson started again over one of its own chapters starts from
+          // the view that lesson found, whichever route started it.
+          const retained = retainedStart && retainedStart.source === source(workspace) ? retainedStart.scene
+            : baseline && baselineSource === source(workspace) && step >= 0 ? baseline : undefined;
+          const current = workspace.capture() as any;
+          const starting = retained ? structuredClone(retained) as any : withoutLessonPlayback(current);
+          const interchangeable = workspace.viewer.inspection.preservesFigureFrame?.() === true
+            && tour.steps.every(entry => !entry.placement && !entry.view && !entry.figure?.focus
+              && !entry.emphasis?.framing && !entry.animation && !entry.cameraSpin && (!entry.motion || entry.motion === 'hold'));
+          // This source's entry fit is spent once. Replaying its invisible
+          // pre-figure baseline must not restore the earlier, unframed seat.
+          if (retained && interchangeable) {
+            if (current.camera) starting.camera = structuredClone(current.camera);
+            if (current.inspection?.placement && starting.inspection)
+              starting.inspection.placement = structuredClone(current.inspection.placement);
+          }
+          // Restore the lesson's starting view, keeping a later wearer selection
+          // and its ownership together, including an explicit empty selection.
+          if (retained && current?.selectionKeys
+              && current.inspection?.lessonSelection !== selectionSignature(current.selectionKeys)) {
+            starting.selectionKeys = [...current.selectionKeys];
+            if (starting.inspection) delete starting.inspection.lessonSelection;
+          }
+          if (!retained) cameraFrame = workspace.snapshot().xrPresenting ? 'xr' : 'desktop';
+          retainedStart = undefined;
+          autoplay = false; stopped = false; scenes.clear(); baseline = starting; baselineIsLive = !retained; liveStep = undefined; baselineSource = source(workspace); step = -1; chapterStartedAt = undefined; readoutPage = 0;
         });
         if (!intents.isCurrent(token) || selected !== tour || !baseline) return false;
         return true;
@@ -1878,7 +2753,8 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       // the one line a later diagnosis needs to explain this press.
       record('start', { opening, skippedOpening: opening > 0, autoplay,
         openingChanges: xrStepChanges(tour.steps[0], workspace.snapshot().inspection) });
-      return visit(opening, true, baselineRun);
+      record('timing', { phase: 'start-baseline', elapsedMs: readoutClock() - startAtClock });
+      return visit(opening, true, baselineRun, false, startAtClock);
     }).catch(error => {
       navigating = false;
       setStatus(`Tour could not start: ${(error as Error).message}`);
@@ -1888,16 +2764,24 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     serial = firstScene.catch(() => undefined);
     return firstScene;
   };
-  const select = (id: string): Promise<void> => {
-    stopChapterMotion('lesson-selected');
+  const select = (id: string, options: { preserveMolecularPlayback?: boolean; preserveContinuation?: boolean } = {}): Promise<void> => {
+    if (!options.preserveContinuation) continuationEpoch++;
+    pendingMapStart = undefined;
+    stopChapterMotion('lesson-selected', false, options.preserveMolecularPlayback);
     intents.invalidate();
+    // A chapter left on screen is the lesson's work, not the wearer's view.
+    // Whatever starts next starts from the view the lesson found.
+    if (baseline && baselineSource !== undefined && baselineSource === source(workspace) && step >= 0)
+      retainedStart = { scene: baseline, source: baselineSource };
     selected = catalog.find(tour => tour.id === id); autoplay = false; clearTimer(); stopped = false; forgetSpokenLine(); forgetEmphasisFailures();
     menu.value = selected?.id ?? '';
     menuCursor = catalog.findIndex(tour => tour.id === id); menuOpen = false;
     baseline = undefined; baselineSource = undefined; step = -1; chapterStartedAt = undefined; readoutPage = 0; scenes.clear(); setStatus(''); sync();
     return serial;
   };
-  const replaceTours = (next: readonly Tour[]): Promise<void> => {
+  const replaceTours = (next: readonly Tour[], options: { preservePlayback?: boolean; preserveMolecularPlayback?: boolean; preserveContinuation?: boolean } = {}): Promise<void> => {
+    if (!options.preserveContinuation) continuationEpoch++;
+    pendingMapStart = undefined;
     if (!Array.isArray(next)) throw new TypeError('Tour catalog must be an array.');
     const replacement = [...next];
     const ids = new Set<string>();
@@ -1908,13 +2792,22 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       }
       ids.add(tour.id);
     }
+    if (options.preservePlayback) {
+      const chapterId = selected?.steps[step]?.id;
+      catalog = replacement;
+      selected = catalog.find(tour => tour.id === selected?.id);
+      step = selected?.steps.findIndex(chapter => chapter.id === chapterId) ?? -1;
+      scenes.clear(); populateMenu(); menu.value = selected?.id ?? '';
+      // The caller restores saved playback next; do not publish stale metadata.
+      return serial;
+    }
     // A catalog swap is a new lesson session. Invalidate queued work before
     // dropping its selected tour/baseline so an old scene cannot be restored
     // into a newly hydrated source.
-    stopChapterMotion('catalog-replaced');
+    stopChapterMotion('catalog-replaced', false, options.preserveMolecularPlayback);
     intents.invalidate();
     autoplay = false; clearTimer(); resumeOnVisible = false; forgetSpokenLine(); forgetEmphasisFailures();
-    selected = undefined; baseline = undefined; baselineSource = undefined;
+    selected = undefined; baseline = undefined; baselineSource = undefined; retainedStart = undefined;
     step = -1; chapterStartedAt = undefined; stopped = false; menuOpen = false; menuCursor = -1; readoutPage = 0;
     scenes.clear();
     catalog = replacement;
@@ -1923,6 +2816,181 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     setStatus(catalog.length ? 'Lesson list updated. Choose a lesson.' : 'No lessons are available.');
     sync();
     return serial;
+  };
+  let pendingInstallation: (() => void) | undefined;
+  const confirmLessonInstallation = () => {
+    const resume = pendingInstallation;
+    pendingInstallation = undefined;
+    resume?.();
+  };
+  const installLesson = (tour: Tour, start?: LessonStart, confirm?: () => Promise<void>, requested: boolean | 'auto' | 'entry' = false): Promise<void> => {
+    const entering = requested === 'entry';
+    let frame = requested === true, seatOnceDrawn = false;
+    const old = { catalog, selected, step, baseline, baselineSource, stopped, autoplay, narrationEnabled, openedByStart, cameraFrame };
+    const currentChapter = selected?.steps[step]?.id;
+    const continueVisit = Boolean(selected && baseline && step >= 0 && baselineSource === source(workspace));
+    const chapterId = start?.chapterId ?? (continueVisit ? currentChapter : undefined);
+    const target = Math.max(0, tour.steps.findIndex(chapter => chapter.id === chapterId));
+    if (start?.chapterId && !tour.steps.some(chapter => chapter.id === start.chapterId))
+      return Promise.reject(Error('start.chapterId: chapter is unavailable.'));
+    const live = workspace.snapshot();
+    if (start && target === 0 && (requested === 'auto' || requested === 'entry') && !confirm && !live.xrPresenting
+      && (live.atomCount ?? 0) === 0 && (live.triangleCount ?? 0) > 0) {
+      return replaceTours([tour, ...catalog.filter(entry => !entry.id.startsWith('lesson-') && entry.id !== tour.id)])
+        .then(() => select(tour.id))
+        .then(() => begin(start.autoplay !== false, 0, { narration: start.narration, waitForXrEntry: true }));
+    }
+    const molecularState = (workspace.capture() as any)?.inspection?.animation?.playback?.state;
+    clearTimer(); stopChapterMotion('lesson-installed', false, true); intents.invalidate();
+    autoplay = false; resumeOnVisible = false;
+    const token = intents.issue(), installedSource = source(workspace);
+    const operation = serial.then(async () => {
+      const admitted = () => intents.isCurrent(token) && source(workspace) === installedSource && workspace.snapshot().ready === true;
+      const bound = async <T>(label: string, work: Promise<T> | T | undefined, timeoutMs = operationBound()) => {
+        const result = await withTourDeadline(label, work, timeoutMs);
+        if (!admitted()) throw Error('The lesson installation was interrupted.');
+        return result;
+      };
+      const { answered, answer } = lateAnswer();
+      applying = true; navigating = true;
+      try {
+        await withTourDeadline('lesson installation', Promise.race([answered, workspace.runTour(noteDrawn(async () => {
+          if (!admitted()) throw Error('The lesson installation was interrupted.');
+          // The scene this install found, from the moment it starts to change it.
+          const before = workspace.capture();
+          try {
+            // The animation reset below takes the playing chapter's clock down.
+            holdPlaybackCursor();
+            catalog = [tour, ...catalog.filter(entry => !entry.id.startsWith('lesson-') && entry.id !== tour.id)];
+            selected = tour; scenes.clear(); forgetSpokenLine(); forgetEmphasisFailures();
+            populateMenu(); menu.value = tour.id; menuOpen = false;
+            await bound('lesson key', workspace.viewer.inspection.setLessonRestingState?.(lessonRestingState(tour)));
+            // The host frames a source's first lesson ('auto'). In the headset
+            // that frame never takes a placement the wearer holds; an explicit
+            // frame:true does. The desktop frames it as it always has.
+            frame = requested === true || ((requested === 'auto' || entering) && (workspace.snapshot().xrPresenting !== true
+              || workspace.viewer.inspection.holdsWearerPlacement?.() !== true));
+            if (start || continueVisit || requested) {
+              baseline = continueVisit ? old.baseline : withoutLessonPlayback(before);
+              baselineSource = installedSource;
+              if (!continueVisit) cameraFrame = workspace.snapshot().xrPresenting ? 'xr' : 'desktop';
+              const entry = tour.steps[target];
+              // Read the outgoing scale before the chapter paints. An install's
+              // frame may grow the molecule to its fit, but never shrinks it
+              // past the ordinary animated cap.
+              const outgoing = workspace.viewer.inspection.animationFramingContext?.(entry.animation);
+              const animationFrame = outgoing && typeof outgoing === 'object' ? { ...outgoing, growToFit: true } : outgoing;
+              if (entry.figure && !workspace.viewer.inspection.setLessonFigure) throw Error('This viewer does not support molecular figures.');
+              if (entry.animation && !workspace.viewer.inspection.setMolecularAnimation) throw Error('This viewer does not support molecular animation.');
+              // Only a fresh source's unheld frame or an explicit request releases manual placement.
+              if (frame) workspace.viewer.inspection.beginChapterFraming?.();
+              if (entering && frame && entry.placement)
+                await bound('placement', workspace.viewer.inspection.place(entry.placement, 'tour-placement'));
+              // As applyTourStep: only a continuous spin keeps the presentation turn.
+              const xr = workspace.snapshot().xrPresenting === true;
+              if (entering && (entry.motion || (xr && entry.cameraSpin))) {
+                const motion = presentedChapterMotion(entry, xr);
+                await bound('turn', workspace.viewer.inspection.setMotion({ paused: !(motion?.kind === 'turntable' && motion.continuous) }));
+              }
+              await bound('animation reset', workspace.viewer.inspection.setMolecularAnimation?.(undefined));
+              for (const appearance of entry.appearances ?? (entry.appearance ? [entry.appearance] : []))
+                await bound('appearance', workspace.viewer.inspection.configure(appearance));
+              const focusBeforeFigure = Boolean(frame && entry.figure && framesEmphasisFocus(entry));
+              await bound('molecular figure', workspace.viewer.inspection.setLessonFigure?.(focusBeforeFigure ? undefined : entry.figure,
+                { frame: frame && !entry.animation && !focusBeforeFigure }));
+              await bound('colour emphasis', workspace.viewer.inspection.emphasize?.({ ...stepEmphasis(entry, lessonRestingState(tour)),
+                framing: entering && frame ? entry.emphasis?.framing : focusBeforeFigure ? entry.emphasis!.framing : undefined }));
+              if (focusBeforeFigure) await bound('molecular figure', workspace.viewer.inspection.setLessonFigure?.(entry.figure, { frame: false }));
+              if (entry.visibility) await bound('visibility', workspace.viewer.inspection.setVisibility?.(resolveTourVisibility(workspace, entry.visibility)));
+              await bound('molecular animation', workspace.viewer.inspection.setMolecularAnimation?.(entry.animation, entry.id, { context: animationFrame, frame: frame && !entry.placement, framing: entry.emphasis?.framing }),
+                tourAnimationInstallTimeoutMs(workspace.snapshot().atomCount));
+              if (entering && frame && entry.view && workspace.viewer.inspection.holdsWearerPlacement?.() !== true) {
+                const view = entry.view;
+                // The authored scale is in source coordinates. In the headset a
+                // plain opening fit takes the room seat a fresh XR entry gives.
+                if (xr) seatOnceDrawn = view === 'fit' && !entry.emphasis?.framing && !entry.figure && !entry.animation
+                  && Boolean(workspace.viewer.inspection.seatForEntry);
+                else if (view === 'fit') await bound('view', workspace.viewer.inspection.fit());
+                else if (view === 'reset-orientation') await bound('view', workspace.viewer.inspection.resetOrientation());
+                else if (view === 'focus') await bound('view', workspace.viewer.focus(workspace.snapshot().selectionKeys ?? []));
+                else if ('orbit' in view) await bound('view', workspace.viewer.inspection.orbit(view.orbit.axis, view.orbit.degrees));
+                else await bound('view', workspace.viewer.inspection.dolly(view.dolly));
+              }
+              step = target; stopped = start ? false : old.stopped;
+              openedByStart = start ? true : continueVisit && old.openedByStart;
+              narrationEnabled = start ? start.narration !== false : old.narrationEnabled;
+              autoplay = start ? start.autoplay !== false : continueVisit && old.autoplay;
+              if (continueVisit && !start && molecularState)
+                workspace.viewer.inspection.controlMolecularAnimation?.({ state: molecularState === 'paused' ? 'pause' : 'play' });
+              chapterStartedAt = readoutClock(); readoutPage = 0;
+            } else {
+              baseline = undefined; baselineSource = undefined; step = -1; stopped = false;
+            }
+            if (!admitted()) throw Error('The lesson installation was interrupted.');
+            // Installation has already painted this chapter. Seed the same
+            // scene proof as a normal visit, so the first Next inherits it
+            // without restoring the baseline and replaying earlier chapters.
+            // cacheScene distinguishes wearer-held content from an authored pose.
+            const installed = step >= 0 ? workspace.capture() : undefined;
+            baselineIsLive = false; liveStep = step >= 0 ? step : undefined;
+            if (installed) cacheScene(step, installed);
+          } catch (error) {
+            // As a failed chapter does: the found scene goes back inside this
+            // action, once any work a bound gave up on has landed.
+            if (await putBackFound(before, error, installedSource, () => answer(error),
+              () => ({ preserveCamera: !frame, preservePlacement: !frame })) !== 'skipped') {
+              try {
+                await withTourDeadline('lesson key rollback', workspace.viewer.inspection.setLessonRestingState?.(lessonRestingState(old.selected), { preserveEmphasis: true }), operationBound());
+              } catch (keyError) {
+                record('scene', { outcome: 'lesson-key-rollback-failed', error: String((keyError as Error)?.message ?? keyError).slice(0, 200) });
+              }
+            }
+            throw error;
+          }
+        }))]), tourSceneTimeoutMs(workspace.snapshot().atomCount));
+        setStatus('Lesson installed.');
+      } catch (error) {
+        if (intents.isCurrent(token)) intents.invalidate();
+        catalog = old.catalog; selected = old.selected; step = old.step; baseline = old.baseline;
+        baselineSource = old.baselineSource; stopped = old.stopped; autoplay = false; narrationEnabled = old.narrationEnabled;
+        openedByStart = old.openedByStart; cameraFrame = old.cameraFrame;
+        // An interrupted install (including a late rollback) cannot certify
+        // either its new scene or the previously cached chapter as live.
+        baselineIsLive = false; liveStep = undefined; scenes.clear();
+        populateMenu(); menu.value = selected?.id ?? '';
+        throw error;
+      } finally { applying = false; navigating = false; sync(); }
+      if (entering && step >= 0) {
+        // Fresh entry seats a chapter whose compact controls are on screen.
+        // Solve against those, not the taller loading menu, or the seat shrinks.
+        if (seatOnceDrawn && admitted()) {
+          try {
+            await bound('chapter controls', workspace.viewer.xr?.refreshToolbar?.());
+            await bound('entry seat', workspace.viewer.inspection.seatForEntry?.());
+          } catch (error) {
+            // A refused seat (no fresh tracking, a held hand) keeps the
+            // chapter on screen at its authored placement.
+            if (!admitted() || isTourDeadlineError(error)) throw error;
+            record('scene', { outcome: 'entry-seat-refused', error: String((error as Error)?.message ?? error).slice(0, 200) });
+          }
+        }
+        record('start', { opening: step, autoplay });
+        startChapterMotion(tour, step, token);
+      }
+      if (start && step >= 0) speakScene(tour.steps[step]);
+      // Do not advance a short chapter before its draw-and-save receipt settles.
+      // Keep this continuation if the acknowledgement is lost. Receipt recovery
+      // may release it later, unless a user action or source change superseded it.
+      pendingInstallation = () => {
+        if (intents.isCurrent(token) && source(workspace) === installedSource && selected === tour) schedule();
+      };
+      if (admitted() && installedSource !== undefined)
+        workspace.viewer.inspection.setSourceCoordinateFrame?.(tour.presentation?.coordinateFrame, installedSource);
+      await confirm?.();
+      confirmLessonInstallation();
+    });
+    serial = operation.catch(() => undefined);
+    return operation;
   };
   const cycleTour = (): Promise<void> => {
     return select(catalog[(menuCursor + 1 + catalog.length) % catalog.length]?.id ?? '');
@@ -1936,6 +3004,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
    * the scene or leaves a sentence behind.
    */
   const transport = (direction: 'next' | 'back'): Promise<void> => {
+    continuationEpoch++;
     const snapshot = state();
     const intent = tourTransportIntent({ action: direction, active: active(), stopped, step, navigating,
       hasLesson: Boolean(selected ?? catalog[0]), canNext: snapshot.canNext, canBack: snapshot.canBack });
@@ -1980,6 +3049,11 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     if (autoplay) pause('Autoplay paused.');
     else {
       autoplay = true; continuousMotionPaused = false;
+      // Page, spoken and menu Play share this explicit resume action. A
+      // completed non-looping clip replays; chapter scheduling stays intact.
+      const animation = workspace.snapshot().animation;
+      workspace.viewer.inspection.controlMolecularAnimation?.({ state: 'play',
+        ...(animation && !animation.loop && animation.timeSeconds >= animation.durationSeconds ? { restart: true } : {}) });
       resumeChapterMotion?.(); resumeContinuousAfterInteraction();
       setStatus('Autoplay is running.');
     }
@@ -1998,8 +3072,15 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       setStatus(error.message); sync();
       return Promise.reject(error);
     }
+    if (stopped && stoppedScene && stoppedScene.tour === selected && stoppedScene.step === step
+      && stoppedScene.source === source(workspace)) {
+      stoppedScene = undefined; stopped = false;
+      if (autoResume) return togglePlay();
+      setStatus('Lesson scene resumed.'); sync();
+      return serial;
+    }
     const eligibility = tourRejoinEligibility({ ready: Boolean(workspace.snapshot().ready), selected: Boolean(selected), baseline: baseline != null,
-      step, cached: scenes.has(step), sourceSha256: source(workspace), baselineSource });
+      step, cached: cachedScene(step) !== undefined, sourceSha256: source(workspace), baselineSource });
     if (!eligibility.ok) {
       const error = Error(eligibility.reason);
       setStatus(error.message); sync();
@@ -2026,28 +3107,41 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       && intents.isCurrent(token) && baseline === currentBaseline;
     const operation = serial.then(async () => {
       applying = true;
+      // Done lands the starting view or puts the chapter back whole, so a
+      // failed Done never leaves the lesson running without its animation.
+      let checkpoint: VisitCheckpoint | undefined;
+      const { answered, answer } = lateAnswer();
       try {
         let restored = false;
         // Bounded for the same reason a scene is: this runs on the workspace
         // queue every other lesson operation waits behind.
-        await withTourDeadline('starting view', workspace.runTour(async () => {
-          if (!admitted())
-            throw Error('Restoring the starting view was interrupted.');
-          await withTourDeadline('scene restore', workspace.viewer.inspection.restore(currentBaseline, { preserveCamera: Boolean(workspace.snapshot().xrPresenting) }), operationBound());
-          if (!admitted()) throw Error('Restoring the starting view was interrupted.');
-          // The starting view is the structure before the lesson coloured it,
-          // so the emphasis layers go with it. Without this the molecule kept
-          // the last chapter's colour key after the tour was put away.
-          if ((currentBaseline as any)?.inspection?.lessonFigure) {
-            await withTourDeadline('colour emphasis', workspace.viewer.inspection.clearLessonEmphasis?.(), operationBound());
-          } else await applyStepEmphasis(undefined, admitted);
-          restored = true;
-        }), tourSceneTimeoutMs(workspace.snapshot().atomCount));
+        await withTourDeadline('starting view', Promise.race([answered, workspace.runTour(noteDrawn(async () => {
+          checkpoint = { scene: workspace.capture(), liveStep, baselineIsLive };
+          holdPlaybackCursor();
+          try {
+            await workspace.viewer.inspection.setMolecularAnimation?.(undefined);
+            if (!admitted())
+              throw Error('Restoring the starting view was interrupted.');
+            await withTourDeadline('scene restore', workspace.viewer.inspection.restore(currentBaseline, { preserveCamera: Boolean(workspace.snapshot().xrPresenting) }), operationBound());
+            if (!admitted()) throw Error('Restoring the starting view was interrupted.');
+            // The starting view is the structure before the lesson coloured it,
+            // so the emphasis layers go with it. Without this the molecule kept
+            // the last chapter's colour key after the tour was put away.
+            if ((currentBaseline as any)?.inspection?.lessonFigure) {
+              await withTourDeadline('colour emphasis', workspace.viewer.inspection.clearLessonEmphasis?.(), operationBound());
+            } else await applyStepEmphasis(undefined, admitted);
+            restored = true;
+          } catch (error) { await rollBackVisit(checkpoint, error, currentSource, () => answer(error)); throw error; }
+        }))]), tourSceneTimeoutMs(workspace.snapshot().atomCount));
         if (!restored || !admitted())
           throw Error('Restoring the starting view was interrupted.');
         stopped = true; step = -1; chapterStartedAt = undefined; setStatus('Starting view restored.'); workspace.setStatus('Tour starting view restored');
       }
-      catch (error) { setStatus(`Starting view could not be restored: ${(error as Error).message}`); throw error; }
+      catch (error) {
+        // A chapter that did not come back whole is not running.
+        if (baseline === currentBaseline && checkpoint && (error as { rollback?: string } | null)?.rollback !== 'restored') stopped = true;
+        setStatus(`Starting view could not be restored: ${(error as Error).message}`); throw error;
+      }
       finally { applying = false; navigating = false; sync(); }
     });
     serial = operation.catch(() => undefined);
@@ -2076,7 +3170,11 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     // Snapshot repaint and the final column obstacle belong to one label
     // transaction, just as placement and emphasis do during a chapter.
     const batch = workspace.viewer.inspection.batchComponentLabels;
-    ending = withTourDeadline('tour ending', batch ? batch(restoreResting) : restoreResting(), operationBound()).then(() => {
+    // The net contains Restore start's own, which may put the chapter back,
+    // and one bound for the seat. A tighter one fired first: it named the
+    // ending instead of the part that stalled, while the restore still ran.
+    ending = withTourDeadline('tour ending', batch ? batch(restoreResting) : restoreResting(),
+      tourSceneTimeoutMs(workspace.snapshot().atomCount) + operationBound()).then(() => {
       // A source/catalog change or pause while the final menu is settling
       // withdraws this ending's status, receipt and spoken completion.
       if (!completionAdmitted()) throw Error('The tour ending was interrupted.');
@@ -2139,6 +3237,8 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     }
   });
   window.addEventListener('pagehide', () => pause(), { once:true });
+  window.addEventListener('pagehide', suspendCaption);
+  window.addEventListener('pageshow', observeCaption);
   sync();
   return Object.freeze({
     pause,
@@ -2151,14 +3251,25 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     cycleTour,
     start: begin,
     replaceTours,
+    installLesson,
+    confirmLessonInstallation,
     validatePlayback(scene) {
       savedLessonPlayback(scene, catalog);
       if ((scene as any).sourceSha256 !== source(workspace)) throw Error('The saved lesson source is not loaded.');
     },
-    restorePlayback(scene) {
+    restorePlayback(scene, { frame = false, waitForXrEntry = false } = {}) {
+      continuationEpoch++;
+      pendingMapStart = undefined;
       const saved = savedLessonPlayback(scene, catalog);
       if ((scene as any).sourceSha256 !== source(workspace)) throw Error('The saved lesson source is not loaded.');
+      if (!frame || !baseline || baselineSource !== source(workspace)) cameraFrame = saved?.cameraFrame;
+      if (waitForXrEntry && saved?.cameraFrame === 'desktop' && !workspace.snapshot().xrPresenting)
+        waitingForXrEntry = true;
+      const lessonChanged = selected?.id !== saved?.tourId;
+      const chapterChanged = lessonChanged || selected?.steps[step]?.id !== saved?.chapterId;
+      const localMotionPlaying = frame && !chapterChanged ? motionActive : undefined;
       intents.invalidate(); clearTimer(); stopChapterMotion('restored');
+      const localMotionProgress = localMotionPlaying !== undefined ? motionProgress : undefined;
       if (!saved) {
         baseline = undefined; baselineSource = undefined; baselineIsLive = false; liveStep = undefined;
         step = -1; scenes.clear(); stopped = false; autoplay = false; resumeOnVisible = false; navigating = false;
@@ -2166,14 +3277,54 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         setStatus('Shared view restored.'); sync();
         return;
       }
+      // The peer's baseline supplies lesson content, but future Back/Done
+      // restores must still use this panel's own starting view.
+      if (frame) {
+        const localStart = (baselineSource === source(workspace) ? baseline : workspace.capture()) as any;
+        if (localStart?.camera) saved.startingScene.camera = structuredClone(localStart.camera);
+        if (localStart?.inspection?.placement)
+          saved.startingScene.inspection.placement = structuredClone(localStart.inspection.placement);
+      }
       selected = catalog.find(tour => tour.id === saved.tourId)!;
       step = selected.steps.findIndex(chapter => chapter.id === saved.chapterId);
       baseline = saved.startingScene; baselineSource = (scene as any).sourceSha256;
-      baselineIsLive = false; liveStep = step; scenes.clear(); scenes.set(step, structuredClone(scene));
+      baselineIsLive = false; liveStep = step; scenes.clear();
+      cacheScene(step, structuredClone(scene));
       stopped = saved.stopped; autoplay = false; resumeOnVisible = false; navigating = false;
-      narrationEnabled = saved.narration !== false;
+      narrationEnabled = saved.narration !== false; openedByStart = saved.entry === 'start';
+      // A framed peer receipt keeps the headset camera. Its motion fraction
+      // must therefore stay local too, even if the peer already finished.
+      motionProgress = localMotionProgress ?? saved.motionProgress ?? 1; pendingMotionProgress = undefined;
+      const motionPlaying = localMotionPlaying === undefined ? saved.motionPlaying
+        : saved.motionPlaying || (localMotionPlaying && saved.motionProgress === 1);
       forgetSpokenLine(); menu.value = selected.id; menuOpen = false; readoutPage = 0;
       chapterStartedAt = readoutClock(); setStatus('Saved lesson scene restored. Use Back, Next, or Play.'); sync();
+      // A peer's lesson start or restart opens where the wearer put the
+      // molecule here too; only a peer's step into a close-up takes it over.
+      const takeover = frame && chapterChanged && !lessonChanged && !openedByStart
+        && chapterAuthorsFraming(selected, step, { xr: workspace.snapshot().xrPresenting === true })
+        && workspace.viewer.inspection.holdsWearerPlacement?.() === true;
+      if (takeover) workspace.viewer.inspection.beginChapterFraming?.();
+      // A fresh inspection can hand off while its opening turn is still
+      // transient. Restoring an active caption alone must not lose that turn.
+      // Legacy cursors have no motion clock and retain their saved view.
+      const resumeSavedMotion = () => {
+        if (!stopped && motionPlaying === true && motionProgress < 1 && !workspace.viewer.inspection.holdsWearerPlacement?.())
+          startChapterMotion(selected!, step, intents.issue(), motionProgress);
+      };
+      if (frame && chapterChanged && !workspace.viewer.inspection.holdsWearerPlacement?.()) {
+        const tour = selected, chapter = step, restoredSource = source(workspace), token = intents.issue();
+        const admitted = () => intents.isCurrent(token) && selected === tour && step === chapter
+          && source(workspace) === restoredSource && workspace.snapshot().ready === true;
+        return frameRestoredStep(tour.steps[chapter], admitted, takeover).then(() => {
+          if (admitted()) {
+            cacheScene(chapter, workspace.capture());
+            resumeSavedMotion();
+          }
+        });
+      }
+      if (frame) cacheScene(step, workspace.capture());
+      resumeSavedMotion();
     },
     back: backAction,
     next: nextAction,
@@ -2194,7 +3345,23 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     nextReadoutPage,
     narratingLine: () => spokenLine,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    drawnScene: () => lastDrawn,
+    async frameXrEntry() {
+      const pending = pendingMapStart; pendingMapStart = undefined;
+      if (!pending || pending.tour !== selected || pending.source !== source(workspace)
+        || !workspace.snapshot().xrPresenting) return;
+      await begin(pending.autoplay, 0, { narration: pending.narration });
+      // Discard the resting/preview card only after the player publishes the
+      // active chapter, so clearance draws the chapter's actual caption.
+      if (pending.tour === selected && pending.source === source(workspace)
+        && workspace.viewer.inspection.holdsWearerPlacement?.() !== true)
+        await workspace.viewer.inspection.restoreTourSeat?.({ restart: true });
+    },
     notifyMutation(snapshot, options) {
+      if (options?.origin === 'xr-entry' && snapshot?.xrPresenting) { waitingForXrEntry = false; cameraFrame = 'xr'; }
+      // Installation and chapter paint emit the same receipts as external edits.
+      if (applying) return;
+      if(snapshot?.sourceSha256 && baselineSource && snapshot.sourceSha256!==baselineSource) continuationEpoch++;
       // The agent is not the wearer.
       //
       // A command the agent renders is a committed inspection change like any
@@ -2208,8 +3375,26 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       if (options?.interaction) { manipulationPending = true; resumeContinuousAfterInteraction(); }
       else if (options?.interaction === false) manipulationPending = false;
       const handlingGesture = options?.interaction
-        || (snapshot?.xrPresenting && (manipulationPending || snapshot.interactionActive || workspace.viewer.inspection.holdsWearerPlacement?.()));
-      if (sameSource && (options?.agent || handlingGesture)) {
+        || (manipulationPending || snapshot?.interactionActive || workspace.viewer.inspection.holdsWearerPlacement?.());
+      // XR entry seating and menu/appearance edits keep the installed chapter.
+      // Only an explicit stop/Done or a new source ends a headset lesson.
+      if (sameSource && (snapshot?.xrPresenting || options?.agent || options?.origin === 'automatic-clearance' || options?.origin === 'xr-entry' || handlingGesture)) {
+        // Desktop and XR have different camera-to-room frames. Keep the
+        // original scientific starting view, but bind its return pose to the
+        // committed entry seat so Restart/Done cannot restore desktop units.
+        if (options?.origin === 'xr-entry' && baseline) {
+          const local = workspace.capture() as any;
+          const starting = structuredClone(baseline) as any;
+          if (local.camera) starting.camera = structuredClone(local.camera);
+          if (local.inspection?.placement && starting.inspection)
+            starting.inspection.placement = structuredClone(local.inspection.placement);
+          baseline = starting;
+        }
+        // A scientific edit yields the authored camera move while retaining
+        // the chapter and its molecular clock. Entry and agent edits keep
+        // their own automatic/concurrent motion policy.
+        if (snapshot?.xrPresenting && !options?.agent && options?.origin !== 'automatic-clearance' && options?.origin !== 'xr-entry' && !handlingGesture)
+          stopChapterMotion('workspace-edit', false, true);
         baselineIsLive = false; liveStep = undefined;
         if (snapshot && !snapshot.interactionActive) {
           manipulationPending = false;
@@ -2236,7 +3421,11 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       record('interrupted', { outcome: 'stopped', reason: 'workspace-takeover' }); sync();
     },
     stop(reason = 'Tour stopped.', options = {}) {
-      stopChapterMotion(reason);
+      if (!options.preserveContinuation) continuationEpoch++;
+      pendingMapStart = undefined;
+      stoppedScene = options.preserveScene && selected && step >= 0
+        ? { tour: selected, step, source: source(workspace) } : undefined;
+      stopChapterMotion(reason, Boolean(stoppedScene));
       baselineIsLive = false; liveStep = undefined; forgetSpokenLine();
       intents.invalidate(); stopped = true; autoplay = false; clearTimer(); setStatus(reason);
       if (options.restoreResting !== false) dropLessonEmphasis();

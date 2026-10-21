@@ -1,8 +1,24 @@
 # Stereofold
 
-> Stereofold is a plugin for Claude Code, Claude Science, and Codex. The agent opens a protein structure, opens it in a WebXR headset browser, and changes it when you ask: a new color, highlighted residues, or another structure. Vision Pro was exercised in the visionOS simulator, not on a device.
+> Stereofold is a plugin for Claude Code, Claude Science, and Codex. It puts a protein structure in a WebXR headset in real stereo depth, and the agent changes the scene when you ask: cut it open, recolor a chain, bring the binding pocket closer, measure between two parts, or load another structure without pairing again. Claude and Codex can share one session. Tested on a Quest 2 and in the visionOS simulator, not on a Vision Pro device.
 
 The plugin speaks the Model Context Protocol and runs on your Mac. The project page runs a crambin demo in the browser that needs no install, agent, or headset.
+
+## Headset demos
+
+Ask for a demo by name. In Claude Science, set up the connector once (see Install), run `node plugin/dist/headset-host.mjs 4HHB` from the clone in a Mac terminal, put the headset on, and ask: "Join the Stereofold scene on this Mac and open the kinesin-walk demo." In Claude Code or Codex, ask: "Open the kinesin-walk demo on my Quest."
+
+- `kinesin-walk`: two kinesin heads trade the lead along a microtubule, 8.2 nm per step, then rest with both heads bound. PDB 5SYF, 9L7M, 8RHB, 1BG2, 3KIN.
+- `atp-synthase-rotor`: the gamma stalk and a ring of ten c subunits turn under the catalytic head of ATP synthase, in three 120° steps per turn. PDB 6N2Y, 6N2Z, 6N30.
+- `hemoglobin-switch`: one alpha-beta pair of hemoglobin turns 14 degrees against the other into the R state, with O2 on every heme, then turns back. PDB 2DN2, 2DN1.
+- `microtubule-growth`: say "grow it" and the next tier replaces the last: one tubulin, a dimer, a strand, then a wall three strands wide. PDB 5SYF.
+- `crispr-cas9`: Cas9 with its guide RNA and both DNA strands; nine chapters name the guide, the PAM, the recognition lobe and the nucleases. PDB 9KJ6.
+- `telomerase-haca`: the RNA-protein lobe of human telomerase, nine proteins on one RNA anchored by two dyskerin copies. PDB 8OUE.
+- `spike`: the SARS-CoV-2 spike trimer, closed, turned on its long axis and shown as a surface. PDB 6VXX.
+- `nucleosome`: 147 base pairs of DNA wrapped not quite twice around eight histones, then cut open to the core. PDB 1KX5.
+- `daraxonrasib`: KRAS G12D and cyclophilin A held together by the drug, with its two contacts measured at 3.38 Å and 2.90 Å. PDB 9AX6.
+
+The three moving demos have more stages: `flipbook` and `cycle` for `kinesin-walk`, `flipbook` and `figure` for the other two. Coordinates download from RCSB on first use and must match the digest in `plugin/demos/index.json`. `plugin/demos/README.md` lists every demo and stage.
 
 ## Browser demo
 
@@ -32,7 +48,7 @@ Claude Code:
     claude plugin marketplace add jvogan/stereofold
     claude plugin install stereofold@stereofold
 
-For Claude Science, add a local-command connector through Settings → Connectors using the absolute Node and `plugin/dist/server.mjs` paths. Add skills through Settings → Skills. The README covers environment and sandbox settings. Other MCP hosts can register the same stdio server. In any host, start a new conversation after installing and ask: "Inspect PDB 1CRN in Stereofold."
+For Claude Science, add a local-command connector through Settings → Connectors using the absolute Node and `plugin/dist/server.mjs` paths. Add skills through Settings → Skills. The README covers environment and sandbox settings. For the headset, run `node plugin/dist/headset-host.mjs 4HHB` from the clone in a Mac terminal (add `--vision-pro` for Vision Pro), then ask Claude Science to join the Stereofold scene on this Mac. Other MCP hosts can register the same stdio server. In any host, start a new conversation after installing and ask: "Inspect PDB 1CRN in Stereofold."
 
 ## With the plugin
 
@@ -50,7 +66,7 @@ Copy `plugin/skills/molecular-presentation/` with its scripts and assets into yo
 
 ## Pages
 
-- [Stereofold](https://jvogan.github.io/stereofold/): the project page, with the crambin demo, the stereo modes, and the install commands.
+- [Stereofold](https://jvogan.github.io/stereofold/): the project page, with the headset demos, the crambin demo, the stereo modes, and the install commands.
 - [Credits and licenses](https://jvogan.github.io/stereofold/credits.html): the Mol* citation, structure provenance, and font licenses.
 - [Privacy](https://jvogan.github.io/stereofold/privacy.html): data flows, voice routes, local storage, and website hosting.
 - [Support](https://jvogan.github.io/stereofold/support.html): installation help and public problem reports.

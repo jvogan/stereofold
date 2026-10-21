@@ -87,6 +87,11 @@ export function selectionMarkColor({ background, highlightColor, uniformColor } 
   return SELECTION_MARK_COLORS[0];
 }
 
+/** One string per set of keys, so two selections of the same rows compare equal in any order. */
+export function selectionSignature(keys = []) {
+  return [...keys].sort().join('\n');
+}
+
 /**
  * What to paint, from the saved selection and what is currently on screen.
  *
@@ -95,10 +100,16 @@ export function selectionMarkColor({ background, highlightColor, uniformColor } 
  * hidden chain still glowing in the headset. So the plan carries only the
  * visible half, exactly as the marker pass in `markSelection` does, and the
  * saved keys stay where they are.
+ *
+ * A lesson selection keeps the applied key's colours on the rows it covers.
+ * Rows without a key still need a visible mark, including built-in chain and
+ * residue tours. Wearer selections always keep their mark over the key.
  */
-export function selectionPaintPlan({ selectionKeys = [], hiddenKeys = [], appearance = {} } = {}) {
+export function selectionPaintPlan({ selectionKeys = [], hiddenKeys = [], appearance = {}, lessonSelection, lessonColorKeys = [] } = {}) {
   const hidden = new Set(hiddenKeys);
-  const keys = selectionKeys.filter(key => !hidden.has(key));
+  const lesson = lessonSelection !== undefined && selectionSignature(selectionKeys) === lessonSelection;
+  const colored = new Set(lesson ? lessonColorKeys : []);
+  const keys = selectionKeys.filter(key => !hidden.has(key) && !colored.has(key));
   return Object.freeze({ keys: Object.freeze([...keys]), color: selectionMarkColor(appearance) });
 }
 

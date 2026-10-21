@@ -48,6 +48,7 @@ function page() {
     selectedRows: () => [], hostDriven: () => false, lastGeneration: 0, lastSavedSignature: '{"tab":[]}',
     syncSearchAction() {}, syncWalkthrough() {}, syncMotion() {}, syncRenderQuality() {}, setStatus() {},
     xrSyncSequence: 0, generation: 1, closed: false, arSupported: true, xrPending: false, xrProblem: '',
+    xrEntryAttempt: undefined, entryWatchdog: undefined, clearTimeout,
     reentryArmed: false, disarmReentry() {}, updateVoiceUi() {}, recording: element(),
     hudSignature: '', hudWaitingSince: 0, resumeMode: null, resume: element(), resumeNote: element(),
     resumeButton, enterButtons, leave, entryActions: element(), note: element(),

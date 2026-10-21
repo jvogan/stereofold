@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { CIF } from 'molstar/lib/commonjs/mol-io/reader/cif.js';
+import { CIF } from './compatible-cif.js';
 import { MAX_INSPECTION_SCENE_BYTES, MAX_STRUCTURE_SOURCE_BYTES } from './inspection-limits.js';
 import { readBoundedSceneArtifact, STRUCTURE_VIEWER_SCENE_FILE_KIND, type StructureViewerSceneFileBundle } from './inspection-scene-file.js';
 

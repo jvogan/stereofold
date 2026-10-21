@@ -74,7 +74,7 @@ stereo_structure.set_mode
 stereo_structure.set_motion
 ```
 
-These are some of the plugin's 37 model-visible tools. There are 64 registered tools in total, including 27 app-only tools; see [plugin/README.md](../plugin/README.md) for the complete list. `pnpm --filter stereo-structure smoke` asserts both lists by name and is what to check when a count here looks wrong.
+These are some of the plugin's 41 model-visible tools. There are 68 registered tools in total, including 27 app-only tools; see [plugin/README.md](../plugin/README.md) for the complete list. `pnpm --filter stereo-structure smoke` asserts both lists by name and is what to check when a count here looks wrong.
 
 Codex hides the 27 app-only tools from the model, and so does Claude Code
 2.1.280, which reads the same visibility hint. Each host renames the tools:

@@ -905,3 +905,39 @@ describe('which surfaces count as the person in the headset', () => {
     expect(isWearerSurface(undefined)).toBe(false);
   });
 });
+
+it('appends spoken batches in the detailed page without interrupting or drawing the next caption early',async()=>{
+  const html=detailedViewHtml();
+  const block=html.slice(html.indexOf("    const captionLine ="),html.indexOf('    let panelId, binding,'));
+  const line={textContent:'',hidden:true};const document={getElementById:()=>line,body:{dataset:{}}};
+  const started:string[]=[];const audio:any[]=[];
+  class Audio {
+    src='';onended?:()=>void;onerror?:()=>void;
+    constructor(){audio.push(this);}
+    play(){started.push(this.src);return Promise.resolve();}
+    pause(){}
+  }
+  const {showCaption}=new Function('document','session','Audio','setTimeout','clearTimeout',block+'\nreturn {showCaption};')(
+    document,session,Audio,()=>1,()=>{});
+  const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+  const caption=(id:string,text:string,voiceOffset?:number)=>({id,text,speak:true,
+    audio:{base64:Buffer.from(text).toString('base64'),mimeType:'audio/ogg'},
+    ...(voiceOffset===undefined?{}:{voiceFor:'original',voiceOffset})});
+  void showCaption(caption('original','First.'));await settle();
+  void showCaption(caption('tail','Second.',1));await settle();
+  expect(started).toHaveLength(1);expect(line.textContent).toBe('First.');
+  audio[0].onended();await settle();
+  expect(started).toHaveLength(2);expect(line.textContent).toBe('Second.');
+  audio[0].onended();await settle();
+  void showCaption(caption('tail','Second.',1));await settle();
+  expect(started).toHaveLength(2);
+  void showCaption({id:'newer',text:'New reply.',speak:false});await settle();
+  void showCaption(caption('late','Third.',2));await settle();
+  expect(started).toHaveLength(2);expect(line.textContent).toBe('New reply.');
+  // A newer caption must also interrupt a silent segment's reading timer.
+  void showCaption({id:'silent',text:'Quiet first. Quiet second.',speak:true,
+    segments:[{text:'Quiet first.',seconds:10},{text:'Quiet second.',seconds:10}]});await settle();
+  expect(line.textContent).toBe('Quiet first.');
+  void showCaption({id:'newest',text:'Immediate caption.',speak:false});await settle();
+  expect(line.textContent).toBe('Immediate caption.');
+});

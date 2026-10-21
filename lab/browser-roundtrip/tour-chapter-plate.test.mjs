@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
@@ -12,7 +13,7 @@ const { mountTourPlayer, wearerPages } = await tsImport('../../plugin/src/tour-p
 const { mountExperiencePlayer } = await tsImport('../../plugin/src/experience-player.ts', import.meta.url);
 const { applyTourCommand, createPanelTourController, tourHeartbeat } = await tsImport('../../plugin/src/inspection-tour-client.ts', import.meta.url);
 const { MOLECULAR_EXPERIENCES, stageForStep } = await tsImport('../../plugin/src/molecular-experience.ts', import.meta.url);
-const runtime = await toolbarFrameRuntime();
+const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
 const flush = async () => { for (let i = 0; i < 200; i++) await Promise.resolve(); };
 const compact = text => text.replace(/\s+/gu, '');
 const subject = { title: 'Human deoxyhaemoglobin', pdbId: '4HHB', chains: 4, assembly: 'asymmetric_unit',
@@ -106,16 +107,22 @@ test('all shipped catalog and experience pages retain their full title and prose
     for (const [pageIndex, page] of pages.entries()) for (const collapsed of [false, true]) {
       const state = { selectedId: tour.id, active: true, autoplay: true, step, total: tour.steps.length,
         title: chapter.title, bodyPage: page, bodyPageCount: pages.length, bodyPageIndex: pageIndex };
-      const plate = runtime.createToolbarPanel({ head: { position: { x: 0, y: 1.6, z: 0 }, matrix: identity },
+      // The card wraps the caption at its own width and turns its own pages,
+      // each opening on the chapter's title line.
+      const options = { head: { position: { x: 0, y: 1.6, z: 0 }, matrix: identity },
         rows: spatialToolbarRows({ tour: state, collapsed }), readout: runtime.tourReadout(state, subject),
-        measureText: runtime.toolbarTextWidth });
-      const drawn = compact(plate.readoutPoints.map(line => line.text).join(' '));
+        measureText: runtime.toolbarTextWidth, readoutPage: 0 };
+      const first = runtime.createToolbarPanel(options);
+      const plates = Array.from({ length: first.readoutPageCount }, (_, readoutPage) => runtime.createToolbarPanel({ ...options, readoutPage }));
       const context = `${tour.id} chapter ${step + 1} page ${pageIndex + 1} collapsed ${collapsed}`;
-      assert.ok(drawn.includes(compact(chapter.title)), context);
-      assert.ok(drawn.includes(compact(page)), context);
-      assert.ok(plate.readoutPoints.length <= plate.readoutLineBudget, context);
+      for (const plate of plates) {
+        assert.ok(compact(plate.readoutPoints[0].text).includes(compact(chapter.title)), context);
+        assert.ok(plate.readoutPoints.length <= plate.readoutLineBudget, context);
+      }
+      const drawn = compact(plates.map(plate => plate.readoutPoints.slice(1).map(line => line.text.replace(/…$/u, '')).join(' ')).join(' '));
+      assert.ok(drawn.includes(compact(page)), `${context}: ${drawn}`);
       checked++;
     }
   }
-  assert.equal(checked, 3352, 'covers every shipped page in the frozen catalog');
+  assert.equal(checked, 800, 'covers every shipped chapter of the frozen catalog in both menu forms');
 });

@@ -82,7 +82,7 @@ the current molecule, including Claude Science binder-workflow topics, and
 ship inside the inspector bundle for both desktop and browser companion use.
 See [guided tours](INSPECTOR.md#guided-tours).
 
-The thirty-seven model-visible tools are listed in full under **Install and
+The forty-one model-visible tools are listed in full under **Install and
 check the tools** below, all under `stereo_structure`. `inspect`,
 `inspect_file`, `inspect_scene`, `inspect_lesson`, and `inspect_experience` use `ui://stereo-structure/inspector`; `open` uses
 `ui://stereo-structure/viewer`. `inspect_file` accepts an explicitly chosen
@@ -272,6 +272,7 @@ transcription and transcript delivery:
 | `STEREOFOLD_APPLESPEECH_BIN` | An absolute path to `applespeech`, for a binary kept outside the package. |
 | `STEREOFOLD_WHISPER_BIN` | An absolute path to `whisper-cli`, including as the fallback for Apple. |
 | `STEREOFOLD_WHISPER_MODEL` | An absolute path to the whisper model, including as the fallback for Apple. |
+| `STEREOFOLD_WHISPER_GPU` | `1` runs whisper on the GPU. Unset, it runs on the CPU: a little slower, and it keeps transcription out of the GPU driver, which crashed under heavy Metal load. |
 | `STEREOFOLD_FFMPEG_BIN` | An absolute path to `ffmpeg`, which decodes audio before either recognizer runs. |
 | `STEREOFOLD_PTT_SILENCE_RMS` | The loudest-100 ms threshold below which a press counts as silence and no recognizer runs. Default `0.012`; `0` disables it. |
 | `STEREOFOLD_PTT_TRANSCRIPTS` | An absolute file path to append transcript records as JSON lines. |
@@ -438,7 +439,7 @@ confirms `stereo_structure.open`, and opens the built-in fixture. Then open a
 fresh host conversation and confirm the tools below are available under the
 Stereofold server. These are the names the server registers, and every host
 renames them, so read the paragraph below the list before matching what a host
-shows you against it. The model can call thirty-seven of the sixty-four
+shows you against it. The model can call forty-one of the sixty-eight
 registered tools; the other twenty-seven are app-only:
 
 ```text
@@ -458,19 +459,23 @@ stereo_structure.inspect_experience
 stereo_structure.inspect_file
 stereo_structure.inspect_lesson
 stereo_structure.inspect_scene
+stereo_structure.install_lesson
 stereo_structure.list_experiences
 stereo_structure.listen_voice
 stereo_structure.manage_companion
 stereo_structure.manage_inspection_view
+stereo_structure.measure
 stereo_structure.navigate_experience
 stereo_structure.open
 stereo_structure.open_companion
 stereo_structure.open_detailed_view
 stereo_structure.open_inspector
+stereo_structure.prepare_composite
 stereo_structure.read_headset_browser
 stereo_structure.read_headset_log
 stereo_structure.recall_headset
 stereo_structure.redo_last_change
+stereo_structure.remove_measurement
 stereo_structure.replace_inspection_source
 stereo_structure.say_to_headset
 stereo_structure.set_mode

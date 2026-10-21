@@ -1,3 +1,4 @@
+import { createAssistantStatus } from './assistant-status.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -51,7 +52,7 @@ function eyeVerdict(corners, views) {
  * is replaced. No device coordinates or captured imagery enter the fixture.
  */
 function harness({ menuCoversView = false, structureCoversView = false, failAdd = false,
-  runTask = async () => {}, tracked = true, facing } = {}) {
+  runTask = async () => {}, tracked = true, facing, tour } = {}) {
   let time = 0, solves = 0, pose = tracked ? [0, 0, 0] : undefined, menuOrigin = [0, 0, 0], orientation = facing;
   let eyeViewsAvailable = true;
   const live = new Set(), records = [], quads = [];
@@ -74,7 +75,7 @@ function harness({ menuCoversView = false, structureCoversView = false, failAdd 
     return syntheticViews().map((view, i) => ({ ...view,
       transform: poseTransform(seen, at.map((v, axis) => v + (i === 0 ? -0.032 : 0.032) * right[axis])) }));
   };
-  const context = vm.createContext({ ...geometry, menuSeatWithinView, connectionStatus, TALK_LINK_LOST,
+  const context = vm.createContext({ assistantStatus: createAssistantStatus(), ...geometry, menuSeatWithinView, connectionStatus, TALK_LINK_LOST,
     measureReplyCard, measureReplyCardClearance,
     replyCardOffsetAsync: (args, options) => { solves++; return replyCardOffsetAsync(args, { ...options, now: () => 0 }); },
     MeshBuilder: { createState: () => ({}), addTriangleWithNormal(s, a, b, c) { quads.push([a, b, c]); }, getMesh: () => ({}) },
@@ -86,6 +87,7 @@ function harness({ menuCoversView = false, structureCoversView = false, failAdd 
   let adds = 0, card;
   const enter = () => {
     card = context.createTalkCaption({ plugin: { runTask }, head, menuPoints, now: () => time,
+      getTourState: () => tour,
       clearance: () => ({ views: eyeViewsAvailable ? views() : [], renderFromRoom: identity(), measured: [0, 1].map(() => ({
         silhouette: structureCoversView ? [0, 0, 10, 10] : [0, 0, .25, .25] })) }),
       viewsAvailable: () => eyeViewsAvailable,
@@ -98,6 +100,7 @@ function harness({ menuCoversView = false, structureCoversView = false, failAdd 
     context.showTalkOutcome(text, holdMs, complete, onSeat) } }, replySegmentsOf, replyCaptionHoldMs,
   (caption, seat) => recordTalkReplySeat(caption, seat, { scope }));
   return { records, live, quads, views, menuPoints, head, solves: () => solves, get card() { return card; },
+    setTour: next => { tour=next;card.frame(); },
     receive: caption => { recordTalkReplyDelivery(caption, { scope }); onReply({ detail: caption }); },
     advance: at => { time = at; card.frame(); },
     setEyeViews: available => { eyeViewsAvailable = available; },
@@ -522,4 +525,37 @@ test('a caption build finishing after the terminal deadline cannot reveal or rep
   assert.ok(receipts.every(e => e.detail.drawn === false));
   assert.equal(h.records.filter(e => e.kind === 'talk-caption-seat' && e.detail.outcome === 'not-shown').length, 1);
   await h.card.dispose();
+});
+
+test('quiet authored gallery has no unsolicited manipulation cards or seat churn, while requested replies and Help remain',async()=>{
+ const h=harness({tour:{selectedId:'binder-gallery',captionCard:'hidden',active:true,autoplay:true}});
+ for(let frame=0;frame<12;frame++){
+  h.card.set({holding:frame%3!==0,modifier:frame%2===0});
+  h.carry([Math.sin(frame)*.1,0,0],{yaw:frame*3,pitch:frame});h.advance(frame*100);
+ }
+ await flush();
+ assert.equal(h.live.size,0);
+ assert.equal(h.solves(),0,'suppressed hints never start caption seating work');
+ assert.equal(h.records.filter(e=>['talk-caption','talk-caption-seat'].includes(e.kind)).length,0);
+ h.card.set({holding:true,modifier:true});
+ h.receive({...refusal,id:'quiet-requested-answer'});await flush();
+ assert.equal(h.records.filter(e=>e.kind==='talk-caption-seat').at(-1).detail.outcome,'shown');
+ assert.equal(h.live.size,2,'explicit assistant refusal/reply still renders during a grab');
+ h.card.clear();
+ h.card.set({notice:'Help: grip to move the molecule.',holdMs:3000});await flush();
+ assert.equal(h.live.size,2,'explicit Help notice remains available');
+ assert.ok(h.records.some(e=>e.kind==='talk-caption'&&e.detail.text==='Help: grip to move the molecule.'));
+});
+
+test('quiet lesson policy retires an existing tutorial and normal workbench hints resume outside that lesson',async()=>{
+ const h=harness();
+ h.card.set({holding:true});await flush();
+ assert.equal(h.live.size,2,'ordinary workbench retains its grip hint');
+ const attempts=h.solves();
+ h.setTour({captionCard:'hidden',active:true});await flush();
+ assert.equal(h.live.size,0,'entering a quiet lesson removes an already-drawn tutorial');
+ for(let frame=0;frame<6;frame++){h.move([frame*.05,0,0]);h.advance(frame*100);}
+ await flush();assert.equal(h.solves(),attempts);
+ h.setTour({captionCard:'shown',active:true});await flush();
+ assert.equal(h.live.size,2,'a normal authored lesson retains existing hint behavior');
 });

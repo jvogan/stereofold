@@ -1,11 +1,18 @@
 import { createHash } from 'node:crypto';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { compileMolecularLesson, MOLECULAR_LESSON_LIMITS, parseMolecularLesson } from '../src/molecular-lesson.js';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
-import { growthStageOfLesson, growthStages, resolveGrowthTarget, QUEST2_TRIANGLE_CEILING } from '../src/molecular-growth.js';
+import { growthStageOfLesson, growthStages, resolveGrowthTarget, stageFitsTier, QUEST2_TRIANGLE_CEILING } from '../src/molecular-growth.js';
 import { MAX_STRUCTURE_SOURCE_BYTES } from '../src/inspection-limits.js';
+import { extractInspectionCatalogBytes } from '../src/inspection-catalog.js';
+import { availableChains, componentClassesPresent, emptyVisibility, resolveVisibility, sceneVisibilitySchema,
+  visibilityHidesEverything } from '../src/inspection-contract.js';
+import { compositeRecipePath } from '../src/demo-composite-cache.js';
+import { readBundledDemoCoordinates } from '../src/bundled-demo-coordinates.js';
+import { readAddressedDemoFile } from '../src/addressed-demo-cache.js';
+import { parseRigidCompositeRecipe } from '../src/demo-rigid-composite.js';
 import {
   DEMO_TIER_BY_DEVICE,
   demoCacheDirectory,
@@ -63,6 +70,13 @@ const illustrated = (unit: Unit) => unit.lessonId === 'daraxonrasib';
 // Arrival reveals deposited copies in one loaded source, then holds a density
 // stage. Its timing and chapter sequence are checked separately below.
 const arrival = (unit: Unit) => unit.lessonId.startsWith('microtubule-arrival-');
+// Motion demos animate rigid bodies between deposited states, or step through
+// them as a flipbook. They hold each state for inspection instead of following
+// the cinematic arc.
+const MOTION_DEMOS = ['hemoglobin-switch', 'kinesin-walk', 'atp-synthase-rotor'];
+const gallery = (unit: Unit) => ['binder-gallery','binder-gallery-extended'].includes(unit.entry.name);
+const extendedGallery = (unit: Unit) => unit.entry.name === 'binder-gallery-extended';
+const motion = (unit: Unit) => MOTION_DEMOS.some(name => unit.lessonId.startsWith(`${name}-`));
 
 /**
  * One playable unit: a plain demo, or one stage of a staged demo. A stage
@@ -88,8 +102,15 @@ describe('the checked-in demo index', () => {
         : [`${prefix}${entry.name}`]));
       return files.flat();
     };
-    const files = (await walk(demosRoot)).filter(name => name.endsWith('.json') && name !== 'index.json').sort();
+    const all = await walk(demosRoot);
+    const recipes = new Set(units.flatMap(unit => unit.entry.coordinates.derivation?.kind === 'prepared-rigid-composite'
+      ? [unit.entry.coordinates.derivation.recipe] : []));
+    const jsonFiles = all.filter(name => name.endsWith('.json') && name !== 'index.json' && !recipes.has(name));
+    const files = (await Promise.all(jsonFiles.map(async name =>
+      Array.isArray(JSON.parse(await readFile(resolve(demosRoot, name), 'utf8')).chapters) ? name : undefined)))
+      .filter((name): name is string => name !== undefined).sort();
     expect(units.map(unit => unit.entry.lesson).sort()).toEqual(files);
+    for (const recipe of recipes) expect(all).toContain(recipe);
   });
 
   it('carries at least the six requested demos with distinct names', () => {
@@ -100,10 +121,13 @@ describe('the checked-in demo index', () => {
     }
   });
 
-  it('resolves every PDB id to a recorded coordinate download and digest', () => {
+  it('resolves every PDB id to recorded downloads or a composite recipe and digest', async () => {
     for (const unit of units) {
       const { pdbId, coordinates } = unit.entry;
-      expect(pdbId).toMatch(/^[0-9A-Z]{4}$/);
+      if (coordinates.derivation?.kind === 'bundled-file') {
+        expect(pdbId).toBeUndefined();
+        expect(unit.entry.sourceId).toBeTruthy();
+      } else expect(pdbId).toMatch(/^[0-9A-Z]{4}$/);
       expect(coordinates.sha256).toMatch(/^[0-9a-f]{64}$/);
       expect(coordinates.bytes).toBeGreaterThan(0);
       // A density tier is measured in none of the units below.
@@ -134,9 +158,19 @@ describe('the checked-in demo index', () => {
       // An operator subset is cut from the expanded assembly file; a chain
       // subset is cut from the deposited entry, because a deposited entity is
       // not something the assembly file adds.
-      expect(coordinates.download).toBe(coordinates.derivation?.kind === 'assembly-operator-subset'
-        ? `https://files.rcsb.org/download/${pdbId}-assembly1.cif`
-        : `https://files.rcsb.org/download/${pdbId}.cif`);
+      if (coordinates.derivation?.kind === 'bundled-file') {
+        const text = await readBundledDemoCoordinates(coordinates.derivation.path, coordinates.sha256, demosRoot);
+        expect(Buffer.byteLength(text)).toBe(coordinates.bytes);
+        expect(coordinates.assemblyId).toBeUndefined();
+      } else if (coordinates.derivation?.kind === 'prepared-rigid-composite') {
+        const recipe = parseRigidCompositeRecipe(await readFile(compositeRecipePath(coordinates.derivation.recipe, demosRoot), 'utf8'));
+        expect(recipe.sources.length).toBeGreaterThan(0);
+        expect(coordinates.assemblyId).toBeUndefined();
+      } else {
+        expect(coordinates.download).toBe(coordinates.derivation?.kind === 'assembly-operator-subset'
+          ? `https://files.rcsb.org/download/${pdbId}-assembly1.cif`
+          : `https://files.rcsb.org/download/${pdbId}.cif`);
+      }
       // This plugin's own download and local-read policy, which every demo
       // source travels through. It is not a viewer ceiling and no viewer was
       // measured at it.
@@ -157,6 +191,11 @@ describe('the checked-in demo index', () => {
   it('gives every demo a citation with a DOI and an RCSB entry URL', () => {
     for (const demo of units.map(unit => unit.entry)) {
       expect(demo.sources.length).toBeGreaterThanOrEqual(2);
+      if (!demo.pdbId) {
+        expect(demo.sourceId).toBeTruthy();
+        expect(demo.sources.some(source => source.url.startsWith('https://'))).toBe(true);
+        continue;
+      }
       expect(demo.sources.some(source => source.url === `https://www.rcsb.org/structure/${demo.pdbId}`)).toBe(true);
       const citation = demo.sources.find(source => source.doi);
       expect(citation, `${demo.name} needs a citation with a DOI`).toBeDefined();
@@ -199,10 +238,10 @@ describe.each(units.map(unit => [unit.label, unit] as const))('the %s lesson', (
 
   it('holds captioned scenes at its authored pacing', async () => {
     const manifest = parseMolecularLesson(JSON.parse(await readFile(resolve(demosRoot, demo.lesson), 'utf8')));
-    expect(manifest.chapters.length).toBeGreaterThanOrEqual(illustrated(unit) || arrival(unit) ? 2 : MIN_SCENES);
-    expect(manifest.chapters.length).toBeLessThanOrEqual(illustrated(unit) ? 2 : arrival(unit) ? 8 : taught(unit) ? MAX_TAUGHT_SCENES : MAX_SCENES);
+    expect(manifest.chapters.length).toBeGreaterThanOrEqual(extendedGallery(unit) ? 1 : gallery(unit) ? 17 : motion(unit) ? 1 : illustrated(unit) || arrival(unit) ? 2 : MIN_SCENES);
+    expect(manifest.chapters.length).toBeLessThanOrEqual(extendedGallery(unit) ? 24 : gallery(unit) ? 17 : motion(unit) ? 12 : illustrated(unit) ? 2 : arrival(unit) ? 8 : taught(unit) ? MAX_TAUGHT_SCENES : MAX_SCENES);
     for (const chapter of manifest.chapters) {
-      const [shortest, longest] = illustrated(unit) ? [60, 60] : arrival(unit)
+      const [shortest, longest] = gallery(unit) ? [3, 3] : motion(unit) ? [4, 60] : illustrated(unit) ? [60, 60] : arrival(unit)
         ? chapter === manifest.chapters.at(-1) ? [15, 15] : [4, 7] : !taught(unit) ? [MIN_SCENE_SECONDS, MAX_SCENE_SECONDS]
         : recapChapter(chapter.id) ? [MIN_RECAP_SECONDS, MAX_RECAP_SECONDS] : [MIN_TAUGHT_SECONDS, MAX_TAUGHT_SECONDS];
       expect(chapter.durationSeconds, `${chapter.id} duration`).toBeGreaterThanOrEqual(shortest);
@@ -212,7 +251,7 @@ describe.each(units.map(unit => [unit.label, unit] as const))('the %s lesson', (
     }
   });
 
-  it.skipIf(taught(unit) || arrival(unit))('opens on a wide reveal, orbits, highlights, reaches the working part and steps back', async () => {
+  it.skipIf(taught(unit) || arrival(unit) || motion(unit) || gallery(unit))('opens on a wide reveal, orbits, highlights, reaches the working part and steps back', async () => {
     const manifest = parseMolecularLesson(JSON.parse(await readFile(resolve(demosRoot, demo.lesson), 'utf8')));
     const ids = manifest.chapters.map(chapter => chapter.id);
     if (illustrated(unit)) {
@@ -261,22 +300,49 @@ describe.each(units.map(unit => [unit.label, unit] as const))('the %s lesson', (
     expect(compiled.timeline.length).toBeLessThanOrEqual(MOLECULAR_LESSON_LIMITS.maxTotalSteps);
     expect(compiled.totalDurationSeconds).toBeLessThanOrEqual(MOLECULAR_LESSON_LIMITS.maxLessonDurationSeconds);
     const refs = compiled.manifest.provenance.sourceRefs;
-    expect(refs.some(ref => ref.kind === 'public' && ref.ref === `https://www.rcsb.org/structure/${demo.pdbId}`)).toBe(true);
-    expect(refs.some(ref => ref.kind === 'publication' && /^https:\/\/doi\.org\/10\./.test(ref.ref))).toBe(true);
+    if (demo.pdbId) {
+      expect(refs.some(ref => ref.kind === 'public' && ref.ref === `https://www.rcsb.org/structure/${demo.pdbId}`)).toBe(true);
+      expect(refs.some(ref => ref.kind === 'publication' && /^https:\/\/doi\.org\/10\./.test(ref.ref))).toBe(true);
+    } else {
+      expect(refs.some(ref => ref.kind === 'public' && demo.sources.some(source => source.url === ref.ref))).toBe(true);
+    }
     expect(compiled.manifest.provenance.note?.length ?? 0).toBeGreaterThan(40);
   });
 
   it('becomes a headset tour whose every scene carries immersive intent', async () => {
     const tour = molecularLessonToTour(JSON.parse(await readFile(resolve(demosRoot, demo.lesson), 'utf8')));
     expect(tour.id).toBe(`lesson-${unit.lessonId}`);
-    expect(tour.steps.length).toBeGreaterThanOrEqual(illustrated(unit) || arrival(unit) ? 2 : MIN_SCENES);
+    expect(tour.steps.length).toBeGreaterThanOrEqual(extendedGallery(unit) ? 1 : gallery(unit) ? 17 : motion(unit) ? 1 : illustrated(unit) || arrival(unit) ? 2 : MIN_SCENES);
     for (const step of tour.steps) {
       expect(step.body?.length ?? 0).toBeGreaterThan(20);
-      expect(step.durationMs).toBeGreaterThanOrEqual((arrival(unit) ? 4 : MIN_SCENE_SECONDS) * 1_000);
-      expect(step.appearance ?? step.placement ?? step.view ?? (arrival(unit) ? step.visibility ?? step.motion : undefined)).toBeDefined();
+      expect(step.durationMs).toBeGreaterThanOrEqual((gallery(unit) ? 3 : arrival(unit) || motion(unit) ? 4 : MIN_SCENE_SECONDS) * 1_000);
+      expect(step.appearance ?? step.placement ?? step.view ?? (arrival(unit) || motion(unit) ? step.visibility ?? step.motion : undefined)).toBeDefined();
       expect(step.sources?.length ?? 0).toBeGreaterThan(0);
     }
   });
+
+  // A chapter that shows `only` some chains hides the rest of its structure, so
+  // whether the panel can draw and save it depends on the coordinates, not on
+  // the lesson file alone. The kinesin flipbook's pages each hid 71 to 87 of its
+  // 95 chains, every page was refused, and the lesson never finished loading.
+  // Resolve each chapter against the cached coordinates the way the panel does.
+  it('can show every chapter of its cached coordinates', async () => {
+    const manifest = parseMolecularLesson(JSON.parse(await readFile(resolve(demosRoot, demo.lesson), 'utf8')));
+    if (demo.coordinates.volume || !manifest.chapters.some(chapter => chapter.immersive?.visibility)) return;
+    const cached = await readAddressedDemoFile(file => resolve(demoCacheDirectory(), file), demo.coordinates.file, demo.coordinates.sha256);
+    if (!cached) return;
+    const catalog: any = await extractInspectionCatalogBytes(cached.bytes,
+      demo.coordinates.assemblyId ? { assemblyId: demo.coordinates.assemblyId } : undefined);
+    const modelNumber = catalog.modelNumbers[0];
+    const chains = availableChains(catalog.rows, modelNumber), classes = componentClassesPresent(catalog.rows, modelNumber);
+    let visibility = emptyVisibility();
+    for (const chapter of manifest.chapters) {
+      if (!chapter.immersive?.visibility) continue;
+      visibility = resolveVisibility(visibility, chapter.immersive.visibility, chains, { classes });
+      expect(visibilityHidesEverything(catalog.rows, visibility, modelNumber), chapter.id).toBe(false);
+      expect(sceneVisibilitySchema.safeParse(visibility).error?.issues, chapter.id).toBeUndefined();
+    }
+  }, 120_000);
 });
 
 describe('the line the headset shows, wherever a lesson authors one', () => {
@@ -465,10 +531,9 @@ describe('the cached coordinates', () => {
   // The cache is a download directory, so it is present on a machine that has
   // run a demo and absent on a clean checkout. Check it only when it is there.
   it.each(coordinateRecords)('match the digest recorded for %s when cached', async (_name, coordinates) => {
-    const path = resolve(demoCacheDirectory(), coordinates.file);
-    const present = await stat(path).then(value => value.isFile(), () => false);
-    if (!present) return;
-    const bytes = await readFile(path);
+    const cached = await readAddressedDemoFile(file => resolve(demoCacheDirectory(), file), coordinates.file, coordinates.sha256);
+    if (!cached) return;
+    const bytes = cached.bytes;
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(coordinates.sha256);
     expect(bytes.length).toBe(coordinates.bytes);
   });
@@ -665,6 +730,61 @@ describe('the launcher prefetch', () => {
     'microtubule-growth/tip.json',
   ];
 
+  it('keeps the admitted gallery default for identical coordinates and recognizes both lesson stages', async () => {
+    const gallery = named('binder-gallery');
+    for (const device of ['quest2', 'quest3', 'unknown'])
+      expect(stageForDevice(gallery, device)).toBe('steady-target');
+    for (const stage of gallery.stages!) {
+      const resolved = resolveDemoStage(gallery, stage.id);
+      const manifest = await readDemoLesson(resolved.entry, demosRoot);
+      expect(growthStageOfLesson(index, manifest.id)?.stage.id).toBe(stage.id);
+      expect(manifest.title).toBe(stage.title);
+    }
+    // An inadmissible default still cannot override the device's allowed set.
+    const restricted: DemoEntry = { ...gallery, stages: gallery.stages!.map(stage =>
+      stage.id === gallery.defaultStage ? { ...stage, tiers: ['quest3'] } : stage) };
+    expect(stageForDevice(restricted, 'quest2')).toBe('original-pairs');
+    // Different coordinates retain the established largest-allowed behavior.
+    const different: DemoEntry = { ...gallery, stages: gallery.stages!.map((stage, i) => i === 1
+      ? { ...stage, coordinates: { ...stage.coordinates, sha256: 'f'.repeat(64) } } : stage) };
+    expect(stageForDevice(different, 'quest2')).toBe('original-pairs');
+  });
+
+  it('uses the growth admission budget when selecting and warming a Quest 2 stage', () => {
+    const kinesin = named('kinesin-walk');
+    // The live catalog labels cycle quest2, but its 48,423 atom sites exceed
+    // the shared 43,066-site ceiling. A tier label alone cannot admit it.
+    const selected = resolveDemoStage(kinesin, stageForDevice(kinesin, 'quest2'));
+    expect(selected.stage?.id).toBe('flipbook');
+    expect(lessons(prefetchEntries(kinesin, selected, 'quest2')).sort()).toEqual([
+      'kinesin-walk/flipbook.json', 'kinesin-walk/motion.json',
+    ]);
+    for (const demo of index.demos.filter(demo => demo.stages?.length)) {
+      const stage = demo.stages!.find(stage => stage.id === stageForDevice(demo, 'quest2'))!;
+      expect(stageFitsTier(stage, 'quest2'), `${demo.name}/${stage.id}`).toBe(true);
+    }
+  });
+
+  it('keeps unrestricted devices, the authored default and explicit selected stages available', () => {
+    const kinesin = named('kinesin-walk');
+    expect(resolveDemoStage(kinesin).stage?.id).toBe('motion');
+    for (const device of ['quest3', 'quest-pro', 'vision-pro', 'unknown', 'future-headset']) {
+      const selected = resolveDemoStage(kinesin, stageForDevice(kinesin, device));
+      expect(selected.stage?.id, device).toBe('cycle');
+      expect(lessons(prefetchEntries(kinesin, selected, device)).sort()).toEqual(kinesin.stages!.map(stage => stage.lesson).sort());
+    }
+    const explicit = resolveDemoStage(kinesin, 'cycle');
+    expect(prefetchEntries(kinesin, explicit, 'quest2')[0]!.lesson).toBe('kinesin-walk/cycle.json');
+    expect(lessons(prefetchEntries(kinesin, resolveDemoStage(kinesin))).sort()).toEqual(kinesin.stages!.map(stage => stage.lesson).sort());
+  });
+
+  it('refuses automatic device selection if no stage fits instead of loading the first disallowed stage', () => {
+    const kinesin = named('kinesin-walk');
+    const onlyOversized: DemoEntry = { ...kinesin, stages: kinesin.stages!.filter(stage => stage.id === 'cycle') };
+    expect(() => stageForDevice(onlyOversized, 'quest2')).toThrow(/No stage.*kinesin-walk.*quest2/);
+    expect(stageForDevice(onlyOversized, 'unknown')).toBe('cycle');
+  });
+
   it('maps unidentified device classes to the unrestricted coordinate tier', () => {
     expect(prefetchTier('quest2')).toBe('quest2');
     expect(prefetchTier('quest3')).toBe('quest3');
@@ -832,12 +952,16 @@ describe('the one colour rule the six microtubule tiers share', () => {
     }
   });
 
-  it('carries one colour key, repeated verbatim into every chapter of its tier', () => {
+  it('keeps the identity key except in the two measured contact-face chapters', () => {
     for (const { id, manifest } of atomicTiers) {
-      const keys = manifest.chapters.map(chapter => JSON.stringify(chapter.immersive?.emphasis?.parts));
+      // Contact-face chapters teach interfaces rather than whole-chain identity.
+      // microtubule-faces.test.ts pins their complete, measured selections.
+      const identityChapters = manifest.chapters.filter(chapter =>
+        !(['monomer', 'dimer'].includes(id) && chapter.id === 'highlight'));
+      const keys = identityChapters.map(chapter => JSON.stringify(chapter.immersive?.emphasis?.parts));
       expect(keys[0]).toBeDefined();
       expect(keys.every(key => key === keys[0]), `${id} key drifts between chapters`).toBe(true);
-      for (const chapter of manifest.chapters) {
+      for (const chapter of identityChapters) {
         expect(chapter.immersive?.emphasis?.contextOpacity, `${id}/${chapter.id}`).toBe(0.18);
       }
     }

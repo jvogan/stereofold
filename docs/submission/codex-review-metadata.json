@@ -56,7 +56,7 @@
         "demo_recording_url": "https://jvogan.github.io/stereofold/walkthrough.html"
       },
       "publication": {
-        "release_notes": "Stereofold 0.1.21: preserve guided playback and wearer placement through manipulation, recover retained scenes after interrupted fitting, and render clearer component plates and support up to 16 authored figure labels. Includes connection recovery, privacy clarification and updated setup instructions. Combined tour behavior still needs a physical wearer check; Vision Pro immersive validation remains pending.",
+        "release_notes": "Stereofold 0.1.22: open guided demo lessons in the headset by name, including hemoglobin, CRISPR-Cas9, telomerase, microtubule growth, ATP synthase and kinesin walk, three of them animated. Claude's replies show at a readable width, and a status line says who is listening. Push-to-talk speech reaches Claude Code without waiting for a poll, and a restarted lesson returns to its opening view. Vision Pro immersive validation remains pending.",
         "countries": []
       }
     }

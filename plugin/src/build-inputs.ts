@@ -27,7 +27,7 @@ import { relative, resolve } from 'node:path';
 /** The stamp `scripts/build.ts` writes into the dist it just emitted. */
 export const BUILD_INPUT_STAMP_FILE = 'build-inputs.json';
 /** Bumped when the hashing rule changes, so an old stamp reads unknown rather than stale. */
-export const BUILD_INPUT_STAMP_VERSION = 3;
+export const BUILD_INPUT_STAMP_VERSION = 4;
 
 export type BuildInputStamp = { version: number; hash: string; files: number; builtAt?: string };
 
@@ -49,6 +49,7 @@ export function buildInputPaths(pluginRoot: string): string[] {
     resolve(repositoryRoot, 'pnpm-lock.yaml'),
     resolve(repositoryRoot, 'pnpm-workspace.yaml'),
     resolve(repositoryRoot, 'lab/browser-roundtrip'),
+    resolve(repositoryRoot, 'lab/identity'),
     resolve(repositoryRoot, 'lab/inspection'),
     resolve(repositoryRoot, 'packages/anaglyph'),
     resolve(repositoryRoot, 'packages/geometry'),

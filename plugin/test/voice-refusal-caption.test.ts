@@ -1,3 +1,5 @@
+// @ts-ignore Shared status model for the caption VM.
+import { createAssistantStatus } from '../../lab/browser-roundtrip/assistant-status.mjs';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -114,13 +116,13 @@ async function recordSeat(t: Awaited<ReturnType<typeof setup>>, caption: any, ou
 // diagnostic callback. Only font/mesh/GPU boundaries and the clock are adapters.
 async function drawRefusal(t: Awaited<ReturnType<typeof setup>>, caption: any, failDraw: boolean) {
   const source = await readFile(new URL('../../lab/browser-roundtrip/talk-caption.mjs',import.meta.url),'utf8');
-  const metrics = JSON.parse(await readFile(new URL('../../lab/browser-roundtrip/fixtures/toolbar-font-metrics.json',import.meta.url),'utf8'));
+  const metrics = JSON.parse(await readFile(new URL('../../lab/browser-roundtrip/fixtures/toolbar-bold-font-metrics.json',import.meta.url),'utf8'));
   const entries:any[] = [], glyphDraws:string[] = [];
   const scope = {__stereofoldDiagnostics:{record:(kind:string,detail:unknown) =>
     entries.push({seq:entries.length + 1,at:1000,kind,detail})}};
   let time = 0, release!:() => void;
   const drawing = new Promise<void>(resolve => { release = resolve; });
-  const context = vm.createContext({...geometry,menuSeatWithinView,measureReplyCard,measureReplyCardClearance,
+  const context = vm.createContext({assistantStatus:createAssistantStatus(),...geometry,menuSeatWithinView,measureReplyCard,measureReplyCardClearance,
     // Bind the shipped asynchronous solver and its commit-time geometry check.
     // Its pacing clock shares the controlled caption clock; a loaded test
     // runner must not introduce real timer yields into this microtask fixture.
@@ -406,7 +408,7 @@ it('keeps the advertised focus and update schemas unchanged', async () => {
   try {
     const listed = await t.client.listTools();
     // What is advertised is the request form: the binding the host fills is optional there.
-    for (const [tool,schema] of [['focus_selection',focusSelectionRequestSchema],['update_inspection',withImplicitBinding(updateInspectionSchema)]] as const) {
+    for (const [tool,schema] of [['focus_selection',focusSelectionRequestSchema],['update_inspection',withImplicitBinding(updateInspectionSchema,true)]] as const) {
       const expected = z.toJSONSchema(schema,{target:'draft-7',io:'input'});
       expect(listed.tools.find(item=>item.name===`stereo_structure.${tool}`)?.inputSchema).toEqual(expected);
     }

@@ -23,6 +23,30 @@ function makeWorker() {
   worker.on('message', data => adapter.onmessage({ data })); worker.on('error', error => adapter.onerror(error));
   return adapter;
 }
+test('chapter glass moves before the structure retreats to the four metre fallback', async () => {
+  const options = input();
+  options.preferMenuRelocation = true;
+  options.menuCandidates = [{ id: 'overhead', points: [-.6, .6].flatMap(x => [.5, .8].map(y => [x, y, -1])) }];
+  const fitted = await fitAppearanceInWorker(options, { makeWorker });
+  assert.deepEqual(fitted.translation, options.seat.translation);
+  assert.equal(fitted.scale, options.seat.scale);
+  assert.equal(fitted.menuRelocation, 'overhead');
+});
+test('an orbit recovers its off-centre origin sideways while retaining chapter depth and scale', async () => {
+  const options = input();
+  options.preferMenuRelocation = true;
+  options.points = [-.8, .8].flatMap(x => [-.8, .8].map(y => [x, y, -1]));
+  options.seat.translation = [-1.7, 0, -2.4];
+  options.geometry.fromPlacement[12] = -1.7;
+  options.geometry.fromPlacement[14] = -2.4;
+  options.menuCandidates = [{ id: 'overhead', points: [-.6, .6].flatMap(x => [.5, .8].map(y => [x, y, -1])) }];
+  options.menuCandidates[0].points.plates = [options.menuCandidates[0].points.slice()];
+  const fitted = await fitAppearanceInWorker(options, { makeWorker });
+  assert.equal(fitted.translation[2], -2.4);
+  assert.equal(fitted.scale, 1);
+  assert.ok(fitted.translation[0] > options.seat.translation[0]);
+  assert.equal(fitted.menuRelocation, 'overhead');
+});
 test('worker runs the real stereo fitter and leaves renderer buffers attached', async () => {
   const options = input(), waiters = new Set();
   const fitted = await fitAppearanceInWorker(options, { makeWorker, waiters });
@@ -48,11 +72,16 @@ test('worker preserves live mesh counts so unused translated buffer capacity can
   assert.equal(object.values.uVertexCount.ref.value, 2);
   object.values.uVertexCount.ref.value = 3;
   const rebuilt = await fitAppearanceInWorker(options, { makeWorker });
-  assert.deepEqual(rebuilt, solveAppearanceFit(options), 'a new live count is read even when buffer capacity and identity stay the same');
-  assert.ok(rebuilt.scale < actual.scale, 'the newly live origin vertex must participate in the next fit');
+  assert.deepEqual(rebuilt, solveAppearanceFit(options), 'a changed live count reaches the worker');
+  assert.ok(rebuilt.scale < actual.scale, 'the newly live origin vertex participates in the fit');
+  // Without a live count the fitter must conservatively include all capacity.
+  // The restored 1e-6 numerical floor permits that large source-unit fit.
   delete object.values.uVertexCount;
   const conservative = await fitAppearanceInWorker(options, { makeWorker });
-  assert.ok(conservative.scale < actual.scale, 'missing count still conservatively includes spare capacity');
+  assert.deepEqual(conservative, solveAppearanceFit(options));
+  assert.ok(conservative.scale < rebuilt.scale, 'missing live counts include the spare extreme vertex');
+  assert.ok(actual.scale > conservative.scale * 100, 'live counts protect the drawn mesh from spare-capacity shrinkage');
+
 });
 
 test('worker fits the actual monoscopic XR view and still rejects a missing stereo eye', async () => {

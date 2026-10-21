@@ -18,6 +18,9 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const viewerSource = read('./viewer.mjs'), workspaceSource = read('../inspection/workspace.mjs');
 const inspectorSource = read('../../plugin/src/inspector.ts');
 const playerSource = read('../../plugin/src/experience-player.ts');
+const initializationSource = read('../../plugin/src/lesson-source-initialization.ts');
+const initializationJs = transpileModule(initializationSource.replace(/^import .*;\n/gm, '').replaceAll('export ', ''),
+  { compilerOptions: { target: ScriptTarget.ES2022, module: ModuleKind.None } }).outputText;
 const runtime = await toolbarFrameRuntime();
 const exactRestoreDeclaration = inspectorSource.match(/^    const restoreExactScene=.*;$/m)?.[0];
 assert.ok(exactRestoreDeclaration, 'use the production exact-restore decision');
@@ -66,7 +69,8 @@ for (const stepIndex of [0, 19]) for (const fails of [false, true]) {
         const before = structuredClone(live);
         try { await action(); events.push('rendered'); } catch (error) { live = before; throw error; }
       },
-      syncInspectionPayload() {}, restoreCompanion: async () => {},
+      syncInspectionPayload() {}, inspectionPayload: () => ({ selectionKeys: live.selectionKeys, camera: live.camera }),
+      restoreCompanion: async () => {},
       inspectionState: { replace: value => { live.inspection = value; }, setPayload() {} },
       markSelection: keys => { live.selectionKeys = keys; },
       applyInspectionAppearance: async () => { entered(); await frame; if (fails) throw Error('Restore draw failed'); },
@@ -91,6 +95,10 @@ for (const stepIndex of [0, 19]) for (const fails of [false, true]) {
     context.data = { structureText: 'fixture', scene: saved }; context.restoredScene = saved;
     context.catalog = { modelNumbers: [1], assemblyId: 'asymmetric_unit' }; context.loadSettings = {};
     context.loadedSha256 = 'original'; context.density = context.visible = context.stage = undefined;
+    // This fixture restores ordinary atomic coordinates, with no custom
+    // lesson or map-reference-only caption on the hydration path.
+    context.panelCustomTour = undefined; context.densityReferencePreview = false;
+    vm.runInContext(initializationJs, context);
     context.heading = {}; // the panel's file-named heading, read on the line before the load
     context.completion = { status: 'pending' };
     context.sourceReplacement = false; // Done restores a journey; it is not an agent's swap.

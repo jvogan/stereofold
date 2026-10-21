@@ -60,7 +60,8 @@ test('head-seated reply clears the same menu blocker through 72 seat and eye com
     }
   }
   assert.equal(checked, 72);
-  assert.match(source, /menuPoints: menuPoints\(\)/);
+  assert.match(source, /menuPoints: menuObstacle\(\)/);
+  assert.match(source, /const points = menuPoints\(\)/);
   assert.match(source, /nextMenu === lastMenu/);
 });
 

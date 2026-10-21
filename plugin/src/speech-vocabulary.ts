@@ -1,4 +1,4 @@
-import { CIF } from 'molstar/lib/commonjs/mol-io/reader/cif.js';
+import { CIF } from './compatible-cif.js';
 import { REPRESENTATION_WORDS, representationWordKey } from './inspection-contract.js';
 // @ts-ignore The one chain resolver, shared with the visibility command path.
 import { uniqueNamedChain } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
@@ -27,8 +27,8 @@ export type SpeechSceneContext = {
   representations: string[];
 };
 
-// Keep the measured imperative-first ordering: silent Whisper clips can
-// continue their prompt. The existing energy gate remains the primary guard.
+// Apple contextual hints and legacy Whisper prompt diagnostics share this list.
+// The live Whisper route uses only the small domain hint below.
 export const SPEECH_COMMAND_VOCABULARY = Object.freeze([
   'spin it', 'stop spinning', 'rotate the molecule', 'reset the view',
   'start the tour', 'pause the tour', 'next step', 'previous step', 'go back',
@@ -86,6 +86,9 @@ export const SPEECH_MAX_PHRASES = 256;
 export const SPEECH_MAX_PHRASE_CHARS = 120;
 export const SPEECH_MAX_VOCABULARY_CHARS = 6_000;
 
+/** Domain nouns only; never seed the decoder with commands or scene identifiers. */
+export const WHISPER_DOMAIN_HINT = 'Molecular biology. Animation. ATP.';
+
 function cleanTerm(value: string): string {
   return value.normalize('NFKC').replace(/[\u0000-\u001f\u007f,]/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -136,6 +139,39 @@ export function buildSpeechVocabulary(scene?: SpeechSceneContext) {
   }
   return { phrases, whisperPrompt: phrases.map(phrase => phrase === 'vr mode' ? 'VR mode.'
     : `${phrase[0].toUpperCase()}${phrase.slice(1)}.`).join(' ') };
+}
+
+/**
+ * Recognizer hints are not speech. Refuse a list of hint fragments, including
+ * scene nouns on their own. One request (possibly repeated by the recorder)
+ * is allowed: "go back" must still work when it was actually spoken.
+ * Whisper hints contain only domain nouns, never requests or source identifiers;
+ * a hint-only list never becomes a compound command.
+ */
+export function isSpeechVocabularyEcho(text: string, scene?: SpeechSceneContext): boolean {
+  const key = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const words = key(text);
+  if (!words) return false;
+  const phrases = new Set(buildSpeechVocabulary(scene).phrases.map(key));
+  WHISPER_DOMAIN_HINT.split('.').map(key).filter(Boolean).forEach(phrase=>phrases.add(phrase));
+  // Include author identifiers even if the bounded hint list ended earlier.
+  for (const chain of scene?.chains ?? []) for (const id of [chain.labelChain, chain.authorChain]) {
+    if (id) { phrases.add(key(`chain ${id}`)); phrases.add(key(`hide chain ${id}`)); }
+  }
+  // Recognition may omit punctuation between hints. Match longest phrases
+  // first so an actual "hide chain A" remains one acoustically decoded request.
+  const ordered = [...phrases].sort((a,b)=>b.length-a.length);
+  const fragments: string[] = [];
+  let remaining = words;
+  while (remaining) {
+    const phrase = ordered.find(value=>remaining===value || remaining.startsWith(value+' '));
+    if (!phrase) return false;
+    fragments.push(phrase); remaining=remaining.slice(phrase.length).trimStart();
+  }
+  const unique = new Set(fragments);
+  if (unique.size > 1) return true;
+  const request = /^(?:spin|stop|rotate|reset|start|pause|next|previous|go|show|zoom|focus|make|bigger|smaller|assemble|add|move|open|turn|hide|load|select|highlight|compare|colour|color|uniform|save|restore|undo|cancel)\b/u;
+  return !request.test(fragments[0]!);
 }
 
 type CatalogRow = { entityType: string; identity: {

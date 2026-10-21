@@ -99,17 +99,24 @@ function apparent(world, room) {
   return Math.asin(room.radius / Math.hypot(...room.center.map((value, axis) => value - head[axis])));
 }
 
-/** Per eye, the gap between the structure's left edge and the menu glass. Negative overlaps. */
+/** Per eye, the least clearance from any individual plate. Negative overlaps.
+ * The forward card can clear vertically while the menu clears horizontally.
+ * A rectangle around their union would falsely fill the gap with glass.
+ */
 function menuGaps(world, room) {
   const { basis, points } = world;
   return [-1, 1].map(side => {
     const eye = basis.origin.map((value, axis) => value + side * HALF_IPD_METERS * basis.right[axis]);
     const relative = point => point.map((value, axis) => value - eye[axis]);
-    const v = relative(room.center), x = dot(v, basis.right), z = dot(v, basis.forward), r = room.radius;
+    const v = relative(room.center), z = dot(v, basis.forward), r = room.radius;
     assert.ok(z > r, 'the structure stands in front of the eye');
-    const left = (x * z - r * Math.sqrt(x * x + z * z - r * r)) / (z * z - r * r);
-    const right = Math.max(...points.map(point => dot(relative(point), basis.right) / dot(relative(point), basis.forward)));
-    return left - right;
+    return Math.min(...points.plates.map(plate => Math.max(...[basis.right, basis.up].map(axis => {
+      const value = dot(v, axis), spread = r * Math.sqrt(value * value + z * z - r * r);
+      const denominator = z * z - r * r;
+      const low = (value * z - spread) / denominator, high = (value * z + spread) / denominator;
+      const glass = plate.map(point => dot(relative(point), axis) / dot(relative(point), basis.forward));
+      return Math.max(low - Math.max(...glass), Math.min(...glass) - high);
+    }))));
   });
 }
 
@@ -138,7 +145,11 @@ function zoomedHemoglobin() {
 
 test('a swap to a smaller structure takes the entry seat instead of the zoomed diameter', () => {
   const { world, v, entered, anchor } = zoomedHemoglobin();
-  assert.ok(menuGaps(world, entered).every(gap => gap > 0), 'the entry seat clears the menu in both eyes');
+  assert.ok(menuGaps(world, entered).every(gap => gap > 0), 'the entry seat clears every plate in both eyes');
+  const caption = world.points.plates[0];
+  const underCard = { center: [0, 1, 2].map(axis => caption.reduce((sum, point) => sum + point[axis], 0) / caption.length), radius: .01 };
+  assert.ok(menuGaps(world, underCard).every(gap => gap < 0),
+    'the same witness rejects a subject inside the overhead card in both eyes');
   assert.equal(anchor.usedCameraScale, false, 'as on the headset, the scene scale is unchanged');
   const anchored = roomSphere(world, CRAMBIN, anchor.placement);
   assert.ok(apparent(world, anchored) > 1.5 * apparent(world, entered), 'the anchor alone grows crambin past the entry size');
@@ -211,7 +222,7 @@ for (const [name, reason, spoil] of [
 test('a lesson tier keeps the room anchor; only an agent swap asks for the entry seat', () => {
   const load = closure('load');
   const anchored = load.slice(load.indexOf('if (sourceAnchor) {'), load.indexOf("after_room_anchor"));
-  assert.match(anchored, /if \(settings\.seatForEntry\) \{[\s\S]*seatSwappedSource\(sourceAnchor, \{ deferAnchor: true \}\);[\s\S]*\} else \{[\s\S]*inspectionState\.place\(sourceAnchor\.placement, 'source-transition'\);[\s\S]*pendingGrowthTurn = true;/);
+  assert.match(anchored, /if \(settings\.seatForEntry && !sourceAnchor\.preservesCoordinateFrame\) \{[\s\S]*seatSwappedSource\(sourceAnchor, \{ deferAnchor: true \}\);[\s\S]*\} else \{[\s\S]*inspectionState\.place\(sourceAnchor\.placement, 'source-transition'\);[\s\S]*pendingGrowthTurn = !sourceAnchor\.preservesCoordinateFrame;/);
 });
 
 test('the workspace asks for the entry seat only for a swap it anchors in the room', async () => {

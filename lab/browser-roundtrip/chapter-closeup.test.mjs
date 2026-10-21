@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import vm from 'node:vm';
+import { readFileSync } from 'node:fs';
+import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
+import { tourFocusHarness, framedTourScene } from './fixtures/tour-focus-harness.mjs';
+import { pageFunction } from './fixtures/label-action-harness.mjs';
+const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
+
+for (const focus of [false, true]) test(`chapter takeover seats ${focus ? 'a site' : 'a placement-only chapter'} in front of the current head`, async () => {
+  const { h, hold } = tourFocusHarness();
+  for (const name of ['releaseWearerPlacement', 'beginChapterFraming']) vm.runInContext(pageFunction(source, name), h);
+  const head = h.latestRoomPlacementPose.headInRoom;
+  Mat4.fromRotation(head, Math.PI / 2, [0, 1, 0]); head[12] = 3; head[13] = 1.1; head[14] = 2;
+  h.inspectionState.place({ translation: [8, 0, 8], rotation: [0, 0, 0], scale: 2 });
+  hold.takeover('grab');
+  h.beginChapterFraming();
+  assert.equal(hold.holdsPlacement(), false);
+  assert.equal(hold.state().reason, 'authored-chapter');
+  if (focus) await h.emphasize({ ...framedTourScene.emphasis, origin: 'lesson' });
+  else await h.focusSelection({ wholeStructure: true, liftEmphasis: false, elevationDegrees: 0 });
+  const centre = focus ? [12, 0, 0] : [0, 0, 0];
+  const render = Vec3.transformMat4(Vec3(), centre, h.placementTransform(h.inspectionSnapshot().placement));
+  const room = Vec3.scale(Vec3(), render, h.canvas.camera.scale);
+  const local = Vec3.transformMat4(Vec3(), room, Mat4.invert(Mat4(), head));
+  assert.ok(local[2] < 0, 'subject is ahead, never behind the wearer');
+  assert.ok(Math.abs(local[0] / local[2]) < .75, 'subject stays within the forward field of view');
+  hold.takeover('grab');
+  const moved = { translation: [1, 2, -3], rotation: [0, 60, 0], scale: 3 };
+  h.inspectionState.place(moved);
+  await h.emphasize({ ...framedTourScene.emphasis, origin: 'lesson' });
+  assert.deepEqual(JSON.parse(JSON.stringify(h.inspectionSnapshot().placement)), moved);
+  assert.equal(hold.holdsPlacement(), true);
+});

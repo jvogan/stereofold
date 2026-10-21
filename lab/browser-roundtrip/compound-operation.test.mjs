@@ -137,7 +137,7 @@ test('it refuses a kind the panel cannot run, a repeat, and a compound of one', 
     { kind: 'appearance', patch: {} }, { kind: 'appearance', patch: {} }] } }), /at most once/);
   assert.throws(() => compoundOps({ patch: { ops: [
     { kind: 'tour', patch: {} }, { kind: 'appearance', patch: {} }] } }), /cannot run that kind/);
-  assert.deepEqual([...COMPOUND_OP_KINDS], ['appearance', 'placement', 'selection', 'emphasis', 'visibility', 'styles', 'companion-structure']);
+  assert.deepEqual([...COMPOUND_OP_KINDS], ['appearance', 'placement', 'selection', 'emphasis', 'visibility', 'styles', 'companion-structure', 'measurement']);
 });
 
 test('a handler the panel does not have refuses before anything is applied', async () => {

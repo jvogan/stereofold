@@ -1,3 +1,7 @@
+import { readBundledLesson, resolveBundledDemo } from './bundled-demo.js';
+import { measurementTargetSchema, measureAtoms } from './inspection-measure.js';
+import { TOOL_SET_VERSION, registerTextTool as registerHostTool } from './tool-text-state.js';
+import { prepareCompositeSchema, type createPreparedCompositeStore } from './prepared-composite.js';
 // @ts-ignore Shared JavaScript selection policy.
 import { focusResidues } from '../../lab/browser-roundtrip/focus-residues.mjs';
 import { InspectionEditAdmission } from './inspection-edit-admission.js';
@@ -7,16 +11,17 @@ import { missingVoiceRegion, observeVoiceRefusal, voiceValidationSentence } from
 import { inspectionRefusalCaption, isInspectionBookkeepingTool } from './inspection-refusal-caption.js';
 import { INSPECTION_FAILURE_CODES, MAX_INSPECTION_FAILURE_REASON_CHARS } from './inspection-failure-receipt.js';
 import { SourceRenderWait, type SourceRenderReceipt } from './source-render-wait.js';
-import { SOURCE_DESCRIPTION, assertStructureSourceRequest, type StructureSourceRequest, type StructureSelection, type ResolvedStructureSource } from './structure-sources.js';
+import { sameEntryScene } from './inspection-render-settle.js';
+import { SOURCE_DESCRIPTION, structureSourceSchema, structureSelectionShape, assertStructureSourceRequest, type StructureSourceRequest, type StructureSelection, type ResolvedStructureSource } from './structure-sources.js';
 import { growthOperation, inspectionOperationInventory, visualEdit } from './inspection-operations.js';
 import type { OperationContract } from './inspection-contract.js';
 import { assertInspectionBudget, INSPECTION_SIZE_GUIDE, MAX_INSPECTION_CHUNK_BYTES, MAX_INSPECTION_HYDRATION_BYTES, MAX_STRUCTURE_SOURCE_BYTES, STRUCTURE_SOURCE_SIZE_LABEL } from './inspection-limits.js';
 import { MAX_INSPECTION_CATALOG_COMPRESSED_BYTES } from './inspection-catalog-codec.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { readStampedBuildId } from './build-identity.js';
-import { registerAppResource, registerAppTool as registerHostTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { createAssistantOwnership, handoverLine, normalizeAssistantLabel } from './assistant-ownership.js';
-import { LocalSceneService } from './scene-service.js';
+import { LocalSceneService, UTTERANCE_BOUND_TOOLS } from './scene-service.js';
 import { headsetHostCommand, loopbackListenDenied } from './headset-host-guidance.js';
 import { registerInspectionVoiceTools, type VoiceIntentAcknowledgement } from './inspection-voice.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -38,9 +43,10 @@ import { inspectInputSchema, syncInspectionSchema, validateScene, INSPECTION_RES
 // One implementation of "which part did they mean",
 // shared with the headset page's own spoken grammar.
 // @ts-ignore Shared JavaScript science module.
-import { resolveEmphasisPartId, DEFAULT_CONTEXT_OPACITY } from '../../lab/browser-roundtrip/lesson-emphasis.mjs';
+import { resolveEmphasisPartIds, DEFAULT_CONTEXT_OPACITY } from '../../lab/browser-roundtrip/lesson-emphasis.mjs';
 import { inspectionResidueKeys, inspectionResiduePage } from './inspection-residues.js';
 import { inspectionSourcePdbId, extractInspectionCatalogBytes } from './inspection-catalog.js';
+import { createHeadsetChannel, headsetChannelParams, HEADSET_CHANNEL_METHOD } from './headset-channel.js';
 import { InspectionCommands, UtteranceBindingError, tourCommandSentence, wearerKeptSentence, wearerPausedNote, wearerStateText,
   wearerUnknownNote, type InspectionBinding, type WearerPage, type WearerPause } from './inspection-commands.js';
 import { InspectionViews, MAX_INSPECTION_VIEWS } from './inspection-views.js';
@@ -49,6 +55,7 @@ import { InspectionViews, MAX_INSPECTION_VIEWS } from './inspection-views.js';
 import { captureRequestReferent, createRequestReferentStore, createReferentKeyStore, isReferentPronoun, referentSelection, validateRequestReferent, referentAppliedTo, bindVisibilitySelection,
   SceneHistory, undoChangeFor, redoChangeFor, resolveScopedAppearance, type SceneHistorySurface } from './inspection-operation.js';
 import { compoundConfirmation, scopedStyleConfirmation, NOTHING_TO_UNDO, UNDO_CONFIRMATION } from './inspection-operation-words.js';
+import { readAddressedDemoFile } from './addressed-demo-cache.js';
 import { DEMO_INDEX_PATH, DEMO_TIER_BY_DEVICE, demoCoordinatePath, createGrowthCaptionMailbox, growthConfirmation, growthStageOfLesson,
   growthStages, readGrowthIndex, resolveGrowthTarget, stageSize, QUEST2_ATOM_SITE_CEILING } from './molecular-growth.js';
 import { ensureGrowthCoordinates, growthRecoveryCommand } from './growth-coordinates.js';
@@ -64,6 +71,7 @@ import { createHeadsetCaptionQueue, estimateHeadsetSpeechSeconds, type HeadsetCa
   HEADSET_REPLY_MAX_WORDS, HEADSET_REPLY_RENDER_BUDGET_MS, HEADSET_SPEECH_LIMIT,
   HEADSET_SPEECH_MAX_CHARS, HEADSET_SPEECH_MAX_SECONDS, HEADSET_SPEECH_MAX_WORDS, type SayToHeadsetInput, type HeadsetCaption } from './headset-captions.js';
 import type { ReplyAudioSynthesizer } from './headset-reply-audio.js';
+import type { HeadsetCaptionSegment } from './headset-captions.js';
 import { renderReplySpeech } from './reply-speech-render.js';
 import { replyAudioFromEnv } from './headset-voice-provider.js';
 import { createHeadsetDiagnosticsStore, readHeadsetLogSchema, formatDiagnosticLine, salvageDiagnosticEntries, READ_HEADSET_LOG_DEFAULT_LIMIT, type ReadHeadsetLogInput } from './headset-diagnostics.js';
@@ -102,21 +110,22 @@ import { createSpeechSceneReader, MAX_REMEMBERED_ENTRY_CODES } from './speech-vo
 import { z } from 'zod';
 import { savedLessonPlayback } from './tour-player.js';
 import { TOURS } from './tour-catalog.js';
-import { tourActionSchema, cameraPose, isRecenterChange, INSPECTION_MODEL_CONTEXT_RESIDUE_LIMIT } from './inspection-contract.js';
+import { tourActionSchema, cameraPose, isRecenterChange, INSPECTION_MODEL_CONTEXT_RESIDUE_LIMIT, EMPHASIS_PART_LIMIT } from './inspection-contract.js';
 import { inspectionCatalogTransport, inspectionCatalogWire, type InspectionCatalogTransport } from './inspection-catalog-codec-server.js';
 import { readStructureViewerSceneFiles, sceneImportMatchesSavedScene, structureViewerImportTargetSchema, type StructureViewerSceneFileBundle } from './inspection-scene-file.js';
-import { readBoundedJsonFile } from './inspection-scene-file.js';
+import { readBoundedJsonFile, MAX_MOLECULAR_LESSON_BYTES } from './inspection-scene-file.js';
 import { nativeSceneExportSchema, readNativeStructureViewerExports } from './structure-viewer-export-files.js';
 import { importStructureViewerScene, preflightInspectionScene, type InspectionScenePreflight } from './inspection-scene-import.js';
+import { validateLessonSource } from './lesson-source-validation.js';
 import { molecularLessonToTour } from './molecular-lesson-tour.js';
-import { parseMolecularLesson, type MolecularLessonManifest } from './molecular-lesson.js';
+import { molecularLessonSchema, lessonStartSchema, assertLessonSize, parseMolecularLesson, type MolecularLessonManifest } from './molecular-lesson.js';
 import { nativeStructureViewerHandoff, SOURCE_ONLY_HANDOFF_DISCLOSURE } from './native-structure-viewer-handoff.js';
 import type { VoiceTranscriber } from './inspection-voice.js';
 import type { Tour } from './tour-player.js';
 import { experienceById, stageForStep, validateExperienceAssembly, CATALOG_ENTRY_CODES, CATALOG_ENTRY_NAMES, MOLECULAR_EXPERIENCES, type MolecularExperience, type MolecularExperienceStage } from './molecular-experience.js';
 import { experienceGeometry, chapterBudget, catalogChapterBudget, chapterBudgetNotice, type ExperienceGeometry } from './experience-budget.js';
 
-type Cache = { structureText:string; format:'pdb'|'mmcif'; pdbId?:string; sourceKind?:StructureSourceRequest['kind']; sourceSelection?:StructureSelection };
+type Cache = { structureText:string; format:'pdb'|'mmcif'; pdbId?:string; sourceKind?:StructureSourceRequest['kind']; sourceSelection?:StructureSelection; sourceFilename?:string };
 type SceneImport = { bundle:StructureViewerSceneFileBundle; resolvedScene?:InspectionScene; preflight?:InspectionScenePreflight };
 type ExperienceRuntime = { experience:MolecularExperience; revision:number; stepIndex:number; stage:MolecularExperienceStage; sourceSha256?:string; cache?:Cache;
   returnView?:{cache:Cache;attachment:Attachment};
@@ -155,7 +164,7 @@ type DensityAsset = { bytes:Buffer; sha256:string; contour:number; filename:stri
  */
 type ExperienceRollback = { token:string; panelId:string; cache:Cache; attachment:Attachment;
   experience?:ExperienceRuntime; expectedStateRevision:number; expectedInspectionRevision:number };
-type Attachment = { initialSourceAdvisories?:Map<string,SourceRenderReceipt>; sourceFailureReadyAt?:number; experienceCompletion?:ExperienceCompletion; reconciledExperienceId?:string; experienceRollback?:ExperienceRollback; sourceRenderWait?:SourceRenderWait; sourceOperation?:OperationContract; sourceToken:string; catalog:any; transport:InspectionCatalogTransport; revision:number; scene:InspectionScene|null; commands:InspectionCommands; history:SceneHistory; views:InspectionViews; shared?:boolean; sceneImport?:SceneImport; customTour?:Tour; density?:DensityAsset; nativeLocalFile?:{filePath:string;sourceSha256:string}; experience?:ExperienceRuntime; transitionTarget?:TransitionTarget;
+type Attachment = { initialSourceAdvisories?:Map<string,SourceRenderReceipt>; sourceFailureReadyAt?:number; experienceCompletion?:ExperienceCompletion; reconciledExperienceId?:string; experienceRollback?:ExperienceRollback; sourceRenderWait?:SourceRenderWait; sourceOperation?:OperationContract; sourceToken:string; catalog:any; transport:InspectionCatalogTransport; revision:number; scene:InspectionScene|null; commands:InspectionCommands; history:SceneHistory; views:InspectionViews; shared?:boolean; sceneImport?:SceneImport; customTour?:Tour; lessonStart?:{autoplay:boolean;narration:boolean}; lessonManifest?:MolecularLessonManifest; density?:DensityAsset; nativeLocalFile?:{filePath:string;sourceSha256:string}; experience?:ExperienceRuntime; transitionTarget?:TransitionTarget;
   /** Stop retires headset access; a returning desktop still follows the saved scene. */
   followStoppedShare?:boolean;
   /**
@@ -214,12 +223,13 @@ type Hooks = { serverEpoch:string; htmlPath:string; open:(input:unknown)=>Promis
    */
   scene?:LocalSceneService;
   loopbackListenDenied?:()=>Promise<boolean>;
+  prepareComposite?: ReturnType<typeof createPreparedCompositeStore>['prepare'];
   resolveComparisonSource?:(source:StructureSourceRequest,signal?:AbortSignal)=>Promise<ResolvedStructureSource>;
-  openVerifiedSource?:(input:{sessionId?:string;source:StructureSourceRequest;selection?:StructureSelection;verify:(structureText:string)=>Promise<void>|void;signal?:AbortSignal;beforeCommit?:()=>void;committed?:()=>void})=>Promise<any>;
+  openVerifiedSource?:(input:{sessionId?:string;source:StructureSourceRequest;resolved?:ResolvedStructureSource;selection?:StructureSelection;verify:(structureText:string)=>Promise<void>|void;signal?:AbortSignal;beforeCommit?:()=>void;committed?:()=>void})=>Promise<any>;
   restoreSource?:(input:{sessionId:string;expectedCache:Cache;cache:Cache})=>unknown;
   openVerifiedPdb?:(input:{sessionId:string;pdbId:string;verify:(structureText:string)=>Promise<void>|void})=>Promise<any>;
   /** The same atomic replacement for a local file, which a derived growth tier is. */
-  openVerifiedLocal?:(input:{sessionId:string;structureText:string;pdbId?:string;verify:(structureText:string)=>Promise<void>|void})=>Promise<any> };
+  openVerifiedLocal?:(input:{sessionId:string;structureText:string;pdbId?:string;verify:(structureText:string)=>Promise<void>|void;committed?:()=>void})=>Promise<any> };
 /**
  * The map a lesson declares, read and checked against it.
  *
@@ -423,6 +433,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   const scene = hooks.scene ?? new LocalSceneService({serverEpoch:hooks.serverEpoch,
     live:(id:string)=>{ try { return Boolean(hooks.current(id)); } catch { return false; } }});
   const assistants = createAssistantOwnership({...(hooks.now?{now:hooks.now}:{})});
+  let voiceFloorChanged=new AbortController();
+  const wakeVoiceFloor=()=>{
+    const previous=voiceFloorChanged;
+    voiceFloorChanged=new AbortController();
+    previous.abort();
+  };
   /**
    * Every tool registered here by short name, for the loopback
    * panel host to call the way an MCP Apps host forwards the mounted panel's
@@ -443,6 +459,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   function implicitBinding<T>(strict:T, relaxed:unknown=withImplicitBinding(strict as any)):T {
     implicitBindingShapes.set(relaxed as object,(strict as any).shape);
     return relaxed as T;
+  }
+  function implicitVoiceBinding<T>(strict:T):T {
+    return implicitBinding(strict,withImplicitBinding(strict as any,true));
   }
   function failedSourceOwnerReady(data:Awaited<ReturnType<typeof current>>,panelId:string) {
     const a=data.attachment,c=a.sourceContinuation,r=a.sourceRenderWait?.settled();
@@ -472,7 +491,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    * focus_selection and control_tour are refused with the reason. Either way
    * the answer is about the wearer, which a render on this Mac's panel is not.
    */
-  const WEARER_FIRST_TOOLS=new Set(['update_inspection','emphasize','undo_last_change','redo_last_change','focus_selection','control_tour']);
+  const WEARER_FIRST_TOOLS=new Set(['update_inspection','emphasize','undo_last_change','redo_last_change','focus_selection','control_tour','install_lesson','remove_measurement','replace_inspection_source']);
   // A transport can retry before the first call has resolved implicit bindings
   // and remembered its receipt. Share that admission, including its render
   // wait, so the retry cannot become a second edit or an unrelated refusal.
@@ -493,7 +512,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const failedPanel=data.attachment.sourceContinuation?.panelId;
     if(tool==='replace_inspection_source' && failedPanel && failedSourceOwnerReady(data,failedPanel)) return failedPanel;
     const panels=data.attachment.commands.summary(b).panels
-      .filter(panel=>panel.current && panel.availability!=='unsaved' && panel.surface!=='detailed');
+      .filter(panel=>panel.current && (WEARER_FIRST_TOOLS.has(tool) || panel.availability!=='unsaved') && panel.surface!=='detailed');
     const wearer=data.attachment.commands.wearerPage(b);
     const panel=panels.find(entry=>entry.panelId===wearer.panelId) ?? panels.find(entry=>isWearerSurface(entry.surface)) ?? panels.find(entry=>entry.surface==='desktop') ?? panels[0];
     // On a headset share the usual cause is a headset page still loading
@@ -553,7 +572,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         settledState=result(sessionId,data).structuredContent;
       }
     } catch { /* An expired session still returns the retained command receipt. */ }
-    const text=String(answer.content?.[0]?.text ?? '').replace(`command ${queued.status}`,`command ${receipt.status}`);
+    const text=answer.structuredContent.measurementId
+      ? JSON.stringify({...(answer.structuredContent.measurement?{measurement:answer.structuredContent.measurement}:{}),
+        measurementId:answer.structuredContent.measurementId,commandId:receipt.commandId,command:receipt})
+      : String(answer.content?.[0]?.text ?? '').replace(`command ${queued.status}`,`command ${receipt.status}`);
     const sentence=receipt.status==='rendered'
       ? text.replace(RECEIPT_ADVICE,'').trim()+' The panel rendered and saved it.'
       : receipt.status==='saved'
@@ -567,8 +589,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     return {...answer,content:[{type:'text' as const,text:sentence},...(answer.content?.slice(1)??[])],
       structuredContent:{...answer.structuredContent,...settledState,command:receipt}};
   }
-  const registerAppTool=((target:any,name:string,config:any,handle:(input:any)=>Promise<any>)=>{
+  const registerAppTool=((target:any,name:string,config:any,handle:(input:any,extra?:{signal?:AbortSignal})=>Promise<any>)=>{
     const short=name.replace('stereo_structure.','');
+    const voiceListener=short==='listen_voice' || short==='poll_voice_transcripts';
     const original = handle;
     const implicitShape = implicitBindingShapes.get(config?.inputSchema);
     // Every dispatched wearer mutation uses the same refusal path, including
@@ -604,7 +627,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         }
       }
       // Filled first, so refusals, the tool itself and a proxied owner all read one whole binding.
-      const input=implicitShape?await fillImplicitBinding(received,implicitShape,short,admissionBinding):received;
+      const input=implicitShape?{...await fillImplicitBinding(received,implicitShape,short,admissionBinding)}:received;
+      if(implicitShape && WEARER_FIRST_TOOLS.has(short) && received.baseStateRevision===undefined
+        && received.baseInspectionRevision===undefined && !received.utteranceId && !received.referent)
+        input.deferLocalSave=true;
+      if(WEARER_FIRST_TOOLS.has(short))input.assistantName=received.assistant ?? scene.label ?? (assistants.size===1?assistants.active()?.label:undefined) ?? 'Assistant';
       active?.throwIfAborted();
       if(active)Object.defineProperty(input,editAdmissionSignal,{value:active,enumerable:true});
       const bindingRefusalOwner=wearerCommand?utteranceBindingRefusalOwner(input):undefined;
@@ -619,7 +646,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       }
       const replyOrder = newestReply;
       try {
-        const answer=await original(input);
+        const answer=await original(input,active?{signal:active}:undefined);
         const command=answer?.structuredContent?.command;
         if(command?.commandId) requestCommands?.rememberToolRequest(short,received,command.commandId);
         else if((short==='undo_last_change' && answer?.structuredContent?.undone===false)
@@ -659,14 +686,14 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         throw error;
       }
     };
-    const ordinaryKinds=new Set(['appearance','placement','selection','styles','visibility','motion','emphasis','focus','render-quality']);
+    const ordinaryKinds=new Set(['appearance','placement','selection','styles','visibility','motion','animation','emphasis','focus','render-quality']);
     const ordinaryChange=(change:any):boolean=>ordinaryKinds.has(change?.kind)
       || (change?.kind==='compound' && change.patch.ops.every((op:any)=>ordinaryKinds.has(op.kind)));
     const queuedAdmit=async(received:any,signal?:AbortSignal)=>{
       const implicit=implicitShape && typeof received?.sessionId==='string' && !received.utteranceId
         && ['serverEpoch','sourceToken','baseStateRevision','baseInspectionRevision'].every(key=>received[key]===undefined)
         && (short==='update_inspection'?ordinaryChange(received.change):['emphasize','focus_selection','undo_last_change','redo_last_change'].includes(short));
-      if(!implicit) return admit(received);
+      if(!implicit) return admit(received,undefined,voiceListener?signal:undefined);
       // Retained retries must not wait behind the command they are asking about.
       if(typeof received.commandId==='string') {
         const data=await current(received.sessionId);
@@ -715,6 +742,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       },signal);
     };
     handle=async (received:any,extra?:{signal?:AbortSignal})=>{
+      if(implicitShape && typeof received?.sessionId!=='string')
+        throw Error(!UTTERANCE_BOUND_TOOLS.has(short) ? `Pass sessionId for ${short}; utteranceId does not supply its session.` : typeof received?.utteranceId==='string'
+          ? 'That utteranceId names no recorded voice request on this Mac. Pass sessionId as well.'
+          : 'Pass sessionId, or the utteranceId of the voice request this answers.');
       if(!implicitShape || !WEARER_FIRST_TOOLS.has(short) || received?.change?.kind==='utterance'
         || typeof received?.sessionId!=='string' || typeof received?.commandId!=='string') return queuedAdmit(received,extra?.signal);
       const key=JSON.stringify([received.sessionId,received.commandId]),fingerprint=inspectionJson(received);
@@ -729,7 +760,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       try { return await pending.answer; }
       finally { if(admittingToolRequests.get(key)===pending) admittingToolRequests.delete(key); }
     };
-    scene.register(short,handle);
+    scene.register(short,(input:any,signal)=>handle(bindUtterance(short,input),voiceListener?{signal}:undefined));
     const originalSchema=typeof config?.inputSchema?.parse==='function'?config.inputSchema:z.object(config?.inputSchema ?? {});
     const schema=wearerCommand?observeVoiceRefusal(originalSchema,async(input,error)=>{
       if(typeof input.sessionId!=='string') return;
@@ -741,8 +772,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       await showCommandRefusal(short,input,new Error(voiceValidationSentence(short,input,error)),serial,newestReply);
     }):originalSchema;
     panelHandlers.set(short,{schema,handle});
-    return registerHostTool(target,name,{...config,inputSchema:schema},(async(input:any,extra:any)=>{
-      const forwarded=await scene.forward(short,input);
+    return registerHostTool(target,name,{...config,inputSchema:schema},(async(received:any,extra:any)=>{
+      const input=bindUtterance(short,received);
+      const forwarded=await scene.forward(short,input,voiceListener?extra?.signal:undefined);
       if(forwarded) return forwarded.value;
       const answer=await (handle as any)(input,extra);
       // An `inspect` that opens a structure carries no session in, and the only
@@ -751,13 +783,17 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       const opened=typeof input?.sessionId==='string'?input.sessionId
         :typeof answer?.structuredContent?.sessionId==='string'?answer.structuredContent.sessionId:undefined;
       if(opened!==undefined) scene.noteSession(opened);
+      if(opened!==undefined && answer?.structuredContent?.kind==='inspect' && scene.label) {
+        assistants.attach({label:scene.label});
+        startChannel(opened);
+      }
       if(answer?.structuredContent?.kind==='inspect' && typeof answer.structuredContent.sessionId==='string'
         && Number.isSafeInteger(answer.structuredContent.renderToken))
         lastRenderToken.set(answer.structuredContent.sessionId,answer.structuredContent.renderToken);
       return answer;
     }) as any);
   }) as typeof registerHostTool;
-  function privateTool(name:string, config:any, handle:(input:any)=>Promise<any>) {
+  function privateTool(name:string, config:any, handle:(input:any,extra?:{signal?:AbortSignal})=>Promise<any>) {
     registerAppTool(server,name,config,handle);
     handlers.set(name.replace('stereo_structure.',''),panelHandlers.get(name.replace('stereo_structure.',''))!);
   }
@@ -879,7 +915,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    * caption back while no page has it, which is the guarantee the render-first
    * order used to give for free: a superseded answer never reaches the wearer.
    */
-  const pendingSpeech=new Map<number,string>();
+  const pendingSpeech=new Map<number,Set<string>>();
   /** Superseded captions a page had already taken. Read once, by their own call. */
   const drawnBeforeStale=new Set<string>();
   const refusalSerials=new Map<string,number>();
@@ -1111,14 +1147,17 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   }
   // A recording remembers the headset panel it came from. Only when a desktop
   // reader claims its finished transcript does that ID become active there.
-  type UtterancePanel = {commands:InspectionCommands; panelIds:string[]; serial:number};
-  type ActiveUtterance = {utteranceId:string; commands:InspectionCommands; serial:number};
+  // `agent` marks a turn the agent declared itself rather than words the
+  // wearer spoke; `heard` is the newest wearer recording it had heard then.
+  type UtterancePanel = {commands:InspectionCommands; panelIds:string[]; serial:number; agent?:true};
+  type ActiveUtterance = {utteranceId:string; commands:InspectionCommands; serial:number; heard?:number};
   const utterancePanels=new Map<string,UtterancePanel>();
+  const recordedSessions=new Map<string,string>();
   const activeUtterances=new Map<string,ActiveUtterance>();
   let activeUtteranceSerial=0;
-  const rememberUtterancePanels=(utteranceId:string, commands:InspectionCommands, panelIds:string[])=>{
+  const rememberUtterancePanels=(utteranceId:string, commands:InspectionCommands, panelIds:string[], agent=false)=>{
     if(utterancePanels.has(utteranceId)) return;
-    utterancePanels.set(utteranceId,{commands,panelIds,serial:++activeUtteranceSerial});
+    utterancePanels.set(utteranceId,{commands,panelIds,serial:++activeUtteranceSerial,...(agent?{agent:true as const}:{})});
     while(utterancePanels.size>64) utterancePanels.delete(utterancePanels.keys().next().value!);
   };
   const noteClaimedUtterances=(entries:readonly any[])=>{
@@ -1127,11 +1166,107 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       if(!target) continue;
       for(const panelId of target.panelIds) {
         if(!isWearerSurface(target.commands.surfaceOf(panelId))) continue;
-        if((activeUtterances.get(panelId)?.serial??0)>target.serial) continue;
+        const active=activeUtterances.get(panelId);
+        if(active?.heard!==undefined) {
+          // An agent's turn gives way only to words it had not heard when it
+          // began, and not to words its own correction or cancel superseded.
+          const supersededBy=target.commands.utterance(entry.utteranceId)?.supersededBy;
+          if(target.serial<=active.heard || (supersededBy && supersededBy!==entry.utteranceId)) continue;
+        } else if((active?.serial??0)>target.serial) continue;
         activeUtterances.set(panelId,{utteranceId:entry.utteranceId,commands:target.commands,serial:target.serial});
       }
     }
     while(activeUtterances.size>32) activeUtterances.delete(activeUtterances.keys().next().value!);
+  };
+  /**
+   * A turn the agent opened itself: an utterance `begin`, `correct` or
+   * `cancel` that named no ID, so the host minted one.
+   *
+   * The newest turn on a headset panel owns replies, so this one is active at
+   * once and the wearer's earlier turn there becomes stale. A later agent turn
+   * replaces it, and so does a wearer recording claimed afterwards, unless
+   * the agent had already heard a newer one from the wearer when it began. A
+   * turn on the Mac's own panel is not a headset turn and is not recorded.
+   */
+  const beginAgentUtterance=(utteranceId:string, commands:InspectionCommands, panelId:string)=>{
+    // A retried declaration must not take the turn back from a newer one.
+    if(utterancePanels.has(utteranceId) || !isWearerSurface(commands.surfaceOf(panelId))) return;
+    rememberUtterancePanels(utteranceId,commands,[panelId],true);
+    const previous=activeUtterances.get(panelId);
+    activeUtterances.delete(panelId);
+    activeUtterances.set(panelId,{utteranceId,commands,serial:utterancePanels.get(utteranceId)!.serial,
+      heard:previous?previous.heard??previous.serial:0});
+    while(activeUtterances.size>32) activeUtterances.delete(activeUtterances.keys().next().value!);
+  };
+  /**
+   * A model-facing call as the host acts on it.
+   *
+   * A voice edit may carry only its utteranceId: the recorded transcript
+   * already names the session and the headset panel it came from, and the
+   * referent captured when the wearer began speaking. Copying those back cost
+   * a model one to two seconds of identifiers per call. The referent is
+   * applied only where the edit acts on "this" region without naming one —
+   * appearance on the selection, show-only-the-selection, focus with no
+   * region, emphasis of "this" part. A placement, an animation, a tour step or
+   * a region named outright never takes it, so "make it bigger" said while
+   * pointing at a residue is not refused. Explicit referents retain their
+   * legacy semantics, except an unchanged echo beside a named region or a
+   * standalone placement. Every explicit binding field is kept as sent.
+   *
+   * `say_to_headset` follows its utteranceId, so a sessionId sent with it is
+   * dropped rather than refused.
+   */
+  function bindUtterance(short:string, input:any) {
+    if(short==='say_to_headset' && input && typeof input==='object' && 'sessionId' in input) {
+      const {sessionId:_ignored,...reply}=input;
+      return reply;
+    }
+    if(!UTTERANCE_BOUND_TOOLS.has(short) || typeof input?.utteranceId!=='string') return input;
+    const matches=(transcriber.transcripts.all?.() ?? []).filter(entry=>entry.utteranceId===input.utteranceId);
+    // Legacy/injected transcripts may omit sessionId. Missing provenance is
+    // not a second owner; only known sessions can establish a collision.
+    if(new Set(matches.flatMap(entry=>entry.sessionId===undefined?[]:[entry.sessionId])).size>1)
+      throw Error('That utteranceId is ambiguous across sessions. Record a new voice request with a new ID.');
+    const heard=matches.at(-1);
+    const owner=recordedSessions.get(input.utteranceId);
+    if(owner && matches.some(entry=>entry.sessionId!==undefined && entry.sessionId!==owner))
+      throw Error('That utteranceId is ambiguous across sessions. Record a new voice request.');
+    if(!heard?.sessionId || (input.sessionId!==undefined && input.sessionId!==heard.sessionId)) return input;
+    const bound={...input,sessionId:heard.sessionId};
+    const panelId=utterancePanels.get(input.utteranceId)?.panelIds[0] ?? heard.panelId;
+    if(bound.panelId===undefined && panelId!==undefined) bound.panelId=panelId;
+    const own=heard.referent;
+    if(!own) return bound;
+    if(bound.referent!==undefined) {
+      // Only a matching echo can yield to an explicit named region. In
+      // particular, an unscoped legacy appearance edit still uses its capture.
+      const named=short==='focus_selection' ? bound.residues!==undefined || bound.selectionKeys!==undefined
+        : short==='update_inspection' && bound.change && bound.change.kind!=='compound' && namesRegion(bound.change);
+      if(inspectionJson(bound.referent)===inspectionJson(own)
+        && (named || (short==='update_inspection' && bound.change?.kind==='placement'))) delete bound.referent;
+      return bound;
+    }
+    // Infer compound captures at resolution, per operation, including on a forwarded host.
+    if(short==='update_inspection' && bound.change?.kind==='compound') return bound;
+    return actsOnThis(short,bound)?{...bound,referent:own}:bound;
+  }
+  /** Whether an edit acts on "this" region without naming one: the only edits a captured referent belongs to. */
+  function actsOnThis(short:string, input:any):boolean {
+    if(short==='focus_selection') return input.residues===undefined && input.selectionKeys===undefined;
+    if(short==='emphasize') return Array.isArray(input.parts) && input.parts.some((part:unknown)=>typeof part==='string' && isReferentPronoun(part));
+    if(short!=='update_inspection') return false;
+    const ops:any[]=input.change?.kind==='compound'?input.change.patch?.ops ?? []:[input.change];
+    return ops.some(op=>!namesRegion(op) && ((op?.kind==='appearance' && op.scope==='selection')
+      || (op?.kind==='visibility' && op.patch?.selection===true)
+      || (op?.kind==='emphasis' && op.parts?.some((part:string)=>isReferentPronoun(part)))));
+  }
+  const activeReplyAt=(panelId:string)=>{
+    const active=activeUtterances.get(panelId);
+    // A source handoff can retain the renderer's panel ID. That alone must
+    // not carry an old answer onto the replacement structure. The commands
+    // registry advances only the source owner's and during-swap utterances.
+    return active && isWearerSurface(active.commands.surfaceOf(panelId))
+      && active.commands.utteranceSourceMatchesPanel(active.utteranceId,panelId)?active:undefined;
   };
   const replyUtteranceAdmission=(utteranceId:string)=>{
     const target=utterancePanels.get(utteranceId);
@@ -1144,13 +1279,14 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const supersededBy=own===utteranceId?undefined:own;
     if(supersededBy) return {accepted:false as const,activeUtteranceId:supersededBy};
     const candidates=target?.panelIds.flatMap(panelId=>{
-      const active=activeUtterances.get(panelId);
-      return active&&isWearerSurface(active.commands.surfaceOf(panelId))?[active]:[];
+      const active=activeReplyAt(panelId);
+      return active?[active]:[];
     })??[];
     if(candidates.some(active=>active.utteranceId===utteranceId))
       return {accepted:true as const,activeUtteranceId:utteranceId};
-    const active=[...candidates,...[...activeUtterances.entries()].flatMap(([panelId,value])=>
-      isWearerSurface(value.commands.surfaceOf(panelId))?[value]:[])]
+    const active=[...candidates,...[...activeUtterances.keys()].flatMap(panelId=>{
+      const value=activeReplyAt(panelId);return value?[value]:[];
+    })]
       .sort((a,b)=>b.serial-a.serial)[0];
     return {accepted:false as const,activeUtteranceId:active?.utteranceId};
   };
@@ -1182,14 +1318,17 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // holds no molecular state, so it is created once per server.
   const headsetView=createHeadsetViewStore({now:hooks.now});
   // Both the headset heartbeat and readiness require recent polling plus an
-  // admitted action/reply for a claimed utterance. A printer cannot prove this.
+  // admitted action/reply for a claimed utterance. A printer cannot prove this,
+  // and neither can a turn the agent began itself: nobody asked for it.
   const presenceNow=hooks.now ?? Date.now;
   let agentListenedAt:number|undefined;
+  let agentListenedBy:string|undefined;
   let agentActedAt:number|undefined;
   let agentActedUtterance:string|undefined;
-  const noteAgentListening=()=>{agentListenedAt=presenceNow();};
+  const noteAgentListening=(assistant:string|undefined)=>{agentListenedAt=presenceNow();agentListenedBy=assistant;};
   const noteConversationAction=(utteranceId:string|undefined)=>{
-    if(!utteranceId || utteranceId===agentActedUtterance || !replyUtteranceAdmission(utteranceId).accepted) return;
+    if(!utteranceId || utteranceId===agentActedUtterance || utterancePanels.get(utteranceId)?.agent
+      || !replyUtteranceAdmission(utteranceId).accepted) return;
     agentActedUtterance=utteranceId;
     agentActedAt=presenceNow();
   };
@@ -1359,13 +1498,22 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // the key goes, and the last key to go stops the listener.
   hooks.sessionEnded?.(id=>{void panel.forget(id).catch(()=>undefined);});
   const close=server.close.bind(server);
-  server.close=async()=>{editAdmission.close();await scene.close();await lan.close();await questLink.close();await companion.close();await panel.close();await close();};
+  server.close=async()=>{stopChannel();editAdmission.close();await scene.close();await lan.close();await questLink.close();await companion.close();await panel.close();await close();};
   const onclose=server.server.onclose;
-  server.server.onclose=()=>{editAdmission.close();void scene.close();void lan.close();void questLink.close();void companion.close();void panel.close();onclose?.();};
+  server.server.onclose=()=>{stopChannel();editAdmission.close();void scene.close();void lan.close();void questLink.close();void companion.close();void panel.close();onclose?.();};
   // Cache identity changes only on a successful source replacement. A failed
   // fetch preserves the current inspection; replacement (even identical bytes)
   // creates a fresh attachment. Weak ownership follows existing session expiry.
   const attachments = new WeakMap<Cache, Promise<Attachment>>();
+  // A verified source commit owns these exact bytes and assembly. Reuse its
+  // catalog and transport only for that cache object, never by filename.
+  const verifiedCatalogs=new WeakMap<Cache,any>();
+  const catalogTransports=new WeakMap<object,InspectionCatalogTransport>();
+  const sourceTransport=(catalog:any)=>{
+    let transport=catalogTransports.get(catalog);
+    if(!transport) {transport=inspectionCatalogTransport(catalog);catalogTransports.set(catalog,transport);}
+    return transport;
+  };
   // Named views outlive an individual coordinate cache. Retain their verified
   // comparison assets with the same live session so returning to a source can
   // restore its saved comparison without trusting a new source descriptor.
@@ -1373,7 +1521,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // old commands or scenes, so a late retry cannot become a new edit.
   const sessionLibraries=new Map<string,{views:InspectionViews;comparisonAssets:Map<string,ComparisonAsset>;commandIds:Set<string>}>();
   hooks.sessionEnded?.(id=>{sessionLibraries.delete(id);sharedSessions.delete(id);});
-  const sourceHandoffs=new WeakMap<Cache,NonNullable<Attachment['sourceContinuation']>>();
+  const sourceHandoffs=new WeakMap<Cache,NonNullable<Attachment['sourceContinuation']> &
+    Pick<Attachment,'customTour'|'lessonManifest'|'lessonStart'|'density'|'sourceOperation'>>();
   const voiceSourceBySession = new Map<string,string>();
   // A source transition has one short-lived renderer owner. It is the only
   // old-binding panel allowed to hydrate before the first saved scene exists.
@@ -1692,7 +1841,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       pending = (async () => {
         let catalog:any;
         const requestedAssemblyId=experience?.stage.assembly.assemblyId ?? assemblyRequest?.assemblyId ?? cache.sourceSelection?.assemblyId;
-        try { catalog=await extractInspectionCatalogBytes(cache.structureText,requestedAssemblyId ? {assemblyId:requestedAssemblyId} : undefined); }
+        try {
+          const verified=verifiedCatalogs.get(cache);
+          catalog=verified && verified.assemblyId===(requestedAssemblyId??'asymmetric_unit')
+            ?verified:await extractInspectionCatalogBytes(cache.structureText,requestedAssemblyId ? {assemblyId:requestedAssemblyId} : undefined);
+          verifiedCatalogs.delete(cache);
+        }
         catch(error) {
           // A named assembly that the entry does not declare is a caller
           // mistake with a precise cause; every other failure is unreadable
@@ -1709,7 +1863,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           experience.sourceSha256=digest;
           validateExperienceAssembly(experience.stage,catalog);
         }
-        const transport=inspectionCatalogTransport(catalog);
+        const transport=sourceTransport(catalog);
         // The former 20,000-residue-position default,
         // the 30,000 a named assembly got instead, and the 200,000 atom sites
         // kept one hydration response small. No viewer and no host was ever
@@ -1738,7 +1892,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           sessionLibraries.set(id,library);
         }
         const attachment:Attachment={ sourceToken:randomUUID(),catalog,transport,revision:0,scene:null,commands:handoff?.commands??new InspectionCommands(hooks.now,library.commandIds),
-          ...(handoff?{shared:handoff.shared,sourceContinuation:handoff,sourceRenderWait:new SourceRenderWait(),
+          ...(handoff?{shared:handoff.shared,customTour:handoff.customTour,lessonManifest:handoff.lessonManifest,
+            lessonStart:handoff.lessonStart,density:handoff.density,sourceOperation:handoff.sourceOperation,sourceContinuation:handoff,sourceRenderWait:new SourceRenderWait(),
             transitionTarget:{panelId:handoff.panelId,expiresAt:transitionNow()+TRANSITION_TARGET_LEASE_MS}}:{}),
           history:new SceneHistory(hooks.now ?? Date.now),views:library.views,comparisonAssets:library.comparisonAssets,...(experience?{experience}:{}) };
         // The queue states the same budget the state publishes, so a
@@ -1779,6 +1934,17 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // may be another edit or the page's own first beat after waking, so no
     // one tool can be relied on to do it.
     keepQueuedForWearer(id,data);
+    // A source load cannot wait forever on a discarded hidden page either.
+    // Refresh liveness first; a slow busy Quest retains its full allowance.
+    // The transition lease also covers an intentional loading detach/rebind.
+    const target=attachment.transitionTarget, sourceWait=attachment.sourceRenderWait;
+    if(target && sourceWait && !sourceWait.settled() && transitionNow()>=target.expiresAt) {
+      attachment.commands.summary(binding(id,data));
+      if(attachment.commands.surfaceOf(target.panelId)===undefined)
+        sourceWait.complete({status:'failed',panelId:target.panelId,sourceToken:attachment.sourceToken,
+          inspectionRevision:attachment.revision,failedAt:transitionNow(),failure:'render_failed',
+          failureReason:'The source-load page is no longer attached after its heartbeat allowance and transition lease. Reopen the saved session and retry the load.'});
+    }
     return data;
   }
   /**
@@ -1880,6 +2046,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       ?? panels.find(panel=>panel.surface==='desktop') ?? panels[0];
     return selected?receipts.get(selected.panelId):undefined;
   }
+  const joinedHeadsetRoute = 'For a bundled demo in a joined session use one call: replace_inspection_source({sessionId,demo:"atp-synthase-rotor",stage:"motion"}). It loads verified cached coordinates, installs and starts the lesson, and waits up to 40 s (waitForRenderMs:0 returns at once). If the wait ends first, the demo is still drawing: poll get_inspection_state with its commandId; do not report failure or reload. When a headset session is joined, make any new scene or lesson there: prepare_composite (or use a source) -> replace_inspection_source with the joined sessionId -> install_lesson. Keep the headset connection; do not ask a handoff question. Create a new session only when nothing is joined or the user explicitly asks for a separate scene. ';
   function result(id:string, data:Awaited<ReturnType<typeof current>>, extra:Record<string,unknown> = {}, text?:string) {
     const hasProvidedModelContext=Object.prototype.hasOwnProperty.call(extra,'modelContext');
     const {modelContext:providedModelContext,...publicExtra}=extra;
@@ -1889,6 +2056,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const wearer=wearerLinkFor(id,data);
     const settledRender=data.attachment.sourceRenderWait?.settled() ?? initialSourceAdvisory(id,data);
     const sourceKind=data.cache.sourceKind??(data.cache.pdbId?'pdb':'pasted');
+    const sourceProvenance={kind:sourceKind,sha256:data.attachment.catalog.source.sha256,
+      ...(sourceKind==='file' && data.cache.sourceFilename?{fileName:data.cache.sourceFilename}:{})};
     const history=data.attachment.history;
     const historyBusy=data.attachment.commands.hasPending(binding(id,data));
     releaseFinishedHistoryClaims(id,data);
@@ -1905,18 +2074,19 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       +(panelsForText.length
         ? `; panels: ${panelsForText.map(panel=>`${panel.surface??'panel'} panelId ${panel.panelId??'unknown'} (${panel.availability??'unknown'}${panel.current?', current':''})`).join(', ')}.`
         : '; no panel is mounted, so nothing can render a change.');
-    const stateLine=`Stereofold inspection state: source ${sourceKind}${data.cache.pdbId?` ${data.cache.pdbId}`:''}, sourceToken ${data.attachment.sourceToken}, `
+    const authoringRoute=wearer.linked || panelsForText.some(panel=>panel.current && panel.surface==='companion') ? joinedHeadsetRoute : undefined;
+    const stateLine=(authoringRoute??'')+`Stereofold inspection state: source ${sourceKind}${data.cache.pdbId?` ${data.cache.pdbId}`:sourceProvenance.fileName?` ${JSON.stringify(sourceProvenance.fileName)}`:''}, sourceToken ${data.attachment.sourceToken}, `
       +`scene ${data.attachment.scene?'saved':'none'}, wearer ${wearer.linked?'linked':'not linked'} (${wearerStateText(wearer,(hooks.now??Date.now)())}), `
       +`render receipt ${settledRender?.status??'not settled'}.`+bindingLine
       +(wearer.shareOpen && !wearer.share?' The private Wi-Fi share is open; no headset has paired yet.':'')
       +(wearer.pageOutdated?` ${wearer.note}`:'')
       +(settledRender?.status==='rendered' && settledRender.geometryBudget?` ${settledRender.geometryBudget.message}`:'');
     return { content:[{type:'text' as const,text:text ?? (extra.kind==='inspect'
-      ? 'Stereofold session opened. The panel still needs to load and render the structure. Check get_inspection_state for hasScene and a current ready panel before reporting it as visible.'
-      : stateLine)}], structuredContent:{kind:'inspection',sourceGeometryBudget:true,rendererContext:true,sessionId:id,serverEpoch:hooks.serverEpoch,
+      ? `Stereofold session opened. sessionId ${id}, sourceToken ${data.attachment.sourceToken}. The panel still needs to load and render the structure. Check get_inspection_state for hasScene and a current ready panel before reporting it as visible.`
+      : stateLine)}], structuredContent:{kind:'inspection',sourceGeometryBudget:true,rendererContext:true,renderedSourceIdentity:true,sessionId:id,serverEpoch:hooks.serverEpoch,
       stateRevision:data.stateRevision,inspectionRevision:data.attachment.revision,sourceToken:data.attachment.sourceToken,shared:Boolean(data.attachment.shared),hasScene:Boolean(data.attachment.scene),
       // Read this before reporting any receipt beside it as seen.
-      wearer,
+      wearer,...(authoringRoute?{authoringRoute}:{}),
       ...(data.attachment.sourceContinuation && failedSourceOwnerReady(data,data.attachment.sourceContinuation.panelId)
         ? {sourceRecovery:{panelId:data.attachment.sourceContinuation.panelId,ready:true}} : {}),
       ...(modelContext?{modelContext}:{}),
@@ -1929,7 +2099,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       // deciding for itself that a settled scene counts as a render.
       ...(settledRender
         ?{sourceRenderReceipt:{...settledRender,rendered:settledRender.status==='rendered',renderBudgetMs:renderBudgetMsFor(data)}}:{}),
-      sourceKind:data.cache.sourceKind??(data.cache.pdbId?'pdb':'pasted'),
+      sourceKind,sourceProvenance,
       sourceSelection:{modelNumber:data.attachment.scene?.modelNumber??data.cache.sourceSelection?.modelNumber??data.attachment.catalog.modelNumbers[0],assemblyId:data.attachment.catalog.assemblyId},
       // The host knows whether the page's own origin serves the
       // full Mol* viewer, so the headset's "Open in Mol*" press needs no probe
@@ -1947,11 +2117,28 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const latest=hooks.current(id);
     if(latest.structureCache!==data.cache) throw Error('The source changed. Reopen the current inspection.');
     data.stateRevision=latest.stateRevision;
+    // Before the map is drawn, reference atoms bootstrap desktop sharing.
+    // Once it is saved, they remain a live preview, not a command destination.
+    data.attachment.commands.setDensityReferenceSource(data.attachment.density
+      && data.attachment.scene?.sourceSha256===data.attachment.density.sha256
+      ? data.attachment.catalog.source.sha256 : undefined);
     return {serverEpoch:hooks.serverEpoch,sourceToken:data.attachment.sourceToken,stateRevision:data.stateRevision,inspectionRevision:data.attachment.revision};
   }
   const readOnly={readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false};
   const mutation={readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false};
   const toursFor=(attachment:Attachment):readonly Tour[] => attachment.customTour ? [...TOURS,attachment.customTour] : TOURS;
+  /**
+   * Each chapter's tour step, id, title and the first sentence of its caption.
+   *
+   * Enough to send "show me where the proton enters" to the right chapter
+   * with one control_tour call, where reading the whole lesson manifest cost
+   * a model 23,000 characters and several searches before it acted.
+   */
+  const lessonChapters=(tour:Tour)=>tour.steps.map((step,index)=>{
+    const caption=(step.body ?? '').replace(/\s+/g,' ').trim();
+    const line=(caption.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? caption).slice(0,200);
+    return {step:index,id:step.id,title:step.title,...(line?{line}:{})};
+  });
   /**
    * The loaded lesson's colour key, once.
    *
@@ -1962,9 +2149,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    */
   const lessonEmphasisParts=(tour?:Tour) => {
     const seen=new Map<string,any>();
-    for(const step of tour?.steps??[]) for(const part of (step as any).emphasis?.parts??[]) {
+    for(const step of tour?.steps??[]) for(const part of step.parts??step.emphasis?.parts??[]) {
       if(seen.has(part.id)) continue;
       seen.set(part.id,{id:part.id,label:part.label,color:part.color,
+        ...(part.aliases?.length?{aliases:[...part.aliases]}:{}),
         ...(part.chain?{chain:part.chain}:{}),
         ...(part.residues?{residues:{from:part.residues.from,to:part.residues.to}}:{})});
     }
@@ -2009,7 +2197,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const key=lessonEmphasisParts(attachment.customTour);
     if(names.length && !key.length)
       throw Error('This inspection has no lesson colour key, so it has no named parts to emphasise. Open a lesson with inspect_lesson first.');
-    const focus=names.map(name=>{
+    const focus=[...new Set(names.flatMap(name=>{
       if(isReferentPronoun(name)) {
         if(!referent) throw Error(`"${name}" needs the referent this request started with. Pass the referent listen_voice returned, or name a part from lesson.parts.`);
         if(referent.sourceToken!==attachment.sourceToken)
@@ -2019,15 +2207,19 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         if(!referent.partId) throw Error(`Nothing was pointed at or lit when that request began, so "${name}" names no part. Use one of lesson.parts.`);
         if(!key.some(part=>part.id===referent.partId))
           throw Error('The part that request began on is not in this lesson’s colour key. Use one of lesson.parts.');
-        return referent.partId;
+        return [referent.partId];
       }
-      const id=resolveEmphasisPartId(key,name);
-      if(!id) throw Error(`This lesson does not name a part called "${name}". Read get_inspection_state and use one of lesson.parts.`);
-      return id;
-    });
+      const ids=key.some(part=>part.id===name) ? [name] : resolveEmphasisPartIds(key,name);
+      if(!ids.length) throw Error(`This lesson does not name a part called "${name}". Read get_inspection_state and use one of lesson.parts.`);
+      return ids;
+    }))];
+    // The scene carries the whole key; say which lesson overflows it rather
+    // than let the scene's validation fail without naming the lesson.
+    if(focus.length && key.length>EMPHASIS_PART_LIMIT)
+      throw Error(`The lesson "${attachment.customTour?.title}" names ${key.length} parts in its colour key, and a scene holds at most ${EMPHASIS_PART_LIMIT}. Share or drop parts across its chapters, then open it again.`);
     // Clearing drops the key with the focus: an empty emphasis is the plain
     // structure, not an unlit colour key.
-    return {key,focus,patch:{parts:focus.length?key:[],focus,contextOpacity:context??DEFAULT_CONTEXT_OPACITY}};
+    return {key,focus,patch:{parts:focus.length?key.map(({aliases,...part})=>part):[],focus,contextOpacity:context??DEFAULT_CONTEXT_OPACITY}};
   }
   /** The chain identities of the saved model, which is what a caller may name. */
   function visibilityChainsOf(attachment:Attachment):{labelChain:string;copyId:string}[] {
@@ -2138,14 +2330,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    * composing a compound never means retyping a chain letter or restating what
    * was already hidden. The other three arrive already in their final shape.
    */
-  function resolveCompound(attachment:Attachment, change:any, referent?:RequestReferent, scope?:'scene', structure?:string):InspectionChange {
+  function resolveCompound(attachment:Attachment, change:any, referent?:RequestReferent, scope?:'scene', structure?:string, inferredOps?:InspectionCompoundOp[]):InspectionChange {
     let carried=attachment.scene!;
     const ops=change.patch.ops.flatMap((op:any):InspectionCompoundOp[] => {
+      const operationReferent=!inferredOps || actsOnThis('update_inspection',{change:op}) ? referent : undefined;
       const resolved:InspectionChange=op.kind==='emphasis'
-      ? {kind:'emphasis',patch:emphasisPatchFor(attachment,op.parts,op.context,referent).patch}
+      ? {kind:'emphasis',patch:emphasisPatchFor(attachment,op.parts,op.context,operationReferent).patch}
       : op.kind==='visibility' ? {kind:'visibility',patch:visibilityPatchFor(attachment,op.patch,structure)} as InspectionCompoundOp
       : op.kind==='selection' && op.patch.residues ? {kind:'selection',patch:{selectionKeys:regionKeys(attachment,op.patch.residues)}}
-      : resolveScopedAppearance(op,carried,referent,scope,op.kind==='appearance'&&op.residues?regionKeys(attachment,op.residues):undefined);
+      : resolveScopedAppearance(op,carried,operationReferent,scope,op.kind==='appearance'&&op.residues?regionKeys(attachment,op.residues):undefined);
+      if(inferredOps && operationReferent) inferredOps.push(...(resolved.kind==='compound'?resolved.patch.ops:[resolved as InspectionCompoundOp]));
       carried=expectedInspection(carried,resolved);
       return resolved.kind==='compound'?resolved.patch.ops:[resolved as InspectionCompoundOp];
     });
@@ -2190,6 +2384,18 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       return {...style,residueCount:selectionKeys.length,labelChains:labelChains.slice(0,16),
         ...(componentIds.length<=8?{componentIds}:{})};
     });
+  }
+  /** Keep the saved scene exact; routine host reads carry counts and playback only. */
+  function compactInspection(scene:InspectionScene,catalog:any) {
+    const view=scene.inspection;
+    const animation=(definition:any)=>({durationSeconds:definition.durationSeconds,
+      trackCount:definition.tracks?.length??0,tetherCount:definition.tethers?.length??0});
+    return {
+      ...(view.styles?{styles:modelStyles(view.styles,catalog)}:{}),
+      ...(view.lessonSelection!==undefined?{lessonSelection:{residueCount:scene.selectionKeys.length}}:{}),
+      ...(view.animation?{animation:{playback:view.animation.playback,...animation(view.animation.definition)}}:{}),
+      ...(view.lessonFigureAnimation?{lessonFigureAnimation:animation(view.lessonFigureAnimation)}:{}),
+    };
   }
   /** Which surface a queued command is being rendered by, for the history. */
   const surfaceOfPanel=(attachment:Attachment,panelId:string):SceneHistorySurface =>
@@ -2315,15 +2521,18 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   let voice!: ReturnType<typeof registerInspectionVoiceTools>;
   registerAppTool(server,'stereo_structure.get_inspection_state',{
     title:'Read the current molecular inspection',
-    description:'Read appearance, saved styles, placement, selection, visibility, panels and receipts without mounting a panel. With commandId, only rendered means drawn and saved at renderedRevision; queued/rendering are pending, cancelled/superseded were dropped, unconfirmed may have drawn without saving, and saved waits for a paused page to wake. Newer edits may have passed that revision. Edits fill omitted bindings automatically: no preflight read is needed. Read visibilityTargets and lesson.parts to resolve region names; residues pages canonical identities and keys (limit 128); never invent keys. tours lists available IDs; includeExperienceCatalog adds chapters and budgets. wearer.linked requires a paired headset page attached to this structure; otherwise rendered describes the desktop. shareOpen means a private Wi-Fi listener, not delivery or a pending launch. Follow wearer.note and launch outcome. If no launch was sent, use manage_companion action=launch, launch=auto, or Manual pairing; call open_companion again only when sharing is closed. wearer.state is no-page, page-open, entering-vr, in-vr, paused or unknown; only in-vr establishes immersive rendering. checkedInAt is epoch ms. For Web Launch/Safari, check every 5–10 seconds until pairing or pairingExpiresAt; never start competing pairing while prompts are pending. After pairing or adb dispatch, allow 60 seconds for progress, then use manage_companion action=status for recovery. Recover human handoffs after failure/expiry; do not poll indefinitely or claim unconfirmed delivery. Head position/view direction is transient molecule-local data: use only when stale=false; it is neither saved camera state nor gaze tracking. detailedView identifies the full Mol* viewer; its selection answers what-is-this. That panel accepts appearance, selection and emphasize only.',
+    description:'Read compact animation playback and style counts (full canonical keys and animation definitions require includeViewDetails:true), appearance, saved styles, placement, selection, visibility, panels and receipts without mounting a panel. With commandId, only rendered means drawn and saved at renderedRevision; queued/rendering are pending, cancelled/superseded were dropped, unconfirmed may have drawn without saving, and saved waits for a paused page to wake. Newer edits may have passed that revision. Edits fill omitted bindings automatically: no preflight read is needed. Read visibilityTargets and lesson.parts to resolve region names; residues pages canonical identities and keys (limit 128); never invent keys. tours lists available IDs; includeExperienceCatalog adds chapters and budgets. wearer.linked requires a paired headset page attached to this structure; otherwise rendered describes the desktop. shareOpen means a private Wi-Fi listener, not delivery or a pending launch. Follow wearer.note and launch outcome. If no launch was sent, use manage_companion action=launch, launch=auto, or Manual pairing; call open_companion again only when sharing is closed. wearer.state is no-page, page-open, entering-vr, in-vr, paused or unknown; only in-vr establishes immersive rendering. checkedInAt is epoch ms. For Web Launch/Safari, check every 5–10 seconds until pairing or pairingExpiresAt; never start competing pairing while prompts are pending. After pairing or adb dispatch, allow 60 seconds for progress, then use manage_companion action=status for recovery. Recover human handoffs after failure/expiry; do not poll indefinitely or claim unconfirmed delivery. Head position/view direction is transient molecule-local data: use only when stale=false; it is neither saved camera state nor gaze tracking. detailedView identifies the full Mol* viewer; its selection answers what-is-this. That panel accepts appearance, selection and emphasize only.',
     inputSchema:inspectionStateSchema,annotations:readOnly,_meta:{},
-  },async({sessionId,commandId,residues,includeExperienceCatalog})=>{
+  },async({sessionId,commandId,residues,includeExperienceCatalog,includeLesson,includeViewDetails})=>{
     await hostBuildReady;
     // `current` saves an edit still queued for a page that has
     // since gone quiet, so this read never shows it expiring.
     const data=await current(sessionId);
     const b=binding(sessionId,data), scene=data.attachment.scene;
     const commandSummary=data.attachment.commands.summary(b,commandId);
+    let animation=null;
+    try { animation=data.attachment.commands.animationStateOf(defaultPanelId(sessionId,data,'update_inspection')); }
+    catch { /* No current transport owner. */ }
     const sourceWait=data.attachment.sourceRenderWait;
     if(commandId && sourceWait?.commandId===commandId) {
       const receipt=sourceWait.settled();
@@ -2353,7 +2562,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
        * depth bounds belong to the renderer, exactly as `cameraPose` says.
        */
       cameraPose:cameraPose(scene.camera),...scene.inspection,
-      ...(scene.inspection.styles?{styles:modelStyles(scene.inspection.styles,data.attachment.catalog)}:{}),
+      ...(!includeViewDetails?compactInspection(scene,data.attachment.catalog):{}),
        ...(scene.inspection.companionStructure?{companionStructure:{...scene.inspection.companionStructure,
          source:scene.inspection.companionStructure.source.kind==='pasted'?{kind:'pasted'}:scene.inspection.companionStructure.source,
          residueCount:data.attachment.comparisonAssets?.get(`${scene.inspection.companionStructure.sourceSha256}:${scene.inspection.companionStructure.assemblyId}`)?.catalog.rows
@@ -2376,8 +2585,13 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         bytes:data.attachment.density.bytes.byteLength,contour:data.attachment.density.contour,
         ...(data.attachment.density.triangles!==undefined?{triangles:data.attachment.density.triangles}:{})}}:{}),
       ...commandSummary,
+      // Attribution is needed on the requested receipt and the headset's
+      // latest outcome, not repeated on every historical command in a poll.
+      commands:includeExperienceCatalog?commandSummary.commands:commandSummary.commands.map(({assistantName,action,...receipt})=>receipt),
+      animation,
       ...(detailedView?{detailedView:{...detailedView,
         ...(detailedView.selection&&detailedResidues?{selection:{...detailedView.selection,residues:detailedResidues.rows}}:{})}}:{}),
+      ...(includeLesson?{lessonManifest:data.attachment.lessonManifest??null}:{}),
       tours:[...toursFor(data.attachment),...MOLECULAR_EXPERIENCES].map(t=>({id:t.id,title:t.title,scenes:t.steps.length})),
       // The named parts of the loaded lesson, and what
       // the panel is emphasising right now (which rides in `view` with the rest
@@ -2387,7 +2601,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       // layer nothing described.
       lesson:data.attachment.customTour && commandSummary.panels.find(panel=>panel.current)?.tour?.active!==false
         ? {id:data.attachment.customTour.id,title:data.attachment.customTour.title,
-          parts:lessonEmphasisParts(data.attachment.customTour)}
+          parts:lessonEmphasisParts(data.attachment.customTour),chapters:lessonChapters(data.attachment.customTour)}
         : null,
       /**
        * What a hide request may name, so nobody has to guess.
@@ -2412,13 +2626,14 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         return {visibilityTargets:{classes:visibilityClassesOf(data.attachment),maxHiddenChains:MAX_HIDDEN_CHAINS,
           chainCount:chains.length,...(chains.length<=2*MAX_HIDDEN_CHAINS?{chains}:{})}};})():{}),
       ...(includeExperienceCatalog?{experienceCatalog:await journeyCatalogFor(data)}:{}),
+      voiceDelivery:voiceDelivery(sessionId,data),
       voice:{pendingIntents:voice.intents.size({sessionId,sourceToken:data.attachment.sourceToken}),pendingPlayback:voice.playbacks.size({sessionId,sourceToken:data.attachment.sourceToken}),lastPlaybackAcknowledgement:voice.playbacks.lastAcknowledgement({sessionId,sourceToken:data.attachment.sourceToken})},
       ...(residues ? {residues:inspectionResiduePage(data.attachment.catalog,scene,residues)} : {})});
   });
   registerAppTool(server,'stereo_structure.control_tour',{
     title:'Control a tour in the intended desktop or headset panel',
-    description:'Start an installed lesson or experience, or use next, back, play, pause, done or menu on one current ready panel. Read get_inspection_state for the available tour IDs; the binding fields and commandId are optional. start requires tourId; add autoplay:false to hold the first rendered chapter for spoken guidance. Omitted autoplay starts timed playback. Add narration:false on start to disable scripted chapter speech for this lesson while host live voice provides guidance; ordinary replies stay available. Both options apply only to start. Done restores the pre-tour view. An experience may load its declared source and assembly; its command becomes rendered only after the panel saves and acknowledges that step. Ordinary lesson commands keep source-scoped scene receipts. Pass waitForRenderMs to get the receipt in this call; queued is not rendered. The wearer starts headset view in Quest Browser or Safari on Apple Vision Pro.',
-    inputSchema:implicitBinding(inspectionBindingSchema.extend({panelId:z.string().uuid(),commandId:updateInspectionSchema.shape.commandId,utteranceId:updateInspectionSchema.shape.utteranceId,actionPostedAt:updateInspectionSchema.shape.actionPostedAt,...tourActionSchema.shape,waitForRenderMs:commandWaitSchema})),
+    description:'While building or checking a lesson, start with autoplay:false,narration:false and use explicit next. Start an installed lesson or experience, or use next, back, play, pause, done or menu on one current ready panel. Read get_inspection_state for the available tour IDs; the binding fields and commandId are optional. start requires tourId; add autoplay:false to hold the first rendered chapter for spoken guidance. Omitted autoplay starts timed playback. Add narration:false on start to disable scripted chapter speech for this lesson while host live voice provides guidance; ordinary replies stay available. Both options apply only to start. Enabled narration is scheduled, not proof the wearer heard it. Done restores the pre-tour view. An experience may load its declared source and assembly; its command becomes rendered only after the panel saves and acknowledges that step. Ordinary lesson commands keep source-scoped scene receipts. Pass waitForRenderMs to get the receipt in this call; queued is not rendered. The wearer starts headset view in Quest Browser or Safari on Apple Vision Pro.',
+    inputSchema:implicitVoiceBinding(inspectionBindingSchema.extend({panelId:z.string().uuid(),commandId:updateInspectionSchema.shape.commandId,utteranceId:updateInspectionSchema.shape.utteranceId,actionPostedAt:updateInspectionSchema.shape.actionPostedAt,...tourActionSchema.shape,waitForRenderMs:commandWaitSchema})),
     annotations:mutation,_meta:{},
   },async input=>{
     const {action,tourId,autoplay,narration,...request}=input;
@@ -2436,7 +2651,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       const summary=data.attachment.commands.summary(b),panel=summary.panels.find(panel=>panel.panelId===input.panelId);
       if(input.serverEpoch!==b.serverEpoch || input.sourceToken!==b.sourceToken || input.baseStateRevision!==b.stateRevision || input.baseInspectionRevision!==b.inspectionRevision)
         throw Error('Read get_inspection_state and use its current saved revisions before changing the inspection.');
-      if(!panel?.current || panel.availability==='unsaved' || summary.pendingCommand.length)
+      if(!panel?.current || (panel.availability==='unsaved' && !(input as any).deferLocalSave) || summary.pendingCommand.length)
         throw Error('The requested experience panel is unavailable, dirty, stale, or rendering another command.');
       await prepareJourney(selected,data);
       const latest=await current(input.sessionId);
@@ -2446,12 +2661,79 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const command=retry??data.attachment.commands.enqueue(commandRequest,b,data.attachment.scene,'control_tour');
     noteConversationAction(input.utteranceId);
     return result(input.sessionId,data,{command,tourBefore:tour??null,...(selected?{journeyBudget:journeyChapters(selected)}:{})},
-      [tourCommandSentence(action,tour),selected?chapterBudgetNotice(journeyChapters(selected)):''].filter(Boolean).join(' '));
+      [tourCommandSentence(action,tour),'Enabled narration is scheduled; this receipt does not establish that the wearer heard it.',selected?chapterBudgetNotice(journeyChapters(selected)):''].filter(Boolean).join(' '));
+  });
+  const measureBinding=inspectionBindingSchema.extend({
+    panelId:z.string().min(1).max(128),commandId:commandIdSchema,waitForRenderMs:commandWaitSchema.optional(),
+  });
+  registerAppTool(server,'stereo_structure.measure',{
+    title:'Measure atoms in the open scene',
+    description:'Return exact atom identities and distance in Å for 2–4 targets in the joined session. Three targets also return the angle at target 2; four return a signed dihedral in degrees. Targets use update_inspection residue naming plus atomName; each must resolve exactly one atom, including alternate sites and assembly copies. Use {part:"head-1"} for a lesson part’s representative atom (nearest its CA/P centroid, not a center-to-center measurement). Ambiguity returns up to 8 readable candidates per target; repeat with that target’s cursor for the next page. A read without annotate changes no scene or revision and needs no ready panel. During animation, values use the intended panel’s latest reported time, never host extrapolation, and identify moving bodies and time-dependent values. annotate=true adds the first pair as a removable distance line using the normal command receipt. Only command.status rendered confirms drawn and saved. Read get_inspection_state with commandId for pending receipts; remove with remove_measurement and the returned measurementId. Text content contains the numeric result and identities for text-only clients.',
+    inputSchema:measureBinding.partial().required({sessionId:true}).extend({
+      targets:z.array(measurementTargetSchema).superRefine((v,ctx)=>{if(v.length<2||v.length>4)ctx.addIssue({code:'custom',message:'Choose two, three or four atom targets.'});}),
+      annotate:z.boolean().default(false).describe('Draw the first pair as a distance line. Omitted/false is read-only.'),
+      measurementId:commandIdSchema.optional().describe('Stable annotation id; omit to generate one. Reuse replaces this line.'),
+    }).strict(),annotations:mutation,_meta:{},
+  },async input=>{
+    const data=await current(input.sessionId),scene=data.attachment.scene;
+    if(!scene) throw Error('Load and save the inspection before measuring atoms.');
+    const live=binding(input.sessionId,data);
+    // An exact annotation retry returns its existing receipt, without making
+    // a new scientific read against a source or clock that may have changed.
+    if(input.annotate && input.commandId) {
+      const retry=data.attachment.commands.retryUpdate(input as any,live);
+      if(retry) {
+        const extra={measurementId:input.measurementId ?? 'measure-'+retry.commandId.slice(0,70),command:retry,commandId:retry.commandId};
+        return result(input.sessionId,data,extra,JSON.stringify(extra));
+      }
+    }
+    // Omitted bindings read the current saved scene. Explicit bindings retain
+    // their meaning for read-only measurements as well as drawn annotations.
+    if((input.serverEpoch!==undefined && input.serverEpoch!==live.serverEpoch)
+      || (input.sourceToken!==undefined && input.sourceToken!==live.sourceToken)
+      || (input.baseStateRevision!==undefined && input.baseStateRevision!==live.stateRevision)
+      || (input.baseInspectionRevision!==undefined && input.baseInspectionRevision!==live.inspectionRevision))
+      throw Error('Read the current inspection state before measuring its atoms.');
+    let panelId=input.panelId;
+    if(!panelId) {try {panelId=defaultPanelId(input.sessionId,data);} catch { /* Saved sample is still readable. */ }}
+    const sample=panelId?data.attachment.commands.animationStateOf(panelId,live):null;
+    const measured=measureAtoms(data.attachment.catalog,scene,input.targets,sample,lessonEmphasisParts(data.attachment.customTour));
+    const {endpoints,...measurement}=measured as any;
+    if(!measured.ok) return {...result(input.sessionId,data,{measurement},JSON.stringify({measurement})),isError:true};
+    const extra:any={measurement};
+    if(input.annotate) {
+      const request=await fillImplicitBinding(input,measureBinding.shape,'measure',binding(input.sessionId,data));
+      const measurementId=input.measurementId ?? 'measure-'+request.commandId.slice(0,70);
+      const lines=(scene.inspection.measurementLines ?? []).filter(line=>line.id!==measurementId);
+      lines.push({id:measurementId,a:endpoints[0],b:endpoints[1],color:'#f2c47c'});
+      const change={kind:'measurement' as const,patch:{lines}};
+      validateScene(expectedInspection(scene,change),data.attachment.catalog,data.attachment.density);
+      const command=data.attachment.commands.retryUpdate(input as any,binding(input.sessionId,data))
+        ?? data.attachment.commands.enqueue({...request,change,requestIdentity:input} as any,binding(input.sessionId,data),scene,'measure');
+      Object.assign(extra,{measurementId,command,commandId:command.commandId});
+    }
+    return result(input.sessionId,data,extra,JSON.stringify(extra));
+  });
+  registerAppTool(server,'stereo_structure.remove_measurement',{
+    title:'Remove a measured distance line',
+    description:'Remove the distance line identified by measurementId in the joined scene. Other annotations, chapter figures and molecular animation are preserved. Binding fields and commandId may be omitted. Only command.status rendered confirms the panel drew and saved the removal; read get_inspection_state with commandId while pending.',
+    inputSchema:implicitBinding(measureBinding.extend({measurementId:commandIdSchema})),annotations:mutation,_meta:{},
+  },async input=>{
+    const data=await current(input.sessionId),scene=data.attachment.scene;
+    if(!scene) throw Error('Load and save the inspection before removing measurements.');
+    const retry=data.attachment.commands.retryUpdate(input,binding(input.sessionId,data));
+    if(retry) return result(input.sessionId,data,{measurementId:input.measurementId,command:retry},JSON.stringify({measurementId:input.measurementId,command:retry}));
+    if(!scene.inspection.measurementLines?.some(line=>line.id===input.measurementId))
+      return {...result(input.sessionId,data,{errors:[{field:'measurementId',code:'missing',candidates:(scene.inspection.measurementLines ?? []).map(line=>line.id)}]},
+        JSON.stringify({errors:[{field:'measurementId',code:'missing',candidates:(scene.inspection.measurementLines ?? []).map(line=>line.id)}]})),isError:true};
+    const change={kind:'measurement' as const,patch:{lines:scene.inspection.measurementLines.filter(line=>line.id!==input.measurementId)}};
+    const command=data.attachment.commands.enqueue({...input,change,requestIdentity:input},binding(input.sessionId,data),scene,'remove_measurement');
+    return result(input.sessionId,data,{measurementId:input.measurementId,command,commandId:command.commandId},JSON.stringify({measurementId:input.measurementId,command}));
   });
   registerAppTool(server,'stereo_structure.update_inspection',{
     title:'Change the open molecular inspection',
-    description:'Change how the open structure looks: color, style, opacity, visibility, selection, placement, spin and detail. One request is one call: {sessionId, change, waitForRenderMs:10000}. serverEpoch, sourceToken, baseStateRevision, baseInspectionRevision, panelId and commandId are optional; left out, the host uses the current revisions, the headset panel when one is attached (else this Mac\'s panel) and a new commandId. Send them to have edits on a stale view refused. Name parts with residues, never keys: {labelChain:"A"}, {authorChain:"A"}, {componentId:"HEM"}, {classes:["ligand"]} (ligand, water, ion, polymer), authorResidueRange:[10,40] or labelSequenceRange, combined as needed. Color or restyle a region: {kind:"appearance",residues:{labelChain:"A"},patch:{color:"uniform",uniformColor:"#ff8800"}}; a region patch takes representation (cartoon, ball-and-stick, molecular-surface, spacefill, or sticks, surface, spheres), color, uniformColor, opacity 0-1 or clear:true. Without residues the patch styles the whole scene and also takes background, highlightColor, labels, clipping and fog. Select: {kind:"selection",patch:{residues:{componentId:"HEM"}}}; selectionKeys:[] clears. Hide: {kind:"visibility",patch:{op:"hide",chains:["B"],classes:["water"]}}; op is hide, show, only or reset. Other kinds: placement {translation,rotation,scale}, or {recenter:true} if the wearer can\'t see it, motion {state:"spin"|"stop"}, render-quality {level:"fast"|"balanced"|"best"}. Edits asked for together go in one {kind:"compound",patch:{ops:[2-7 edits]}}: one render and one undo. Only region styles may repeat ("chain A orange, chain B blue"). Only command.status "rendered" means drawn and saved; if the wait ends first, read get_inspection_state with the commandId. "saved" means kept for a paused headset page, not drawn yet. wearer.linked=false: the render was this Mac\'s panel. For a voice request echo its utteranceId and pass the listen_voice referent unchanged, without residues. This never moves the viewpoint; focus_selection frames a region.',
-    inputSchema:implicitBinding(updateInspectionSchema),annotations:mutation,_meta:{},
+    description:'Pause or resume the animation in the current lesson chapter, or change how the open structure looks: color, style, opacity, visibility, selection, placement, spin and detail. One request is one call: {sessionId, change, waitForRenderMs:10000}. serverEpoch, sourceToken, baseStateRevision, baseInspectionRevision, panelId and commandId are optional; left out, the host uses the current revisions, the headset panel when one is attached (else this Mac\'s panel) and a new commandId. Send them to have edits on a stale view refused. Name parts with residues, never keys: {labelChain:"A"}, {authorChain:"A"}, {componentId:"HEM"}, {classes:["ligand"]} (ligand, water, ion, polymer), authorResidueRange:[10,40] or labelSequenceRange, combined as needed. Color or restyle a region: {kind:"appearance",residues:{labelChain:"A"},patch:{color:"uniform",uniformColor:"#ff8800"}}. Select: {kind:"selection",patch:{residues:{componentId:"HEM"}}}; selectionKeys:[] clears. Label: a compound of that selection and {kind:"appearance",patch:{labels:true}}, with no read first. Hide: {kind:"visibility",patch:{op:"hide",chains:["B"],classes:["water"]}}; op is hide, show, only or reset. Other kinds: placement {translation,rotation,scale}, or {recenter:true} if the wearer can\'t see it, motion {state:"spin"|"stop"}, render-quality {level:"fast"|"balanced"|"best"}. Edits asked for together go in one {kind:"compound",patch:{ops:[2-7 edits]}}: one render and one undo. Only region styles may repeat ("chain A orange, chain B blue"). Only command.status "rendered" means drawn and saved; if the wait ends first, read get_inspection_state with the commandId. "saved" means kept for a paused headset page, not drawn yet. wearer.linked=false: the render was this Mac\'s panel. For a voice request send its utteranceId and the change only: the host uses that request\'s session, headset panel and captured referent. This never moves the viewpoint; focus_selection frames a region.',
+    inputSchema:implicitVoiceBinding(updateInspectionSchema),annotations:mutation,_meta:{},
   },async input=>{
     const data=await current(input.sessionId), b=binding(input.sessionId,data);
     if(input.change.kind==='utterance') {
@@ -2467,8 +2749,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           else delete a.sourceContinuation;
         },
       }:undefined);
+      // An ID the host minted here is the agent's own turn, and a reply bound
+      // to it has to be admitted the way a reply to a claimed recording is.
+      const minted=input.utteranceId===undefined?lifecycle.utterance?.utteranceId:undefined;
+      if(minted) beginAgentUtterance(minted,a.commands,input.panelId);
+      // This receipt describes the turn when declared, even if a newer turn
+      // now owns replies. Replaying it must neither change its text nor reclaim ownership.
+      const replyable=minted!==undefined && utterancePanels.get(minted)?.agent===true;
       noteConversationAction(input.utteranceId);
-      return result(input.sessionId,data,{lifecycle},'Utterance '+input.change.patch.action+' recorded. Earlier pending commands are listed in lifecycle.commands; this does not undo a completed change or confirm a render.');
+      return result(input.sessionId,data,{lifecycle},'Utterance '+input.change.patch.action+' recorded. Earlier pending commands are listed in lifecycle.commands; this does not undo a completed change or confirm a render.'
+        +(replyable?` say_to_headset accepts utteranceId ${minted} until the wearer speaks again or you begin another utterance on this headset panel.`:''));
     }
     // A named region resolves to canonical keys against the saved model before
     // any rule below reads the change: a lone selection here, styles and
@@ -2484,12 +2774,22 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // every referent rule below sees the whole capture rather than the sample
     // the model was handed. `requestIdentity` keeps the echoed form, which is
     // what an exact retry sends again.
-    const referent=referentKeys.expand(echoed,data.attachment.sourceToken);
+    const inferred=input.change.kind==='compound' && echoed===undefined && actsOnThis('update_inspection',input);
+    const inferredOps:InspectionCompoundOp[]|undefined=inferred?[]:undefined;
+    const captured=inferred?(transcriber.transcripts.all().find(entry=>entry.utteranceId===input.utteranceId)?.referent):undefined;
+    const referent=referentKeys.expand(echoed ?? captured,data.attachment.sourceToken);
     validateRequestReferent(referent,data.attachment.sourceToken,data.attachment.scene,data.attachment.catalog,data.attachment.density);
     const retry=data.attachment.commands.retryUpdate(input,b);
     if(retry) return result(input.sessionId,data,{command:retry},
       `Inspection command ${retry.status}. Check get_inspection_state with this commandId for its rendered receipt.`);
     const change:any=input.change;
+    if(change.kind==='animation') {
+      const animation=data.attachment.commands.animationStateOf(input.panelId);
+      if(!animation) throw Error('This chapter has no animation.');
+      if(change.patch.seekSeconds!==undefined && change.patch.seekSeconds>animation.durationSeconds)
+        throw Error('Choose a time within this animation.');
+      request.change={...change,target:{id:animation.id,chapterId:animation.chapterId}} as any;
+    }
     const visibilitySelection=(change.kind==='compound'?change.patch.ops:[change])
       .some((op:any)=>op.kind==='visibility' && op.patch.selection===true);
     if(change.kind==='tour' && change.patch.action==='start' && !toursFor(data.attachment).some(tour=>tour.id===change.patch.tourId) && !experienceById(change.patch.tourId!)) throw Error('This tour is not available in the current inspection.');
@@ -2518,7 +2818,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // with the lesson colour key expanded and every op checked as one picture.
     if(change.kind==='compound') {
       if(!data.attachment.scene) throw Error('Load and save the intended inspection before changing several things at once.');
-      request.change=resolveCompound(data.attachment,change,referent,referentScope,absentStructure) as any;
+      request.change=resolveCompound(data.attachment,change,referent,referentScope,absentStructure,inferredOps) as any;
       validateScene(expectedInspection(data.attachment.scene,request.change as any),data.attachment.catalog,data.attachment.density);
     }
     if(change.kind==='appearance') {
@@ -2546,7 +2846,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       validateScene(expectedInspection(data.attachment.scene!,request.change as any),data.attachment.catalog,data.attachment.density);
     }
     if(change.kind==='companion-structure') validateScene(expectedInspection(data.attachment.scene!,request.change as any),data.attachment.catalog,data.attachment.density);
-    const queued={...request,requestIdentity:input,referent,appliedTo:referentAppliedTo(request.change as InspectionChange,referent,
+    const queued={...request,requestIdentity:input,referent,appliedTo:referentAppliedTo(inferredOps?{kind:'compound',patch:{ops:inferredOps}}:request.change as InspectionChange,referent,
       data.attachment.scene!,data.attachment.catalog,referentScope,visibilitySelection)} as any;
     // A paused headset page gets the edit saved, not queued,
     // against the binding as it is now: naming the structure above can wait.
@@ -2586,7 +2886,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   });
   registerAppTool(server,'stereo_structure.focus_selection',{
     title:'Bring one region into view in the intended panel',
-    description:'Select a region and bring it into view in one call: what to use for "zoom to the PAM", "show me the hemes" or "highlight residue 840". One request is one call: {sessionId, residues:{componentId:"HEM"}, waitForRenderMs:10000}. The binding fields and commandId are optional; left out, the host uses the current revisions and the headset panel when one is attached. Name the region with residues (labelChain, authorChain, componentId, classes, authorResidueRange, labelSequenceRange), with selectionKeys you already hold, or with neither to frame what is selected now. framing="context" (default) keeps the surroundings in frame; "fill" holds the region close. This is not camera control and returns no coordinates: a headset panel moves the molecule\'s saved placement so the region sits in front of the wearer, never the wearer\'s head, and a desktop panel uses the viewer\'s own focus. The selection becomes exactly the region; appearance and tours are untouched. The modelled residues are framed; command.focus reports how many requested residues lack coordinates. A region with no modelled residues is refused. For a voice request pass the captured referent unchanged: an explicit region must match it, and with no region it wins over the live selection. Only command.status "rendered" means drawn; if the wait ends first, read get_inspection_state with the commandId.',
+    description:'Select a region and bring it into view in one call: what to use for "zoom to the PAM", "show me the hemes" or "highlight residue 840". One request is one call: {sessionId, residues:{componentId:"HEM"}, waitForRenderMs:10000}. The binding fields and commandId are optional; left out, the host uses the current revisions and the headset panel when one is attached. Name the region with residues (labelChain, authorChain, componentId, classes, authorResidueRange, labelSequenceRange), with selectionKeys you already hold, or with neither to frame what is selected now. framing="context" (default) keeps the surroundings in frame; "fill" holds the region close. This is not camera control and returns no coordinates: a headset panel moves the molecule\'s saved placement so the region sits in front of the wearer, never the wearer\'s head, and a desktop panel uses the viewer\'s own focus. The selection becomes exactly the region; appearance and tours are untouched. The modelled residues are framed; command.focus reports how many requested residues lack coordinates. A region with no modelled residues is refused. For a voice request send its utteranceId and no sessionId, panelId or referent: with no region named, what the wearer pointed at as they spoke wins over the live selection. Only command.status "rendered" means drawn; if the wait ends first, read get_inspection_state with the commandId.',
     inputSchema:implicitBinding(focusSelectionSchema,focusSelectionRequestSchema),annotations:mutation,_meta:{},
   },async input=>{
     const data=await current(input.sessionId), b=binding(input.sessionId,data), scene=data.attachment.scene;
@@ -2622,7 +2922,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   registerAppTool(server,'stereo_structure.emphasize',{
     title:'Light named parts of the loaded lesson',
     description:'Light one or more named parts of the loaded lesson and fade everything else, which is what to use for “show him the guide RNA again”, “point out the PAM” or “put the colour key back”. Name parts exactly as the lesson names them: read get_inspection_state and use lesson.parts, whose ids and labels both resolve here. The panel paints the lesson’s whole colour key and holds the named parts at full strength while every other part, and anything the key does not name, drops to context opacity — faint but still drawn, so the part keeps its place inside the complex. Pass parts as an empty list to clear the emphasis and leave the plain structure. context sets how faint the rest goes, 0 to 1, default 0.12; there is no reason to change it unless the wearer says the context is too dark or too loud. Every supplied referent is validated against its source, model, assembly and canonical keys. Pronouns require its captured lesson part; arbitrary selection-only emphasis is unsupported and refuses. Receipt appliedTo names the resolved canonical focused keys (or scene:true when clearing) and capturedAt; only status=rendered confirms application. This moves nothing: the selection, the molecule’s placement and the viewpoint are all untouched, and the wearer hears the part’s own name. The binding fields and commandId are optional; left out, the host uses the current revisions and the headset panel when one is attached. Pass waitForRenderMs:10000 to get the receipt in this call: only status "rendered" means drawn, and view.emphasis in get_inspection_state says what the panel shows.',
-    inputSchema:implicitBinding(emphasizeSchema),annotations:mutation,_meta:{},
+    inputSchema:implicitVoiceBinding(emphasizeSchema),annotations:mutation,_meta:{},
   },async input=>{
     // Emphasis is the agent visibly repainting the wearer's molecule, so the
     // headset may keep saying "Sent to Claude" for free speech, exactly as a
@@ -3092,17 +3392,30 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // but an authenticated repeat from the same source owner remains acknowledged.
     if(!existing) a.sourceRenderWait.complete({status:'failed',panelId:input.panelId,sourceToken:b.sourceToken,
       inspectionRevision:b.inspectionRevision,failedAt:(hooks.now??Date.now)(),failure:input.failure,failureReason:input.failureReason});
+    // This authenticated report is already the renderer's proof that its
+    // failed transaction settled. The next source need not wait for a timer.
+    a.sourceFailureReadyAt=(hooks.now??Date.now)();
+    a.commands.holdSourceRecovery(input.panelId,a.sourceFailureReadyAt+10_000);
     return result(input.sessionId,data,{},existing?.status==='failed'?existing.failureReason:input.failureReason);
   });
   privateTool('stereo_structure.attach_inspection',{
     title:'Attach an inspection panel',description:'App-only registration after rendering and saving. A mounted instance gets a new server-issued panel ID; its verified journey or source-replacement save can retain that ID through a source change. surface names the desktop, companion, or detailed page.',
-    inputSchema:inspectionBindingSchema.extend({surface:z.enum(['desktop','companion',DETAILED_SURFACE]).optional(),replacesPanelId:z.string().uuid().optional(),pageBuild:z.string().length(64).optional(),
+    inputSchema:inspectionBindingSchema.extend({surface:z.enum(['desktop','companion',DETAILED_SURFACE]).optional(),replacesPanelId:z.string().uuid().optional(),pageBuild:z.string().length(64).optional(),renderedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/).optional(),
       journeySave:syncInspectionSchema.shape.journeySave,tourCommand:syncInspectionSchema.shape.tourCommand,
       geometryBudget:geometryBudgetReceiptSchema.optional()}),annotations:mutation,_meta:privateUi,
   },async input=>{
     await hostBuildReady;
     const data=await current(input.sessionId), b=binding(input.sessionId,data);
     if(!data.attachment.scene) throw Error('Save the initial rendered inspection before attaching.');
+    const renderedSourceSha256=input.renderedSourceSha256
+      ?? (data.attachment.density && input.surface!=='companion'
+        ? data.attachment.catalog.source.sha256 : data.attachment.scene.sourceSha256);
+    if(renderedSourceSha256!==data.attachment.catalog.source.sha256
+      && renderedSourceSha256!==data.attachment.density?.sha256)
+      throw Error('The panel must draw this inspection’s verified coordinates or density map.');
+    if(data.attachment.density && input.surface!=='companion'
+      && renderedSourceSha256!==data.attachment.catalog.source.sha256)
+      throw Error('The desktop density preview draws the verified reference coordinates; only the companion receives the map.');
     const undo=data.attachment.experienceRollback;
     if(input.journeySave) {
       if(!undo || undo.token!==input.journeySave.rollbackToken || undo.panelId!==input.journeySave.panelId
@@ -3131,8 +3444,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       && input.replacesPanelId===undo.panelId && undo.expectedStateRevision===b.stateRevision
       && undo.expectedInspectionRevision===b.inspectionRevision
       && data.attachment.commands.readyPanel(undo.panelId,b) && !data.attachment.commands.hasPending(b);
-    const panelId=data.attachment.commands.attach(consumedSource?{...input,replacesPanelId:undefined}:input,b,
+    const panelId=data.attachment.commands.attach({...input,renderedSourceSha256,...(consumedSource?{replacesPanelId:undefined}:{})},b,
       Boolean(input.journeySave || savedSource || resumeJourney));
+    binding(input.sessionId,data);
     // Correlate the attached ID with the selected transition owner only after
     // the rendered scene has saved and attach passed.
     if(!consumedSource && input.replacesPanelId && input.replacesPanelId===data.attachment.transitionTarget?.panelId) {
@@ -3234,7 +3548,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const wearerPage=wearerSurface==='companion'||wearerSurface===DETAILED_SURFACE;
     const headsetCaptionRejections:HeadsetCaptionRejection[]=[];
     const headsetCaption=wearerPage?captions.claim(input.panelId,{
-      activeUtteranceId:activeUtterances.get(input.panelId)?.utteranceId,
+      activeUtteranceId:activeReplyAt(input.panelId)?.utteranceId,
       sessionId:input.sessionId,sourceToken:b.sourceToken,refusalSerial:refusalSerials.get(input.sessionId),
       onStale:receipt=>headsetCaptionRejections.push(receipt),
       onScopeMiss:noteRefusalScopeMiss,
@@ -3264,8 +3578,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         // The one field that tells a wearer anyone is
         // there. It is always present, so a page can tell "no agent" from an
         // older host that does not report at all.
-        agentAttached:agentAttached(),
-        ...(canFollow?{scene:a.scene}:{}),
+        agentAttached:agentAttached(), activeAssistant:assistants.active()?.label ?? null,
+        voiceDelivery:voiceDelivery(input.sessionId,data),
+        ...(canFollow?{scene:a.scene,customTour:a.customTour??null}:{}),
         ...(voicePlayback ? {voicePlayback}:{}),
         ...(headsetCaption ? {headsetCaption}:{}),
         ...(headsetCaptionRejections.length ? {headsetCaptionRejections}:{}),
@@ -3407,11 +3722,79 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // one-second Opus chunks, whisper-cpp transcribes them on this Mac, and the
   // text is delivered as text. Nothing on this route synthesizes a keystroke.
   const transcriber = hooks.transcriber ?? pushToTalkTranscriberFromEnv();
+  let channelSession: string | undefined, channelTimer: ReturnType<typeof setInterval> | undefined;
+  let channelBusy = false, channelClosed = false;
+  const channel = createHeadsetChannel({queue: transcriber.transcripts,
+    active: () => assistants.active()?.label, now: hooks.now,
+    linked: async entry => {
+      if (!entry.text.trim() || !entry.sessionId) return undefined;
+      const data = await current(entry.sessionId);
+      if (!wearerLinkFor(entry.sessionId, data).linked || (entry.referent && entry.referent.sourceToken !== data.attachment.sourceToken)) return undefined;
+      const ids = utterancePanels.get(entry.utteranceId)?.panelIds ?? [];
+      const panel = data.attachment.commands.summary(binding(entry.sessionId, data)).panels
+        .find(p => p.current && isWearerSurface(p.surface) && (entry.panelId ? p.panelId === entry.panelId : ids.includes(p.panelId)));
+      if (!panel) return undefined;
+      return {...entry, cursor: 'cursor' in entry ? Number(entry.cursor) : 0, sessionId: entry.sessionId, panelId: panel.panelId};
+    },
+    claim: (assistant, entry) => {
+      const claimed = assistants.claim({assistant, utterances:[{id:entry.utteranceId,text:entry.text,cursor:entry.cursor}]});
+      if(claimed.handover) wakeVoiceFloor();
+      if (!claimed.delivered.length) return false;
+      noteClaimedUtterances([entry]);
+      return true;
+    },
+    wake: () => { void pumpChannel(); },
+  });
+  // Private scene transport only: never exposed to a browser or as an MCP tool.
+  scene.register('scene.headset_channel', async input => {
+    const assistant = String(input?.assistant ?? '');
+    if (assistant.toLowerCase() !== 'claude') return [];
+    return channel.take(assistant, String(input?.sessionId ?? ''));
+  });
+  async function pumpChannel() {
+    if (channelClosed || channelBusy || !channelSession || scene.label?.toLowerCase() !== 'claude'
+      || !server.server.getClientVersion()) return;
+    channelBusy = true;
+    try {
+      const args = {assistant: scene.label, sessionId: channelSession};
+      const entries = scene.role === 'attached'
+        ? await scene.call('scene.headset_channel', args) as Awaited<ReturnType<typeof channel.take>>
+        : await channel.take(args.assistant, args.sessionId);
+      for (const entry of entries) {
+        if (channelClosed) break;
+        // No channel ack exists. A rejected or silently dropped send remains recoverable.
+        await server.server.notification({method: HEADSET_CHANNEL_METHOD, params: headsetChannelParams(entry)}).catch(() => {});
+      }
+    } catch { /* A disconnected host/scene leaves the bounded queue recoverable via listen_voice. */ }
+    finally { channelBusy = false; }
+  }
+  function startChannel(sessionId: string) {
+    channelSession = sessionId;
+    if (scene.label?.toLowerCase() !== 'claude' || channelClosed) return;
+    channelTimer ??= setInterval(() => { void pumpChannel(); }, 250);
+    channelTimer.unref();
+    void pumpChannel();
+  }
+  function stopChannel() {
+    channelClosed = true;
+    wakeVoiceFloor();
+    if (channelTimer) clearInterval(channelTimer);
+    channel.close();
+  }
+  function voiceDelivery(sessionId: string, data: Awaited<ReturnType<typeof current>>) {
+    const channelActive = channel.active(sessionId) && wearerLinkFor(sessionId, data).linked;
+    const polling = agentListenedAt !== undefined && presenceNow() - agentListenedAt <= AGENT_PRESENCE_WINDOW_MS
+      && (!assistants.active() || agentListenedBy?.toLowerCase() === assistants.active()?.label.toLowerCase());
+    return {mode: channelActive ? 'channel' as const : polling ? 'polling' as const : 'none' as const,
+      channelActive, acknowledgement: 'unavailable' as const, assistant: assistants.active()?.label ?? null};
+  }
+
   // Every finished transcript carries the referent its own press
   // opened with, so an agent reading `listen_voice` gets the words and what
   // the person meant by "this" in the same answer.
   // In the compact form, so a tour-sized selection never turns the
   // wearer's sentence into a result no model client will deliver.
+  transcriber.usePageDecisions?.();
   transcriber.useReferents?.(sessionId=>{
     const referent=referents.read(sessionId);
     return referent?referentKeys.compact(referent):undefined;
@@ -3442,6 +3825,19 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   },async input=>{
     // Resolve the session first so an expired capability never reaches a file.
     const data=await current(input.sessionId);
+    if(input.pageDecision) {
+      const handled=transcriber.decide(input);
+      return {content:[{type:'text' as const,text:handled?'Handled by recording page.':'Released to assistant.'}],
+        structuredContent:{handled}};
+    }
+    // Refuse collisions before beginUtterance or referent capture can admit
+    // the same ID into a second session, including after recognition ended.
+    const retained=utterancePanels.get(input.utteranceId);
+    if((recordedSessions.has(input.utteranceId) && recordedSessions.get(input.utteranceId)!==input.sessionId)
+      || (retained && retained.commands!==data.attachment.commands)
+      || (transcriber.transcripts.all?.() ?? []).some(entry=>entry.utteranceId===input.utteranceId
+        && entry.sessionId!==undefined && entry.sessionId!==input.sessionId))
+      throw Error('That utterance belongs to another session. Record a new voice request with a new ID.');
     const utterancePanelIds=input.seq===0
       ? data.attachment.commands.summary(binding(input.sessionId,data)).panels
         .filter(panel=>panel.current&&isWearerSurface(panel.surface)&&(!input.panelId||panel.panelId===input.panelId))
@@ -3455,6 +3851,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     if(input.seq===0) referents.capture(input.sessionId,captureRequestReferent({
       sourceToken:data.attachment.sourceToken,scene:data.attachment.scene,at:(hooks.now??Date.now)()}));
     if(input.seq===0) {
+      recordedSessions.set(input.utteranceId,input.sessionId);
       data.attachment.commands.beginUtterance(input.utteranceId,utterancePanelIds??[],binding(input.sessionId,data));
       rememberUtterancePanels(input.utteranceId,data.attachment.commands,utterancePanelIds??[]);
     }
@@ -3496,15 +3893,19 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   }
   const holdsFloor=(caller:string|undefined)=>caller===undefined
     || assistants.active()?.label.toLowerCase()===caller.toLowerCase();
-  function claimHeard(caller:string|undefined, entries:readonly any[], cursor:number) {
+  function claimHeard(caller:string|undefined, heard:readonly any[], cursor:number) {
+    // A sentence the headset page acts on itself is never an assistant's to act on.
+    const entries=heard.filter(entry=>!entry.headsetAction);
     if(caller===undefined) {
       noteClaimedUtterances(entries);
       return {transcripts:[...entries],cursor,active:undefined as string|undefined,handover:undefined as any};
     }
     const claim=assistants.claim({assistant:caller,
       utterances:entries.map(entry=>({id:entry.utteranceId,text:entry.text,cursor:entry.cursor}))});
+    if(claim.handover) wakeVoiceFloor();
     const keep=new Set(claim.delivered.map(utterance=>utterance.id));
-    const transcripts=entries.filter(entry=>keep.has(entry.utteranceId));
+    const recovered=channel.recover(caller,entries);
+    const transcripts=[...entries.filter(entry=>keep.has(entry.utteranceId)),...recovered].sort((a,b)=>a.cursor-b.cursor);
     noteClaimedUtterances(transcripts);
     return {transcripts,cursor:claim.cursor ?? cursor,
       active:claim.active?.label,handover:claim.handover};
@@ -3515,32 +3916,38 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     return {text:active?`${active} is listening to the wearer now.`:'No assistant is listening to the wearer.',
       cursor:transcriber.transcripts.cursor,active:active??null};
   };
-  const pollVoiceTranscripts=async(input:{sessionId:string;after?:number;waitMs?:number;assistant?:string})=>{
+  const pollVoiceTranscripts=async(input:{sessionId:string;after?:number;waitMs?:number;assistant?:string},signal?:AbortSignal)=>{
     await current(input.sessionId);
+    signal?.throwIfAborted();
     const caller=callerLabel(input.assistant);
-    if(!holdsFloor(caller)) {
+    const quietReply=()=>{
       const quiet=notListening();
       return {content:[{type:'text' as const,text:quiet.text}],
         structuredContent:{sessionId:input.sessionId,cursor:quiet.cursor,transcripts:[],active:quiet.active,listening:false}};
-    }
-    noteAgentListening();
-    const {cursor,entries}=await transcriber.transcripts.since(input.after ?? 0,{waitMs:input.waitMs});
+    };
+    if(!holdsFloor(caller)) return quietReply();
+    noteAgentListening(caller);
+    const floor=voiceFloorChanged.signal;
+    const waiting=signal?AbortSignal.any([signal,floor]):floor;
+    const {cursor,entries}=await transcriber.transcripts.since(input.after ?? 0,{waitMs:input.waitMs,signal:waiting});
+    signal?.throwIfAborted();
+    if(floor.aborted || !holdsFloor(caller)) return quietReply();
     const claim=claimHeard(caller,entries,cursor);
     return {content:[{type:'text' as const,text:claim.transcripts.length?claim.transcripts.map(entry=>entry.text).join(' • ')
       :claim.handover?claim.handover.spoken:'Nothing new was said.'}],
       structuredContent:{sessionId:input.sessionId,cursor:claim.cursor,transcripts:claim.transcripts.map(entry=>({...entry,sequence:utterancePanels.get(entry.utteranceId)?.commands.utterance(entry.utteranceId)?.sequence??entry.sequence??entry.cursor})),
-        ...(caller===undefined?{}:{active:claim.active??null,listening:true}),
+        ...(caller===undefined?{}:{active:claim.active??null,listening:holdsFloor(caller)}),
         ...(claim.handover?{handover:claim.handover}:{})}};
   };
   privateTool('stereo_structure.poll_voice_transcripts',{
     title:'Read what the headset wearer has said',description:'App-only long poll over locally transcribed push-to-talk utterances. Pass the cursor from the previous answer to receive only what is new; the call waits up to fifteen seconds for the wearer to speak before answering with an empty list. This route is never exposed to the companion or the private Wi-Fi listener, so transcripts stay on the desktop host. Each record carries receivedAt, when the last audio chunk landed and before any recognizer ran, transcribedAt, the Unix-millisecond stamp for the recognizer\'s text being accepted, and recognizerMs, how long recognition took. When two assistants share one scene through continue_session, only the listening one receives an utterance, and each utterance is handed out once.',
     inputSchema:pollVoiceTranscriptsSchema,annotations:{readOnlyHint:true,openWorldHint:false,destructiveHint:false},_meta:privateUi,
-  },async input=>await pollVoiceTranscripts(input));
-  scene.register('scene.poll_voice_transcripts',async(input:any)=>await pollVoiceTranscripts({
+  },async(input,extra)=>await pollVoiceTranscripts(input,extra?.signal));
+  scene.register('scene.poll_voice_transcripts',async(input:any,signal)=>await pollVoiceTranscripts({
     sessionId:String(input?.sessionId??''),
     ...(typeof input?.after==='number'?{after:input.after}:{}),
     ...(typeof input?.waitMs==='number'?{waitMs:input.waitMs}:{}),
-    ...(typeof input?.assistant==='string'?{assistant:input.assistant}:{})}));
+    ...(typeof input?.assistant==='string'?{assistant:input.assistant}:{})},signal));
   // The one voice route a model may call. `poll_voice_transcripts` above stays
   // app-only so the companion page can never read the queue; this one is
   // registered without app visibility and without a session, and is deliberately
@@ -3549,10 +3956,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   const listenClock=hooks.now ?? Date.now;
   registerAppTool(server,'stereo_structure.listen_voice',{
     title:'Listen to the headset wearer',
-    description:'Wait for the headset wearer to speak and return what they said. Use Talk in the headset menu, or hold A or X on Quest controllers, to speak. Talk sends microphone audio through this Mac to OpenAI for transcription using the configured OAuth voice route. Holding A or X uses the separate local Apple on-device recognizer or whisper-cpp route; that route keeps audio on this Mac. Preserve the user\'s chosen voice route. Blocks for up to timeoutSeconds (1-25, default 20) and returns as soon as an utterance is ready; timedOut=true means nobody spoke, not that voice is broken. Pass the cursor and epoch from the previous answer to receive only new speech; leave them out to start from what is still held. Each utterance has text, a scene-checked normalizedText with normalizationRules, utteranceId, sequence and, when the person pointed, a referent: what "this" meant when they started speaking. Speech is a request, not a confirmed instruction. Act on it with update_inspection, focus_selection or emphasize, echo its utteranceId, and pass referent back unchanged. Never report a change until its receipt says rendered. To correct or cancel an earlier request, send update_inspection with change kind "utterance" before the replacement. Every call is a model turn, so loop on it only while the wearer is talking to you; a person who dictates to you directly needs none of it. Each call keeps the headset\'s sessions from expiring, even while nobody wears it. When the private Wi-Fi share is 15 minutes or less from closing, or has run out of time, the answer carries share {state, reason, at} and says what to do. Times: at is when the last audio reached this Mac, transcribedAt when recognition finished, recognizerMs how long recognition took. at to transcribedAt is recognition; the rest is delivery. sequence is assigned when recording starts, so completion order is not request order.',
+    description:'Wait for a final headset transcript (timeoutSeconds 1-25, default 20). Talk uses the configured OAuth route; hold A or X for local Apple or Whisper transcription. Preserve the chosen provider. No sessionId is accepted. Pass the previous cursor and epoch for new speech; omit them to recover retained speech after a dropped channel push. A recovered push has alreadyDelivered=true and channelDelivery.state="pushed": Claude sends no acknowledgement, so act only if this utteranceId has not already been handled. Each pushed ID is recoverable once by the same active assistant, within the 64-entry queue. timedOut=true means an empty window. Use the returned utteranceId on scene tools and pass referent unchanged; normalizedText is a scene-checked proposal. Wait for a rendered receipt, then say_to_headset {text, utteranceId} in one short sentence. To correct or cancel, send update_inspection with change kind "utterance" before the replacement. Sequence is recording-start order; at is last audio arrival, transcribedAt is recognition completion. share reports an expiring connection. Each call occupies a model turn and keeps shared sessions alive; use only during a requested headset conversation. Claude channel delivery needs no model polling. Other hosts keep using this tool.',
     inputSchema:listenVoiceSchema,annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:false,openWorldHint:false},_meta:{},
-  },async(input:{timeoutSeconds?:number;cursor?:number;epoch?:string;assistant?:string})=>await listenVoice(input));
-  async function listenVoice({timeoutSeconds,cursor,epoch,assistant}:{timeoutSeconds?:number;cursor?:number;epoch?:string;assistant?:string}) {
+  },async(input:{timeoutSeconds?:number;cursor?:number;epoch?:string;assistant?:string},extra)=>await listenVoice(input,extra?.signal));
+  async function listenVoice({timeoutSeconds,cursor,epoch,assistant}:{timeoutSeconds?:number;cursor?:number;epoch?:string;assistant?:string},signal?:AbortSignal) {
+    signal?.throwIfAborted();
     // An agent waiting here is still using the sessions this headset shows,
     // even while the wearer has it off and no page polls them.
     for(const id of new Set([lanOwner?.sessionId,...sharedSessions])) if(id) try { hooks.current(id); } catch { /* Already gone. */ }
@@ -3561,12 +3969,15 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // A host that does not hold the floor never waits. It is
     // told who does, at once, so it cannot sit on a long poll for speech that
     // was never going to be handed to it.
-    if(!holdsFloor(caller)) {
+    const quietReply=()=>{
       const quiet=notListening();
       return {content:[{type:'text' as const,text:quiet.text}],
         structuredContent:{transcripts:[],cursor:quiet.cursor,epoch:queueEpoch,timedOut:false,active:quiet.active,listening:false}};
-    }
-    noteAgentListening();
+    };
+    if(!holdsFloor(caller)) return quietReply();
+    noteAgentListening(caller);
+    const floor=voiceFloorChanged.signal;
+    const waiting=signal?AbortSignal.any([signal,floor]):floor;
     const deadline=listenClock()+(timeoutSeconds ?? LISTEN_VOICE_DEFAULT_SECONDS)*1_000;
     // A cursor from another queue, or past this one's head, was counted before
     // this server restarted; honouring it would skip that many new utterances.
@@ -3578,7 +3989,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // once rather than spun on until the window closes.
     let claim=claimHeard(undefined,[],after);
     for(;;) {
-      const answer=await queue.since(after,{waitMs:Math.min(Math.max(deadline-listenClock(),0),PTT_POLL_MAX_WAIT_MS)});
+      const answer=await queue.since(after,{waitMs:Math.min(Math.max(deadline-listenClock(),0),PTT_POLL_MAX_WAIT_MS),signal:waiting});
+      // The request can be cancelled while the queue wakes. Never reserve a
+      // transcript for a caller whose response can no longer reach it.
+      signal?.throwIfAborted();
+      if(floor.aborted || !holdsFloor(caller)) return quietReply();
       claim=claimHeard(caller,answer.entries,answer.cursor);
       after=claim.cursor;
       if(claim.transcripts.length||claim.handover||listenClock()>=deadline) break;
@@ -3586,7 +4001,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // The referent rides beside the words. Pass it back on the
     // tool that acts on them and "this part" stays the part they meant when
     // they started speaking, however long the answer took.
-    const transcripts=claim.transcripts.map(entry=>({utteranceId:entry.utteranceId,sequence:utterancePanels.get(entry.utteranceId)?.commands.utterance(entry.utteranceId)?.sequence??entry.sequence??entry.cursor,utteranceSequence:utterancePanels.get(entry.utteranceId)?.commands.utterance(entry.utteranceId)?.sequence,text:entry.text,normalizedText:entry.normalizedText??entry.text,normalizationRules:entry.normalizationRules??[],at:entry.receivedAt,durationMs:entry.durationMs,
+    const transcripts=claim.transcripts.map(entry=>({...(entry.channelDelivery?{channelDelivery:entry.channelDelivery,alreadyDelivered:true}:{}),utteranceId:entry.utteranceId,sequence:utterancePanels.get(entry.utteranceId)?.commands.utterance(entry.utteranceId)?.sequence??entry.sequence??entry.cursor,utteranceSequence:utterancePanels.get(entry.utteranceId)?.commands.utterance(entry.utteranceId)?.sequence,text:entry.text,normalizedText:entry.normalizedText??entry.text,normalizationRules:entry.normalizationRules??[],at:entry.receivedAt,durationMs:entry.durationMs,
       // `at` is still the last audio chunk landing. These two say
       // when the words existed and what recognition cost, so a reader stops
       // charging the recognizer's run to delivery.
@@ -3601,11 +4016,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // about to end, or has ended, while there is still something to do about it.
     const share=lan.notice();
     const text=[heard,
+      ...(transcripts.some(entry=>entry.channelDelivery)?['Previously pushed without acknowledgement; handle each utteranceId only if it has not already been acted on.']:[]),
       ...(restarted?['The voice queue restarted since that cursor, so this answer starts from the oldest utterance it holds.']:[]),
       ...(share?[shareNoticeText(share)]:[])].join('\n');
     return {content:[{type:'text' as const,text}],
       structuredContent:{transcripts,cursor:claim.cursor,epoch:queueEpoch,timedOut:transcripts.length===0&&claim.handover===undefined,
-        ...(caller===undefined?{}:{active:claim.active??null,listening:true}),
+        ...(caller===undefined?{}:{active:claim.active??null,listening:holdsFloor(caller)}),
         ...(claim.handover?{handover:claim.handover}:{}),
         ...(share?{share}:{})}};
   }
@@ -3618,11 +4034,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       ? `The private Wi-Fi share reaches its time limit at ${time}, and opening it again before then keeps that limit. Warn the wearer now, and after ${time} call ${reopen}`
       : `The headset has stopped calling this Mac, so the private Wi-Fi share closes at ${time} unless it calls again before then.`;
   }
-  scene.register('scene.listen_voice',async(input:any)=>await listenVoice({
+  scene.register('scene.listen_voice',async(input:any,signal)=>await listenVoice({
     ...(typeof input?.timeoutSeconds==='number'?{timeoutSeconds:input.timeoutSeconds}:{}),
     ...(typeof input?.cursor==='number'?{cursor:input.cursor}:{}),
     ...(typeof input?.epoch==='string'?{epoch:input.epoch}:{}),
-    ...(typeof input?.assistant==='string'?{assistant:input.assistant}:{})}));
+    ...(typeof input?.assistant==='string'?{assistant:input.assistant}:{})},signal));
   /**
    * "Continue this session", and who is listening.
    *
@@ -3649,17 +4065,23 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const content=state?.structuredContent ?? {};
     const view=content.view ?? null;
     const panels:any[]=Array.isArray(content.panels)?content.panels:[];
-    const showing=panels.find(panel=>panel.current&&panel.tour)??panels.find(panel=>panel.tour);
+    // A panel's report belongs to the revision it drew. During a source swap
+    // or a peer edit it can remain attached with an older tour until it catches
+    // up; that is not the current chapter for an assistant joining now.
+    const showing=panels.find(panel=>panel.current&&panel.tour);
     return {sourceToken:content.sourceToken??null,stateRevision:content.stateRevision??null,
+      sourceProvenance:content.sourceProvenance,
       inspectionRevision:content.inspectionRevision??null,hasScene:Boolean(content.hasScene),
       selectedResidueCount:view?.selectedResidueCount??0,
       emphasis:view?.emphasis??null,placement:view?.placement??null,appearance:view?.appearance??null,
-      lesson:content.lesson?{id:content.lesson.id,title:content.lesson.title}:null,
-      tour:showing?.tour??null,panels:panels.length};
+      lesson:content.lesson?{id:content.lesson.id,title:content.lesson.title,
+        ...(Array.isArray(content.lesson.chapters)?{chapters:content.lesson.chapters}:{})}:null,
+      tour:showing?.tour??null,panels:panels.length,
+      authoringRoute:content.authoringRoute,voiceDelivery:content.voiceDelivery};
   }
   registerHostTool(server,'stereo_structure.continue_session',{
     title:'Continue the molecular session already open on this Mac',
-    description:'Call this when joining or reusing a molecular session from another host, including its headset connection. Pass assistant="Codex" from Codex or assistant="Claude" from Claude. If role=owner or role=attached, reuse its sessionId for the current scene and edits. Use replace_inspection_source only when the user requests a different structure; keep its headset connection. If role=none with retry=true, the recorded owner is still running: retry continue_session after 5 seconds and preserve that scene. After 60 seconds without recovery, inspect recordPath and its recorded process; preserve a live Stereofold owner. Only create a new scene when that owner is confirmed closed or stale, or the user requests one. For kind=external-owner-unavailable, follow its host recovery instructions. Only when role=none has no retry or external-owner recovery condition, or the user requests a new session, call inspect, then open_companion with {connection:"lan",headset:"meta",launch:"auto",waitForHeadsetMs:20000} for Meta Quest or {connection:"lan",headset:"apple",launch:"auto"} for Apple Vision Pro. A later host joins the same scene, selection and placement through this call; the headset viewpoint remains on the headset. The first attached assistant listens to the wearer; switch_assistant hands that role over.',
+    description:joinedHeadsetRoute+'Call this when joining or reusing a molecular session from another host, including its headset connection. Pass assistant="Codex" from Codex or assistant="Claude" from Claude. If role=owner or role=attached, reuse its sessionId for the current scene and edits. Use replace_inspection_source only when the user requests a different structure; keep its headset connection. If role=none with retry=true, the recorded owner is still running: retry continue_session after 5 seconds and preserve that scene. After 60 seconds without recovery, inspect recordPath and its recorded process; preserve a live Stereofold owner. For kind=external-owner-unavailable, follow its host recovery instructions. Only when role=none has no retry or external-owner recovery condition, or the user requests a new session, call inspect, then open_companion with {connection:"lan",headset:"meta",launch:"auto",waitForHeadsetMs:20000} for Meta Quest or {connection:"lan",headset:"apple",launch:"auto"} for Apple Vision Pro. A later host joins the same scene, selection and placement through this call; the headset viewpoint remains on the headset. The first attached assistant owns the floor; ownership is not an acknowledged listening consumer. switch_assistant hands ownership over.',
     inputSchema:continueSessionSchema,annotations:mutation,_meta:{},
   },async(input:any)=>{
     const label=input?.assistant?normalizeAssistantLabel(String(input.assistant)):undefined;
@@ -3700,18 +4122,30 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     }
     const sessionId=shared.sessionId;
     const ownership=label?await joinAssistants(label):await readAssistants();
+    startChannel(sessionId);
     const view=await continuationOf(sessionId);
-    const listening=ownership.active?`${ownership.active} is listening to the wearer.`:'No assistant is listening yet.';
+    const delivery=view.voiceDelivery?.mode;
+    const listening=(ownership.active?`${ownership.active} owns the assistant floor.`:'No assistant owns the floor yet.')
+      +(delivery==='channel'?' Wearer speech is delivered over the headset channel.'
+        :delivery==='polling'?' Wearer speech is delivered to the assistant reading listen_voice.'
+        :' No consumer is reading wearer speech yet, so spoken requests are not delivered.');
     // Some hosts hand the model only this text, never structuredContent, so the
     // role and the sessionId the description promises are spelled out here too.
     const where=`(role=${shared.role}, sessionId ${sessionId})`;
-    const text=shared.role==='attached'
+    // The chapter map rides in the text too: some hosts show the model nothing else.
+    const chapters=view.lesson?.chapters?.length
+      ? ` Lesson "${view.lesson.title}"${typeof view.tour?.step==='number'?`, now on step ${view.tour.step}`:''}; reach a chapter with control_tour next or back. Steps: `
+        +view.lesson.chapters.map((chapter:any)=>`${chapter.step} ${chapter.title}${chapter.line?` (${chapter.line})`:''}`).join('; ')+'.'
+      : '';
+    // "Bigger" is a scale relative to this one, so it needs no read before acting.
+    const scale=typeof view.placement?.scale==='number'?` Placement scale ${view.placement.scale}.`:'';
+    const text=(shared.role==='attached'
       ? `Joined the scene already open on this Mac ${where}. ${listening}`
       : shared.tookOver
         ? `Took over the shared scene from a host that had stopped ${where}. ${listening}`
-        : `This Mac now shares one scene ${where}. ${listening}`;
-    return {content:[{type:'text' as const,text}],
-      structuredContent:{kind:'scene-continuation',role:shared.role,sessionId,sceneId:shared.sceneId,
+        : `This Mac now shares one scene ${where}. ${listening}`)+scale+chapters;
+    return {content:[{type:'text' as const,text:(view.authoringRoute??'')+text}],
+      structuredContent:{authoringRoute:view.authoringRoute,voiceDelivery:view.voiceDelivery,kind:'scene-continuation',role:shared.role,sessionId,sceneId:shared.sceneId,
         ...(shared.tookOver?{tookOver:true}:{}),scene:view,assistants:ownership}};
   });
   registerAppTool(server,'stereo_structure.switch_assistant',{
@@ -3726,6 +4160,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         structuredContent:{kind:'assistant-ownership',sessionId:input.sessionId,...list}};
     }
     const moved=assistants.handOver(input.to,{by:'tool'});
+    if(moved.changed) wakeVoiceFloor();
     return {content:[{type:'text' as const,text:moved.changed?moved.spoken:`${moved.to} was already listening.`}],
       structuredContent:{kind:'assistant-ownership',sessionId:input.sessionId,spoken:handoverLine(moved.to),
         handover:{from:moved.from,to:moved.to,by:'tool' as const,changed:moved.changed},...assistants.list()}};
@@ -3738,7 +4173,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // network allowlists, so the headset can receive a reply but never write one.
   registerAppTool(server,'stereo_structure.say_to_headset',{
     title:'Say a reply to the headset wearer',
-    description:'Show and speak a reply to the person wearing the paired headset: the text is drawn as a caption and, unless speak is false, spoken. Use it after acting on a request, as a short spoken answer rather than a report. text is 1-1200 characters and at most 200 words; a longer reply is refused, so send the rest in a second call. A long answer is spoken as consecutive segments of at most 240 characters, 36 words and 15 seconds, split at its own sentences; nothing is cut. Pass the request\'s utteranceId when there is one: it is refused once a newer utterance has been claimed on that panel. Without it the reply is unbound. holdSeconds (2-15, default 6) is how long the last caption stays up. Read the receipt before telling anyone the wearer got it. delivered=true means a headset page took the caption. queued=true alone is not delivery. audible=true means audio was prepared, not that anyone heard it; audible=false or spokenVia="none" means the reply was a caption only. stale=true means a newer reply or utterance replaced this one before it was spoken. wearer.linked=false means no headset page is attached, so nobody read or heard it. Set refusal={tool,sessionId} only to show a refusal card for a request your own surface turned down before any tool call, such as an insecure URL; never for an answer. A tool call this host refused is already on the wearer\'s screen: an identical refusal within twenty seconds comes back duplicate=true and is not drawn again. After a refusal, say what you will do instead, or nothing.',
+    description:'Show and speak a reply to the person wearing the paired headset: the text is drawn as a caption and, unless speak is false, spoken. Use it after acting on a request, as a short spoken answer rather than a report. text is 1-1200 characters and at most 200 words; a longer reply is refused, so send the rest in a second call. A long answer is spoken as consecutive segments of at most 240 characters, 36 words and 15 seconds, split at its own sentences; nothing is cut. Pass the request\'s utteranceId when there is one: it is refused once a newer utterance has been claimed or begun on that panel, or an unrelated request replaces its structure. Without it the reply is unbound and is still shown and spoken. To speak first, send it unbound or with the ID update_inspection {kind:"utterance",patch:{action:"begin"}} returned on the headset panel: that is your own turn, and a newer one makes it stale the same way. holdSeconds (2-15, default 6) is how long the last caption stays up. Read the receipt before telling anyone the wearer got it. delivered=true means a headset page took the caption. queued=true alone is not delivery. audible=true means audio was prepared, not that anyone heard it; audible=false or spokenVia="none" means the reply was a caption only. stale=true means a newer reply, utterance or unrelated structure replacement made this reply inapplicable before it was spoken. wearer.linked=false means no headset page is attached, so nobody read or heard it. Set refusal={tool,sessionId} only to show a refusal card for a request your own surface turned down before any tool call, such as an insecure URL; never for an answer. A tool call this host refused is already on the wearer\'s screen: an identical refusal within twenty seconds comes back duplicate=true and is not drawn again. After a refusal, say what you will do instead, or nothing.',
     inputSchema:sayToHeadsetSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true},_meta:{},
   },async(input:SayToHeadsetInput)=>{
     /**
@@ -3811,19 +4246,20 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const retired=captions.retiring();
     // What this reply cuts short, read before it takes the caption row away.
     const superseded=captions.interrupted();
-    const caption=captions.say({...input,text:fullText},{id:replyId,
+    const caption=captions.say({...input,text:fullText},{id:replyId,speechTotal:lines.length,
       ...(lines.length?{segments:lines.map((line,index)=>({index,text:line,
         seconds:estimateHeadsetSpeechSeconds(line)}))}:{})});
     // An older reply still waiting on its own speech answered a turn that is
     // over. Take it back while no page has it; once a page does, the wearer has
     // read it and the only honest receipt is one that says so.
-    for(const [olderOrder,olderId] of pendingSpeech) {
+    for(const [olderOrder,olderIds] of pendingSpeech) {
       if(olderOrder>=order) continue;
       pendingSpeech.delete(olderOrder);
-      if(!captions.withdraw(olderId)) drawnBeforeStale.add(olderId);
+      for(const olderId of olderIds) if(!captions.withdraw(olderId)) drawnBeforeStale.add(olderId);
       while(drawnBeforeStale.size>32) drawnBeforeStale.delete(drawnBeforeStale.values().next().value!);
     }
-    pendingSpeech.set(order,replyId);
+    const speechEntries=new Set<string>([replyId]);
+    pendingSpeech.set(order,speechEntries);
     // The companion heartbeat runs about once a second, so a short bounded
     // wait turns a blind send into a reported delivery without a new channel.
     // It starts here rather than after the render, because the caption a page
@@ -3835,42 +4271,34 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         if(taken&&captionDrawnMs===undefined) captionDrawnMs=Math.max(0,Math.round((hooks.now??Date.now)())-queuedAt);
         return taken;
       });
-    /**
-     * The segments are rendered together, and the opening of the
-     * answer is handed over the moment it exists.
-     *
-     * Rendering still runs once per segment, so every clip stays inside the
-     * encoder ceiling, and a segment still fails to `undefined` rather than to
-     * an error: a reply the wearer can read beats no reply at all. What
-     * changed is that the calls overlap. Each one costs about 4.0 s of fixed
-     * setup on this Mac before it produces a sample, so running them one after
-     * another charged the wearer that 4 s again for every sentence. Measured
-     * end to end through this route, a 435-character answer in three segments
-     * took 18.3 s to finish rendering and 7.7 s to reach its first clip; the
-     * same answer with the calls overlapped finished in 6.1-6.4 s across three
-     * runs. A reply that fits one segment has nothing to overlap and is
-     * unchanged at about 5 s.
-     *
-     * `onReady` hands each leading run to the caption while no page has taken
-     * it, so a page that beats between the opening segment and the last one
-     * gets the opening rather than silence. `attachSpeech` refuses once a page
-     * has the entry, and `handedOff` is how many segments were on the entry at
-     * the last attach that succeeded: whatever a page took, it took that many,
-     * and the rest is what still has to be sent. Without that count the
-     * spoken copy would carry the whole answer again and the wearer would hear
-     * the opening twice.
-     */
+    // Publish each settled prefix, even after a page has taken the caption.
+    // Keep extending an unclaimed spoken batch; once claimed, send only the
+    // newly ready tail with its offset so the page appends instead of replacing.
     const speechStartedAt=Math.round((hooks.now??Date.now)());
     let handedOff=0;
+    let voiceCaptionId:string|undefined;
+    let batch:{id:string;offset:number}|undefined;
+    const deliverSpeech=(ready:readonly HeadsetCaptionSegment[])=>{
+      if(!stillCurrent() || ready.length<=handedOff) return;
+      if(!batch && captions.attachSpeech(caption.id,ready)) { handedOff=ready.length; return; }
+      const tail=(offset:number)=>ready.slice(offset).map((segment,index)=>({...segment,index}));
+      if(batch && captions.attachSpeech(batch.id,tail(batch.offset))) {
+        if(tail(batch.offset).some(segment=>segment.audio)) voiceCaptionId??=batch.id;
+        handedOff=ready.length;
+        return;
+      }
+      const remaining=tail(handedOff);
+      const entry=captions.say({...input,text:remaining.map(segment=>segment.text).join(' ')},
+        {segments:remaining,voiceFor:caption.id,voiceOffset:handedOff,speechTotal:lines.length});
+      batch={id:entry.id,offset:handedOff};
+      if(remaining.some(segment=>segment.audio)) voiceCaptionId??=entry.id;
+      speechEntries.add(entry.id);
+      handedOff=ready.length;
+    };
     const render=await renderReplySpeech({lines,
       synthesize:line=>replyAudio.synthesize(line),
       budgetMs:HEADSET_REPLY_RENDER_BUDGET_MS,stillCurrent,now:()=>(hooks.now??Date.now)(),
-      onReady:ready=>{
-        // The final attach below carries the whole answer; a partial one is
-        // only worth making while there is still something left to render.
-        if(ready.length>=lines.length) return;
-        if(captions.attachSpeech(caption.id,ready)) handedOff=ready.length;
-      }});
+      onReady:deliverSpeech});
     const segments=render.segments;
     const budgetSpent=render.budgetSpent;
     pendingSpeech.delete(order);
@@ -3886,12 +4314,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       return !captions.withdraw(replyId);
     };
     const staleSentence=(reason:string)=>wasDrawn()
-      ?`${reason} It had already been drawn, so it stays on the plate until the newer reply replaces it, but it is never spoken.`
+      ?`${reason} It had already been drawn. No further speech is sent; any delivered prefix may already have played.`
       :`${reason} It was taken off the queue before any page saw it.`;
     const currentAdmission=input.utteranceId?replyUtteranceAdmission(input.utteranceId):undefined;
     if(currentAdmission&&!currentAdmission.accepted)
       return staleReceipt(currentAdmission.activeUtteranceId,
-        staleSentence('A newer claimed utterance became active before speech was ready.'));
+        staleSentence('The active utterance or its source changed before speech was ready.'));
     // A later call owns the newer turn even when its shorter synthesis finished
     // first. Keep this reply in the receipt, but never speak it on a page.
     if(order!==newestReply) {
@@ -3910,21 +4338,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // wearer reads, `voice` when a page had already taken that entry and the
     // spoken copy follows it, `none` when this Mac rendered nothing.
     const audible=segments.some(segment=>segment.audio);
-    // A successful attach means no page has this entry, so nothing on it was
-    // heard and the whole answer is on the caption the wearer reads.
-    const attached=audible&&captions.attachSpeech(caption.id,segments);
-    // What a page that already took the entry has not been given. Renumbered
-    // from zero, because a page plays the segments of an entry in the order
-    // that entry lists them.
-    const remaining=attached?[]:segments.slice(handedOff)
-      .map((segment,index)=>({...segment,index}));
-    const spokenVia=!audible?'none' as const
-      :attached||!remaining.some(segment=>segment.audio)?'caption' as const
-      :'voice' as const;
-    const voiceCaptionId=spokenVia==='voice'
-      ?captions.say({...input,text:remaining.map(segment=>segment.text).join(' ')},
-        {segments:remaining,voiceFor:caption.id}).id
-      :undefined;
+    // Also deliver a final silent tail when an earlier prefix carried audio.
+    if(audible) deliverSpeech(segments);
+    const spokenVia=!audible?'none' as const:voiceCaptionId?'voice' as const:'caption' as const;
     const delivered=await deliveryWait;
     const deliveryAdmission=input.utteranceId?replyUtteranceAdmission(input.utteranceId):undefined;
     if(!delivered&&deliveryAdmission&&!deliveryAdmission.accepted)
@@ -4257,11 +4673,20 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     inputSchema:completeInspectionSchema,annotations:{...mutation,idempotentHint:true},_meta:privateUi,
   },async input=>{
     const data=await current(input.sessionId), b=binding(input.sessionId,data), a=data.attachment;
-    if(input.phase==='admit') return result(input.sessionId,data,a.commands.admit(input,b));
+    if(input.phase==='defer-local-save')return result(input.sessionId,data,a.commands.deferForLocalSave(input,b));
+    if(input.phase==='admit') {
+      if(input.historyScene && !a.history.isUndo(input.commandId) && !a.history.isRedo(input.commandId))
+        throw Error('Only a shared Undo or Redo may admit its local viewpoint.');
+      const historyScene=input.historyScene?validateScene(input.historyScene,a.catalog,a.density):undefined;
+      if(historyScene) assertInspectionBudget({scene:historyScene,comparisonSources:comparisonPayloads(a,historyScene)},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
+      return result(input.sessionId,data,a.commands.admit(input,b,historyScene));
+    }
     if(input.phase==='settled') return result(input.sessionId,data,a.commands.settled(input.tourCommand??input));
     if(input.tourCommand)return result(input.sessionId,data,a.commands.failTourTransition(input.tourCommand,b,input.failure!,input.failureReason));
     const scene=input.scene?validateScene(input.scene,a.catalog,a.density):undefined;
-    if(scene) { validateComparisonScene(a,scene); savedLessonPlayback(scene,toursFor(a)); }
+    const lessonChange=a.commands.lessonChangeOf(input.commandId);
+    const installedTour=lessonChange?molecularLessonToTour(lessonChange.patch.lesson):undefined;
+    if(scene) { validateComparisonScene(a,scene); savedLessonPlayback(scene,installedTour?[...TOURS,installedTour]:toursFor(a)); }
     if(scene) assertInspectionBudget({scene,comparisonSources:comparisonPayloads(a,scene)},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
     const before=a.scene;
     const surface=surfaceOfPanel(a,input.panelId);
@@ -4276,10 +4701,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       ...(viewChange.patch.replaceViewId?{replaceViewId:viewChange.patch.replaceViewId}:{}),scene:capturedScene,
       ...(input.namedViewIntent?{namedViewIntent:input.namedViewIntent}:{}),inspectionRevision:a.revision});
     if(committed) {
+      if(installedTour) { a.customTour=installedTour; a.lessonManifest=lessonChange!.patch.lesson; }
       a.scene=committed;a.revision=receipt.command.renderedRevision!;
       a.commands.continueUtterance(receipt.command.utteranceId,input.panelId,b,{...b,inspectionRevision:a.revision});
     }
-    if(receipt.command.status==='rendered' && input.tourState && a.commands.changeKindOf(input.commandId)==='tour')a.commands.reportTourState(input.panelId,input.tourState);
+    if(receipt.command.status==='rendered' && input.tourState && ['tour','lesson'].includes(a.commands.changeKindOf(input.commandId)??''))a.commands.reportTourState(input.panelId,input.tourState);
     // The shared history learns every rendered operation here,
     // whichever surface rendered it. An undo is not itself recorded: it drops
     // the entry it took back instead, so "undo that" twice walks backwards
@@ -4288,7 +4714,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     else if(a.history.isRedo(input.commandId)) a.history.settleRedo(input.commandId,Boolean(committed));
     else if(committed && before) a.history.record({origin:'command',surface,
       label:a.commands.changeKindOf(input.commandId) ?? 'command',before,after:committed});
-    return {...result(input.sessionId,data,{...receipt,...(savedView?{savedView:a.views.list().find(view=>view.id===savedView.id)}:{}),
+    // Refresh the strip from committed scene/panel facts, through the normal response path.
+    const readiness=receipt.command.status==='rendered' && a.commands.changeKindOf(input.commandId)==='tour'
+      ? await panelReadiness(data,input.sessionId) : undefined;
+    return {...result(input.sessionId,data,{...receipt,...(readiness?{readiness}:{}),...(savedView?{savedView:a.views.list().find(view=>view.id===savedView.id)}:{}),
       namedViews:namedViewsPayload(data)}),...(replacement?{_meta:{[PRIVATE_INSPECTION_META_KEY]:{replacement:{...replacement,
         ...(a.history.isUndo(replacement.commandId)?{historyAction:'undo'}:a.history.isRedo(replacement.commandId)?{historyAction:'redo'}:{})}}}}:{})};
   });
@@ -4351,43 +4780,73 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       handoffMode:mode,provenanceStatus:'declared-local',preflight,choices,disclosure},
       (mode==='matching-scene'?preflight.message:'Structure-only handoff: coordinates opened; no upstream scene was imported.')+' '+disclosure+' The panel still needs to load, verify and render. Check get_inspection_state before reporting it as visible.');
   });
+  registerAppTool(server,'stereo_structure.prepare_composite',{
+    title:'Prepare a rigid molecular composite',
+    description:joinedHeadsetRoute+'Build a multi-structure mmCIF from an inline rigid recipe using verified cached or downloaded RCSB sources. Returns source:{kind:"composite",handle}, exact sha256, bytes, atomSites, per-body matrices, superposition RMSD in angstroms (before any offset), pairedAtomCount, sequenceIdentity and coverage fractions, atom counts and label-chain mappings; no coordinates. Each body uses matrix or place:{superpose:{onto}}; fits use sequence alignment and equal-weight Kabsch. Handles survive runtime restarts while their cache files remain. This prepares an artifact, not a scene or a rendered receipt. Uses the first deposited model, excludes water, and retains only explicitly requested ligands. The ordinary 64 MiB source policy applies to every input and output; maximumAtomSites optionally sets a caller budget.',
+    inputSchema:prepareCompositeSchema,
+    annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true},_meta:{},
+  },async input=>{
+    if(!hooks.prepareComposite) throw Error('This host cannot prepare composite sources.');
+    const identity=await hooks.prepareComposite(input);
+    return {content:[{type:'text' as const,text:`${joinedHeadsetRoute}Composite prepared; use the returned source handle.`}],structuredContent:identity};
+  });
+  registerAppTool(server,'stereo_structure.install_lesson',{
+    title:'Install or replace a lesson in the open scene',
+    description:joinedHeadsetRoute+'Install an inline molecular lesson or lessonPath restricted to this plugin bundled demos directory in the joined session. Supply exactly one of lesson or lessonPath. To edit the current manifest, read get_inspection_state with includeLesson:true. Validates chapters, figures, animation tracks and tethers against the current source. Keeps source and selection. Frames the first install on a new source with the opening chapter envelope, unless the wearer holds a placement; later edits keep placement and viewer hold unless frame:true; replacing a playing lesson keeps its chapter id when available (otherwise the first chapter). For initial authoring/checking use start:{autoplay:false,narration:false} and explicit control_tour next. Later edits omit start to keep the chapter and playback intent. Enabled narration is scheduled, not proof the wearer heard it. Returns commandId and a command receipt: only rendered means the panel drew and saved it. Poll get_inspection_state with commandId if the wait ends first. For a region label, use one explore chapter with a hidden caption card and immersive.figure layers/labels. Chains use author IDs; retain current layer colors. The headset menu gains lesson controls.',
+    inputSchema:implicitBinding(inspectionBindingSchema.extend({panelId:z.string().uuid(),commandId:commandIdSchema,
+      lessonPath:z.string().min(1).max(4096).optional().describe('Bundled demo lesson JSON only, absolute or relative to the plugin demos directory.'),
+      lesson:molecularLessonSchema.optional().describe('Inline lesson-file manifest, at most 262144 UTF-8 JSON bytes. Existing limits apply: 24 chapters, 32 tracks, 512 keyframes/track, 16 labels, 8 distances, 16 tethers. Targets use author chain/residue ids; distance and tether endpoints must resolve to one atom.'),
+      start:lessonStartSchema.optional(),frame:z.boolean().optional().describe('True reframes the installed chapter. The first install on a new source frames unless the wearer holds a placement; later edits preserve manual placement by default.'),waitForRenderMs:commandWaitSchema})),
+    annotations:mutation,_meta:{},
+  },async input=>{
+    if((input.lesson!==undefined)===Boolean(input.lessonPath)) throw Error('Supply exactly one of lesson or lessonPath.');
+    const lessonInput=input.lesson??await readBundledLesson(input.lessonPath!);
+    assertLessonSize(lessonInput);
+    const data=await current(input.sessionId), a=data.attachment, b=binding(input.sessionId,data);
+    if(a.experience) throw Error('lesson: finish the active multi-source experience before installing a lesson.');
+    const manifest=parseMolecularLesson(lessonInput), tour=molecularLessonToTour(manifest);
+    validateLessonSource(manifest,a.catalog,a.scene?.modelNumber??a.catalog.modelNumbers[0],a.density?.sha256);
+    if(manifest.coordinates?.kind==='volume' && !a.density) throw Error('lesson.coordinates: the current scene has no density map.');
+    if(manifest.coordinates && a.density) {
+      if(manifest.coordinates.sha256.toLowerCase()!==a.density.sha256) throw Error('lesson.coordinates.sha256: does not match the installed density map.');
+      if(manifest.coordinates.contour!==a.density.contour) throw Error('lesson.coordinates.contour: must match the installed density map.');
+    }
+    if(input.start?.chapterId && !tour.steps.some(chapter=>chapter.id===input.start?.chapterId))
+      throw Error('start.chapterId: no chapter with this id exists in lesson.chapters.');
+    assertInspectionBudget({customTour:tour},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
+    const {lesson:_lesson,lessonPath:_path,start,frame,waitForRenderMs:_wait,...request}=input;
+    const command=a.commands.enqueue({...request,deferLocalSave:true,change:{kind:'lesson',patch:{lesson:manifest,frame:frame===true || (!a.lessonManifest && 'auto'),...(start?{start}:{})}}},b,a.scene,'install_lesson');
+    return result(input.sessionId,data,{commandId:command.commandId,command,customTourId:tour.id,
+      chapters:tour.steps.map(chapter=>({id:chapter.id,title:chapter.title}))},
+      `Lesson installation command ${command.status}. Check get_inspection_state with this commandId for its rendered receipt.`);
+  });
   registerAppTool(server,'stereo_structure.inspect_lesson',{
-    title:'Open a local molecular lesson',
-    description:'Open a local mmCIF file with a bounded molecular lesson JSON in the Stereofold inspector and optional Quest companion. Every chapter requires explicit immersive intentions; standard-viewer desktop plans instead use the separate local planner and native structure.apply_scene tools. An optional provenance.sourceSha256 must match these exact coordinates. Optional assemblyId names a biological assembly the entry itself declares, such as "1": Mol* then builds that assembly from the entry\u2019s own operator list, so a deposited asymmetric unit becomes the complete assembly without shipping an expanded coordinate file. Omit it for the asymmetric unit. Source references remain authored metadata, not authenticated export receipts or a live link to another viewer.',
-    inputSchema:z.object({filePath:z.string().min(1).max(4096),lessonPath:z.string().min(1).max(4096),
-      densityPath:z.string().min(1).max(4096).optional(),
-      assemblyId:z.string().regex(/^[A-Za-z0-9_-]{1,128}$/u).optional()}).strict(),
+    title:'Open a molecular lesson',
+    description:joinedHeadsetRoute+'Open a new Stereofold scene with an inline lesson and source (pdb, alphafold, URL, pasted coordinates, file or prepared composite handle). Legacy filePath plus lessonPath remains supported. Each chapter requires immersive intent. Validates the lesson against the selected source, model and assembly before opening. To edit an already open scene use install_lesson with its joined sessionId.',
+    inputSchema:z.object({filePath:z.string().min(1).max(4096).optional(),lessonPath:z.string().min(1).max(4096).optional(),
+      source:structureSourceSchema.optional(),lesson:molecularLessonSchema.optional().describe('Inline lesson-file manifest; maximum 262144 UTF-8 JSON bytes. Supply exactly one of lesson or lessonPath.'),
+      densityPath:z.string().min(1).max(4096).optional(),...structureSelectionShape}).strict()
+      .refine(v=>Boolean(v.source)!==Boolean(v.filePath),{path:['source'],message:'Supply exactly one of source or filePath.'})
+      .refine(v=>(v.lesson!==undefined)!==Boolean(v.lessonPath),{path:['lesson'],message:'Supply exactly one of lesson or lessonPath.'}),
     annotations:mutation,_meta:{ui},
   },async input=>{
-    const {structureText}=await readInspectionFile(input.filePath);
-    const lessonManifest=parseMolecularLesson(await readBoundedJsonFile(input.lessonPath));
-    const sourceSha256=createHash('sha256').update(structureText,'utf8').digest('hex');
-    const density=await readLessonDensity(lessonManifest,input.densityPath);
-    // A volume lesson's provenance names the MAP, because the map is what it
-    // draws; an atomic lesson's names the coordinates. Checking the wrong one
-    // would pass every lesson and protect neither.
-    const provenanceSha256=density?density.sha256:sourceSha256;
-    if(lessonManifest.provenance.sourceSha256 && lessonManifest.provenance.sourceSha256!==provenanceSha256)
-      throw Error(density
-        ?'The lesson provenance sourceSha256 does not match the exact local density bytes.'
-        :'The lesson provenance sourceSha256 does not match the exact local coordinate bytes.');
-    const lesson=molecularLessonToTour(lessonManifest);
-    const opened=await hooks.open({structureText}), id=opened.structuredContent.sessionId;
-    // The session is brand new and its id has not been returned to anyone, so
-    // this is the only place that can bind an assembly to it.
-    if(input.assemblyId) assemblyRequests.set(id,{assemblyId:input.assemblyId});
-    let data:Awaited<ReturnType<typeof current>>;
-    try { data=await current(id); } catch(error) { assemblyRequests.delete(id); throw error; }
-    if(data.cache.structureText!==structureText) throw Error('The lesson structure changed while opening.');
-    if(input.assemblyId && data.attachment.catalog.assemblyId!==input.assemblyId)
-      throw Error('The inspector did not build the requested assembly.');
+    if(!hooks.openVerifiedSource) throw Error('This host cannot atomically open a verified source.');
+    const manifest=parseMolecularLesson(input.lesson??await readBoundedJsonFile(input.lessonPath!));
+    const density=await readLessonDensity(manifest,input.densityPath), lesson=molecularLessonToTour(manifest);
     assertInspectionBudget({customTour:lesson},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
+    const selection:StructureSelection={...(input.modelNumber?{modelNumber:input.modelNumber}:{}),...(input.assemblyId?{assemblyId:input.assemblyId}:{})};
+    const opened=await hooks.openVerifiedSource({source:input.source??{kind:'file',path:input.filePath!},selection,verify:async text=>{
+      const catalog:any=await verifySourceSelection(text,selection);
+      validateLessonSource(manifest,catalog,input.modelNumber??catalog.modelNumbers[0],density?.sha256);
+    }});
+    const id=opened.structuredContent.sessionId;
+    if(input.assemblyId) assemblyRequests.set(id,{assemblyId:input.assemblyId});
+    const data=await current(id);
     data.attachment.customTour=lesson;
-    // The map rides on the attachment exactly as the lesson does, and dies with
-    // the same source cache, so a later plain `inspect` can never inherit it.
+    data.attachment.lessonManifest=manifest;
     if(density) data.attachment.density=density;
     return result(id,data,{kind:'inspect',renderToken:opened.structuredContent.renderToken,hasStructure:true,customTourId:lesson.id,
-      assemblyId:data.attachment.catalog.assemblyId,
+      chapters:lesson.steps.map(chapter=>({id:chapter.id,title:chapter.title})),assemblyId:data.attachment.catalog.assemblyId,
       ...(density?{density:{bytes:density.bytes.byteLength,sha256:density.sha256,contour:density.contour}}:{}),
       atomSites:data.attachment.catalog.rows.reduce((total:number,row:any)=>total+row.atomSites.length,0)});
   });
@@ -4717,6 +5176,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       ...(share?{share}:{}),
       ...(expiredAt?{shareExpiredAt:expiredAt}:{}),
       agentAttached:agentAttached(),
+      voiceDelivery:voiceDelivery(sessionId,data),
       ...(agentListenedAt===undefined?{}:{listenAgeMs:Math.max(0,at-agentListenedAt)}),
       ...(agentActedAt===undefined?{}:{actionAgeMs:Math.max(0,at-agentActedAt)}),
       listenWindowMs:AGENT_PRESENCE_WINDOW_MS,
@@ -4894,7 +5354,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   });
   registerAppTool(server,'stereo_structure.get_readiness',{
     title:'Check headset microphone readiness',
-    description:'Read this host\'s readiness for an optional headset-microphone conversation as six capabilities, each ok, missing or not-checked, with an actionable next step. structure means a saved scene and current ready panel; share means an open private Wi-Fi listener with a paired client; agent requires recent listening and a processed conversation request, since polling alone cannot answer. transcription requires an enabled recognizer and an observed transcript in this session; configured but unobserved capture is not-checked and blocks voice readiness. replies reports the configured spoken-answer route; speechCheck=true attempts one short clip through that provider, including an OAuth network request when selected. Generated audio does not confirm headset playback. A current paired browser page establishes its connection regardless of optional debugging tools. Otherwise headset checks an authorized Quest debugging transport using discovered adb; an absent or failed debugging connection does not establish that the headset is off or unreachable. This status check does not enable or reconnect debugging. Check wearer.state separately for immersive rendering. ready is true when blocking is empty. The same text is printed by setup-doctor.ts and headset-drive.ts. Reading this does not count as listening. Debugging diagnostics may name the selected device or authorized endpoint; no pairing code, token or device key is returned. This does not assess the host app’s independent live voice session. Missing headset-microphone prerequisites do not block host voice, manual controls or text.',
+    description:'Read this host\'s readiness for an optional headset-microphone conversation as six capabilities, each ok, missing or not-checked, with an actionable next step. structure means a saved scene and current ready panel; share means an open private Wi-Fi listener with a paired client; agent reports channel attempts (unacknowledged), polling, or nobody via readiness.voiceDelivery; polling alone cannot answer. transcription requires an enabled recognizer and an observed transcript in this session; configured but unobserved capture is not-checked and blocks voice readiness. replies reports the configured spoken-answer route; speechCheck=true attempts one short clip through that provider, including an OAuth network request when selected. Generated audio does not confirm headset playback. A current paired browser page establishes its connection regardless of optional debugging tools. Otherwise headset checks an authorized Quest debugging transport using discovered adb; an absent or failed debugging connection does not establish that the headset is off or unreachable. This status check does not enable or reconnect debugging. Check wearer.state separately for immersive rendering. ready is true when blocking is empty. The same text is printed by setup-doctor.ts and headset-drive.ts. Reading this does not count as listening. Debugging diagnostics may name the selected device or authorized endpoint; no pairing code, token or device key is returned. This does not assess the host app’s independent live voice session. Missing headset-microphone prerequisites do not block host voice, manual controls or text.',
     inputSchema:readinessSchema,annotations:{...readOnly,openWorldHint:true},_meta:{},
   },async({sessionId,speechCheck}:{sessionId:string;speechCheck?:boolean})=>{
     // Reading readiness cannot itself establish conversation presence.
@@ -4902,7 +5362,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const readiness=assembleReadiness(await readinessFacts(data,sessionId,speechCheck===true));
     const modelContext=optionalInspectionModelContext(()=>inspectionModelContextFor(
       sessionId,data,undefined,{ready:readiness.ready,blocking:readiness.blocking,scope:'headset-microphone-session'}));
-    return result(sessionId,data,{readiness,modelContext},formatReadiness(readiness));
+    return result(sessionId,data,{toolSetVersion:TOOL_SET_VERSION,readiness,modelContext},formatReadiness(readiness));
   });
   registerAppTool(server,'stereo_structure.manage_companion',{
     title:'Manage private Wi-Fi sharing',
@@ -5052,11 +5512,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // 200,000-atom-site refusal that used to sit here. It was never measured
     // and it spoke for every surface, including the desktop.
     //
-    // The transport call stays and its result is deliberately unused: it throws
-    // for a catalog past this Mac's 64 MiB decode policy, so a source this
-    // machine could not deliver is refused before the session opens instead of
-    // at hydration.
-    inspectionCatalogTransport(catalog);
+    // Refuse catalogs beyond this host's decode policy before opening. Keep
+    // the encoded transport for the same verified catalog at attachment time.
+    sourceTransport(catalog);
     if(selection.modelNumber!==undefined && !catalog.modelNumbers.includes(selection.modelNumber))
       throw Error(`Model ${selection.modelNumber} is unavailable. Choose a deposited model: ${catalog.modelNumbers.join(', ')}.`);
     selection.modelNumber??=catalog.modelNumbers[0];
@@ -5093,20 +5551,34 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   });
   privateTool('stereo_structure.replace_inspection_source',{
     title:'Replace or compare the current inspection source',
-    description:'Load a different structure into the open session and keep the headset connected: {sessionId,pdbId:"1CRN",waitForRenderMs:10000}. Binding fields are optional and use current values. mode="replace" resets appearance; mode="compare" adds a saved, undoable structure beside the current one. waitForRenderMs waits at most 40 seconds in this call while the full render budget continues. Report it as shown only when sourceRenderStatus.rendered is true; otherwise read get_inspection_state for sourceRenderReceipt until renderWait.budgetMs is spent. Compare returns a commandId: wait for its status "rendered". Name the structure with pdbId or source for AlphaFold, URLs, files and pasted coordinates. Downloads are capped at 64 MiB. PDB inspection needs declared polymer SEQRES; coordinate-only PDB files open with open.',
+    description:joinedHeadsetRoute+'Load a different structure into the open session and keep the headset connected: {sessionId,pdbId:"1CRN",waitForRenderMs:10000}. Binding fields are optional and use current values. mode="replace" resets appearance; mode="compare" adds a saved, undoable structure beside the current one. waitForRenderMs waits at most 40 seconds in this call while the full render budget continues. Report it as shown only when sourceRenderStatus.rendered is true; otherwise read get_inspection_state for sourceRenderReceipt until renderWait.budgetMs is spent. Compare returns a commandId: wait for its status "rendered". Name the structure with pdbId or source for AlphaFold, URLs, files, pasted coordinates or a prepare_composite handle. Downloads are capped at 64 MiB. PDB inspection needs declared polymer SEQRES; coordinate-only PDB files open with open.',
     inputSchema:implicitBinding(replaceInspectionSourceSchema,replaceInspectionSourceRequestSchema),annotations:{...mutation,destructiveHint:true,openWorldHint:true},_meta:{},
   },async input=>{
     const callStarted=Date.now();
-    const data=await current(input.sessionId), b=binding(input.sessionId,data);
+    const loadTimings:Record<string,number>={};
+    const data=await current(input.sessionId);
+    let b=binding(input.sessionId,data);
+    const sourceBaseScene=data.attachment.scene;
     if(input.serverEpoch!==b.serverEpoch || input.sourceToken!==b.sourceToken || input.baseStateRevision!==b.stateRevision || input.baseInspectionRevision!==b.inspectionRevision)
       throw Error('Read the current inspection state before replacing its source.');
     // What was asked for is settled before who could draw it. An
     // insecure URL, embedded credentials, an oversized paste or an unreadable
     // one is refused by name whatever the panel is doing; the readiness refusal
     // below is kept for requests this surface would otherwise have honoured
-    assertStructureSourceRequest(input.source??{kind:'pdb',id:input.pdbId!});
+    if(!input.demo) assertStructureSourceRequest(input.source??{kind:'pdb',id:input.pdbId!});
     const recoveringSource=input.mode!=='compare' && failedSourceOwnerReady(data,input.panelId);
-    if(!data.attachment.commands.readyPanel(input.panelId,b) && !recoveringSource) throw Error(PANEL_BUSY_MESSAGE);
+    const refusal=data.attachment.commands.sourceLoadRefusal(input.panelId,b,input.mode==='compare');
+    if(refusal && !recoveringSource) throw Error(refusal);
+    // Placement may finish saving while bytes are fetched. It belongs to the
+    // outgoing molecule and cannot cancel an explicit source load. Scientific
+    // edits and a different source still keep their normal revision fence.
+    const followPlacement=(latest:Awaited<ReturnType<typeof current>>)=>{
+      const live=binding(input.sessionId,latest);
+      if(input.mode!=='compare' && live.serverEpoch===b.serverEpoch && live.sourceToken===b.sourceToken
+        && live.stateRevision===b.stateRevision && live.inspectionRevision!==b.inspectionRevision
+        && sourceBaseScene && latest.attachment.scene && sameEntryScene(sourceBaseScene,latest.attachment.scene)) b=live;
+      return live;
+    };
     const prior=data.attachment;
     const recoveryContinuation=recoveringSource?prior.sourceContinuation:undefined;
     const carriedUtteranceId=recoveryContinuation?.utteranceId;
@@ -5120,6 +5592,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       recoveringSource && carriedUtteranceId && recoveryContinuation
         ?{utteranceId:carriedUtteranceId,binding:recoveryContinuation.previous}:undefined);
     try {
+      const demo=input.demo?await resolveBundledDemo(input.demo,input.stage):undefined;
+      if(demo) Object.assign(loadTimings,demo.loadTimings);
+      const demoDensity=demo?await readLessonDensity(demo.manifest,demo.densityPath):undefined;
+      const demoTour=demo?molecularLessonToTour(demo.manifest):undefined;
+      if(demoTour) assertInspectionBudget({customTour:demoTour},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
+      sourceOperation.assertCurrent();
       if(input.mode==='compare') {
         if(!data.attachment.scene) throw Error('Save the primary inspection before comparing structures.');
         const source:StructureSourceRequest=input.source??{kind:'pdb',id:input.pdbId!};
@@ -5145,7 +5623,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         sourceOperation.assertCurrent();
         if(live.sourceToken!==b.sourceToken || live.stateRevision!==b.stateRevision || live.inspectionRevision!==b.inspectionRevision)
           throw Error('The inspection changed while preparing the comparison. Read its state and try again.');
-        if(!latest.attachment.commands.readyPanel(input.panelId,live)) throw Error(PANEL_BUSY_MESSAGE);
+        const refusal=latest.attachment.commands.sourceLoadRefusal(input.panelId,live,true);
+        if(refusal) throw Error(refusal);
         const command=latest.attachment.commands.enqueue({...input,commandId:input.commandId??randomUUID(),change} as any,live,primary);
         const assetKey=`${asset.sha256}:${catalog.assemblyId}`;
         const previousAsset=latest.attachment.comparisonAssets?.get(assetKey);
@@ -5160,41 +5639,58 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       if(!hooks.openVerifiedSource) throw Error('This host cannot atomically open a verified structure source.');
       const releaseRetarget=authorizeSourceRetarget(input.sessionId);
       let committedCache:Cache|undefined;
+      let verifiedCatalog:any;
       try {
-        const selection:StructureSelection={modelNumber:input.modelNumber,assemblyId:input.assemblyId};
-        const source:StructureSourceRequest=input.source??{kind:'pdb',id:input.pdbId!};
+        const selection:StructureSelection={modelNumber:input.modelNumber,assemblyId:demo?.entry.coordinates.assemblyId??input.assemblyId};
+        const source:StructureSourceRequest=demo?.source??input.source??{kind:'pdb',id:input.pdbId!};
         const opened=await hooks.openVerifiedSource({sessionId:input.sessionId,source,selection,signal:sourceOperation.signal,
           beforeCommit:()=>{
             sourceOperation.assertCurrent();
-            const live=binding(input.sessionId,data);
+            const live=followPlacement(data);
             if(live.sourceToken!==b.sourceToken || live.stateRevision!==b.stateRevision || live.inspectionRevision!==b.inspectionRevision)
               throw Error('The inspection changed before committing its source. Read its state and try again.');
             if(recoveringSource && (prior.sourceContinuation!==recoveryContinuation
               || recoveryContinuation?.utteranceId!==carriedUtteranceId
-              || !failedSourceOwnerReady(data,input.panelId))) throw Error(PANEL_BUSY_MESSAGE);
+              || !failedSourceOwnerReady(data,input.panelId))) throw Error('The failed-source renderer stopped offering recovery before the replacement committed. Wait for its next heartbeat.');
           },
           committed:()=>{
             const session=hooks.current(input.sessionId);
             committedCache=session.structureCache;
+            if(verifiedCatalog) verifiedCatalogs.set(session.structureCache!,verifiedCatalog);
             sourceHandoffs.set(session.structureCache!,{commands:prior.commands,
               previous:recoveringSource?recoveryContinuation!.previous:b,panelId:input.panelId,
               ...(sourceOperation.utteranceId?{utteranceId:sourceOperation.utteranceId}:{}),stateRevision:session.stateRevision,
-              modelNumber:selection.modelNumber!,assemblyId:selection.assemblyId!,shared:prior.shared});
+              modelNumber:selection.modelNumber!,assemblyId:selection.assemblyId!,shared:prior.shared,
+              ...(demo && demoTour?{customTour:demoTour,lessonManifest:demo.manifest,lessonStart:{autoplay:false,narration:false},density:demoDensity}:{})});
             sourceOperation.release();
           },verify:async text=>{
-          await verifySourceSelection(text,selection);
+          const verificationStarted=Date.now();
+          const catalog:any=await verifySourceSelection(text,selection);
+          loadTimings.catalogVerificationMs=Date.now()-verificationStarted;
+          verifiedCatalog=catalog;
+          if(demo) {
+            if(catalog.source.sha256!==demo.structure.sha256) throw Error('The demo coordinates changed after cache verification.');
+            const atomSites=catalog.rows.reduce((n:number,row:any)=>n+row.atomSites.length,0);
+            if(atomSites!==demo.structure.atomSites) throw Error('The demo atom-site count does not match its index.');
+            validateLessonSource(demo.manifest,catalog,selection.modelNumber!,demoDensity?.sha256);
+            if(demoDensity && (demoDensity.sha256!==demo.entry.coordinates.sha256 || demoDensity.bytes.byteLength!==demo.entry.coordinates.bytes))
+              throw Error('The demo density map does not match its index.');
+          }
           sourceOperation.assertCurrent();
           // Revalidate panel/revision ownership after asynchronous fetching and parsing.
-          const latest=await current(input.sessionId),live=binding(input.sessionId,latest);
+          const latest=await current(input.sessionId),live=followPlacement(latest);
           if(live.sourceToken!==b.sourceToken || live.stateRevision!==b.stateRevision || live.inspectionRevision!==b.inspectionRevision)
             throw Error('The inspection changed while preparing its source. Read the current state and try again.');
-          if(!latest.attachment.commands.readyPanel(input.panelId,live)
+          const refusal=latest.attachment.commands.sourceLoadRefusal(input.panelId,live);
+          if(refusal
             && !(recoveringSource && latest.attachment===data.attachment && prior.sourceContinuation===recoveryContinuation
               && recoveryContinuation?.utteranceId===carriedUtteranceId && failedSourceOwnerReady(latest,input.panelId)))
-            throw Error(PANEL_BUSY_MESSAGE);
+            throw Error(refusal);
         }});
         experienceSessions.delete(input.sessionId);
+        const attachmentStarted=Date.now();
         const refreshed=await current(input.sessionId);
+        loadTimings.attachmentMs=Date.now()-attachmentStarted;
         if(refreshed.cache!==committedCache) throw Error('A newer source superseded this transition before its panel could be retargeted.');
         // Ready panels and sharing belong to the live session, not coordinates.
         refreshed.attachment.shared=prior.shared; refreshed.attachment.commands=prior.commands;
@@ -5202,6 +5698,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         refreshed.attachment.commands.setRenderBudget(renderBudgetMsFor(refreshed));
         const sourceRenderWait=refreshed.attachment.sourceRenderWait??=new SourceRenderWait();
         sourceRenderWait.commandId=sourceOperation.commandId;
+        refreshed.attachment.commands.holdSourceLoad(input.panelId);
         setTransitionTarget(refreshed.attachment,input.panelId);
         if(lanOwner && lanOwner.sessionId===input.sessionId) lanOwner.sourceToken=refreshed.attachment.sourceToken;
         // Retargeting is complete before the optional wait; never extend the
@@ -5217,10 +5714,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         // budget is stated back either way so a caller that timed out knows
         // how long the host thinks this load is worth.
         const budgetMs=renderBudgetMsFor(refreshed);
-        const askedMs=input.waitForRenderMs??0;
+        const askedMs=input.waitForRenderMs??(input.demo?HOST_TOOL_WAIT_CEILING_MS:0);
         const waitedForMs=Math.max(0,Math.min(askedMs,budgetMs,HOST_TOOL_WAIT_CEILING_MS,
           OPEN_COMPANION_CALL_CEILING_MS-(Date.now()-callStarted)));
         const preparationElapsedMs=Date.now()-callStarted;
+        loadTimings.preparationMs=preparationElapsedMs;
         const preparationUsedWaitBudget=askedMs>0 && waitedForMs===0;
         const receipt=await sourceRenderWait.wait(waitedForMs);
         const elapsedMs=Date.now()-callStarted;
@@ -5233,7 +5731,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         const reason=!sameSource?'The source changed again before rendering could be confirmed.'
           :receipt?.status==='failed'?receipt.failureReason
           :receipt&&!ready?'The panel rendered and saved, but is no longer current and ready. Read the current inspection state before continuing.'
-            :preparationUsedWaitBudget?`Host preparation used the call wait budget (${preparationElapsedMs} ms; ${elapsedMs} ms elapsed). Rendering continues. Poll get_inspection_state with commandId "${sourceOperation.commandId}" for the source render receipt. ${budgetLine}`
+            :preparationUsedWaitBudget?`${input.demo?'Still drawing the demo. ':''}Host preparation used the call wait budget (${preparationElapsedMs} ms; ${elapsedMs} ms elapsed). Rendering continues. Poll get_inspection_state with commandId "${sourceOperation.commandId}" for the source render receipt. ${budgetLine}`
+            :input.demo?`Still drawing the demo. ${askedMs?`The render wait ended after ${waitedForMs} ms.`:'No render wait was requested.'} Poll get_inspection_state with commandId "${sourceOperation.commandId}". ${budgetLine}`
             :askedMs?`Timed out after ${waitedForMs} ms waiting for the selected panel to render, save and reattach. No current ready rendered receipt was observed. ${budgetLine}`
               :unwaitedLine;
         /**
@@ -5253,26 +5752,30 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           :ready&&receipt
           ? {...receipt,commandId:sourceOperation.commandId,elapsedMs,rendered:true,renderBudgetMs:budgetMs,askedMs,waitedForMs}
           : {rendered:false,commandId:sourceOperation.commandId,elapsedMs,preparationElapsedMs,renderBudgetMs:budgetMs,askedMs,waitedForMs,panelId:input.panelId,reason,
-            status:!sameSource?'superseded':receipt?'unconfirmed':preparationUsedWaitBudget?'rendering':askedMs?'timed_out':'unwaited'};
+            ...(input.demo?{poll:{tool:'get_inspection_state',arguments:{sessionId:input.sessionId,commandId:sourceOperation.commandId}}}:{}),
+            status:!sameSource?'superseded':receipt?'unconfirmed':input.demo||preparationUsedWaitBudget?'rendering':askedMs?'timed_out':'unwaited'};
         if(!sameSource) return result(input.sessionId,latest,{sourceTransition:{sourceChanged:false,superseded:true},
           sourceRenderReceipt:null,sourceRenderStatus:renderReceipt,
           renderWait:{timedOut:!receipt,reason,budgetMs,waitedForMs,askedMs}},reason);
         return result(input.sessionId,latest,{kind:'inspect',renderToken:opened.structuredContent.renderToken,hasStructure:true,
           appearanceReset:true,
+          sourceLoadTimings:loadTimings,
+          ...(demoTour?{customTourId:demoTour.id,demo:demo!.name,stage:demo!.stage,demoLoadTimings:loadTimings}:{}),
           sourceRenderReceipt:ready || receipt?.status==='failed'?receipt:null,sourceRenderStatus:renderReceipt,
           commandId:sourceOperation.commandId,
-          renderWait:{timedOut:Boolean(askedMs)&&!receipt&&!preparationUsedWaitBudget,reason:ready?null:reason,budgetMs,waitedForMs,askedMs},
+          renderWait:{timedOut:!input.demo&&Boolean(askedMs)&&!receipt&&!preparationUsedWaitBudget,
+            ...(input.demo?{pending:!receipt,waitExpired:askedMs>0&&!receipt}:{}),reason:ready?null:reason,budgetMs,waitedForMs,askedMs},
           sourceTransition:{sourceChanged:true,...(source.kind==='pdb'?{pdbId:source.id.toUpperCase()}:{kind:source.kind})}},
           ready?`The selected panel rendered and saved the new source. ${reset}${receipt?.status==='rendered' && receipt.geometryBudget?` ${receipt.geometryBudget.message}`:''}`
             :receipt?.status==='failed'?`The selected panel could not load the new source: ${reason}`
-            :askedMs?`${reason} ${reset}`
+            :input.demo||askedMs?`${reason} ${reset}`
               :`Stereofold session opened. The panel still needs to load and render the structure. Check get_inspection_state for hasScene and a current ready panel before reporting it as visible. ${reset}`);
       } finally { releaseRetarget(); }
     } finally { sourceOperation.release(); }
   });
   privateTool('stereo_structure.grow_structure',{
     title:'Grow or shrink the staged lesson without leaving the headset',
-    description:'Step one tier up or down a staged demo in the session the wearer is already in, which is what to use for "grow it", "add tubulin", "build the wall", "cap it" and "shrink it". The loaded lesson names the tier, so pass stage="next" to grow, "back" to shrink, or the exact tier id (the microtubule-growth demo has monomer, dimer, protofilament, wall, tube and tip). The coordinates and the authored lesson are both replaced together and the same immersive session, placement and scale are kept, so the structure appears to form where it already is rather than reopening. Every tier is deposited coordinates the demo index records with its digest; nothing is generated. device is the paired headset class and decides what is allowed: a quest2 headset is refused anything over '+QUEST2_ATOM_SITE_CEILING.toLocaleString()+' atom sites, and the refusal comes back with a short spoken line to read out rather than an attempt that would drop the session with the headset on. First read get_inspection_state and copy sessionId, serverEpoch, sourceToken, stateRevision as baseStateRevision, inspectionRevision as baseInspectionRevision, and a current ready panelId. An accepted request is still pending rendering. Read get_inspection_state again for the new lesson and parts, and wait until sourceRenderReceipt has status="rendered", rendered=true, the current sourceToken and ready replacement panelId, and renderedRevision no greater than the current inspectionRevision. The receipt appears only after that renderer saves and attaches the new source.',
+    description:'Step one tier up or down a staged demo in the session the wearer is already in, which is what to use for "grow it", "add tubulin", "build the wall", "cap it" and "shrink it". The loaded lesson names the tier, so pass stage="next" to grow, "back" to shrink, or the exact tier id (the microtubule-growth demo has monomer, dimer, protofilament, wall, tube and tip). The coordinates and the authored lesson are both replaced together and the same immersive session, placement and scale are kept, so the structure appears to form where it already is rather than reopening. Every tier uses indexed coordinates with a recorded digest, including deposited structures and bundled published models; growing runs no prediction. device is the paired headset class and decides what is allowed: a quest2 headset is refused anything over '+QUEST2_ATOM_SITE_CEILING.toLocaleString()+' atom sites, and the refusal comes back with a short spoken line to read out rather than an attempt that would drop the session with the headset on. First read get_inspection_state and copy sessionId, serverEpoch, sourceToken, stateRevision as baseStateRevision, inspectionRevision as baseInspectionRevision, and a current ready panelId. An accepted request is still pending rendering. Read get_inspection_state again for the new lesson and parts, and wait until sourceRenderReceipt has status="rendered", rendered=true, the current sourceToken and ready replacement panelId, and renderedRevision no greater than the current inspectionRevision. The receipt appears only after that renderer saves and attaches the new source.',
     inputSchema:growStructureSchema,annotations:{...mutation,destructiveHint:true},_meta:{},
   },async input=>{
     const data=await current(input.sessionId), b=binding(input.sessionId,data);
@@ -5284,7 +5787,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // tier this session would have grown waits on the panel below.
     const index=await readGrowthIndex();
     const here=growthStageOfLesson(index,data.attachment.customTour?.id);
-    if(!here) throw Error('This session is not playing a staged lesson, so there is no tier to grow from. Open one with inspect_lesson, for example plugin/demos/microtubule-growth/monomer.json.');
+    if(!here) throw Error('This session is not playing a staged lesson, so there is no tier to grow from. Load one with replace_inspection_source({sessionId,demo:"microtubule-growth",stage:"monomer"}).');
     const tier=DEMO_TIER_BY_DEVICE[input.device??'unknown']??'quest2';
     const resolution=resolveGrowthTarget(growthStages(index),here,input.stage,tier);
     if(resolution.refused) {
@@ -5335,7 +5838,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // The map is the one half a session will not fetch. Its download is a
     // 164 MB gzipped deposit that has to be mean-downsampled before anything
     // can draw it, so the launcher prepares it and this says which command.
-    const density=volume?await readLessonDensity(lessonManifest,demoCoordinatePath(target.stage.coordinates.file)).catch((error:unknown)=>{
+    const density=volume?await (async()=>{
+      const cached=await readAddressedDemoFile(demoCoordinatePath,target.stage.coordinates.file,target.stage.coordinates.sha256);
+      if(!cached) throw Error('No density map with the expected digest is cached.');
+      return readLessonDensity(lessonManifest,cached.path);
+    })().catch((error:unknown)=>{
       const detail=error instanceof Error?error.message:'';
       throw Error(`The ${target.stage.id} density map is not usable from the demo cache (${target.stage.coordinates.file}). ${detail} Run ${growthRecoveryCommand(target.demo,target.stage.id)} on this Mac, then grow.`);
     }):undefined;
@@ -5348,12 +5855,32 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     if(lessonManifest.provenance.sourceSha256 && lessonManifest.provenance.sourceSha256!==provenanceSha256)
       throw Error(`The ${target.stage.id} lesson provenance does not match those exact ${density?'density':'coordinate'} bytes.`);
     const lesson=molecularLessonToTour(lessonManifest);
-    const prior=data.attachment, priorAssembly=assemblyRequests.get(input.sessionId);
+    assertInspectionBudget({customTour:lesson},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
+    const operation=growthOperation(target,ensured.fetchedAt,presenceNow());
+    const prior=data.attachment;
+    let verifiedCatalog:any;
     const releaseRetarget=authorizeSourceRetarget(input.sessionId);
     try {
       const opened=await hooks.openVerifiedLocal({sessionId:input.sessionId,structureText,
-        ...(target.stage.pdbId?{pdbId:target.stage.pdbId}:{}),verify:async text=>{
+        ...(target.stage.pdbId?{pdbId:target.stage.pdbId}:{}),committed:()=>{
+          // Publish the lesson and renderer handoff at the same instant as its
+          // coordinates. A polling page must never hydrate a bare growth tier
+          // or detach its owner using the retired source binding.
+          const session=hooks.current(input.sessionId), cache=session.structureCache!;
+          if(target.stage.coordinates.assemblyId)
+            assemblyRequests.set(input.sessionId,{assemblyId:target.stage.coordinates.assemblyId,cache});
+          else assemblyRequests.delete(input.sessionId);
+          experienceSessions.delete(input.sessionId);
+          verifiedCatalogs.set(cache,verifiedCatalog);
+          sourceHandoffs.set(cache,{commands:prior.commands,previous:b,panelId:input.panelId,
+            stateRevision:session.stateRevision,modelNumber:verifiedCatalog.modelNumbers[0],
+            assemblyId:verifiedCatalog.assemblyId,shared:prior.shared,customTour:lesson,lessonManifest,
+            sourceOperation:operation,
+            ...(density?{density:{...density,
+              ...(Number.isFinite(target.stage.coordinates.volume?.triangles)?{triangles:target.stage.coordinates.volume!.triangles}:{})}}:{})});
+        },verify:async text=>{
           const catalog:any=await extractInspectionCatalogBytes(text,target.stage.coordinates.assemblyId?{assemblyId:target.stage.coordinates.assemblyId}:undefined);
+          verifiedCatalog=catalog;
           const atomSites=catalog.rows.reduce((total:number,row:any)=>total+row.atomSites.length,0);
           // A density tier is measured in triangles, and `stageSize` is the one
           // place that decides which unit a tier is counted in. Checking a
@@ -5368,31 +5895,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           if(tier==='quest2' && size.count>size.ceiling) throw Error('That tier is past what this headset holds.');
           if(tier==='quest2' && atomSites>QUEST2_ATOM_SITE_CEILING) throw Error('That tier is past what this headset holds.');
         }});
-      // The new source mints a fresh attachment, so the requested assembly has
-      // to be installed before the catalog is rebuilt, exactly as inspect_lesson
-      // does on a first open.
-      if(target.stage.coordinates.assemblyId) assemblyRequests.set(input.sessionId,{assemblyId:target.stage.coordinates.assemblyId});
-      else assemblyRequests.delete(input.sessionId);
-      let refreshed:Awaited<ReturnType<typeof current>>;
-      try { refreshed=await current(input.sessionId); }
-      catch(error) { if(priorAssembly) assemblyRequests.set(input.sessionId,priorAssembly); else assemblyRequests.delete(input.sessionId); throw error; }
+      const refreshed=await current(input.sessionId);
       if(target.stage.coordinates.assemblyId && refreshed.attachment.catalog.assemblyId!==target.stage.coordinates.assemblyId)
         throw Error('The inspector did not build the assembly this tier declares.');
-      assertInspectionBudget({customTour:lesson},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
-      // Ready panels and sharing belong to the live session, not to coordinates.
-      // The lesson is the half a plain source replacement drops, and carrying it
-      // is the whole point: the tier keeps its captions, narration and colour key.
-      refreshed.attachment.shared=prior.shared; refreshed.attachment.commands=prior.commands;
-      refreshed.attachment.customTour=lesson;
-      refreshed.attachment.sourceOperation=growthOperation(target,ensured.fetchedAt,presenceNow());
-      // The map is attached to the new source cache before any panel can
-      // hydrate against it, so the first hydration after the swap is the one
-      // that carries it. A tier without a map leaves the field unset, which is
-      // how shrinking back out of a density tier drops it.
-      if(density) refreshed.attachment.density={...density,
-        ...(Number.isFinite(target.stage.coordinates.volume?.triangles)?{triangles:target.stage.coordinates.volume!.triangles}:{})};
-      experienceSessions.delete(input.sessionId);
-      refreshed.attachment.sourceRenderWait=new SourceRenderWait();
+      // The continuation owns its render wait from the first hydration. Do
+      // not replace it if a fast renderer already saved and attached.
+      refreshed.attachment.sourceRenderWait??=new SourceRenderWait();
       setTransitionTarget(refreshed.attachment,input.panelId);
       if(lanOwner && lanOwner.sessionId===input.sessionId) lanOwner.sourceToken=refreshed.attachment.sourceToken;
       const grew=target.index>here.index, spoken=growthConfirmation(target,grew);
@@ -5671,6 +6179,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       experienceCatalog:await journeyCatalogFor(data),
       ...(sceneImport?{sceneImport:{sceneJson:sceneImport.bundle.sceneJson,declaration:sceneImport.bundle.declaration,provenanceStatus:sceneImport.bundle.provenanceStatus,...(sceneImport.resolvedScene?{resolvedScene:sceneImport.resolvedScene}:{})}}:{}),
       ...(data.attachment.customTour?{customTour:data.attachment.customTour}:{}),
+      // Desktop draws the reference atoms, while the companion fetches the map.
+      // Both need to know which source the lesson's chapters describe.
+      ...(data.attachment.density?{density:{sha256:data.attachment.density.sha256,
+        bytes:data.attachment.density.bytes.byteLength,contour:data.attachment.density.contour}}:{}),
+      ...(!data.attachment.scene && data.attachment.lessonStart?{lessonStart:data.attachment.lessonStart}:{}),
     }}};
   });
   /**
@@ -5754,6 +6267,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       || undo.expectedStateRevision!==tourBinding.stateRevision || undo.expectedInspectionRevision!==tourBinding.inspectionRevision
       || (input.tourCommand ? undo.panelId!==input.tourCommand.panelId : a.commands.hasPending(tourBinding))))
       throw Error('This save does not belong to the current journey transition.');
+    // A reference preview can finish after the companion has already saved its
+    // map. This acknowledges only the current binding, never a saved atom scene.
+    // Hydration may attach that preview; an explicit edit remains unsaved.
+    if(input.serverEpoch===hooks.serverEpoch && input.sourceToken===a.sourceToken && input.baseStateRevision===data.stateRevision
+      && input.baseInspectionRevision<=a.revision && a.density && a.scene?.sourceSha256===a.density.sha256
+      && input.scene.sourceSha256===a.catalog.source.sha256) {
+      validateScene(input.scene,a.catalog,a.density);
+      return result(input.sessionId,data,{saved:false,referenceOnly:true,
+        reason:'The desktop reference coordinates cannot replace the shared density map. Edit the map on the companion, or switch to an atomic source.'});
+    }
     if(input.serverEpoch===hooks.serverEpoch && input.sourceToken===a.sourceToken && input.baseStateRevision===data.stateRevision
       && input.baseInspectionRevision<=a.revision && JSON.stringify(input.scene)===JSON.stringify(a.scene)) {
       if(a.experienceCompletion?.status==='pending') a.experienceCompletion.savedRevision=a.revision;
@@ -5763,8 +6286,14 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       return result(input.sessionId,data,{conflict:true});
     // Shared sessions reserve this revision while one renderer owns a command.
     // A competing manual edit remains visible and retries after that receipt.
-    if(a.shared && !input.tourCommand && a.commands.hasPending(binding(input.sessionId,data))) return result(input.sessionId,data,{busy:true});
+    // The wearer's placement save is not competing work: it commits under
+    // commands still queued for this panel, which follow it.
+    const placementSave=Boolean(a.scene) && sameEntryScene(a.scene,input.scene);
+    if(a.shared && !input.tourCommand && a.commands.hasPending(binding(input.sessionId,data))
+      && !a.commands.canSettleLocalSave(input.panelId,tourBinding,placementSave)) return result(input.sessionId,data,{busy:true});
     const scene=validateScene(input.scene,a.catalog,a.density);
+    if(a.density && a.scene?.sourceSha256===a.density.sha256 && scene.sourceSha256!==a.density.sha256)
+      throw Error('The desktop reference coordinates cannot replace the shared density map. Edit the map on the companion, or switch to an atomic source.');
     validateComparisonScene(a,scene); savedLessonPlayback(scene,toursFor(a));
     assertInspectionBudget({scene,comparisonSources:comparisonPayloads(a,scene)},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
     if(JSON.stringify(scene)!==JSON.stringify(a.scene)) {
@@ -5777,8 +6306,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       // A save carries no panel id, so the surface is not knowable here; the
       // origin is, and `manual` is what tells an assistant's change apart from
       // the wearer's own.
-      if(a.scene) a.history.record({origin:'manual',surface:'unknown',label:'manual',before:a.scene,after:scene});
+      if(a.scene && a.scene.sourceSha256!==scene.sourceSha256) a.history.clear();
+      else if(a.scene) a.history.record({origin:'manual',surface:'unknown',label:'manual',before:a.scene,after:scene});
+      const previous=a.scene;
       a.scene=scene; a.revision++;
+      a.commands.settleLocalSave(input.panelId,tourBinding,binding(input.sessionId,data),scene,previous);
       if(a.sceneImport?.resolvedScene && sceneImportMatchesSavedScene(scene,a.sceneImport.resolvedScene)) a.sceneImport=undefined;
     }
     if(input.tourCommand) {

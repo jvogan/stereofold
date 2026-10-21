@@ -496,7 +496,7 @@ describe('referents on every scene edit', () => {
     ['highlight',{kind:'appearance',patch:{highlightColor:'#0000ff'}}],
     ['placement',{kind:'placement',patch:{scale:2}}],
     ['compound',{kind:'compound',patch:{ops:[{kind:'appearance',patch:{labels:true}},{kind:'selection',patch:{selectionKeys:['LIVE']}}]}}],
-  ])('binds a delayed %s to the captured target without broadening it',async(_name,change)=>{
+  ])('binds a delayed %s to the captured target without broadening it, and a placement to the whole scene',async(_name,change)=>{
     const t=await setup();try {
       const {referent}=await capturedThenMoved(t);
       const resolved=JSON.parse(JSON.stringify(change),(_key,value)=>value==='LIVE'?t.rows[1].key:value);
@@ -507,9 +507,13 @@ describe('referents on every scene edit', () => {
         const delivered=await t.claim();
         expect(delivered.change.kind).toBe('styles');
         expect(delivered.change.patch.styles).toEqual([{selectionKeys:referent.selectionKeys,...resolved.patch}]);
+      } else if(_name==='placement') {
+        // "Make it bigger" means the whole molecule, whatever was pointed at when it was said.
+        expect(r.isError,JSON.stringify(r.content)).not.toBe(true);
+        expect(r.structuredContent.command.appliedTo).toEqual({scene:true,capturedAt:referent.capturedAt});
       } else {
         expect(r.isError).toBe(true);
-        expect(r.content[0].text).toMatch(_name==='placement'?/Placement moves the whole molecule/:/captured/);
+        expect(r.content[0].text).toMatch(/captured/);
         expect(await t.claim()).toBeUndefined();
       }
     }finally{await t.close();}

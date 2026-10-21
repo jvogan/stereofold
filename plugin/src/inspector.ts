@@ -1,3 +1,10 @@
+import { lessonEntryCameraScene } from './lesson-entry-camera.js';
+import { lessonSourceInitialization } from './lesson-source-initialization.js';
+import { molecularLessonToTour } from './molecular-lesson-tour.js';
+import { lessonRestingState } from './tour-player.js';
+// @ts-ignore Shared JavaScript menu status store.
+import { assistantStatus } from '../../lab/browser-roundtrip/assistant-status.mjs';
+import { waitForPanelRender, panelEntering, sameEntryScene, withWearerEdits } from './inspection-render-settle.js';
 import { createSceneHistoryClient } from './scene-history-client.js';
 import { sceneImportPreflightView } from './scene-import-preflight-view.js';
 // @ts-ignore Shared XR liveness module.
@@ -8,6 +15,8 @@ import { sourceGeometryBudget, geometryBudgetChanged } from '../../lab/browser-r
 import { geometryBudgetConfirmation } from '../../lab/browser-roundtrip/representation-budget.mjs';
 // @ts-ignore Shared diagnostics module.
 import { recordLoopStage } from '../../lab/browser-roundtrip/loop-timing.mjs';
+// @ts-ignore On-demand, scalar-only renderer diagnostics.
+import { captureRendererStats } from '../../lab/browser-roundtrip/renderer-stats.mjs';
 import './inspector.css';
 import './inspector-card-chrome.css';
 import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
@@ -23,7 +32,7 @@ import { canRefreshInspectionAttach, isStaleInspectionAttach, MAX_ATTACH_REFRESH
 import { VIEWER_BUILD_PLACEHOLDER } from './viewer-build.js';
 import { reloadOutdatedCompanion, rejectsPageBuild } from './inspector-build-reload.js';
 import { companionConnectionFrame, recoverCompanionConnection, companionPageKey, createCompanionClient } from './inspection-companion-client.js';
-import { grownTierIntent, mountTourPlayer, placeLessonScene, savedLessonPlayback, type TourPlayer, type TourStep } from './tour-player.js';
+import { grownTierIntent, mountTourPlayer, placeLessonScene, savedLessonPlayback, stopUnanimatedLessonPlayback, type TourPlayer, type TourStep, type StageContinuationIntent } from './tour-player.js';
 import { TOURS } from './tour-catalog.js';
 import { mountExperiencePlayer, type ExperiencePlayer, type ExperienceView } from './experience-player.js';
 import { inspectionRefusalCaption, shouldCaptionInspectionRefusal } from './inspection-refusal-caption.js';
@@ -38,7 +47,8 @@ import {
 } from './renderer-tab.js';
 import { companionStartupMessage, SHARE_ENDED_STARTUP_FAILURE } from './companion-startup.js';
 import { decodeInspectionCatalog, verifyInspectionCatalogSource } from './inspection-catalog-codec.js';
-import { hydrateComparisonSource, hydrateInspectionBytes } from './inspection-chunk-client.js';
+import { hydrateComparisonSource, createInspectionBytesHydrator } from './inspection-chunk-client.js';
+const hydrateInspectionBytes = createInspectionBytesHydrator();
 import { createReadinessStrip, type ReadinessStripHandlers } from './inspection-readiness-strip.js';
 // A swap the wearer is standing inside says which phase it is in
 // and never waits forever in any of them.
@@ -70,9 +80,6 @@ import { showHeadsetCaption } from '../../lab/browser-roundtrip/xr-manipulate.mj
 import { setPushToTalkSender, setVoiceCommandSender } from '../../lab/browser-roundtrip/push-to-talk-grip.mjs';
 // @ts-ignore Shared JavaScript voice narration slot.
 import { setVoiceCommandSpeaker, voiceCommandSpeaker } from '../../lab/browser-roundtrip/voice-command-speaker.mjs';
-// @ts-ignore Shared JavaScript agent-presence slot. The
-// heartbeat is the only place the page learns anyone is on the Mac.
-import { noteAgentPresence } from '../../lab/browser-roundtrip/agent-presence.mjs';
 // @ts-ignore Shared JavaScript density wording. The one line
 // a wearer gets when the map will not draw, spoken and plated in the same words.
 import { MAP_DRAW_FAILED_SPOKEN } from '../../lab/browser-roundtrip/volume-source.mjs';
@@ -113,8 +120,13 @@ let comparisonPrimaryName='the primary structure';
  * fetched afresh, and a load that fails is dropped so the next call retries.
  */
 let heldComparisons=new Map<string,{identity:string;loaded:Promise<any>}>();
+let comparisonRegistration=0;
 async function registerComparisonSources(sources:any[]|undefined, sessionId:string) {
-  if(!sources?.length) return;
+  // Omitted transport is no update. Explicit emptiness supersedes a pending
+  // publication without discarding assets retained for local/shared history.
+  if(sources===undefined)return;
+  const ownRegistration=++comparisonRegistration;
+  if(!sources.length) return;
   const next=new Map<string,{identity:string;loaded:Promise<any>}>();
   for(const source of sources) {
     const key=`${source?.sha256}:${source?.assemblyId}`;
@@ -134,11 +146,14 @@ async function registerComparisonSources(sources:any[]|undefined, sessionId:stri
   }
   heldComparisons=next;
   const decoded=await Promise.all(sources.map(source=>next.get(`${source?.sha256}:${source?.assemblyId}`)!.loaded));
+  // Hydration and a heartbeat may overlap. Only the newest asset payload may
+  // publish: the viewer prunes unused sources when registering this set.
+  if(comparisonRegistration!==ownRegistration)return;
   workspace?.registerComparisonSources?.(decoded);
 }
 const PRIVATE_KEY = 'stereo_structure/inspection';
 document.body.dataset.inspectorBuild = VIEWER_BUILD_PLACEHOLDER;
-const app = new App({name:'Stereofold Inspector',version:'0.1.21'},{},{autoResize:false});
+const app = new App({name:'Stereofold Inspector',version:'0.1.22'},{},{autoResize:false});
 const isCompanion=(window as any).__STEREOFOLD_COMPANION__===true;
 if(isCompanion) {
   installHeadsetDiagnostics().begin();
@@ -179,6 +194,7 @@ const detailedView=createDetailedViewAvailability({probe:async()=>{
 const syncTheme = followHostTheme(app);
 let sourceGeometryBudgetSupported=false;
 let rendererContextSupported=false;
+let renderedSourceIdentitySupported=false;
 let sourceAdvisory:{sourceToken:string;receipt:any}|undefined;
 function announceSourceGeometryBudget(receipt:any,sourceToken:string) {
   if(!receipt) {sourceAdvisory=undefined;return;}
@@ -188,10 +204,24 @@ function announceSourceGeometryBudget(receipt:any,sourceToken:string) {
   try {globalThis.dispatchEvent(new CustomEvent(GROWTH_CAPTION_EVENT,{detail:{spoken:receipt.message}}));} catch { /* Receipt stays readable. */ }
 }
 let workspace:any, binding:any, loading=false, dirty=false, blocked=false, closed=false;
+if(isCompanion) {
+  // Read-only CDP support: enough to diagnose a stalled clock, without
+  // exposing the workspace, scene payload or companion transport credentials.
+  const diagnostics=(globalThis as any).__stereofoldDiagnostics;
+  if(diagnostics) diagnostics.snapshot=()=>{
+    const live=workspace?.snapshot();
+    return {documentVisibility:document.visibilityState,documentHidden:document.hidden,nowMs:performance.now(),
+      status:live?.status??'unavailable',ready:live?.ready===true,contextLost:live?.contextLost===true,
+      presenting:live?.xrPresenting===true,drawCount:live?.drawCount??0,lastDrawTimestampMs:live?.lastDrawTimestampMs??null,
+      animation:live?.animation??null,animationActivity:live?.animationActivity??null};
+  };
+  if(diagnostics) diagnostics.renderStats=()=>captureRendererStats(workspace?.viewer?.plugin);
+}
 let activePreviewRecording:AbortController|undefined;
 let completedHydration=false;
 let connectedWorkbench:{open:()=>void}|undefined;
 let tourPlayer:TourPlayer|undefined;
+let installedLesson:import('./tour-player.js').Tour|undefined;
 let panelTour:ReturnType<typeof createPanelTourController>|undefined;
 let tourCommandContext:any, tourCommandReceipt:any;
 let experienceSourceChanged=false;
@@ -227,9 +257,15 @@ let pollTimer:ReturnType<typeof setTimeout>|undefined;
  * expired at fifteen seconds without the page ever having been offered it.
  */
 let pollInFlight=false, beatInFlight=false;
+let beatCompletion:Promise<void>|undefined;
+let desktopReceiptInFlight=false;
+let desktopReceiptBeat:{sent:any;commandId:string}|undefined;
 // User input may begin and end while a source read is awaiting bytes. Keep
 // that edge even when hydration temporarily suppresses the save timer.
 let localInteractionSerial=0;
+// When the wearer last pressed a menu row or face button: an edit, unlike a
+// hand on the structure, which only places it. Read by a tour's draw in `receive`.
+let lastLocalEditAt=-Infinity;
 /** When this Mac tab went hidden, and which panel stepped aside for it. See `stepAsideWhileHidden`. */
 let hiddenSince:number|undefined, steppedAside:string|undefined;
 document.addEventListener('visibilitychange',()=>{hiddenSince=document.visibilityState==='hidden'?Date.now():undefined;});
@@ -374,6 +410,7 @@ async function sendVoiceRequest(audio:any, context:any) {
   const result=await call('voice_command',{...context.binding,audio});
   recordLoopStage('transcript-received',context);
   const data=result.structuredContent as any;
+  if(data?.heard)assistantStatus.update({heard:data.heard});
   if (closed || context.generation!==generation || context.binding.sourceToken!==binding?.sourceToken)
     throw Error('The structure changed during transcription. No command was applied.');
   if (data?.intentId) {
@@ -508,6 +545,7 @@ function showOutcome(data:any) {
     clearWaitingHud('superseded');
     return;
   }
+  assistantStatus.renderedCommand(data);
   const status=data.status==='saved'?(Number(binding?.inspectionRevision)===data.savedRevision?'rendered':'queued'):data.status;
   const revision=data.renderedRevision??data.savedRevision;
   const what=Array.isArray(data.fields)?data.fields.map((s:string)=>s==='selectionKeys'?'selection':s.replace(/([A-Z])/g,' $1').toLowerCase()).join(', '):'scene';
@@ -636,7 +674,7 @@ let problemRetryKind:ProblemRetryKind='save';
 function showProblem(text:string, retryKind:ProblemRetryKind='save', error?:unknown) {
   problemRetryKind=retryKind;
   connectionNotice=false;retry.hidden=false;pairAgain.hidden=true;
-  blocked=true; notice.hidden=false;
+  blocked=!(failedSourceLoad && retryHydrationId===failedSourceLoad.sessionId && workspace?.snapshot().ready); notice.hidden=false;
   message.textContent=retryHydrationId?(workspace?.snapshot().ready
     ?'Structure load failed. View preserved. Choose Retry loading.':'Structure load failed. Choose Retry loading.'):text;
   retry.textContent=retryHydrationId?'Retry loading':'Retry';
@@ -815,7 +853,7 @@ function callStatus(error:unknown) {
   return typeof status==='number' && Number.isFinite(status) ? status : null;
 }
 function scheduleSave() {
-  if(loading || remote || closed || reloading || !binding || !workspace?.snapshot().ready) return;
+  if(loading || remote || closed || reloading || failedSourceLoad || !binding || !workspace?.snapshot().ready) return;
   dirty=true; edits++;
   workspace?.syncSceneHistory?.();
   if(timer) clearTimeout(timer);
@@ -894,16 +932,95 @@ function recoverSave(kind:'busy'|'conflict'|'error', problem:string) {
   }
   showProblem(problemMessage('save',problem),'save',problem);
 }
-function save(journeySave?:JourneySaveClaim, automatic=false) {
+/**
+ * Draw the host's saved scene again when this page cannot put its own back.
+ *
+ * A headset has no reachable Retry button. A lesson left half drawn would be
+ * saved by the next beat as the wearer's work, and a viewer left in `error`
+ * expires every later command. `reloading` holds every save until the
+ * hydration owns the renderer. A viewer in `error` cannot restore over itself,
+ * so its source is drawn again.
+ */
+function reloadSavedScene(reason:string) {
+  const id=binding?.sessionId;
+  if(!id || closed || reloading) return false;
+  reloading=true; dirty=false;
+  const redraw=workspace?.snapshot().status==='error';
+  recordHeadsetEvent('viewer-recovery',{phase:'reload',reason,redraw});
+  rendering=rendering.then(async()=>{
+    await hydrate(id,undefined,undefined,{restoreExactScene:true,redraw});
+    recordHeadsetEvent('viewer-recovery',{phase:'reloaded',reason});
+  }).catch(error=>{
+    recordHeadsetEvent('viewer-recovery',{phase:'reload-failed',reason,message:thrownErrorMessage(error).slice(0,200)});
+    if(!closed) showProblem(problemMessage('loading',error),'loading',error);
+  }).finally(()=>{reloading=false;});
+  return true;
+}
+/**
+ * A viewer that a failed change left in `error`.
+ *
+ * The viewer redraws its own checkpoint after a failed change. It stays in
+ * `error` only when that redraw fails too, rather than draw a lesson without
+ * its figure or motion. The companion then answered busy with a renderer error
+ * and every later command expired. With nothing local running, this asks the
+ * viewer to redraw, waiting longer after each attempt. When it cannot, or what
+ * it draws is not the saved scene, the host's saved scene is loaded instead.
+ * An error that persists is tried once per backoff step and then left alone;
+ * a viewer that recovers starts over, so the same error later is tried again.
+ * A recovered scene is never marked dirty, and a degraded one is never saved.
+ * A desktop keeps its Retry and Load buttons.
+ */
+let viewerErrorRecovery:{error:string;attempt:number;repeats:number;at:number}|undefined;
+const VIEWER_RECOVERY_BACKOFF_MS=[0,5_000,15_000,60_000];
+async function recoverViewerError() {
+  // No command, hydration, journey, recording or receipt may own the renderer.
+  const idle=()=>!closed && Boolean(binding) && !remote && !loading && !reloading && !experiencePreparing
+    && !activePreviewRecording && !pendingReceipt;
+  if(!isCompanion || workspace?.snapshot().status!=='error' || !idle() || !(await renderingSettled()) || !idle()) return;
+  const error=String(workspace.snapshot().error ?? 'The viewer failed.'), now=Date.now();
+  const previous=viewerErrorRecovery;
+  const repeats=previous?.error===error ? previous.repeats+1 : 1;
+  if(repeats>VIEWER_RECOVERY_BACKOFF_MS.length) return;
+  const attempt=(previous?.attempt??0)+1;
+  if(previous && now-previous.at<VIEWER_RECOVERY_BACKOFF_MS[Math.min(attempt,VIEWER_RECOVERY_BACKOFF_MS.length)-1]!) return;
+  viewerErrorRecovery={error,attempt,repeats,at:now};
+  const recover=workspace.viewer?.inspection?.recover;
+  const localWork=dirty;
+  recordHeadsetEvent('viewer-recovery',{phase:'recover',attempt,error:error.slice(0,200),available:typeof recover==='function'});
+  let drawn=false;
+  // `remote` holds the save paths and reports the panel busy while it draws.
+  remote=true;
+  try {
+    if(typeof recover==='function') {
+      await recover.call(workspace.viewer.inspection);
+      drawn=workspace.snapshot().status!=='error' && workspace.snapshot().ready===true;
+    }
+  } catch(failure) {
+    recordHeadsetEvent('viewer-recovery',{phase:'recover-failed',attempt,message:thrownErrorMessage(failure).slice(0,200)});
+  } finally { remote=false; }
+  let saved=false;
+  try { saved=drawn && JSON.stringify(workspace.capture())===JSON.stringify(savedScene); } catch { /* Reload below. */ }
+  // Local work the wearer had before the failure is still theirs to save.
+  if(saved || (drawn && localWork)) {
+    dirty=localWork; viewerErrorRecovery=undefined;
+    recordHeadsetEvent('viewer-recovery',{phase:'recovered',attempt,saved});
+    return;
+  }
+  if(reloadSavedScene('viewer-error'))
+    rendering=rendering.then(()=>{ if(workspace?.snapshot().status!=='error') viewerErrorRecovery=undefined; });
+}
+function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneration?:number, onReferenceOnly?:()=>void) {
   // A 250 ms poll must not clear the slower retry timer or recapture the scene.
   // Only background callers may skip. An awaited scene/receipt checkpoint,
   // journey rollback or explicit Retry must perform its real save or fail.
   if(automatic && saveRetryAdmission.delay(binding,generation)>0) return Promise.resolve();
   if(timer) clearTimeout(timer);
-  saving=saving.then(async()=>{
+  const commit=async()=>{
     if(!dirty || blocked || loading || remote || !binding || closed || !workspace.snapshot().ready) return;
     // A preceding queued save may have failed since this one was requested.
     if(automatic && saveRetryAdmission.delay(binding,generation)>0) return;
+    // A timer must not save between a chapter's operations; the beat retries.
+    if(automatic && tourPlayer?.getState().navigating) return;
     const ownGeneration=generation, edit=edits, expected={...binding};
     /**
      * THE CAPTURE BELONGS INSIDE THIS TRY.
@@ -922,7 +1039,7 @@ function save(journeySave?:JourneySaveClaim, automatic=false) {
     try {
       const scene=workspace.capture();
       const response=await call('sync_inspection',{sessionId:expected.sessionId,serverEpoch:expected.serverEpoch,
-        baseStateRevision:expected.stateRevision,baseInspectionRevision:expected.inspectionRevision,sourceToken:expected.sourceToken,scene,
+        baseStateRevision:expected.stateRevision,baseInspectionRevision:expected.inspectionRevision,sourceToken:expected.sourceToken,scene,panelId,
         ...(journeySave?{journeySave}:{})});
       if(generation!==ownGeneration || closed) return;
       const next=response.structuredContent as any;
@@ -931,6 +1048,14 @@ function save(journeySave?:JourneySaveClaim, automatic=false) {
         recoverSave('busy','The current command never finished. Your visible work is unsaved.');return;
       }
       if(next?.conflict) { recoverSave('conflict','This session changed in another panel. Your visible work is unsaved. Load the saved view to continue.'); return; }
+      if(next?.referenceOnly && hydrationGeneration!==undefined && onReferenceOnly) {
+        binding={...binding,...next};savedScene=scene;
+        dirty=edits!==edit || (workspace.snapshot().ready && JSON.stringify(workspace.capture())!==JSON.stringify(scene));
+        saveAttempts=0;saveRetryAdmission.reset(binding,generation);onReferenceOnly();
+        workspace.setStatus('Reference coordinates only; the density lesson is on the companion.');
+        return;
+      }
+      if(next?.referenceOnly) throw Error(next.reason);
       if(!next?.saved) throw Error('The server did not confirm the save.');
       saveAttempts=0;
       saveRetryAdmission.reset(binding,generation);
@@ -938,7 +1063,24 @@ function save(journeySave?:JourneySaveClaim, automatic=false) {
       dirty=edits!==edit || (workspace.snapshot().ready && JSON.stringify(workspace.capture())!==JSON.stringify(scene));
       if(!dirty) workspace.setStatus('Current view saved to this session');
     } catch(error) { recordHeadsetEvent('page-error',{operation:'save',message:thrownErrorMessage(error)});if(generation===ownGeneration) recoverSave('error','Could not save your work. Your visible work is unsaved.'); }
-  }).catch(error=>{if(experiencePreparing)throw error;showProblem(problemMessage('save',error),'save',error);});
+  };
+  saving=saving.then(async()=>hydrationGeneration===undefined ? commit() : await waitForPanelRender({
+    // Lesson notifications can start menu-clearance work after installation
+    // resolves. A source checkpoint must wait for that draw, not silently
+    // skip its save and try attaching a source the host has never saved.
+    ready:()=>workspace.snapshot().ready,
+    current:()=>!closed && generation===hydrationGeneration,
+    onReady:()=>{
+      // Mark and capture in the same ready turn, inside the save queue. The
+      // ordinary debounce intentionally ignores mutations during hydration.
+      dirty=true;edits++;
+      return commit();
+    },
+  })).catch(error=>{
+    if(hydrationGeneration!==undefined && (closed || generation!==hydrationGeneration))return;
+    if(experiencePreparing)throw error;
+    showProblem(problemMessage('save',error),'save',error);
+  });
   // A failed transaction must not poison the next rollback save's queue.
   const result=saving;
   saving=saving.catch(()=>{});
@@ -975,8 +1117,15 @@ function beginSourceSwapTrace(context:Record<string,unknown>={}):SwapTrace {
   return sourceSwapTrace;
 }
 async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,options:{restoreExactScene?:boolean;xrRecoveryFrame?:unknown;
+  autoplayContinuation?:()=>boolean;
+  continuationNarration?:boolean;
   attachRecoveryAttempt?:number;checkpointRestore?:(hydrationGeneration:number)=>void;
-  admitRestore?:(hydrationGeneration:number)=>void}={}) {
+  admitRestore?:(hydrationGeneration:number)=>void;
+  /** Draw the same source again: a viewer left in `error` cannot restore over itself. */
+  redraw?:boolean}={}) {
+  let releaseHostLoad:(()=>void)|undefined;
+  let releaseSourcePresentation:(()=>void)|undefined;
+  try {
   // Poll admission can precede a newer journey. Read its actual ownership
   // before stopping players, detaching, or drawing a chapter for another panel.
   // Keep the renderer busy during this read so local input and heartbeat saves
@@ -1024,7 +1173,7 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
   // every grow looked like the latter.
   const priorTour=tourPlayer?.getState();
   const priorLessonOnScreen=priorTour?.active===true;
-  const priorAutoplay=priorTour?.autoplay===true;
+  const priorAutoplay=options.autoplayContinuation ? options.autoplayContinuation() : priorTour?.autoplay===true;
   const reconnectingJourney=!experiencePreparing ? experiencePlayer?.getState() : undefined;
   // Distinguish a failed load from later chapter/view work in the same hydrate.
   let structureRendered=false;
@@ -1043,13 +1192,17 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
   let defaultToLesson:boolean|undefined;
   let experienceAcknowledgementNeeded=false;
   let passiveSavedRestore=false;
+  let densityReferenceOnly=false, densityReferencePreview=false;
   let supersededJourney=false;
   let completion:any, completionReceipt:{status:'rendered';message?:string}|undefined;
   let restoredPlacement:{placementRestored:boolean;fitted:boolean}|undefined;
   // Stop before the host read so the legacy player cannot repaint during a
   // restore. Hydration can reuse loaded geometry as well as replace a source.
   loading=true; pendingReceipt=undefined; pendingReceiptFields=undefined;
-  tourPlayer?.stop('Tour stopped while the inspection is restored.',{restoreResting:false});
+  if(priorLessonOnScreen || (response?._meta?.[PRIVATE_KEY] as any)?.customTour)
+    releaseSourcePresentation=panelTour?.beginSourceTransition();
+  tourPlayer?.stop('Tour stopped while the inspection is restored.',{restoreResting:false,
+    preserveContinuation:Boolean(options.autoplayContinuation)});
   experiencePlayer?.setRendering(true);
   // A hydration that is superseded returns without an outcome of
   // its own, so the next one starts owing the wearer nothing. Only a source
@@ -1077,6 +1230,7 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     if(!data || data.sessionId!==id || data.serverEpoch!==epoch || (!data.catalog && !data.catalogWire) || data.format!=='mmcif') throw Error('Inspection hydration did not match the opened session.');
     sourceGeometryBudgetSupported=data.sourceGeometryBudget===true;
     rendererContextSupported=data.rendererContext===true;
+    renderedSourceIdentitySupported=data.renderedSourceIdentity===true;
     // Read the host's source handoff before deciding whether this mounted
     // renderer is leaving. The selected replacement keeps its heartbeat and
     // ID through draw/save; the host validates that save before rebinding it.
@@ -1091,6 +1245,7 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
         panelId,previousSourceToken:binding.sourceToken};
       beginSourceLoadOutcome(String(data.sourceToken));
     }
+    if(sourceReplacement) releaseHostLoad=await workspace.viewer.prepareHostLoad?.();
     await registerComparisonSources(data?.comparisonSources,id);
     comparisonPrimaryName=data?.pdbId??'the primary structure';
     // Chunked hydration lands here: descriptors in, coordinates and compressed
@@ -1105,16 +1260,25 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     else if(experienceSourceChanged) {panelId=undefined;delete document.body.dataset.panelId;experienceSourceChanged=false;}
     else await detach('loading');
     const catalog=await trace.phase('parsed',(async()=>{
-      const decoded=await decodeInspectionCatalog(data.catalogWire ?? data.catalog);
+      const decoded=await decodeInspectionCatalog(data.catalogWire ?? data.catalog,{isCurrent:()=>!closed && generation===ownGeneration});
       await verifyInspectionCatalogSource(data.structureText,decoded);
       return decoded;
     })()) as Awaited<ReturnType<typeof decodeInspectionCatalog>>;
     if(data.customTour?.id)sourceSwapContext.lessonId=String(data.customTour.id);
     const sceneImport=data.sceneImport as any;
     let importedRenderingDifference=sceneImport?.preflight?.renderingDifference as string|undefined;
+    // A scene saved before chapters were drawn whole can play a moving chapter
+    // without its animation, which `savedLessonPlayback` refuses. It opens
+    // stopped on that chapter instead of not at all; Rejoin draws it again.
+    const lessonTours=data.customTour ? [data.customTour,...TOURS] : TOURS;
+    if(data.scene) data.scene=stopUnanimatedLessonPlayback(data.scene,lessonTours);
     // `let`, because the density branch below drops a scene that
     // belongs to the other renderer of this session. Read its comment.
     let restoredScene=data.scene ?? sceneImport?.resolvedScene;
+    if(isCompanion && initialOpen && !options.restoreExactScene && !sceneImport && data.customTour) {
+      restoredScene=lessonEntryCameraScene(restoredScene,data.customTour.steps[0]?.id);
+      if(data.scene) data.scene=restoredScene;
+    }
     const loadSettings=sceneImportLoadSettings(sceneImport?.sceneJson,catalog);
     if(!sceneImport && data.sourceSelection) Object.assign(loadSettings,data.sourceSelection);
     supersededJourney=data.journeyTransition?.status==='superseded';
@@ -1148,6 +1312,11 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     // The loaded source's identity is the map's digest when there is a map: the
     // coordinates' digest belongs to bytes this panel is not drawing.
     const loadedSha256=density?density.sha256:catalog.source.sha256;
+    densityReferencePreview=!isCompanion && Boolean(data.density && !density);
+    densityReferenceOnly=densityReferencePreview && data.scene?.sourceSha256===data.density.sha256;
+    // A map chapter cannot be drawn over the desktop's reference atoms. Keep
+    // the ordinary atomic tours available without offering the map's controls.
+    const panelCustomTour=densityReferencePreview ? undefined : data.customTour;
     /**
      * A saved scene belonging to the OTHER renderer of this
      * session is not this panel's to restore.
@@ -1159,8 +1328,8 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
      * `validInspectionCapture` compare digests, and the mismatch throws
      * `inspection_identity_mismatch` inside `loadSource`, which on the headset
      * is caught as a failed map draw and on the desktop fails the hydration
-     * outright. Dropping it here is the honest answer: this panel opens on its
-     * own fitted view and saves that, and nothing downstream sees a scene it
+     * outright. The reference panel opens on its own fitted preview without
+     * saving over an established map, and nothing downstream sees a scene it
      * cannot draw. The digest is the only field compared, because it is the one
      * that distinguishes the two sources; the model and assembly checks inside
      * the viewer are untouched.
@@ -1191,10 +1360,11 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     const assemblyMatch=data.scene?.assemblyId===loaded.assemblyId;
     const restoringLoaded=completion && data.scene && loaded.ready && subsetFalse
       && sessionMatch && epochMatch && sceneDigestMatch && modelMatch && assemblyMatch;
-    const same=loaded.sourceSha256===loadedSha256 && (binding?.sourceToken===data.sourceToken || restoringLoaded);
+    const same=!options.redraw && loaded.sourceSha256===loadedSha256 && (binding?.sourceToken===data.sourceToken || restoringLoaded);
     // Refuse stale lesson metadata before replacing any rendered coordinates.
-    savedLessonPlayback(data.scene, data.customTour ? [data.customTour,...TOURS] : TOURS);
-    swappedSource=!same;
+    savedLessonPlayback(data.scene, lessonTours);
+    // A redraw keeps the tier it had; only a new source opens a grown lesson.
+    swappedSource=!same && !options.redraw;
     // The grow trace's host read is named source-fetched even when the client
     // reused bytes and this page restores existing geometry. Record the branch.
     //
@@ -1245,8 +1415,10 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
           options.admitRestore?.(ownGeneration);
           await workspace.loadSource({id:'session',
             ...(density?{map:density.map,contour:density.contour}:{cif:data.structureText}),sha256:loadedSha256,catalog,pdbId:data.pdbId,
-            ...(visible?{visible}:{}),title:stage?`${stage.title} `:data.customTour?.title ? `${data.customTour.title} ` : `${heading.name ?? 'Molecular structure'} `,code:data.pdbId ?? heading.code ?? 'mmCIF',caption:stage?.title ?? data.customTour?.title ?? (data.pdbId ? `PUBLIC STRUCTURE / ${data.pdbId}` : 'SESSION STRUCTURE')},
-            {modelNumber:stage?.source.modelNumber ?? restoredScene?.modelNumber ?? loadSettings.modelNumber,assemblyId:stage?.assembly.assemblyId ?? restoredScene?.assemblyId ?? loadSettings.assemblyId,scene:restoredScene,preserveCamera:workspace.snapshot().xrPresenting===true,seatForEntry:sourceReplacement,restorePlacement:restoreExactScene,xrRecoveryFrame:options.xrRecoveryFrame});
+            ...(visible?{visible}:{}),title:stage?`${stage.title} `:panelCustomTour?.title ? `${panelCustomTour.title} ` : `${heading.name ?? 'Molecular structure'} `,code:data.pdbId ?? heading.code ?? 'mmCIF',caption:densityReferencePreview?'REFERENCE COORDINATES':stage?.title ?? panelCustomTour?.title ?? (data.pdbId ? `PUBLIC STRUCTURE / ${data.pdbId}` : 'SESSION STRUCTURE')},
+            {modelNumber:stage?.source.modelNumber ?? restoredScene?.modelNumber ?? loadSettings.modelNumber,assemblyId:stage?.assembly.assemblyId ?? restoredScene?.assemblyId ?? loadSettings.assemblyId,scene:restoredScene,
+              initialInspection:lessonSourceInitialization(panelCustomTour,{density:Boolean(data.density),chapterId:data.lessonStart?.chapterId}),
+              preserveCamera:workspace.snapshot().xrPresenting===true,seatForEntry:sourceReplacement,restorePlacement:restoreExactScene,xrRecoveryFrame:options.xrRecoveryFrame});
           structureRendered=true;
           // The size the HEADSET measured, on the record of the
           // swap. `sourceSwapContext` is read at write time, so setting it
@@ -1340,14 +1512,15 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     // by the time the baseline arrives here the molecule is already wearing the
     // key the capture named, and the page has to decide whether that key is the
     // lesson's to repaint. It decides from the origin the capture carries: the
-    // lesson's own key is adopted and its plates go back up, while a key the
-    // wearer asked for by name survives this call untouched. Do not move this
+    // saved chapter keeps its key; only a resting scene adopts the baseline.
+    // A key the wearer asked for by name also survives this call untouched. Do not move this
     // ahead of `built` to make that easier — the restore would then replay over
     // a freshly painted baseline, and the phase order is what the grow trace,
     // the swap record and `attached` are all read against.
     // A genuine newer edit can supersede an unacknowledged chapter. Its saved
     // scientific scene stays authoritative; a follower must not replay the
     // chapter's authored appearance over it or acknowledge that aborted visit.
+    if (!mapDrawFailure) workspace.viewer.inspection?.setSourceCoordinateFrame?.(panelCustomTour?.presentation?.coordinateFrame,loadedSha256);
     const placedStep=!mapDrawFailure && experience && (!data.scene || (!experience.applied && !supersededJourney))
       ? experience.definition.steps[experience.stepIndex] : undefined;
     // A follower restores a chapter that its owner already drew and
@@ -1355,12 +1528,13 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     // Re-acknowledging it would race the next companion edit and block this
     // otherwise healthy panel. Transition owners still prove their own save.
     experienceAcknowledgementNeeded=Boolean(experience && (!data.scene || (!experience.applied && !supersededJourney) || journeySave || tourCommandContext));
-    passiveSavedRestore=Boolean(hasSavedHostScene && data.scene && !journeySave && !tourCommandContext && !experiencePreparing
+    passiveSavedRestore=densityReferenceOnly || Boolean(hasSavedHostScene && data.scene && !journeySave && !tourCommandContext && !experiencePreparing
       && !sourceReplacement && completion?.status!=='pending' && (!experience || experience.applied || supersededJourney));
     if(mapDrawFailure) await trace.phase('placed');
     else await abortableSwapPhase(trace,'placed',signal=>placeLessonScene(workspace,{
-      ...(data.customTour?{tour:data.customTour}:{}),
+      ...(panelCustomTour?{tour:panelCustomTour}:{}),
       applyInitialVisibility: !data.scene,
+      preserveEmphasis: Boolean(data.scene?.inspection?.lessonPlayback),
       ...(placedStep?{placeExperienceStep:async()=>{
         // An authored chapter owns its look. Keep the host's scoped styles in
         // the journey's return view, but clear them from the chapter budget.
@@ -1383,14 +1557,50 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     // draw, the thing on screen is the tier the wearer already had, and the
     // map's chapters would talk about geometry nobody can see — so the loaded
     // lesson is left exactly as it was and no grown tier is opened below.
+    const lessonStartedAt=Date.now();
     if(!mapDrawFailure) {
       if(closed || generation!==ownGeneration) return;
-      await tourPlayer?.replaceTours(data.customTour ? [data.customTour,...TOURS] : TOURS);
+      // The restored scene already owns its molecular playback. With saved
+      // lesson playback, reconcile the catalog without selecting a lesson
+      // (selection pauses its clock); otherwise keep any running animation.
+      const hasSavedPlayback=Boolean(data.scene?.inspection?.lessonPlayback);
+      // A density lesson cannot run on the desktop's reference atoms. Save that
+      // panel first so sharing can open the companion, which loads the map and
+      // starts its chapter normally. Atomic lessons still start before saving.
+      const canStartLesson=!densityReferencePreview;
+      await tourPlayer?.replaceTours(panelCustomTour ? [panelCustomTour,...TOURS] : TOURS,{preservePlayback:hasSavedPlayback,preserveMolecularPlayback:Boolean(data.scene),
+        preserveContinuation:Boolean(options.autoplayContinuation)});
       if(closed || generation!==ownGeneration) return;
-      if(data.customTour) await tourPlayer?.select(data.customTour.id);
+      if(panelCustomTour && !hasSavedPlayback) {
+        await tourPlayer?.select(panelCustomTour.id,{preserveMolecularPlayback:Boolean(data.scene),preserveContinuation:Boolean(options.autoplayContinuation)});
+        // An explicit source entry keeps the installer's animation framing,
+        // but must also apply the authored placement, view and chapter motion.
+        // Only a plain open defers to a journey's own chapter.
+        if(canStartLesson && !data.scene && (data.lessonStart || !experience)) {
+          if(data.lessonStart) await tourPlayer?.installLesson(panelCustomTour,data.lessonStart,undefined,'entry');
+          else {
+            // A tier grown under a lesson on screen continues it, spoken and
+            // at its pace; every other open is a silent resting chapter. A map
+            // opening waits for its tracked entry seat so its chapter can frame.
+            const grown=swappedSource ? grownTierIntent({presenting:workspace.snapshot().xrPresenting===true,
+              hasChapters:true,lessonOnScreen:priorLessonOnScreen,
+              autoplay:options.autoplayContinuation ? options.autoplayContinuation() : priorAutoplay,initialOpen}) : undefined;
+            const continuing=grown?.open==='chapter';
+            await tourPlayer?.start(continuing && grown.autoplay,0,{
+              narration:options.autoplayContinuation ? options.continuationNarration!==false : continuing,waitForXrEntry:true,
+              preserveContinuation:Boolean(options.autoplayContinuation)});
+          }
+          if(closed || generation!==ownGeneration) return;
+          // Save/attach below acknowledges this complete chapter. Never start
+          // it again in openGrownTier after publishing the rendered receipt.
+          restoredLessonPlayback=true;
+        }
+      }
       if(closed || generation!==ownGeneration) return;
-      if(data.scene?.inspection?.lessonPlayback) { tourPlayer?.restorePlayback(data.scene); restoredLessonPlayback=true; }
-      if(data.customTour?.steps?.length)grownLesson=data.customTour;
+      if(data.scene?.inspection?.lessonPlayback) { tourPlayer?.restorePlayback(data.scene,{waitForXrEntry:isCompanion}); restoredLessonPlayback=true; }
+      installedLesson=panelCustomTour;
+      if(panelCustomTour?.steps?.length)grownLesson=panelCustomTour;
+      if(data.lessonStart && canStartLesson) recordHeadsetEvent('demo-load',{phase:'lesson-started',elapsedMs:Date.now()-lessonStartedAt});
     }
     // A newer hydrate has already claimed this panel. Committing here would
     // bind the older session's revisions against the newer session's scene.
@@ -1407,8 +1617,8 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     if(data.experienceCatalog)experiencePlayer?.setCatalog(data.experienceCatalog);
     experiencePlayer?.setSubject(workspace.viewer.xr?.getSubject?.() ?? {pdbId:data.pdbId,sourceSha256:loadedSha256,assembly:catalog.assemblyId,modelNumber:workspace.snapshot().modelNumber});
     document.body.dataset.experienceActive=String(!!experienceView);
-    if(!mapDrawFailure) defaultToLesson=Boolean(data.customTour);
-    workspace.setStatus(mapDrawFailure ? MAP_DRAW_FAILED_SPOKEN
+    if(!mapDrawFailure) defaultToLesson=Boolean(panelCustomTour);
+    workspace.setStatus(densityReferenceOnly ? 'Reference coordinates only; the density lesson is on the companion.' : mapDrawFailure ? MAP_DRAW_FAILED_SPOKEN
       : data.scene ? 'Saved current view restored' : 'Structure ready');
     retryHydrationId=undefined;
   } catch(error) {
@@ -1430,6 +1640,10 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
       const failed={sessionId:id,sourceToken:String(sourceFailureBinding.sourceToken),
         receipt:receipt as Record<string,unknown>|undefined};
       failedSourceLoad=failed;
+      // The source transaction rolled back; abandoned input is not unsaved work
+      // against the retired token. Keep polling, without trying to save it there.
+      dirty=false; blocked=false;
+      try { savedScene=workspace.capture(); } catch { /* Preserve the load error; renderer recovery runs on the next beat. */ }
       try {
         await call('report_source_failure',receipt);
         if(!closed && generation===ownGeneration && failedSourceLoad===failed) failed.receipt=undefined;
@@ -1447,8 +1661,14 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     trace.skip('saved','Restored an already saved view without publishing a new edit.');
   } else {
     // Initial views and transition owners still publish their actual drawing.
-    scheduleSave(); await trace.phase('saved',save(journeySave));
+    scheduleSave();
+    if(densityReferencePreview) {
+      await save(journeySave,false,ownGeneration,()=>{densityReferenceOnly=true;});
+      if(densityReferenceOnly)trace.skip('saved','Reference coordinates did not replace the shared density map.');
+      else await trace.phase('saved');
+    } else await trace.phase('saved',save(journeySave,false,ownGeneration));
   }
+  if(closed || generation!==ownGeneration)return;
   if(!dirty && !blocked) {
     if(isCompanion) recordHeadsetEvent('first-pixel',{stage:'scene-saved',at:Date.now()});
     else console.debug('[stereofold:timing] scene-saved', {at:Date.now()});
@@ -1496,11 +1716,14 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
   if(defaultToLesson!==undefined) panelTour?.setDefault(defaultToLesson);
   if(mapDrawFailure) { finishMapDrawFailure(mapDrawFailure); completedHydration=true; return; }
   completedHydration=true;
+  if(densityReferencePreview)workspace.setStatus('Reference coordinates only; the density lesson is on the companion.');
   if(!sourceReplacement && !experienceView && !supersededJourney && reconnectingJourney?.active) await reconcileExperience(undefined,reconnectingJourney);
   if(!completion) {
-    if(swappedSource && !restoredLessonPlayback)await openGrownTier(grownLesson,priorLessonOnScreen,priorAutoplay,initialOpen);
+    if(swappedSource && !restoredLessonPlayback && !densityReferenceOnly)await openGrownTier(grownLesson,priorLessonOnScreen,
+      options.autoplayContinuation ? options.autoplayContinuation() : priorAutoplay,initialOpen,options.continuationNarration);
   }
   return completionReceipt;
+  } finally { releaseSourcePresentation?.(); releaseHostLoad?.(); }
 }
 /**
  * Tell the wearer the map did not draw, once, in one sentence.
@@ -1538,7 +1761,7 @@ function finishMapDrawFailure(error:Error) {
  * is rolling back a structure the wearer is already looking at.
  */
 async function openGrownTier(lesson:{id:string;steps:readonly TourStep[]}|undefined,
-  lessonOnScreen:boolean,autoplay:boolean,initialOpen=false):Promise<void> {
+  lessonOnScreen:boolean,autoplay:boolean,initialOpen=false,narration?:boolean):Promise<void> {
   const intent=grownTierIntent({presenting:workspace.snapshot().xrPresenting===true,
     hasChapters:Boolean(lesson?.steps?.length),lessonOnScreen,autoplay,initialOpen});
   try {
@@ -1546,7 +1769,7 @@ async function openGrownTier(lesson:{id:string;steps:readonly TourStep[]}|undefi
       // The same call `control_tour play` and the toolbar's Start row make, so
       // the chapter is placed, painted, spoken and the menu collapses exactly
       // as it does for a lesson the wearer opened themselves.
-      await tourPlayer?.start(intent.autoplay);
+      await tourPlayer?.start(intent.autoplay,narration===undefined?undefined:0,{narration,preserveContinuation:narration!==undefined});
     } else if(intent.open==='key') {
       // No lesson on screen, so nothing is spoken and no chapter opens. Paint
       // its key while keeping the room anchor the source swap just installed.
@@ -1588,7 +1811,7 @@ async function navigateExperience(experienceId:string,stepIndex:number,loadedSou
         if(!tourCommandContext) {
           // Saving a local chapter advances this page's binding before the next
           // heartbeat. Advertise the saved view before requesting another step.
-          const sent={...expected(),panelId:owner,availability:'ready',tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{})};
+          const sent={...expected(),panelId:owner,availability:'ready',animation:workspace.snapshot().animation??null,tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{})};
           const refreshed=await call('poll_inspection',sent), data=refreshed.structuredContent as any;
           const delivery=(refreshed._meta?.[PRIVATE_KEY] as any)?.delivery;
           if(delivery) {
@@ -1679,6 +1902,14 @@ function growStructureArgs(stage:string) {
   return {...expected(),panelId,stage,device:headsetDeviceClass()};
 }
 /**
+ * Whether the local scene differs from the saved one at most in the camera
+ * and the structure's placement: the wearer moved or scaled it, or entry
+ * seated it. A capture the workspace refuses is never placement work.
+ */
+function placementOnlyWork() {
+  try { return sameEntryScene(savedScene,workspace.capture()); } catch { return false; }
+}
+/**
  * What this panel actually is right now, in the host's three words.
  *
  * The ordinary heartbeat in `poll` is no longer the only beat
@@ -1689,6 +1920,9 @@ function growStructureArgs(stage:string) {
 function liveAvailability() {
   const snapshot=workspace.snapshot();
   return panelAvailability({blocked,dirty,ready:snapshot.ready,interactionActive:snapshot.interactionActive,
+    // A grab, stick nudge or entry seat is a save in flight that a waiting
+    // command follows, not work it could overwrite.
+    placementOnly:dirty && !blocked && placementOnlyWork(),
     // Experience pending includes its host acknowledgement. Hydration and the
     // workspace readiness flag already cover its actual draw; reporting that
     // saved, attached panel as busy would refuse its own acknowledgement.
@@ -1714,7 +1948,7 @@ function liveAvailability() {
 async function refreshGrowBinding() {
   if(!binding || !panelId) return;
   const ownGeneration=generation;
-  const sent={...expected(),panelId,availability:liveAvailability(),tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{})};
+  const sent={...expected(),panelId,availability:liveAvailability(),animation:workspace.snapshot().animation??null,tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{})};
   try {
     const response=await call('poll_inspection',sent);
     await registerComparisonSources((response._meta?.[PRIVATE_KEY] as any)?.comparisonSources,binding.sessionId);
@@ -1745,9 +1979,13 @@ async function refreshGrowBinding() {
       .catch(error=>{if(!closed)showProblem(problemMessage('delivery',error),'delivery',error);});
   } catch { /* Keep the last binding; the next post will retry or fail. */ }
 }
-async function growStructure(stage:string, hooks?:{onNotYet?:()=>void}):Promise<string> {
+async function growStructure(stage:string, hooks?:{onNotYet?:()=>void;continuation?:StageContinuationIntent}):Promise<string> {
   const operation:Promise<string>=rendering.catch(()=>{}).then(async()=>{
+    const continuationNarration=tourPlayer?.getState().narration;
     await save();
+    if(hooks?.continuation && !hooks.continuation.isCurrent()) return 'Continuation cancelled.';
+    if(hooks?.continuation && workspace.snapshot().interactionActive)
+      throw Object.assign(Error('Release the structure to load the next batch.'),{code:'continuation_deferred'});
     if(!binding || dirty || blocked || loading || workspace.snapshot().interactionActive)throw Error('Finish the current edit before growing the structure.');
     if(!panelId)await attach();
     if(!panelId)throw Error('The viewer is not connected.');
@@ -1776,7 +2014,11 @@ async function growStructure(stage:string, hooks?:{onNotYet?:()=>void}):Promise<
       // The flag now goes on where the renderer is really claimed, the instant
       // the host accepts the post, and comes off when the swap ends or fails.
       grow=await retryWhileNotYet(async()=>{
+        if(hooks?.continuation && !hooks.continuation.isCurrent()) throw Error('Continuation cancelled.');
+        if(hooks?.continuation && workspace.snapshot().interactionActive)
+          throw Object.assign(Error('Release the structure to load the next batch.'),{code:'continuation_deferred'});
         const result=await call('grow_structure',growStructureArgs(stage));
+        hooks?.continuation?.beginTransition();
         remote=true;
         return (result as any)?.structuredContent?.grow;
       },{atomSites:Number.isFinite(atomSites)&&atomSites>0?atomSites:undefined,refresh:refreshGrowBinding,onNotYet:()=>{
@@ -1805,7 +2047,8 @@ async function growStructure(stage:string, hooks?:{onNotYet?:()=>void}):Promise<
     // the rebuild: `onMutation` labels every workspace change with this flag,
     // and a tier forming in front of the wearer is the page's own work, not an
     // agent change landing on top of a chapter.
-    await hydrate(binding.sessionId);
+    await hydrate(binding.sessionId,undefined,undefined,
+      hooks?.continuation ? {autoplayContinuation:hooks.continuation.shouldAutoplay,continuationNarration} : {});
     return String(grow?.spoken ?? 'Ready.');
   });
   rendering=operation.then(()=>undefined).catch(()=>{});
@@ -1937,7 +2180,7 @@ function attach(replacesPanelId?:string,journeySave?:JourneySaveClaim,hydrating=
   };
   const entry={generation:ownGeneration,promise:Promise.resolve()};
   entry.promise=(async()=>{
-    const response=await call('attach_inspection',{...sent,surface:isCompanion?'companion':'desktop',...(sourceGeometryBudgetSupported && geometryBudget?{geometryBudget}:{}),...(replacesPanelId?{replacesPanelId}:{}),...(journeySave?{journeySave}:{})}), issued=(response.structuredContent as any)?.panelId;
+    const response=await call('attach_inspection',{...sent,surface:isCompanion?'companion':'desktop',...(renderedSourceIdentitySupported?{renderedSourceSha256:workspace.snapshot().sourceSha256}:{}),...(sourceGeometryBudgetSupported && geometryBudget?{geometryBudget}:{}),...(replacesPanelId?{replacesPanelId}:{}),...(journeySave?{journeySave}:{})}), issued=(response.structuredContent as any)?.panelId;
     if(!issued) throw Error('The inspection panel did not attach.');
     if(closed || generation!==ownGeneration) {
       try { await call('detach_inspection',{...sent,panelId:issued}); } catch { /* Heartbeat expiry is the fallback. */ }
@@ -1997,10 +2240,55 @@ function attach(replacesPanelId?:string,journeySave?:JourneySaveClaim,hydrating=
   }).finally(()=>{if(attaching===entry)attaching=undefined;});
   attaching=entry;return entry.promise;
 }
+/** Register poll assets before a delivery can reach the renderer. */
+async function registerPollState(response:any, sessionId:string) {
+  const data=response.structuredContent;
+  if(data?.namedViews) noteNamedViews(data.namedViews);
+  // A changed source registers its assets inside validated hydration.
+  if(data?.sourceToken===binding?.sourceToken && data?.serverEpoch===binding?.serverEpoch)
+    await registerComparisonSources(response._meta?.[PRIVATE_KEY]?.comparisonSources,sessionId);
+}
+async function receivePollDelivery(response:any, sent:any, ownGeneration:number) {
+  if(closed || generation!==ownGeneration) return;
+  await registerPollState(response,sent.sessionId);
+  const delivery=response._meta?.[PRIVATE_KEY]?.delivery;
+  if(delivery) await receive(delivery,sent,ownGeneration);
+}
 async function confirmReceipt(receipt:any, fields:string[]=pendingReceiptFields??['scene'], commitScene=true) {
   if(tourCommandContext && (receipt.failure || receipt.phase==='settled'))receipt={...receipt,...expected(),panelId:panelId??receipt.panelId,tourCommand:tourCommandContext};
   pendingReceipt=receipt; pendingReceiptFields=fields;
-  const response=await call('complete_inspection',receipt), next=response.structuredContent as any;
+  let response;
+  if(!isCompanion && receipt.scene && !receipt.failure && !receipt.phase) {
+    desktopReceiptInFlight=true;
+    try {
+      // The frame is drawn, but completion publishes the saved revision to other
+      // clients immediately. Drain the earlier busy report and refresh the strip
+      // before that publication; hold subsequent busy beats until it finishes.
+      await beatCompletion;
+      if(closed || loading || panelId!==receipt.panelId
+        || JSON.stringify(workspace.capture())!==JSON.stringify(receipt.scene))
+        throw Error('The local view changed before confirmation. Your visible work is unsaved.');
+      const ownGeneration=generation, sent={...expected(),panelId,availability:'ready'};
+      const ready=await call('poll_inspection',sent);
+      if(!(ready.structuredContent as any)?.attached)
+        throw Error('The panel could not register its completed frame. Retry confirmation.');
+      // A retry of an already accepted capture can encounter the next queued
+      // command. Preserve its delivery until this confirmation releases the queue.
+      rendering=rendering.then(()=>receivePollDelivery(ready,sent,ownGeneration))
+        .catch(error=>{if(!closed)showProblem(problemMessage('delivery',error),'delivery',error);});
+      if(closed || generation!==ownGeneration || panelId!==receipt.panelId
+        || JSON.stringify(workspace.capture())!==JSON.stringify(receipt.scene))
+        throw Error('The local view changed before confirmation. Your visible work is unsaved.');
+      desktopReceiptBeat={sent,commandId:receipt.commandId};
+      response=await call('complete_inspection',receipt);
+    } finally {
+      // Drain the last ready beat before a later edit can report unsaved.
+      desktopReceiptBeat=undefined;
+      await beatCompletion;
+      desktopReceiptInFlight=false;
+    }
+  } else response=await call('complete_inspection',receipt);
+  const next=response.structuredContent as any;
   if(next?.command?.status==='rendered') recordLoopStage('receipt-rendered',next.command);
   pendingReceipt=undefined; pendingReceiptFields=undefined;
   if(receipt.phase==='settled') {
@@ -2038,6 +2326,7 @@ async function confirmReceipt(receipt:any, fields:string[]=pendingReceiptFields?
   showOutcome({...next.command,fields});
   if(commitScene)dirty=JSON.stringify(workspace.capture())!==JSON.stringify(receipt.scene);
   blocked=false; notice.hidden=true;
+  if(fields.includes('lesson'))tourPlayer?.confirmLessonInstallation();
   return next.command;
 }
 /**
@@ -2135,6 +2424,7 @@ function speakRemoteConfirmation(change:any, applied?:any, narrated=false, timin
     ? `${change.patch.parts.find((part:any)=>part.id===change.patch.focus[0])?.label ?? 'Highlighted'}.`
     : 'Whole structure.')
     : change?.kind==='companion-structure' ? (change.patch?.remove?'Comparison removed.':`Now comparing ${comparisonPrimaryName} with ${change.patch?.source?.kind==='pdb'?change.patch.source.id.toUpperCase():'the companion structure'}.`)
+    : change?.kind==='animation' ? (applied?.animation?.state==='paused'?'Animation paused.':applied?.animation?.state==='playing'?'Animation playing.':'Animation updated.')
     : change?.kind==='motion' ? (change.patch?.state==='spin'?'Spinning.':'Stopped.')
     // The same two words the menu row and "best quality" say.
     // With the pending half named, exactly as the wearer's
@@ -2240,6 +2530,8 @@ async function speakNarration(line:string) {
   }
 }
 async function receive(delivery:any, sent:any, ownGeneration:number) {
+  let releaseHostLoad:(()=>void)|undefined;
+  try {
   // An inspection command lands on top of the running lesson.
   //
   // Every remote command used to pause the tour before it was applied, which
@@ -2249,29 +2541,248 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
   // this command builds on is the saved one whether the camera is turning or
   // not, and `admit()` below still refuses anything that really did change.
   // A `tour` command is its own control surface — play/pause/next decide what
-  // the lesson does next — so that one still settles the player first.
-  if(delivery.change.kind==='tour') panelTour?.pause('A remote inspection command paused your tour.');
+  // the lesson does next — so settle chapter advancement without publishing
+  // molecular controls until admit() has accepted the command.
+
   const base={...sent,panelId:delivery.panelId,commandId:delivery.commandId,claimToken:delivery.claimToken};
-  delete base.availability;delete base.spatialContext;delete base.tourState;delete base.experience;delete base.xrStartup;
+  delete base.animation;delete base.availability;delete base.spatialContext;delete base.tourState;delete base.experience;delete base.xrStartup;
   let drew=false,settledSuperseded=false,recoveryFailed=false;
   let activeDelivery=delivery;
+  // The scene a lesson start, chapter change or lesson install was admitted
+  // on, and the lesson installed then. Any failure after admission puts that
+  // scene back before the page replies, while `remote` still holds every save,
+  // so half a chapter is never left on screen or saved as the wearer's work.
+  let checkpoint:any, checkpointAt=Infinity, checkpointDraws=0, lessonBefore:any, reloadPending=false;
+  const lessonCommand=delivery.change.kind==='lesson' || delivery.change.kind==='tour';
+  const receivedAt=performance.now(), entryInteraction=localInteractionSerial;
+  const entryScene=panelEntering(workspace.viewer?.xr?.startup?.()) && !dirty ? savedScene : undefined;
+  // Reserve the delivered claim before waiting. Entry can publish placement
+  // while it finishes; a background save must not race this claim's binding.
+  if(entryScene) remote=true;
+  let settleDeadline=Date.now()+Math.min(delivery.settleBudgetMs??15000,15000);
+  // A held grip or stick is the wearer placing the structure, so the command
+  // waits for the release rather than refusing. The settle budget bounds the
+  // wait; a hand still on the molecule when it runs out gets the old refusal.
+  const settleRender=(current:()=>boolean=()=>true,onReady?:()=>any)=>waitForPanelRender({
+    ready:()=>workspace.snapshot().ready && !workspace.snapshot().interactionActive,
+    presentation:()=>({...workspace.viewer?.xr?.startup?.(),presenting:workspace.snapshot().xrPresenting,drawCount:workspace.snapshot().drawCount}),
+    current:()=>current() && !closed && generation===ownGeneration && panelId===delivery.panelId && !blocked,
+    onReady,waitMs:Math.max(0,settleDeadline-Date.now()),onEntryWait:elapsed=>{settleDeadline+=elapsed;}}).catch(error=>{
+    if((error as any)?.code!=='local_changed' && workspace.snapshot().interactionActive)
+      throw Object.assign(Error('Release the molecular drag before applying a command.'),{code:'interaction_active'});
+    throw error;
+  });
+  // A tour command pauses the lesson before admission (below). That pause is
+  // this command's own: it settles a turning chapter's camera and rewrites the
+  // lesson cursor's motion progress, so the capture changes although nobody
+  // edited anything. Reading that as a local edit refused every next sent
+  // while a chapter turned, and the assistant had to send it again. While the
+  // capture is still exactly what the pause left, admission judges the scene
+  // as it stood before the pause.
+  let ownPause:{before:any;after:string}|undefined;
+  const admissionCapture=()=>{
+    const scene=workspace.capture();
+    return ownPause && JSON.stringify(scene)===ownPause.after ? ownPause.before : scene;
+  };
+  // Work that only moved the structure or the camera: a grab, a stick nudge.
+  // The host lets this command follow its save, bound or not, so the page
+  // hands the unadmitted claim back, saves, and is delivered the same command
+  // again inside its original delivery deadline. Entry has its own rule.
+  const placementWork=()=>{
+    if(entryScene || blocked) return false;
+    try { const scene=admissionCapture(); return JSON.stringify(scene)!==JSON.stringify(savedScene) && sameEntryScene(savedScene,scene); }
+    catch { return false; }
+  };
+  const deferForLocalSave=async()=>
+    (await call('complete_inspection',{...base,phase:'defer-local-save'})).structuredContent?.deferred===true;
+  // The lesson player this command drew with. A journey owns its own rollback
+  // and source, so it never takes the checkpoint below.
+  const lessonPlayer=()=>delivery.change.kind==='lesson' ? tourPlayer
+    : panelTour && !panelTour.matchesLoadedSource ? panelTour.current?.() as TourPlayer|undefined : undefined;
+  const ownsCheckpoint=()=>checkpoint!==undefined && !tourCommandReceipt && !closed && generation===ownGeneration
+    && base.sourceToken===binding?.sourceToken && base.panelId===panelId
+    && (delivery.change.kind==='lesson' || !panelTour?.matchesLoadedSource);
+  const withoutCamera=(scene:any)=>JSON.stringify({...scene,camera:undefined});
+  // Head tracking owns a presenting camera, so the camera is not compared.
+  const shows=(scene:any)=>{ try { return withoutCamera(workspace.capture())===withoutCamera(scene); } catch { return false; } };
+  /**
+   * The checkpoint, with whatever the wearer changed after admission kept.
+   *
+   * A toolbar edit made while the chapter drew waits in the workspace queue
+   * and lands after it. The player records what its action left before that,
+   * so the edit is the difference between that scene and the one on screen.
+   * When this command drew nothing, the checkpoint itself is that scene.
+   */
+  const putBackTarget=()=>{
+    if(!(lastLocalEditAt>=checkpointAt)) return checkpoint;
+    const drawn=lessonPlayer()?.drawnScene?.();
+    try { return withWearerEdits(checkpoint,drawn && drawn.serial>checkpointDraws ? drawn.scene : checkpoint,workspace.capture()); }
+    catch { return checkpoint; }
+  };
+  /**
+   * Put the admitted scene back after a lesson command failed.
+   *
+   * The player's own rollback has usually done it already. This makes sure,
+   * through the ordinary workspace path, and leaves the player holding the
+   * checkpoint's lesson and cursor with nothing scheduled. False when the
+   * scene could not be put back.
+   */
+  const putBackCheckpoint=async(reason:string)=>{
+    const player=lessonPlayer();
+    try {
+      // Nothing the failed command scheduled may draw over the checkpoint.
+      player?.pause(reason,{preserveMolecularPlayback:true});
+      const shown=putBackTarget();
+      if(shows(shown)) { if(shown!==checkpoint) dirty=true; return true; }
+      // Let an in-flight frame land and a hand leave the structure. A viewer
+      // left in `error` cannot become ready, so it does not wait for that.
+      await waitForPanelRender({ready:()=>!workspace.snapshot().interactionActive
+          && (workspace.snapshot().ready || workspace.snapshot().status==='error'),
+        current:()=>!closed && generation===ownGeneration && panelId===delivery.panelId});
+      const target:any={};
+      let keptWearerEdits=false;
+      const lessonReplaced=delivery.change.kind==='lesson' && installedLesson!==lessonBefore;
+      if(lessonReplaced)
+        await workspace.viewer.inspection.setLessonRestingState?.(lessonRestingState(lessonBefore),{preserveEmphasis:true});
+      await workspace.restoreShared(target,()=>{
+        if(closed || generation!==ownGeneration || panelId!==delivery.panelId
+          || sent.sourceToken!==binding.sourceToken || sent.serverEpoch!==binding.serverEpoch)
+          throw Error('The session changed before the lesson could be put back.');
+        // Admission runs inside the workspace queue, after earlier toolbar
+        // edits have landed. Merge their values immediately before restore.
+        const merged=putBackTarget();
+        keptWearerEdits=merged!==checkpoint;
+        Object.assign(target,merged);
+      },true,true,async(scene:any)=>{
+        if(lessonReplaced) {
+          await tourPlayer?.replaceTours(lessonBefore?[lessonBefore,...TOURS]:TOURS,{preservePlayback:true});
+          installedLesson=lessonBefore;
+        }
+        await player?.restorePlayback(scene);
+      });
+      const restored=shows(target);
+      // The wearer's kept edits are theirs to save once the command lets go.
+      if(restored && keptWearerEdits) dirty=true;
+      recordHeadsetEvent('command-rollback',{commandId:delivery.commandId,outcome:restored?'restored':'mismatch',
+        ...(keptWearerEdits?{keptWearerEdits:true}:{})});
+      return restored;
+    } catch(error) {
+      recordHeadsetEvent('command-rollback',{commandId:delivery.commandId,outcome:'failed',message:thrownErrorMessage(error).slice(0,200)});
+      return false;
+    }
+  };
+  // A headset that cannot put the checkpoint back reloads the host's saved
+  // scene. A desktop blocks behind Load saved view, as a failed rollback does.
+  const putBackOrReload=async(reason:string)=>{
+    if(await putBackCheckpoint(reason)) return true;
+    if(isCompanion) { reloadPending=true; reloadSavedScene('lesson-rollback'); }
+    else {
+      recoveryFailed=true; dirty=true; blocked=true;
+      showOutcome({status:'failed',reason:'recovery_failed',detail:'The lesson could not be put back. Load the saved view before trying again.'});
+    }
+    return false;
+  };
+  /**
+   * `rendered` means the chapter on screen is whole. A chapter that moves has
+   * its animation installed and, when it plays, a clock that has advanced on
+   * drawn frames. A paused chapter needs only the installed animation. Quest
+   * Browser stops window requestAnimationFrame for an immersive session, so
+   * this samples on a timer and counts the frames the viewer drew.
+   */
+  const chapterClockRuns=async(chapter:TourStep|undefined)=>{
+    if(!chapter?.animation) return;
+    const waitMs=3000, capMs=10000, frames=3;
+    const began=Date.now(), drawsBefore=workspace.snapshot().drawCount;
+    let firstTime:number|undefined;
+    for(;;) {
+      const live=workspace.snapshot(), sample=live.animation, own=sample?.chapterId===chapter.id;
+      if(own && sample.state!=='playing') return;
+      if(own && firstTime===undefined) firstTime=sample.timeSeconds;
+      else if(own && sample.timeSeconds!==firstTime) return;
+      // A slow headset gets until the cap to draw three frames.
+      const elapsed=Date.now()-began, draws=live.drawCount;
+      const drawn=typeof drawsBefore==='number' && typeof draws==='number' ? draws-drawsBefore : undefined;
+      if(elapsed>=waitMs && (drawn===undefined || drawn>=frames || elapsed>=capMs)) {
+        recordHeadsetEvent('animation-clock-stalled',{chapterId:chapter.id,waitedMs:elapsed,drawnFrames:drawn??null,
+          visibility:typeof document==='undefined'?'unknown':document.visibilityState,
+          presenting:live.xrPresenting===true,status:live.status,animation:sample??null,
+          activity:live.animationActivity??null});
+        throw Object.assign(Error(own ? `The "${chapter.title}" animation was drawn but its clock did not advance.`
+          : `The "${chapter.title}" animation was not drawn.`),{code:'render_failed'});
+      }
+      await new Promise<void>(resolve=>setTimeout(resolve,16));
+    }
+  };
+  // The lesson chapter the lesson player now shows, for the clock check.
+  const lessonChapterShown=()=>{
+    if(!panelTour || panelTour.matchesLoadedSource) return undefined;
+    const state=panelTour.getState();
+    if(!state.active || state.step<0) return undefined;
+    return [installedLesson,...TOURS].find(entry=>entry?.id===state.selectedId)?.steps[state.step];
+  };
   try {
+    if(delivery.change.kind==='lesson') {
+      releaseHostLoad=await workspace.viewer.prepareHostLoad?.();
+    }
+    await settleRender();
+    // A ready heartbeat can be overtaken by a wake/entry save. Release only
+    // this unadmitted claim; the host compares the saved inputs before it
+    // delivers the same command again, inside its original delivery deadline.
+    if(((dirty && !blocked && delivery.deferLocalSave) || placementWork()) && await deferForLocalSave()) {
+      scheduleSave();await save();return;
+    }
+    if(delivery.change.kind==='tour' && (delivery.change.patch.action!=='start' || panelTour?.getState().active || panelTour?.getState().navigating)) {
+      const captured=()=>{ try { return workspace.capture(); } catch { return undefined; } };
+      const before=captured();
+      // Player subscribers save a settled motion cursor. This synchronous
+      // pause belongs to the command, so it must not mark the page dirty or
+      // start a competing save before admission. Later local edits still do.
+      const wasRemote=remote;
+      remote=true;
+      try { panelTour?.pause('A remote inspection command paused your tour.',{preserveMolecularPlayback:true}); }
+      finally { remote=wasRemote; }
+      const after=captured();
+      if(before!==undefined && after!==undefined && JSON.stringify(after)!==JSON.stringify(before))
+        ownPause={before,after:JSON.stringify(after)};
+    }
+    // Once the host has admitted a tour command, a nudge that only moved the
+    // structure while the answer travelled is the wearer's placement: the
+    // chapter draws on it, as it does on a hand that arrives mid-draw. A
+    // lesson install is still held to its admitted placement by the host.
     const localAdmission=()=>{
       if(closed || generation!==ownGeneration || panelId!==delivery.panelId || dirty || blocked || loading
         || sent.serverEpoch!==binding.serverEpoch || sent.sourceToken!==binding.sourceToken
         || sent.baseStateRevision!==binding.stateRevision || sent.baseInspectionRevision!==binding.inspectionRevision
-        || JSON.stringify(workspace.capture())!==JSON.stringify(savedScene))
+        || (entryScene && localInteractionSerial!==entryInteraction)
+        || !(JSON.stringify(admissionCapture())===JSON.stringify(savedScene)
+          || (entryScene && sameEntryScene(entryScene,admissionCapture()))
+          || (hostAdmitted && delivery.change.kind==='tour' && sameEntryScene(savedScene,admissionCapture()) && !(lastLocalEditAt>=receivedAt))))
         throw Object.assign(Error('The local view changed before the command arrived.'),{code:'local_changed'});
       if(workspace.snapshot().interactionActive) throw Object.assign(Error('Release the molecular drag before applying a command.'),{code:'interaction_active'});
     };
+    let hostAdmitted=false;
     const admit=async()=>{
+      await settleRender();
+      // A grip released while this waited leaves the wearer's placement
+      // unsaved. Before the host admits the claim it can still be handed back.
+      if(placementWork() && await deferForLocalSave())
+        throw Object.assign(Error('The panel is saving the wearer’s placement before this command.'),{code:'local_save_deferred'});
       localAdmission();
       remote=true;
-      const response=await call('complete_inspection',{...base,phase:'admit'}),state=response.structuredContent as any;
+      const response=await call('complete_inspection',{...base,phase:'admit',
+        ...(delivery.historyAction?{historyScene:workspace.capture()}:{})}),state=response.structuredContent as any;
       if(!state?.admitted) throw Object.assign(Error(state?.reason??'The command is no longer eligible to render.'),
         {code:['cancelled','superseded'].includes(state?.command?.status)?'superseded':'local_changed'});
       // Local state can move while host admission is in flight.
+      await settleRender();
+      hostAdmitted=true;
       localAdmission();
+      // Placement work was saved before admission, so this is the saved
+      // scene. During entry it also carries the entry seat, which stays.
+      if(lessonCommand) {
+        checkpoint=workspace.capture(); checkpointAt=performance.now();
+        checkpointDraws=lessonPlayer()?.drawnScene?.()?.serial ?? 0;
+      }
     };
     if(delivery.change.kind==='save-view') {
       if(typeof workspace.captureNamedView!=='function') throw Error('This panel cannot capture a shared named view.');
@@ -2281,16 +2792,65 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
       if(typeof workspace.restoreNamedView!=='function') throw Error('This panel cannot restore a shared named view.');
       await workspace.restoreNamedView(delivery.change.patch.scene,admit,async(scene:any)=>{drew=true;
         await confirmReceipt({...base,scene},['named-view','restore']);},delivery.change.patch.namedViewIntent);
+    } else if(delivery.change.kind==='lesson') {
+      await admit();
+      if(!tourPlayer) throw Error('This panel has no lesson player.');
+      lessonBefore=installedLesson;
+      const lessonInteraction=localInteractionSerial, lessonStartedAt=performance.now();
+      const tour=molecularLessonToTour(delivery.change.patch.lesson);
+      // The player owns rollback until its final draw. A chapter that never
+      // ticks, or a receipt the host refuses, puts the checkpoint back below.
+      // A receipt whose answer was lost keeps the drawn lesson: retrying the
+      // immutable receipt must reconcile this picture with the host's manifest.
+      await tourPlayer.installLesson(tour,delivery.change.patch.start,async()=>{
+        // Quest Browser stops servicing window requestAnimationFrame for the
+        // whole immersive session, so a headset page counts drawn XR frames.
+        const drawsBefore=workspace.snapshot().drawCount;
+        if(workspace.snapshot().xrPresenting && typeof drawsBefore==='number') {
+          const until=Date.now()+3000; // two frames, or one within 3 s
+          while((workspace.snapshot().drawCount??drawsBefore)<drawsBefore+2) {
+            if(Date.now()>=until) {
+              if((workspace.snapshot().drawCount??drawsBefore)>drawsBefore) break;
+              throw Object.assign(Error('The lesson change did not produce a headset frame.'),{code:'render_timeout'});
+            }
+            await new Promise<void>(resolve=>setTimeout(resolve,16));
+          }
+        } else await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
+        const shown=tourPlayer!.getState();
+        if(shown.selectedId===tour.id && shown.active && shown.step>=0) await chapterClockRuns(tour.steps[shown.step]);
+        // As for a tour command: a hand on the structure waits for its
+        // release and the receipt carries the placement the wearer chose,
+        // while a real local edit during the draw refuses the lesson.
+        settleDeadline=Date.now()+Math.min(delivery.settleBudgetMs??15000,15000);
+        const scene=await settleRender(()=>localInteractionSerial===lessonInteraction || !(lastLocalEditAt>=lessonStartedAt),()=>workspace.capture());
+        drew=true;
+        installedLesson=tour;
+        await confirmReceipt({...base,scene,...(localInteractionSerial!==lessonInteraction?{wearerPlacement:true}:{}),
+          tourState:tourHeartbeat(panelTour),animation:workspace.snapshot().animation??null},['lesson']);
+      },delivery.change.patch.frame);
     } else if(delivery.change.kind==='tour') {
       await admit();
       // `speakScene` runs inside the scene it opens and stamps a new narration
       // generation before this resolves, so a changed stamp means this command
       // has a chapter line of its own on the way.
       const narrationBefore=narrationGeneration;
+      recordHeadsetEvent('command-phase',{commandId:delivery.commandId,phase:'receive-to-tour-dispatch',elapsedMs:performance.now()-receivedAt,queueWaitMs:delivery.queueWaitMs});
       tourCommandContext={...base};delete tourCommandContext.sessionId;
       tourCommandReceipt=undefined;
-      const appliedTour=await applyTourCommand(panelTour,delivery.change.patch);
-      const scene=workspace.capture();
+      const tourInteraction=localInteractionSerial, tourStartedAt=performance.now();
+      const appliedTour=await applyTourCommand(panelTour,delivery.change.patch,{atomCount:workspace.snapshot().atomCount});
+      if(!tourCommandReceipt) await chapterClockRuns(lessonChapterShown());
+      // Showing the chapter redraws its menu. Automatic clearance can still
+      // own the viewer when the player resolves; capture only its drawn state.
+      // A real local edit during this wait must never become this receipt: a
+      // menu row or a face button is one. A hand on the structure is not; the
+      // capture waits for its release and the receipt carries the placement
+      // the wearer chose, which the host does not hold a tour to.
+      if(!tourCommandReceipt) {
+        settleDeadline=Date.now()+Math.min(delivery.settleBudgetMs??15000,15000);
+      }
+      const scene=tourCommandReceipt ? workspace.capture()
+        : await settleRender(()=>localInteractionSerial===tourInteraction || !(lastLocalEditAt>=tourStartedAt),()=>workspace.capture());
       // A journey replaces its source/panel while preserving the original
       // command claim. Never send the ordinary pre-transition scene receipt
       // through the companion's current-source capability check.
@@ -2307,10 +2867,11 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
           // A bare completion receipt has no fields; the generic fallback
           // calls it scene and overwrites the player's confirmed Done caption.
           showOutcome({...tourCommandReceipt,fields:['tour']});recordLoopStage('receipt-rendered',tourCommandReceipt);
-        } else await confirmReceipt({...base,scene,tourState:tourHeartbeat(panelTour)},['tour']);
+        } else await confirmReceipt({...base,scene,tourState:tourHeartbeat(panelTour),animation:workspace.snapshot().animation??null},['tour']);
       }
       catch(error) {
-        if((error as any).code==='superseded') {
+        // A lesson's checkpoint is put back below; a journey's view here.
+        if((error as any).code==='superseded' && !ownsCheckpoint()) {
           panelTour?.pause('The earlier tour request was cancelled.');
           await workspace.restoreShared(savedScene,()=>{},true,true);
         }
@@ -2326,10 +2887,12 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
       // The status line names what changed; a turntable is "motion", not "state".
       try {
         await confirmReceipt({...base,scene,allowReplacement:true,...(pendingScale?{scaleAppliesOnNextEntry:true}:{}),
+          ...(applied?.animation?{animation:applied.animation}:{}),
           ...(applied?.recenterCompletion?{recenterCompletion:applied.recenterCompletion}:{}),
           ...(applied?.placementAdjusted?{placementAdjusted:true,placementFit:applied.placementFit}:{}),
           ...(applied?.geometryBudget?{geometryBudget:applied.geometryBudget}:{})},
-          activeDelivery.change.kind==='motion'?['motion']
+          activeDelivery.change.kind==='animation'?['animation']
+          :activeDelivery.change.kind==='motion'?['motion']
           :activeDelivery.change.kind==='compound'?activeDelivery.change.patch.ops.map((op:any)=>op.kind)
           :Object.keys(activeDelivery.change.patch));
       } catch(error) {
@@ -2369,6 +2932,13 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
         settledSuperseded=true;
       },delivery.historyAction?{preservePlacement:true}:{});
   } catch(error) {
+    // A lesson command that failed after admission puts its checkpoint back
+    // before anything replies. A receipt that was sent and then lost is the
+    // exception: the host may have kept it, so the page retries it below.
+    let putBack:boolean|undefined;
+    if(ownsCheckpoint() && !(drew && pendingReceipt))
+      putBack=await putBackOrReload((error as any).code==='superseded'
+        ? 'The earlier tour request was cancelled.' : 'The lesson could not be drawn, so your view was put back.');
     if((error as any).code==='rollback_failed') {
       // A failed undo rebuild does not own later commands. Restore the saved
       // revision once through the ordinary workspace path, then release the
@@ -2393,6 +2963,10 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
     } else if((error as any).code==='superseded') {
       settledSuperseded=true;
       outcome.textContent='The earlier request was dropped.';
+    } else if((error as any).code==='local_save_deferred') {
+      // Not a refusal: the host holds the command again and delivers it once
+      // the save timer has committed the wearer's placement.
+      scheduleSave();
     } else if(!drew) {
       // Preserve geometry admission as a typed refusal and carry its complete
       // actionable sentence; display paging is separate from this receipt.
@@ -2406,13 +2980,25 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
         settledSuperseded=settledSuperseded || ['cancelled','superseded'].includes(rejected?.status);
       }
       catch(error) { await recoverConfirmation(error,' Retry confirmation to release the failed command; the command will not be rendered again.',ownGeneration); }
+    } else if(putBack!==undefined) {
+      // The host answered and refused the drawn lesson. Its checkpoint is back,
+      // so only an entry seat or a following local edit is left to save.
+      if(putBack) { try { dirty=JSON.stringify(workspace.capture())!==JSON.stringify(savedScene); } catch { dirty=true; } }
+      showOutcome({status:'failed',fields:[delivery.change.kind],detail:thrownErrorMessage(error).slice(0,200)});
     } else {
       dirty=true;
-      if(!(error as any).receiptRecoveryTried) await recoverConfirmation(error,pendingReceipt?' The visible change has not been confirmed. Retry confirmation.':'',ownGeneration);
+      const recovered=(error as any).receiptRecoveryTried ? undefined
+        : await recoverConfirmation(error,pendingReceipt?' The visible change has not been confirmed. Retry confirmation.':'',ownGeneration);
+      // A headset that gave up on a lost receipt keeps no lesson the host may
+      // never have saved. If the host did save it, the next beat follows it.
+      if(!recovered && isCompanion && !pendingReceipt && !blocked && ownsCheckpoint()
+        && await putBackOrReload('The lesson was not confirmed, so your view was put back.')) {
+        try { dirty=JSON.stringify(workspace.capture())!==JSON.stringify(savedScene); } catch { dirty=true; }
+      }
     }
   } finally {
     if(settledSuperseded) {
-      if(!recoveryFailed && !closed && generation===ownGeneration && panelId===delivery.panelId) {
+      if(!recoveryFailed && !reloadPending && !closed && generation===ownGeneration && panelId===delivery.panelId) {
         // Rollback normally restores the already saved scene. If a local edit
         // followed it in the queue, save that actual picture before readiness.
         dirty=true;
@@ -2426,10 +3012,17 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
     tourCommandContext=undefined;tourCommandReceipt=undefined;
     remote=false;
     if(recoveryFailed) {dirty=true;blocked=true;}
-    if(settledSuperseded && !closed && generation===ownGeneration && dirty && !blocked) {
+    // A reload owns the renderer next; the half-drawn scene is never saved.
+    if(settledSuperseded && !reloadPending && !closed && generation===ownGeneration && dirty && !blocked) {
       scheduleSave();await save();
     }
+    // Report any local work that followed completion. The desktop success
+    // path already published readiness before its receipt; recovery and the
+    // companion still need their actual post-command availability here.
+    if(drew && !pendingReceipt && !closed && generation===ownGeneration && panelId===delivery.panelId)
+      await busyBeat(ownGeneration);
   }
+  } finally { releaseHostLoad?.(); }
 }
 /**
  * The beat that keeps running while a command renders.
@@ -2502,24 +3095,45 @@ async function stepAsideWhileHidden() {
   } catch { /* The host's heartbeat grace drops the panel instead. */ }
 }
 async function busyBeat(ownGeneration:number, forceBusy=false) {
-  if(beatSuspended() || beatInFlight || pollBackoff.remaining()>0) return;
+  if(beatSuspended() || beatInFlight || pollBackoff.remaining()>0 || (!isCompanion && desktopReceiptInFlight && !desktopReceiptBeat)) return;
   beatInFlight=true;
+  let finishBeat!:()=>void;
+  beatCompletion=new Promise<void>(resolve=>{finishBeat=resolve;});
   // A renderer that is mid-command or mid-hydration is exactly `busy`, and a
   // busy panel is never handed a delivery, so this beat cannot claim a command
   // into a scene that is still being built.
   const busy=forceBusy || remote || loading || !workspace.snapshot().ready;
-  const availability=busy?'busy' as const:liveAvailability();
+  const receiptBeat=!isCompanion?desktopReceiptBeat:undefined;
+  const recovery=failedSourceLoad && failedSourceLoad.sessionId===binding.sessionId && retryHydrationId===binding.sessionId
+    && !forceBusy && !remote && !loading;
+  const availability=recovery?'ready' as const:receiptBeat?'ready' as const:busy?'busy' as const:liveAvailability();
   // A journey's `tourState` is inactive for its whole
   // run, so `experience` is the only thing on the beat that says an authored
   // lesson is playing and which chapter it just drew. The host needs it to
   // tell the lesson's own saved revisions from a hand on the scene, which is
   // what lets a wearer's stop still be about the scene they were looking at
   // when they spoke.
-  const sent={...expected(),panelId,availability,
-    tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{}),
+  let sent={...expected(),panelId,availability,
+    ...(recovery?{sourceFailureToken:failedSourceLoad!.sourceToken}:{}),
+    animation:workspace.snapshot().animation??null,tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{}),
     ...(isCompanion?{spatialContext:workspace.viewer.xr?.spatialContext?.()??null,xrStartup:xrStartupReport()}:{})};
   const diagnostics=isCompanion?((globalThis as any).__stereofoldDiagnostics?.heartbeat?.()??{}):{};
   try {
+    if(receiptBeat) {
+      // Completion may have committed while its response is still in transit.
+      // Only that exact receipt can advance this ready heartbeat's revision;
+      // never infer readiness from an unrelated saved revision or local flags.
+      const state=(await call('get_inspection_state',{sessionId:receiptBeat.sent.sessionId,
+        commandId:receiptBeat.commandId})).structuredContent as any;
+      if(closed || generation!==ownGeneration || panelId!==receiptBeat.sent.panelId) return;
+      if(state?.command?.status==='rendered' && state.command.commandId===receiptBeat.commandId
+        && state.command.panelId===receiptBeat.sent.panelId
+        && state.command.renderedRevision===state.inspectionRevision
+        && state.serverEpoch===receiptBeat.sent.serverEpoch && state.sourceToken===receiptBeat.sent.sourceToken
+        && state.stateRevision===receiptBeat.sent.baseStateRevision)
+        receiptBeat.sent={...receiptBeat.sent,baseInspectionRevision:state.inspectionRevision};
+      sent={...receiptBeat.sent};
+    }
     const response=await call('poll_inspection',{...sent,...diagnostics});
     pollBackoff.succeeded();
     if(closed || generation!==ownGeneration) return;
@@ -2532,7 +3146,7 @@ async function busyBeat(ownGeneration:number, forceBusy=false) {
       &&captureState?.serverEpoch===binding?.serverEpoch)requestHeadsetViewCapture(privateState.headsetViewRequest);
     noteRendererHeartbeat(true,privateState?.closeRendererTab===true);
     if(privateState?.diagnosticsAck!==undefined)(globalThis as any).__stereofoldDiagnostics?.acknowledge?.(privateState.diagnosticsAck);
-    noteAgentPresence(privateState?.agentAttached===true);
+    assistantStatus.notePresence(privateState);
     // The agent's own sentence and a command can ride the same beat; the
     // sentence is what the wearer should hear. See speakRemoteConfirmation.
     replyOnThisBeat=Boolean(privateState?.headsetCaption);
@@ -2544,13 +3158,12 @@ async function busyBeat(ownGeneration:number, forceBusy=false) {
     // Everything else in the answer — a source transition, a shared scene, a
     // saved-scene revision, a re-attachment — belongs to `poll`, which owns the
     // renderer. The short-lived queue re-offers anything skipped here.
-    // Only a panel that advertised `ready` may take a command, and the answer
-    // to that question is the word this beat actually sent. The host applies
-    // the same rule; agreeing with it here is what keeps a command from being
-    // claimed into a page that is unsaved, blocked, or being dragged.
-    const delivery=availability==='ready'?privateState?.delivery:undefined;
+    // A lesson may be admitted on a busy input beat: receive() retires that
+    // gesture before drawing. Keep the host's claim on the same renderer queue
+    // rather than dropping it merely because the wearer was still holding on.
+    const delivery=availability==='ready' || privateState?.delivery?.change?.kind==='lesson'?privateState?.delivery:undefined;
     // Start the command, do not wait for it.
-    if(delivery) rendering=rendering.then(()=>receive(delivery,sent,ownGeneration))
+    if(delivery) rendering=rendering.then(()=>receivePollDelivery(response,sent,ownGeneration))
       .catch(error=>{if(!closed)showProblem(problemMessage('delivery',error),'delivery',error);});
   } catch(error) {
     if((error as any)?.code==='companion_session_changed') { rebindCompanionSession(sent.sessionId); return; }
@@ -2559,7 +3172,7 @@ async function busyBeat(ownGeneration:number, forceBusy=false) {
     if(!showConnectionProblem(error,ownGeneration) && !isRendererHeartbeatFailure(error))
       { if(!closed) showProblem(problemMessage('poll',error),'poll',error); return; }
     retireStaleHud(undefined);
-  } finally { beatInFlight=false;workspace?.syncSceneHistory?.(); }
+  } finally { beatInFlight=false;beatCompletion=undefined;finishBeat();workspace?.syncSceneHistory?.(); }
 }
 function problemMessage(kind:ProblemRetryKind, _error?:unknown) {
   return kind==='save' ? 'Your changes are unsaved; choose Retry.' : 'Your view is preserved; choose Retry.';
@@ -2610,6 +3223,8 @@ async function poll() {
     if(experiencePreparing) { await busyBeat(generation); return; }
     const pollGeneration=generation;
     const snapshot=workspace.snapshot();
+    // The beat below still reports this panel busy while it redraws or reloads.
+    if(snapshot.status==='error') await recoverViewerError();
     // A transport failure must not strand an otherwise valid source refusal.
     // Retry the exact source/owner-bound acknowledgement before offering its lease.
     const pendingSourceFailure=failedSourceLoad;
@@ -2625,7 +3240,9 @@ async function poll() {
       if(closed || generation!==pollGeneration || failedSourceLoad!==pendingSourceFailure)return;
     }
     syncHandoff();
-    if(!dirty && !blocked && snapshot.ready && JSON.stringify(workspace.capture())!==JSON.stringify(savedScene)) scheduleSave();
+    // A chapter the lesson player is still drawing is saved once it is whole.
+    if(!failedSourceLoad && !dirty && !blocked && snapshot.ready && workspace.serializeCapture()!==JSON.stringify(savedScene)
+      && !tourPlayer?.getState().navigating) scheduleSave();
     // A completed local edit is saved before the panel advertises readiness.
     if(dirty && !blocked && !snapshot.interactionActive) { failureKind='save';await save(undefined,true); }
     failureKind='poll';
@@ -2643,12 +3260,14 @@ async function poll() {
     // an absent one cannot be talked about at all.
     if(!panelId) { if((isCompanion || !dirty) && !blocked && snapshot.ready) { failureKind='reconnect';await attach(); } return; }
     const ownGeneration=generation, sent={...expected(),panelId,
-      availability:liveAvailability(),
+      // This ready renderer can take another source even if the wearer grabs
+      // the rolled-back molecule or hides the page. Its old token still fences
+      // ordinary edits against coordinates that have not drawn.
+      availability:failedSourceLoad?'ready' as const:liveAvailability(),
       ...(failedSourceLoad && failedSourceLoad.sessionId===binding.sessionId && retryHydrationId===binding.sessionId
-        && !dirty && !remote && !loading && !snapshot.interactionActive && snapshot.ready
-        && (!isCompanion || ((document.visibilityState!=='hidden' || snapshot.xrPresenting) && workspace.viewer.xr?.blind?.()!==true))
+        && !remote && !loading
         ? {sourceFailureToken:failedSourceLoad.sourceToken} : {}),
-      tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{}),
+      animation:workspace.snapshot().animation??null,tourState:tourHeartbeat(panelTour),...(experienceView?{experience:{experienceId:experienceView.definition.id,stepIndex:experienceView.stepIndex}}:{}),
       ...(isCompanion?{spatialContext:workspace.viewer.xr?.spatialContext?.()??null,
         xrStartup:xrStartupReport()}:{})};
     let response;
@@ -2681,22 +3300,17 @@ async function poll() {
       &&data?.serverEpoch===binding?.serverEpoch)requestHeadsetViewCapture(captureRequest);
     showOutcome(data?.outcome);
     retireStaleHud(data?.outcome);
-    // Every heartbeat carries the shared library for the
-    // desktop Saved views panel.
-    if(data?.namedViews) noteNamedViews(data.namedViews);
     const sourceChanged=data?.sourceToken!==binding.sourceToken || data?.serverEpoch!==binding.serverEpoch;
     const experienceChanged=Boolean(data?.experience
       ? !experienceView || data.experience.id!==experienceView.definition.id || data.experience.revision!==experienceView.revision || data.experience.stepIndex!==experienceView.stepIndex
       : experiencePlayer?.getState().active);
     const privateState=response._meta?.[PRIVATE_KEY] as any;
-    // A changed source registers its assets inside validated hydration, where
-    // an early transfer refusal is attributed to that source's selected owner.
-    if(!sourceChanged) await registerComparisonSources(privateState?.comparisonSources,binding.sessionId);
+    await registerPollState(response,sent.sessionId);
     // The heartbeat is the only place the page ever learns
     // that an agent is on the Mac. Recorded before anything below can return
     // early, because a poll that hydrates or re-attaches still carried the
     // answer, and the headset's wording depends on it.
-    noteAgentPresence(privateState?.agentAttached===true);
+    assistantStatus.notePresence(privateState);
     // A host-initiated grow refusal rides this beat. The
     // page's own grow branch already arms the caption plate from the tool
     // return; this is the half that was missing when the Mac called
@@ -2725,7 +3339,8 @@ async function poll() {
     // holding unsaved work, because that work is captured against coordinates
     // the host no longer has and can never be saved. The decision and the
     // hardware defect it fixes are in `inspection-panel-recovery.ts`.
-    if(transitionReady && !privateState?.delivery && !paused && followsSourceTransition({sourceChanged,experienceChanged,dirty,blocked:blocked && !(failedSourceLoad && failedSourceLoad.sessionId===binding.sessionId && retryHydrationId===binding.sessionId
+    if(transitionReady && !privateState?.delivery && !paused
+      && !(failedSourceLoad && data.sourceToken===failedSourceLoad.sourceToken) && followsSourceTransition({sourceChanged,experienceChanged,dirty,blocked:blocked && !(failedSourceLoad && failedSourceLoad.sessionId===binding.sessionId && retryHydrationId===binding.sessionId
         && data.sourceToken!==failedSourceLoad.sourceToken && !dirty),
       interactionActive:workspace.snapshot().interactionActive})) { failureKind='reconnect';await hydrate(binding.sessionId,undefined,privateState?.journeySave); return; }
     voiceReadyBinding=sent.availability==='ready'&&!privateState?.delivery?voiceBindingKey(sent):'';
@@ -2763,8 +3378,14 @@ async function poll() {
     // command receipt can settle while this poll is in transport; its older
     // snapshot must never move the visible scene or binding back.
     if(followable && Number.isSafeInteger(data.inspectionRevision) && data.inspectionRevision>binding.inspectionRevision) {
-      tourPlayer?.validatePlayback(privateState.scene);
-      tourPlayer?.pause('A shared inspection update paused your tour.');
+      const nextLesson='customTour' in privateState?privateState.customTour??undefined:installedLesson;
+      const lessonChanged=JSON.stringify(nextLesson)!==JSON.stringify(installedLesson);
+      const validatePlayback=()=>lessonChanged ? savedLessonPlayback(privateState.scene,nextLesson?[nextLesson,...TOURS]:TOURS)
+        : tourPlayer?.validatePlayback(privateState.scene);
+      validatePlayback();
+      // A bookkeeping pause must not change capture() before admission or
+      // overwrite the molecular playback this peer is about to restore.
+      tourPlayer?.pause('A shared inspection update paused your tour.',{preserveMolecularPlayback:true});
       const ownEdits=edits, ownRevision=binding.inspectionRevision;
       remote=true;
       try {
@@ -2774,8 +3395,15 @@ async function poll() {
             || data.sourceToken!==binding.sourceToken || data.stateRevision!==binding.stateRevision
             || binding.inspectionRevision!==ownRevision
             || JSON.stringify(workspace.capture())!==JSON.stringify(savedScene)) throw Error('Local work changed before the shared view arrived.');
-          tourPlayer?.validatePlayback(privateState.scene);
-        },workspace.snapshot().xrPresenting===true,false,(scene:any)=>tourPlayer?.restorePlayback(scene));
+          validatePlayback();
+        },workspace.snapshot().xrPresenting===true,false,async(scene:any)=>{
+          if(lessonChanged) {
+            await tourPlayer?.replaceTours(nextLesson?[nextLesson,...TOURS]:TOURS,{preservePlayback:true});
+            await workspace.viewer.inspection.setLessonRestingState?.(lessonRestingState(nextLesson),{preserveEmphasis:true});
+            installedLesson=nextLesson;
+          }
+          await tourPlayer?.restorePlayback(scene,{frame:!lessonChanged});
+        });
         binding={...binding,...data};savedScene=restored;
         outcome.textContent=`Shared view shown · revision ${data.inspectionRevision}`;
         showOutcome(data.outcome);
@@ -2919,11 +3547,16 @@ async function boot() {
     // The answer to a capture the Mac armed on the heartbeat.
     if(isCompanion)setHeadsetViewSender(sendHeadsetViewCapture);
   }
-  workspace=await createInspectionWorkspace({embedded:true,enableXr:isCompanion,onInteraction:(interaction:{kind?:string})=>{localInteractionSerial++;tourPlayer?.notifyMutation(undefined,{interaction:interaction.kind?.startsWith('xr-')===true});experiencePlayer?.notifyInteraction();},
+  workspace=await createInspectionWorkspace({embedded:true,enableXr:isCompanion,onLocalEdit:()=>{localInteractionSerial++;lastLocalEditAt=performance.now();},onInteraction:(interaction:{kind?:string})=>{localInteractionSerial++;tourPlayer?.notifyMutation(undefined,{interaction:true});experiencePlayer?.notifyInteraction();},
     getSceneHistory:(view:any)=>sceneHistoryClient.get(view),onSceneHistoryAction:(kind:'undo'|'redo')=>sceneHistoryClient.act(kind),
     ...(!isCompanion?{onSaveNamedView:saveHostNamedView,onRestoreNamedView:restoreHostNamedView,onDeleteNamedView:deleteHostNamedView}:{}),
     onMutation:(snapshot:any)=>{
-    scheduleSave();tourPlayer?.notifyMutation(snapshot,{agent:remote});experiencePlayer?.notifyMutation();
+    scheduleSave();
+    // Source hydration restores saved animation before publishing its load
+    // mutation. That publication is bookkeeping, not a wearer takeover.
+    // Genuine input still reaches onInteraction while loading.
+    if(!loading) tourPlayer?.notifyMutation(snapshot,{agent:remote,origin:snapshot?.mutationOrigin});
+    experiencePlayer?.notifyMutation();
   // The wearer's own "grow it". `executeInspectionVoiceAction`
   // reaches `growStructure` from the Mac's push-to-talk route, and this is the
   // same function reached from the page's own grammar,
@@ -3002,7 +3635,9 @@ async function boot() {
   // `unhandled-rejection` carrying only `request_failed`, which reads in the
   // headset as though the scene itself failed. The scene applied; the caption
   // stands; only the audio is missing, and the status says why.
-  tourPlayer=mountTourPlayer({workspace,tours:TOURS,after:document.querySelector('.inspector-heading')!,narrate:line=>{void speakNarration(line);},onExplore:kind=>{
+  tourPlayer=mountTourPlayer({workspace,tours:TOURS,after:document.querySelector('.inspector-heading')!,
+    continueStage:(stage,intent)=>growStructure(stage,{continuation:intent}),
+    narrate:line=>{void speakNarration(line);},onExplore:kind=>{
     document.querySelector<HTMLButtonElement>(`[data-workspace="${kind}"]`)?.click();
     if(kind==='sequence') {
       document.querySelector('.sequence-panel')?.scrollIntoView({block:'nearest'});
@@ -3086,6 +3721,7 @@ async function boot() {
      */
     voiceInteraction=createVoiceInteraction({begin:beginVoiceRequest,send:sendVoiceRequest,onState:(state:string,message:string)=>{
       voiceState=state;
+      assistantStatus.update({microphone:state});
       if(state==='error' || message.startsWith('Audio reply unavailable:')) {
         recordHeadsetEvent('page-error',{operation:'voice',message});
         voiceMessage='Voice is unavailable. Try again.';
@@ -3548,6 +4184,7 @@ async function boot() {
     refresh.addEventListener('click',()=>location.reload());
     let xrSyncSequence=0;
     let xrPending=false, xrProblem='', entryWatchdog:ReturnType<typeof setTimeout>|undefined;
+    let xrEntryAttempt:{presented:boolean;exited:boolean}|undefined;
     // True while the next tap on the page background is the way
     // back into VR. `syncXr` rewrites the status line every two seconds, so the
     // arming below cannot simply set it once.
@@ -3570,15 +4207,17 @@ async function boot() {
       const button=document.createElement('button');button.type='button';button.dataset.enterXr=mode;button.textContent=label;button.disabled=false;
       button.addEventListener('pointerdown',()=>{pointerDowns=Math.min(65535,pointerDowns+1);});
       button.addEventListener('click',event=>{
+        if(xrPending || workspace.viewer.xr.startup?.()?.pending===true)return;
         entryClicks=Math.min(65535,entryClicks+1);trustedClick=event.isTrusted;
         disarmReentry?.();
         // Invoke entry directly from this gesture; do not await another RPC.
+        const attempt={presented:false,exited:false};xrEntryAttempt=attempt;
         xrPending=true;xrProblem='';note.dataset.state='starting';note.textContent='Entering headset view…';
         refresh.hidden=true;options.open=false;
         for(const control of enterButtons)control.disabled=true;
         const requested=mode==='immersive-ar'&&!arSupported?'immersive-vr':mode;
         entryWatchdog=setTimeout(()=>{
-          if(!xrPending)return;
+          if(!xrPending || xrEntryAttempt!==attempt)return;
           const phase=workspace.viewer.xr.startup?.().phase;
           // Safari holds the request behind its own consent prompt for as long
           // as the wearer takes, so a slow answer there is not a failure.
@@ -3602,11 +4241,13 @@ async function boot() {
         // A Quest that reports AR support can still reject the AR request, so
         // plain VR is tried once inside this same gesture before the wearer is
         // handed an error they can only answer by pressing Enter again.
-        const enterPromise=enterImmersiveWithFallback(m=>workspace.viewer.xr.enter(m as typeof requested),requested,
-          ()=>{note.textContent='Passthrough refused; opening plain VR…';});
+        const enterPromise=enterImmersiveWithFallback(m=>{
+          if(xrEntryAttempt!==attempt || attempt.presented)return Promise.reject(Error('The headset entry was interrupted.'));
+          return workspace.viewer.xr.enter(m as typeof requested);
+        },requested,()=>{if(xrEntryAttempt===attempt && !attempt.presented)note.textContent='Passthrough refused; opening plain VR…';});
         void enterPromise
-          .catch((error:Error)=>{recordHeadsetEvent('page-error',{operation:'enter-headset',message:thrownErrorMessage(error)});xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
-          .finally(()=>{clearTimeout(entryWatchdog);xrPending=false;void syncXr();});
+          .catch((error:Error)=>{if(xrEntryAttempt!==attempt || (attempt.exited && !workspace.viewer.xr.startup?.()?.reloadRequired))return;recordHeadsetEvent('page-error',{operation:'enter-headset',message:thrownErrorMessage(error)});xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
+          .finally(()=>{if(xrEntryAttempt!==attempt)return;clearTimeout(entryWatchdog);xrEntryAttempt=undefined;xrPending=false;void syncXr();});
       });enterButtons.push(button);
       if(mode==='immersive-ar') {button.dataset.primary='true';entryActions.append(button);}
       else optionsBody.append(button);
@@ -3628,18 +4269,21 @@ async function boot() {
     let resumeMode:'immersive-ar'|'immersive-vr'|null=null;
     resumeButton.addEventListener('pointerdown',()=>{pointerDowns=Math.min(65535,pointerDowns+1);});
     resumeButton.addEventListener('click',event=>{
-      const mode=resumeMode;if(!mode)return;
+      const mode=resumeMode;if(!mode || xrPending || workspace.viewer.xr.startup?.()?.pending===true)return;
       entryClicks=Math.min(65535,entryClicks+1);trustedClick=event.isTrusted;
       disarmReentry?.();
       // This click is the activation the switch could not have. Spend it on the
       // request itself and await nothing before it.
+      const attempt={presented:false,exited:false};xrEntryAttempt=attempt;
       xrPending=true;xrProblem='';resumeButton.disabled=true;
       note.dataset.state='starting';note.textContent='Entering headset view…';refresh.hidden=true;
       if(isCompanion && !isAppleSafariXr(navigator)) void primePushToTalkMicrophone();
-      void enterImmersiveWithFallback(m=>workspace.viewer.xr.enter(m),mode,
-        ()=>{note.textContent='Passthrough refused; opening plain VR…';})
-        .catch((error:Error)=>{recordHeadsetEvent('page-error',{operation:'resume-headset',message:thrownErrorMessage(error)});xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
-        .finally(()=>{xrPending=false;resumeButton.disabled=false;void syncXr();});
+      void enterImmersiveWithFallback(m=>{
+        if(xrEntryAttempt!==attempt || attempt.presented)return Promise.reject(Error('The headset entry was interrupted.'));
+        return workspace.viewer.xr.enter(m);
+      },mode,()=>{if(xrEntryAttempt===attempt && !attempt.presented)note.textContent='Passthrough refused; opening plain VR…';})
+        .catch((error:Error)=>{if(xrEntryAttempt!==attempt || (attempt.exited && !workspace.viewer.xr.startup?.()?.reloadRequired))return;recordHeadsetEvent('page-error',{operation:'resume-headset',message:thrownErrorMessage(error)});xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
+        .finally(()=>{if(xrEntryAttempt!==attempt)return;xrEntryAttempt=undefined;xrPending=false;resumeButton.disabled=false;void syncXr();});
     });
     const leave=document.createElement('button');leave.type='button';leave.dataset.leaveXr='';leave.textContent='Leave headset view';leave.disabled=true;
     leave.addEventListener('click',()=>{
@@ -3673,6 +4317,15 @@ async function boot() {
       recording.hidden=presenting;
       if(!presenting){hudSignature='';hudWaitingSince=0;}
       const startup=workspace.viewer.xr.startup?.();
+      // Native exit can retire the session before the entry promise settles.
+      // Recover only an attempt that actually presented and whose native
+      // startup is now idle with no request pending; consent and cleanup still
+      // keep admission closed. Retire its owner so late fallback/finally work
+      // cannot issue another request or clear a newer entry's pending state.
+      if(xrEntryAttempt?.presented && !presenting && startup?.phase==='idle' && startup.pending===false) {
+        xrEntryAttempt=undefined;clearTimeout(entryWatchdog);xrPending=false;xrProblem='';
+      }
+      const entryBusy=xrPending || startup?.pending===true;
       const reloadRequired=startup?.reloadRequired;
       // A switch the browser refused is waiting on one press here.
       // A page that needs reloading cannot serve that press, so it keeps its own
@@ -3680,7 +4333,7 @@ async function boot() {
       const pendingEntry=reloadRequired||presenting?null:startup?.pendingEntry??null;
       resumeMode=pendingEntry?pendingEntry.mode:null;
       resume.hidden=!pendingEntry;
-      resumeButton.disabled=xrPending;
+      resumeButton.disabled=entryBusy;
       if(pendingEntry) {
         const copy=entryFallbackCopy(pendingEntry.mode);
         resumeButton.textContent=copy.label;resumeNote.textContent=copy.note;
@@ -3692,21 +4345,21 @@ async function boot() {
       options.hidden=Boolean(pendingEntry);
       // The primary button falls back to immersive-vr, so only a browser with
       // neither mode disables it. The plain-VR button needs immersive-vr.
-      for(const button of enterButtons)button.disabled=xrPending || reloadRequired || presenting
+      for(const button of enterButtons)button.disabled=entryBusy || reloadRequired || presenting
         || (button.dataset.enterXr==='immersive-vr' ? capabilities.vr===false : capabilities.ar===false && capabilities.vr===false);
       const vrButton=enterButtons.find(button=>button.dataset.enterXr==='immersive-vr')!;
       const arButton=enterButtons.find(button=>button.dataset.enterXr==='immersive-ar')!;
       // A wearer coming back from the full Mol* viewer
       // gets one control, not three. See `xrReentryEntryView`.
-      const returning=xrReentryEntryView({returning:reentryArmed,presenting,pending:xrPending,
+      const returning=xrReentryEntryView({returning:reentryArmed,presenting,pending:entryBusy,
         problem:xrProblem,pendingEntry:Boolean(pendingEntry),enterDisabled:arButton.disabled});
       vrButton.hidden=returning.single;
       arButton.hidden=false;
       arButton.dataset.primary='true';
-      leave.disabled=xrPending || !presenting;
+      leave.disabled=entryBusy || !presenting;
       leave.hidden=!presenting;
-      note.dataset.state=xrProblem?'error':xrPending?'starting':presenting?'active':'connected';
-      note.textContent=xrProblem || (xrPending?'Opening headset view — check for a permission prompt.'
+      note.dataset.state=xrProblem?'error':entryBusy?'starting':presenting?'active':'connected';
+      note.textContent=xrProblem || (!presenting && startup?.phase==='idle' && startup.pending===true?'Closing headset view…':entryBusy?'Opening headset view — check for a permission prompt.'
         :pendingEntry?entryFallbackCopy(pendingEntry.mode).caption:presenting?'Headset view open. Use the floating menu to control the tour.':capabilities.vr===null&&capabilities.ar===null?'Ready to try headset entry. Enter VR opens passthrough wherever the browser supports it.':capabilities.ar?'Enter VR opens the headset view with passthrough. Enter plain VR, under More options, opens the opaque room.':capabilities.vr?'This browser reports no passthrough, so Enter VR opens the opaque headset view.':'Preview ready. Open this page on your headset, then choose Enter VR.');
       // While one tap is the way back into VR, that is the only
       // thing this line has to say. Nothing overrides a problem or a pending
@@ -3721,7 +4374,10 @@ async function boot() {
     // Native/system exit bypasses the Leave button's finally handler. Update
     // the real controls on that edge rather than waiting for the fallback poll.
     const unwatchPresentation=workspace.viewer.xr.onPresentationChange((presenting:boolean)=>{
-      if(presenting)activePreviewRecording?.abort();
+      if(presenting) {
+        if(xrEntryAttempt)xrEntryAttempt.presented=true;
+        activePreviewRecording?.abort();
+      } else if(xrEntryAttempt?.presented)xrEntryAttempt.exited=true;
       void syncXr().catch(()=>{});
     });
     await syncXr();

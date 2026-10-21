@@ -18,6 +18,8 @@ import { createGesturePivot } from './gesture-pivot.mjs';
 import { renderedLabelQuads, renderedSubjectSpheres } from './component-label-measurement.mjs';
 import { syntheticViews } from './fixtures/component-label-diagnostics.mjs';
 import { menuSeatReceipt } from './menu-seat-receipt.mjs';
+import { createMenuResolve } from './menu-resolve.mjs';
+import { toolbarFrameRuntime, toolbarFrameHarness } from './fixtures/toolbar-frame-runtime.mjs';
 
 const toolbar = readFileSync(new URL('./spatial-toolbar.mjs', import.meta.url), 'utf8');
 test('the initial compact controls expand on the first Menu press', () => {
@@ -176,7 +178,7 @@ test('the viewer menu update commits offsets for ten existing plates atomically'
     'stageComponentLabelLayers', 'componentLabelStillUnits', 'committedLayer', 'recordCost',
     'currentEmphasisPlan', 'componentLabelPlateParts', 'componentLabelKeyPlan', 'colorNumber', 'emphasisState', 'Color',
     'sourceRecord', 'state', 'componentLabels',
-    'let updateMenuLabelPlates, menuResolveReason; const labelSource=sourceRecord,labelGeneration=state.generation; const componentLabelBounds = createSelectionBoundsCache(StructureElement.Loci.getBoundingSphere);\n' + viewer.slice(start, end) + '\nreturn updateMenuLabelPlates;')(
+    'let updateMenuLabelPlates, menuResolveReason; const detachedById = new Map(); const labelSource=sourceRecord,labelGeneration=state.generation; const componentLabelBounds = createSelectionBoundsCache(StructureElement.Loci.getBoundingSphere);\n' + viewer.slice(start, end) + '\nreturn updateMenuLabelPlates;')(
     createSelectionBoundsCache, plugin, refs, refs.map(id => ({ id, text: id, loci: {} })), { sizeFactor: 1, characterUnits: 0.8 }, {}, {}, true, solve,
     () => ({ backing: { alpha: 1 } }), new Map(),
     live => { assert.deepEqual(live, refs); transforms++; }, { invalidate() { invalidations++; } },
@@ -204,7 +206,7 @@ test('the viewer menu update commits offsets for ten existing plates atomically'
 // Execute the viewer's build, placement action and relayout together. The
 // adapter commits label uniforms and representation transforms to render-value
 // cells; the independent drawn-geometry reader then observes those cells.
-function placedMenuHarness({ leaders = true } = {}) {
+function placedMenuHarness({ leaders = true, detached = () => false, colours } = {}) {
   const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
   const extract = (start, end) => {
     const from = source.indexOf(start), to = source.indexOf(end, from);
@@ -213,10 +215,39 @@ function placedMenuHarness({ leaders = true } = {}) {
   };
   const sphere = { center: [3, -2, -80], radius: 5 };
   const parts = Array.from({ length: 10 }, (_, i) => ({ id: `part-${i}`, label: `Part ${i}`,
-    keys: [i], color: '#ffffff', center: [i - 1, i % 3 - 2, -80 + i / 2], radius: 0.25 + i / 10 }));
+    keys: [i], color: colours?.[i] ?? '#ffffff', center: [i - 1, i % 3 - 2, -80 + i / 2], radius: 0.25 + i / 10 }));
   let placement = { scale: 1.7, translation: [0.4, -0.3, 0.2], rotation: [0, 0, 90] };
   let requiredLeader = leaders, commits = 0, updateCommits = 0, deletes = 0, placementGate;
   const cells = new Map(), solves = [], clearanceChecks = [];
+  let menuTimer;
+  const menuActions = [];
+  // Keep the session's production action forwarding and redraw/debounce wiring.
+  const sessionSource = readFileSync(new URL('./immersive-session.mjs', import.meta.url), 'utf8');
+  const sessionFunctions = ['menuRedrawn', 'menuMotion', 'menuResolveFor'].map(name => {
+    const start = sessionSource.indexOf(`  function ${name}(`);
+    assert.ok(start >= 0, name);
+    return sessionSource.slice(start, sessionSource.indexOf('\n  }', start) + 4);
+  }).join('\n');
+  const sessionMethods = ['toolbarAction', 'flushMenuLayout'].map(name => {
+    const line = sessionSource.split('\n').find(line => line.trimStart().startsWith(`${name}:`));
+    assert.ok(line, name);
+    return line;
+  }).join('\n');
+  const active = { toolbar: {
+    async runAction(action) {
+      menuActions.push(action);
+      await new Promise(resolve => setImmediate(resolve));
+      immersiveSession.menuRedrawn(active);
+    },
+    menuPoints: () => [[0, 0, -1]], menuMotion: () => ['reseat'],
+  } };
+  const immersiveSession = new Function('active', 'createMenuResolve', 'onMenuPlaced', `
+    const startupPhase = 'active', menuPoints = () => active.toolbar.menuPoints();
+    ${sessionFunctions}
+    return { ${sessionMethods} menuRedrawn };
+  `)(active, options => createMenuResolve({ ...options,
+    schedule: fn => { menuTimer = fn; return 1; }, cancel: () => { menuTimer = undefined; },
+  }), detail => viewer.onMenuPlaced(detail));
   const values = entries => Object.fromEntries(Object.entries(entries).map(([key, value]) => [key, ValueCell.create(value)]));
   const subjectObject = { state: { visible: true }, values: values({
     drawCount: 6, alpha: 1, boundingSphere: sphere, matrix: Mat4.identity(),
@@ -272,8 +303,8 @@ function placedMenuHarness({ leaders = true } = {}) {
     return builder;
   } };
   const deps = {
-    ...labelFacing, ...componentLabels, Vec3, Mat4, normalizePlacement, plugin, updatePlacementBounds,
-    clampPlacementScale, clampPlacementTranslation, pivotPreservingTranslation,
+    ...labelFacing, ...componentLabels, Vec3, Mat4, normalizePlacement, plugin, updatePlacementBounds, immersiveSession,
+    clampPlacementScale, clampPlacementTranslation, pivotPreservingTranslation, roomEntry: undefined,
     pendingRoomSeat: false, pendingRoomLabels: false, componentLabelLayoutCache: null, componentLabelBuildSignature: null,
     componentLabelPartsSignature: () => JSON.stringify(parts.map(part => [part.id, part.label, part.keys])),
     COMPONENT_LABEL_LIMIT: 10, COMPONENT_LABEL_REF: 'plate',
@@ -291,7 +322,8 @@ function placedMenuHarness({ leaders = true } = {}) {
       Bundle: { fromLoci: loci => loci } },
     StateTransforms: { Model: { MultiStructureSelectionFromBundle: 'selection' },
       Representation: { StructureSelectionsLabel3D: 'label' } },
-    Color: value => value, colorNumber: () => 0xffffff,
+    Color: value => value,
+    colorNumber: value => (typeof value === 'string' ? Number.parseInt(value.slice(1), 16) : value),
     loadedSphere: () => sphere, pivotCenter: () => sphere.center, representation: { obj: {} },
     scientificRepresentations: () => [subjectRepr],
     lessonFigure: { snapshot: () => null, annotations: () => [] },
@@ -307,7 +339,7 @@ function placedMenuHarness({ leaders = true } = {}) {
       const layout = new Map(drawable.map((entry, i) => [entry.id, {
         // Aim for known positions, independently of the molecular placement.
         offsetX: 12 + i - entry.anchor[0], offsetY: 8 - entry.anchor[1],
-        sizeScale: 0.9, alpha: 1, lines: [entry.text, 'copy'],
+        sizeScale: 0.9, alpha: 1, lines: [entry.text, 'copy'], detached: detached(i),
         leader: requiredLeader ? { attachment: 'top-center', tetherLength: i + 1 } : null,
       }]));
       solves.push({ drawable: structuredClone(drawable), sizing, subject, layout, standoff });
@@ -346,7 +378,19 @@ function placedMenuHarness({ leaders = true } = {}) {
       for (const key of cells.keys()) if (refs.some(ref => key === ref || key.startsWith(`${ref}-`))) cells.delete(key);
     } });
   viewer.setOwner(labels);
-  return { labels, viewer, cells, solves, parts, sphere, subjectObject, clearanceChecks,
+  return { labels, viewer, cells, solves, parts, sphere, subjectObject, clearanceChecks, menuActions,
+    menuRedrawn: () => immersiveSession.menuRedrawn(active),
+    useToolbar(toolbar) {
+      active.toolbar = { ...toolbar,
+        runAction: (...args) => { menuActions.push(args[0]); return toolbar.runAction(...args); },
+      };
+      active.menuResolve?.dispose(); active.menuResolve?.seed(toolbar.menuPoints());
+    },
+    async settleMenu() {
+      await new Promise(resolve => setImmediate(resolve));
+      if (menuTimer) { const fire = menuTimer; menuTimer = undefined; fire(); }
+      await new Promise(resolve => setImmediate(resolve));
+    },
     placement: () => placement, requireLeader: value => { requiredLeader = value; },
     holdPlacement() { let release; placementGate = new Promise(resolve => { release = resolve; }); return release; },
     counts: () => ({ commits, updateCommits, deletes }) };
@@ -444,6 +488,52 @@ test('a menu relayout keeps one untethered primitive per line without rebuilding
 });
 
 
+test('a plate away from its part carries its colour as an edge that moves with it, and drops it beside its part', async () => {
+  const colours = Array.from({ length: 10 }, (_, i) => `#${(0x0f2a40 + i * 0x110a03).toString(16).padStart(6, '0')}`);
+  let away = i => i % 2 === 0;
+  const h = placedMenuHarness({ leaders: false, colours, detached: i => away(i) });
+  await h.labels.rebuild();
+  const refs = h.labels.refs();
+  const check = when => {
+    for (let i = 0; i < 10; i++) for (let line = 0; line < 2; line++) {
+      const backing = h.cells.get(`${refs[i]}-${line}-backing`), key = h.cells.get(`${refs[i]}-${line}-key`);
+      if (!away(i)) {
+        assert.ok(!key || key.params.alpha === 0, `${when}: plate ${i} beside its part draws no key`);
+        assert.equal(backing.params.backgroundMargin, 0.5);
+        continue;
+      }
+      assert.ok(key, `${when}: plate ${i} away from its part has a key`);
+      assert.equal(key.params.alpha, backing.params.alpha, `${when}: plate ${i} away from its part shows its key`);
+      assert.equal(key.params.backgroundColor, Number.parseInt(colours[i].slice(1), 16));
+      assert.equal(key.params.textColor, 0xffffff, 'its copy of the name is white on the white plate');
+      for (const param of ['offsetX', 'offsetY', 'sizeFactor']) {
+        assert.equal(key.params[param], backing.params[param], `${when}: plate ${i} key ${param}`);
+      }
+      assert.ok(key.params.offsetZ < backing.params.offsetZ, 'the key sits just behind its plate');
+      assert.ok(key.params.backgroundMargin > backing.params.backgroundMargin, 'its edge shows round the white');
+      assert.equal(key.params.backgroundMargin, 0.5, 'the key fills the footprint the layout reserved');
+      // Placed with the molecule like the plate it keys.
+      assert.deepEqual(key.obj.data.repr.renderObjects[0].values.aTransform.ref.value,
+        backing.obj.data.repr.renderObjects[0].values.aTransform.ref.value);
+    }
+  };
+  check('built');
+  assert.equal([...h.cells.keys()].filter(id => id.endsWith('-key')).length, 10, 'only the five away plates are keyed');
+  const cells = new Map(h.cells);
+  away = i => i % 3 === 0;
+  await h.labels.relayout('collapse,reseat');
+  assert.equal(h.counts().deletes, 0, 'detachment changes in place, without a rebuild');
+  assert.deepEqual(h.labels.refs(), refs);
+  // Every primitive is kept and updated; plates 3 and 9 left their parts and
+  // gained keys, and plates 2, 4 and 8 came back and hid theirs.
+  for (const [id, cell] of cells) assert.equal(h.cells.get(id), cell, id);
+  assert.deepEqual([...h.cells.keys()].filter(id => !cells.has(id)),
+    ['plate-3-0-key', 'plate-3-1-key', 'plate-9-0-key', 'plate-9-1-key']);
+  check('relayout');
+  await h.viewer.placeInspection({ scale: 2.6 }, 'scale');
+  check('placed');
+});
+
 test('production smaller/bigger action relayouts once after placement and commits changed plates', async () => {
   const h = placedMenuHarness();
   await h.labels.rebuild();
@@ -481,6 +571,43 @@ test('production smaller/bigger action relayouts once after placement and commit
   assert.equal(h.counts().updateCommits, updates);
 });
 
+
+test('an agent placement and its menu reseat share one settled plate layout', async () => {
+  const h = placedMenuHarness();
+  const runtime = await toolbarFrameRuntime();
+  let menuGate;
+  const menu = toolbarFrameHarness(runtime, { onRepresentationChange: h.menuRedrawn,
+    beforeMenuDraw: async () => { await menuGate; },
+  });
+  h.useToolbar(menu.toolbar);
+  await menu.toolbar.update();
+  await h.settleMenu();
+  await h.labels.rebuild();
+  try {
+    for (const patch of [{ scale: 2.6 }, { rotation: [0, 30, 90] }, { translation: [.8, -.3, .2] }]) {
+      const layouts = h.solves.length, updates = h.counts().updateCommits, actions = h.menuActions.length;
+      let release;
+      menuGate = new Promise(resolve => { release = resolve; });
+      const applying = h.viewer.placeInspection(patch);
+      await new Promise(resolve => setImmediate(resolve));
+      const whileDrawing = h.solves.length;
+      release();
+      await applying;
+      assert.equal(whileDrawing, layouts, 'no solve against the outgoing glass');
+      assert.equal(h.solves.length, layouts + 1, 'placement awaits the settled plate layout');
+      await h.settleMenu();
+      assert.equal(h.menuActions.length, actions + 1, 'one glass reseat per changed agent pose');
+      assert.equal(h.solves.length, layouts + 1, 'the delayed menu callback must not solve twice');
+      assert.equal(h.counts().updateCommits, updates + 1, 'one plate commit per changed pose');
+      assert.equal(h.solves.at(-1).sizing.placementScale, h.placement().scale);
+    }
+    const layouts = h.solves.length, actions = h.menuActions.length;
+    await h.viewer.placeInspection(structuredClone(h.placement()));
+    await h.settleMenu();
+    assert.equal(h.menuActions.length, actions, 'an unchanged pose does not reseat glass');
+    assert.equal(h.solves.length, layouts, 'an unchanged pose does not relayout plates');
+  } finally { await menu.toolbar.dispose(); }
+});
 
 test('a held "make it smaller" solves once with the stand-off; a menu collapse solves once', async () => {
   const h = placedMenuHarness();

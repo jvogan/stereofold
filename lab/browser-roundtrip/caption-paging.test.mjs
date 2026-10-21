@@ -1,3 +1,4 @@
+import { createAssistantStatus } from './assistant-status.mjs';
 import { menuSeatWithinView } from './menu-view-band.mjs';
 /**
  * No caption kind ends in an ellipsis.
@@ -17,7 +18,7 @@ import { menuSeatWithinView } from './menu-view-band.mjs';
  * two kinds that did not: a spoken reply and a connection state line.
  *
  * The glyph advances are the measured Arial atlas in
- * `fixtures/toolbar-font-metrics.json`, the same file the toolbar wrap is
+ * `fixtures/toolbar-bold-font-metrics.json`, the same file the toolbar wrap is
  * checked against, so a plate width asserted here is a width the headset draws.
  */
 import test from 'node:test';
@@ -29,7 +30,7 @@ import { connectionStatus, setConnectionStatus, markTalkLinkLost, LINK_LOST, PAI
 import { measureReplyCard, measureReplyCardClearance, replyCardOffsetAsync } from './reply-card-layout.mjs';
 import { identity, syntheticViews } from './fixtures/component-label-diagnostics.mjs';
 
-const metrics = JSON.parse(readFileSync(new URL('./fixtures/toolbar-font-metrics.json', import.meta.url)));
+const metrics = JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url)));
 const advanceOf = glyph => metrics.advances[glyph] ?? 0.6;
 
 /**
@@ -49,7 +50,7 @@ function captionHarness({ runTask = async () => {}, clearanceSource, headSource 
   const source = readFileSync(new URL('./talk-caption.mjs', import.meta.url), 'utf8');
   const live = new Set(), records = [], textDraws = [], textRows = [];
   let time = 0;
-  const context = vm.createContext({ menuSeatWithinView, connectionStatus, TALK_LINK_LOST, ...geometry, measureReplyCard, measureReplyCardClearance,
+  const context = vm.createContext({ assistantStatus: createAssistantStatus(), menuSeatWithinView, connectionStatus, TALK_LINK_LOST, ...geometry, measureReplyCard, measureReplyCardClearance,
     replyCardOffsetAsync: (args, options) => replyCardOffsetAsync(args, { ...options, now: () => 0 }),
     MeshBuilder: { createState: () => ({}), addTriangleWithNormal() {}, getMesh: () => ({}) },
     Mesh: { Utils: {} },

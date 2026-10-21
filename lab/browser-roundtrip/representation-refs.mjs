@@ -32,6 +32,7 @@ export const STEREOFOLD_AUXILIARY_TAGS = Object.freeze([
   'stereofold-ligand-overlay',
   'stereofold-scoped-style',
   'stereofold-lesson-figure',
+  'stereofold-molecular-animation',
   'stereofold-inspection-labels',
   'stereofold-inspection-selected-labels',
 ]);

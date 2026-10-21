@@ -1,6 +1,11 @@
+interface DemoIndexEntry {
+  lesson?: unknown;
+  coordinates?: { derivation?: { kind?: unknown; recipe?: unknown } };
+}
+
 export interface DemoIndexLike {
   version?: unknown;
-  demos?: Array<{ lesson?: unknown; stages?: Array<{ lesson?: unknown }> }>;
+  demos?: Array<DemoIndexEntry & { stages?: DemoIndexEntry[] }>;
 }
 
 /**

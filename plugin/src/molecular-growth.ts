@@ -29,7 +29,8 @@ import type { DemoEntry, DemoIndex, DemoStage, DemoTier } from '../scripts/quest
  * `dist`. `plugin/src/..` and `plugin/dist/..` both reach `plugin/demos`.
  */
 export const DEMO_INDEX_PATH = fileURLToPath(new URL('../demos/index.json', import.meta.url));
-/** Coordinates are downloads, so they live in the cache, never in the checkout. */
+/** Cache root resolver. Indexed coordinates must use readAddressedDemoFile;
+ * file alone is only a legacy fallback, never a publication destination. */
 export const demoCoordinatePath = (file: string, home: string = homedir()): string =>
   resolve(home, 'Library/Caches/Stereofold/demos', file);
 

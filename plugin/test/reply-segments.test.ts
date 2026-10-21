@@ -204,3 +204,20 @@ describe('the segments one long reply is spoken as', () => {
     expect(gate.started).toEqual([0]);
   });
 });
+
+it('keeps a silent segment reading window when the following batch has not arrived yet',async()=>{
+  const {scope}=scopeWith();const shown:string[]=[];const waits:number[]=[];let finishHold!:()=>void;
+  const player=createReplySegmentPlayer({scope,target:target(),show:(text:string)=>shown.push(text),
+    play:async(segment:any)=>Boolean(segment.audio),
+    setTimer:(fn:()=>void,ms:number)=>{waits.push(ms);finishHold=fn;return 1;},clearTimer:()=>{}});
+  const first={id:'opening',speak:true,speechTotal:2,segments:[{index:0,text:'Silent opening.',seconds:2}]};
+  player.start(first,replySegmentsOf(first));await settle();
+  expect(waits).toEqual([2000]);
+  const tail={id:'tail',voiceFor:'opening',voiceOffset:1,speechTotal:2,speak:true,
+    segments:[{index:0,text:'Spoken tail.',audio:clip('tail')}]};
+  player.enqueue(tail,replySegmentsOf(tail));await settle();
+  expect(shown).toEqual(['Silent opening.']);
+  finishHold();await settle();
+  expect(shown).toEqual(['Silent opening.','Spoken tail.']);
+  player.stop();
+});

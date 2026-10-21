@@ -1,3 +1,5 @@
+// @ts-ignore Shared wearer status wording.
+import { NOBODY_LISTENING_LINE } from '../../lab/browser-roundtrip/assistant-status.mjs';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -124,7 +126,7 @@ describe('the talk binding a held A or X drives', () => {
     await talk.stop();
     await talk.dispose();
     expect(sent).toEqual(['down', 'up']);
-    expect(shown).toEqual(['Listening…', '']);
+    expect(shown).toEqual(['Listening…', NOBODY_LISTENING_LINE]);
     // Push-to-talk left the grips so both grips could grab the structure. A
     // binding that registers a squeeze again re-opens the old misfire: a
     // wearer steadying a two-hand scale opened a mic.
@@ -212,6 +214,6 @@ describe('the talk binding a held A or X drives', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     await talk.dispose();
     expect(calls).toEqual(['start', 'stop']);
-    expect(shown).toEqual(['Starting microphone…', 'Listening…', 'Transcribing…', 'Reply played.']);
+    expect(shown).toEqual(['Starting microphone…', 'Listening…', NOBODY_LISTENING_LINE, 'Reply played.']);
   });
 });

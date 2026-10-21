@@ -1,3 +1,11 @@
+import { patchXrHiddenShaderResources } from '../src/molstar-xr-hidden-shader-patch.js';
+import { patchPlateTextRenderable, patchPlateTextVertex } from '../src/molstar-plate-billboard-patch.js';
+import { uniformCacheBuildPlugins } from '../src/molstar-uniform-cache-patch.js';
+import { propsBuildPatch } from '../src/molstar-props-patch.js';
+import { isosurfaceGpuChoicePatch } from '../src/molstar-isosurface-gpu-choice-patch.js';
+import { cifFieldBuildPatch } from '../src/molstar-cif-field-patch.js';
+import { motionCanvasPatch } from '../src/molstar-motion-patch.js';
+import { patchLessonLabelRenderer, patchLessonLabelDraw, patchLessonLabelRenderItem, patchLessonLabelFragment } from '../src/molstar-lesson-label-patch.js';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, copyFile, writeFile } from 'node:fs/promises';
@@ -8,7 +16,7 @@ import { forkDrawPassSource } from '../src/molstar-draw-pass-fork.js';
 import { forkPickHelperSource } from '../src/molstar-pick-helper-fork.js';
 import { patchMolstarStereoSource } from '../src/molstar-stereo-patch.js';
 import { fontAtlasCachePatch, textFontTexturePatch, labelUniformUpdatePatch } from '../src/molstar-font-atlas-patch.js';
-import { patchMolstarBlendedTransparentSource, transparentMeshColorPatch } from '../src/molstar-transparent-mesh-patch.js';
+import { patchMolstarBlendedTransparentSource } from '../src/molstar-transparent-mesh-patch.js';
 import { zeroContributionLightingBuildPlugins } from '../src/molstar-zero-light-patch.js';
 import { matteLightingBuildPlugins } from '../src/molstar-matte-light-patch.js';
 import { patchMolstarOpaqueRendererSource, patchMolstarOpaqueDrawSource, opaqueDepthBuildPlugins } from '../src/molstar-opaque-depth-patch.js';
@@ -31,7 +39,7 @@ import { prepareScratchDist } from './scratch-dist.js';
 import { replaceDistAfter } from './replace-dist.js';
 import { readRenderSettings, validateRenderOutput, renderSettingsManifest } from './render-candidate-settings.js';
 import { BUILD_INPUT_STAMP_FILE, BUILD_INPUT_STAMP_VERSION, hashBuildInputs } from '../src/build-inputs.js';
-import { INSPECTOR_CSS_MARKER } from '../src/inline-html.js';
+import { INSPECTOR_CSS_MARKER, INSPECTOR_SCRIPT_FILES, INSPECTOR_SCRIPT_MARKERS, splitInspectorScript } from '../src/inline-html.js';
 
 const pluginRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const sourceRoot = resolve(pluginRoot, 'src');
@@ -63,6 +71,7 @@ const { opaqueDepthEnabled, impostorScaleEnabled, xrCulling, xrSinglePassEnabled
 const patchDraw = (source: string) => opaqueDepthEnabled ? patchMolstarOpaqueDrawSource(source) : source;
 // Quest render candidates reach only the inspector, which owns immersive sessions.
 const patchInspectorDraw = (source: string) => {
+  source = patchLessonLabelDraw(source);
   const patched = xrSinglePassEnabled ? patchMolstarXrSinglePassDrawSource(patchDraw(source), renderSettings.xrSkipFinalFlushEnabled) : patchDraw(source);
   return sphereOcclusionEnabled ? patchSphereOcclusionDrawSource(patched, resolve(sourceRoot, 'sphere-occlusion-pass.ts')) : patched;
 };
@@ -78,6 +87,7 @@ const meshFragTransforms = [...(sphereNormalsEnabled ? [patchMolstarSphereNormal
   ...(depthPrepassEnabled ? [patchMolstarDepthPrepassMeshFragSource] : [])];
 const meshFragTransform = meshFragTransforms.length ? (source: string) => meshFragTransforms.reduce((s, t) => t(s), source) : undefined;
 const inspectorOpaqueComposition = { meshFrag: meshFragTransform, renderItem: (source: string) => {
+  source = patchLessonLabelRenderItem(source);
   if (depthPrepassEnabled) source = patchMolstarDepthPrepassRenderItemSource(source);
   return sphereOcclusionEnabled ? patchSphereOcclusionRenderItemSource(source) : source;
 } };
@@ -87,6 +97,11 @@ const vendorTransform = (name: string, filter: RegExp, transform: (source: strin
   },
 });
 const inspectorCandidatePlugins = [
+  vendorTransform('stereofold-xr-hidden-shaders', /molstar[/\\]lib[/\\]mol-gl[/\\]webgl[/\\]resources\.js$/, patchXrHiddenShaderResources),
+  vendorTransform('stereofold-plate-text-vertex', /molstar[/\\]lib[/\\]mol-gl[/\\]shader[/\\]text\.vert\.js$/, patchPlateTextVertex),
+  vendorTransform('stereofold-plate-text-renderable', /molstar[/\\]lib[/\\]mol-gl[/\\]renderable[/\\]text\.js$/, patchPlateTextRenderable),
+  vendorTransform('stereofold-lesson-label-fragment', /molstar[/\\]lib[/\\]mol-gl[/\\]shader[/\\]text\.frag\.js$/, patchLessonLabelFragment),
+  ...(!opaqueDepthEnabled ? [vendorTransform('stereofold-lesson-label-render-item', /molstar[/\\]lib[/\\]mol-gl[/\\]webgl[/\\]render-item\.js$/, patchLessonLabelRenderItem)] : []),
   ...(sphereOcclusionEnabled ? [vendorTransform('stereofold-sphere-occlusion-depth-precision', /molstar[/\\]lib[/\\]mol-gl[/\\]shader[/\\]chunks[/\\]common-frag-params\.glsl\.js$/, patchSphereOcclusionCommonFragSource)] : []),
   ...(conservativeDepthEnabled ? [vendorTransform('stereofold-conservative-depth-shader-source', /molstar[/\\]lib[/\\]mol-gl[/\\]webgl[/\\]shader\.js$/, patchMolstarShaderModuleSource)] : []),
   ...(sphereNormalsEnabled ? [
@@ -138,13 +153,17 @@ const opaqueRendererPatch = (inspector: boolean) => ({
   setup(api: any) {
     api.onLoad({ filter: /mol-gl[/\\]renderer\.js$/ }, async ({ path }: { path: string }) => {
       const source = await readFile(path, 'utf8');
-      let patched = patchMolstarOpaqueRendererSource(inspector ? patchMolstarBlendedTransparentSource(source) : source);
-      if (xrCulling) {
+      // This consolidated hook retains the transparent-mesh color optimization
+      // when the opaque-depth candidate is disabled.
+      let patched = inspector ? patchMolstarBlendedTransparentSource(source) : source;
+      if (opaqueDepthEnabled) patched = patchMolstarOpaqueRendererSource(patched);
+      if (xrCulling && opaqueDepthEnabled) {
         const { version } = JSON.parse(await readFile(resolve(dirname(path), '../../package.json'), 'utf8'));
         patched = patchMolstarXrCullingRendererSource(patched, version);
       }
       if (inspector && depthPrepassEnabled) patched = patchMolstarDepthPrepassRendererSource(patched);
       if (inspector && sphereOcclusionEnabled) patched = patchSphereOcclusionRendererSource(patched);
+      if (inspector) patched = patchLessonLabelRenderer(patched);
       return { contents: patched, loader: 'js' };
     });
   },
@@ -236,7 +255,7 @@ async function emit(outRoot: string): Promise<void> {
     target: ['es2022'],
     metafile: true,
     write: false,
-    plugins: [...(opaqueDepthEnabled ? [opaqueRendererPatch(false)] : []), ...opaqueDepthBuildPlugins(process.env.STEREOFOLD_OPAQUE_DEPTH_PATCH), stereoViewportPatch, anaglyphDrawPassFork, pickHelperPatch, fontAtlasCachePatch, textFontTexturePatch, labelUniformUpdatePatch,
+    plugins: [cifFieldBuildPatch, isosurfaceGpuChoicePatch(), ...uniformCacheBuildPlugins(renderSettings.uniformCacheEnabled), propsBuildPatch, ...(opaqueDepthEnabled ? [opaqueRendererPatch(false)] : []), ...opaqueDepthBuildPlugins(process.env.STEREOFOLD_OPAQUE_DEPTH_PATCH), stereoViewportPatch, anaglyphDrawPassFork, pickHelperPatch, fontAtlasCachePatch, textFontTexturePatch, labelUniformUpdatePatch,
       ...zeroContributionLightingBuildPlugins(process.env.STEREOFOLD_ZERO_LIGHT_PATCH),
       ...matteLightingBuildPlugins(process.env.STEREOFOLD_MATTE_LIGHT_PATCH), ...impostorScaleBuildPlugins(impostorScaleEnabled ? '1' : '0')],
   });
@@ -262,7 +281,7 @@ async function emit(outRoot: string): Promise<void> {
     loader:{'.css':'css','.ttf':'dataurl'}, minify:true, metafile:true, write:false,
     define: { __APPEARANCE_FIT_WORKER_SOURCE__: JSON.stringify(appearanceWorker.outputFiles[0]!.text),
       __STEREOFOLD_QUEST_MENU_DEPTH_RESET__: JSON.stringify(renderSettings.questMenuDepthResetEnabled) },
-    outfile:resolve(outRoot,'inspector.bundle.js'), plugins:[fontAtlasCachePatch,textFontTexturePatch,labelUniformUpdatePatch,...(opaqueDepthEnabled ? [opaqueRendererPatch(true), opaqueInspectorDrawPatch] : [transparentMeshColorPatch, ...(xrSinglePassEnabled ? [opaqueInspectorDrawPatch] : [])]),
+    outfile:resolve(outRoot,'inspector.bundle.js'), plugins:[cifFieldBuildPatch,isosurfaceGpuChoicePatch(),...uniformCacheBuildPlugins(renderSettings.uniformCacheEnabled),motionCanvasPatch,fontAtlasCachePatch,textFontTexturePatch,labelUniformUpdatePatch,opaqueRendererPatch(true),opaqueInspectorDrawPatch,
       ...opaqueDepthBuildPlugins(process.env.STEREOFOLD_OPAQUE_DEPTH_PATCH, inspectorOpaqueComposition),stateAbortLoggingPatch(),
       ...zeroContributionLightingBuildPlugins(process.env.STEREOFOLD_ZERO_LIGHT_PATCH),
       ...matteLightingBuildPlugins(process.env.STEREOFOLD_MATTE_LIGHT_PATCH), ...impostorScaleBuildPlugins(impostorScaleEnabled ? '1' : '0', sphereImpostorTransform), ...inspectorCandidatePlugins],
@@ -271,16 +290,24 @@ async function emit(outRoot: string): Promise<void> {
   const inspectorCss=inspector.outputFiles.find(file=>file.path.endsWith('.css'));
   if(!inspectorJs || !inspectorCss) throw Error('Inspector bundle is incomplete.');
   for(const input of Object.keys(inspector.metafile.inputs)) {
+    // The rigid-pose evaluator is shared, DOM-free math; stereo camera forks remain excluded.
+    if (input.endsWith('/packages/motion/src/keyframes.mjs')) continue;
     if(/molstar-(?:stereo|draw-pass|pick-helper)|stereo-controller|packages\/(?:anaglyph|motion)/.test(input)) throw Error(`Inspector contains a desktop fork: ${input}`);
   }
   // Keep each stored file below the Claude directory's 5 MiB limit. Hosts
-  // reassemble the CSS before serving, so fonts and styling remain inline.
-  // Stamp the complete page so its identity covers both stored files.
+  // Reassemble fixed CSS/script companions before serving; the browser still
+  // receives one self-contained page. Stamp the complete rendered bytes.
   const inspectorPage=stampBuildId(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stereofold Inspector</title><style>${inspectorCss.text}</style></head><body><div id="app"></div><div id="status" role="status">Connecting to Stereofold…</div><script>${inlineScript(inspectorJs.text)}</script></body></html>`);
   if (inspectorCss.text.includes(INSPECTOR_CSS_MARKER) || /<\/style/iu.test(inspectorCss.text)) throw Error('Inspector CSS cannot be safely inlined.');
   await writeFile(resolve(outRoot,'inspector.css'), inspectorCss.text);
-  await writeFile(resolve(outRoot,'inspector.html'), inspectorPage.replace(`<style>${inspectorCss.text}</style>`, `<style>${INSPECTOR_CSS_MARKER}</style>`));
+  const storedPage = inspectorPage.replace(`<style>${inspectorCss.text}</style>`, `<style>${INSPECTOR_CSS_MARKER}</style>`);
+  const scriptStart = storedPage.indexOf('<script>') + '<script>'.length;
+  const scriptEnd = storedPage.lastIndexOf('</script>');
+  if (scriptStart < '<script>'.length || scriptEnd < scriptStart) throw Error('Inspector inline script is missing.');
+  const scriptChunks = splitInspectorScript(storedPage.slice(scriptStart, scriptEnd));
+  await Promise.all(INSPECTOR_SCRIPT_FILES.map((file, index) => writeFile(resolve(outRoot, file), scriptChunks[index]!)));
+  await writeFile(resolve(outRoot,'inspector.html'), storedPage.slice(0, scriptStart) + INSPECTOR_SCRIPT_MARKERS.join('') + storedPage.slice(scriptEnd));
 
   // The page that hosts that inspector in a browser tab on this Mac, for the
   // loopback panel `open_inspector` serves (src/inspector-panel-host.ts). It
@@ -296,6 +323,7 @@ async function emit(outRoot: string): Promise<void> {
   await writeFile(resolve(outRoot, 'inspector-host.js'), inspectorHostJs.text);
 
   const server = await build({
+    plugins: [cifFieldBuildPatch],
     absWorkingDir: pluginRoot,
     bundle: true,
     entryPoints: [resolve(sourceRoot, 'server.ts')],
@@ -324,6 +352,7 @@ async function emit(outRoot: string): Promise<void> {
     ['scripts/headset-host.ts', 'headset-host.mjs'],
     ['scripts/serve-inspection.ts', 'serve-inspection.mjs'],
   ]) await build({
+    plugins: [cifFieldBuildPatch],
     absWorkingDir: pluginRoot, bundle: true, entryPoints: [resolve(pluginRoot, source)],
     format: 'esm', platform: 'node', target: ['node22'], minify: true, sourcemap: false,
     outfile: resolve(outRoot, output), write: true,

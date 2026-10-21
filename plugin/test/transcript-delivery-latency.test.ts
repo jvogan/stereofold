@@ -85,15 +85,18 @@ function chunk(over: Partial<PushToTalkAudioInput> = {}): PushToTalkAudioInput {
  *
  * `Date` and `setTimeout` are frozen here so the measurement is exact, but the
  * recognizer stubs write real files and their completions arrive on the poll
- * phase. Spinning on `setImmediate` lets the pipeline run all the way to the
- * commit without moving the clock a millisecond, so every latency this file
- * asserts is measured against a clock that never ticked.
+ * phase. Yielding through the real timer lets the pipeline run all the way to
+ * the commit without moving the frozen clock. A fixed number of immediate
+ * turns can expire before file I/O completes on a busy Linux runner.
  */
 const turn = () => new Promise<void>(resolve => { setImmediate(resolve); });
-const spin = async (ready: () => boolean, turns = 4_000) => {
-  for (let index = 0; index < turns; index++) {
-    if (ready()) return true;
-    await turn();
+// Capture before frozenClock() replaces the global timer. Neither this wait
+// nor its deadline advances Date or releases the simulated slow deliveries.
+const realSetTimeout = globalThis.setTimeout;
+const spin = async (ready: () => boolean, timeoutMs = 10_000) => {
+  const deadline = performance.now() + timeoutMs;
+  while (!ready() && performance.now() < deadline) {
+    await new Promise<void>(resolve => { realSetTimeout(resolve, 5); });
   }
   return ready();
 };

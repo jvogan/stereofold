@@ -64,3 +64,10 @@ it.each([4, 8, .1])('voice scaling continues from explored scale %s and saves th
   expect(f.place).toHaveBeenCalledWith({ scale: prior * 1.2 });
   expect(f.save).toHaveBeenCalledOnce();
 });
+
+it.each([['scale-smaller', .2], ['scale-larger', 5]])('voice %s respects the renderer entry size limit', async (command, prior) => {
+  const f = fixture(prior as number), workspace = f.hooks.workspace();
+  (workspace.viewer.inspection as any).clampWearerScale = (value: number) => Math.max(.2, Math.min(5, value));
+  await expect(executeInspectionVoiceAction(command as string, f.hooks)).rejects.toThrow('size limit');
+  expect(f.place).not.toHaveBeenCalled(); expect(f.save).not.toHaveBeenCalled();
+});

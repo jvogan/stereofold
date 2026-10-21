@@ -1,4 +1,7 @@
-import type { GeometryBudgetReceipt, RequestReferent } from './inspection-contract.js';
+import { compatibleLocalSave, localSaveConflictReason } from './inspection-local-settle.js';
+import { panelEntering, sameEntryScene } from './inspection-render-settle.js';
+import { animationReceiptMatches } from './animation-receipt.js';
+import type { AnimationState, GeometryBudgetReceipt, RequestReferent } from './inspection-contract.js';
 import type { ReferentAppliedTo } from './inspection-operation.js';
 import { visualEdit, visualOperation } from './inspection-operations.js';
 import type { OperationContract } from './inspection-contract.js';
@@ -17,7 +20,7 @@ export type InspectionViewChange = {kind:'save-view';patch:{name:string;replaceV
   | {kind:'restore-view';patch:{viewId:string;scene:InspectionScene;namedViewIntent?:NamedViewIntent}};
 type CommandChange = InspectionChange|InspectionViewChange;
 type FocusReceipt = {residueCount:number;modelledResidueCount:number;missingCoordinateCount:number};
-type Request = Expected & {focus?:FocusReceipt;requestIdentity?:unknown; referent?:RequestReferent; appliedTo?:ReferentAppliedTo; panelId:string; commandId:string; utteranceId?:string; actionPostedAt?:number; change:CommandChange};
+type Request = Expected & {deferLocalSave?:boolean; assistantName?:string; waitForRenderMs?:number;focus?:FocusReceipt;requestIdentity?:unknown; referent?:RequestReferent; appliedTo?:ReferentAppliedTo; panelId:string; commandId:string; utteranceId?:string; actionPostedAt?:number; change:CommandChange};
 /**
  * `saved` is an edit the host saved for a paused headset page.
  *
@@ -43,10 +46,13 @@ type Status = 'queued'|'rendering'|'rendered'|'saved'|'conflict'|'rejected'|'exp
  * than reporting a picture the wearer has not been shown yet.
  */
 type FenceRelease = 'rolled-back'|'deadline'|'panel-lost'|'recovery-failed';
-type Receipt = {focus?:FocusReceipt;comparison?:{alignment:'side-by-side';sourceSha256:string;modelNumber:number;assemblyId:string};appliedTo?:ReferentAppliedTo; supersededBy?:string; fenceReleased?:FenceRelease|'pending'|'replacement-rendered'; utteranceSequence?:number; operation:OperationContract; acceptedAt:number; renderedAt?:number; actionPostedAt?:number; utteranceId?:string; commandId:string; panelId:string; status:Status; reason?:string; detail?:string; renderedRevision?:number; heldForPanel?:boolean; scaleAppliesOnNextEntry?:boolean;geometryBudget?:GeometryBudgetReceipt; renderBudgetMs?:number;
+type Receipt = {assistantName?:string; action?:string;focus?:FocusReceipt;comparison?:{alignment:'side-by-side';sourceSha256:string;modelNumber:number;assemblyId:string};appliedTo?:ReferentAppliedTo; supersededBy?:string; fenceReleased?:FenceRelease|'pending'|'replacement-rendered'; utteranceSequence?:number; operation:OperationContract; acceptedAt:number; renderedAt?:number; actionPostedAt?:number; utteranceId?:string; commandId:string; panelId:string; status:Status; reason?:string; detail?:string; renderedRevision?:number; heldForPanel?:boolean; scaleAppliesOnNextEntry?:boolean;geometryBudget?:GeometryBudgetReceipt; animation?:AnimationState; renderBudgetMs?:number;
   savedRevision?:number; wearerPaused?:WearerPause};
 type Command = {input:Request; signature:string; expected?:InspectionScene; receipt:Receipt; deadline:number; claimToken?:string; issuedAt:number; admitted?:boolean; renderFence?:boolean;
   toolRequest?:{tool:string;fingerprint:string};
+  localBase?:InspectionScene; deliveryDeadline?:number;
+  /** One entry allowance per command; heartbeats and retries cannot renew it. */
+  entryHold?:{until:number;ready:boolean};
   /** When `renderFence` came down, so a queued edit can tell whether a fence stood at its deadline. */
   fenceReleasedAt?:number;
   replacesCommandId?:string; replacementCommandId?:string; holdReason?:string;
@@ -55,7 +61,9 @@ type Utterance = {utteranceId:string;sequence:number;panelIds:string[];binding:I
   /** The lesson playing in this utterance's panel when the wearer began speaking. */
   tour?:{selectedId?:string};
   /** A source swap was already in flight for this utterance's panel when the wearer began speaking. */
-  swapPending?:boolean};
+  swapPending?:boolean;
+  /** The binding followed a placement save the wearer made after the words began. See `settleLocalSave`. */
+  wearerMoved?:boolean};
 type SpatialSample = { value:SpatialContext; receivedAt:number };
 type TourState = {selectedId?:string;step:number;total:number;active:boolean;autoplay:boolean;narration?:boolean;navigating:boolean};
 /** Which authored lesson a panel is showing, and which chapter of it. */
@@ -72,14 +80,15 @@ type PanelLesson = {selectedId?:string;step:number};
  * Both run in the same headset browser, so they share the long grace below, and
  * both are the wearer, so both are offered the caption mailbox.
  */
-type Panel = Expected & {panelId:string; seen:number; attachedAt:number; visibleAt?:number; availability:'ready'|'busy'|'unsaved'; surface:'desktop'|'companion'|'detailed'; pageBuild?:string; unsavedSince?:number; sourceRecoveryUntil?:number; spatial?:SpatialSample;tourState?:TourState;xrStartup?:{value:XrStartup;receivedAt:number};registrationFrom?:InspectionBinding;registeringRevision?:boolean;
+type Panel = Expected & {panelId:string; seen:number; attachedAt:number; visibleAt?:number; availability:'ready'|'busy'|'unsaved'; surface:'desktop'|'companion'|'detailed'; pageBuild?:string; unsavedSince?:number; sourceRecoveryUntil?:number; spatial?:SpatialSample;animation?:AnimationState|null;tourState?:TourState;xrStartup?:{value:XrStartup;receivedAt:number};registrationFrom?:InspectionBinding;registeringRevision?:boolean;
+  renderedSourceSha256?:string; referenceOnly?:boolean;
   /** When a report last showed the immersive frame count move in a visible session. See `wearerPage`. */
   xrDrawnAt?:number;
   /** The authored lesson and chapter this panel last said it was showing. */
   experience?:ExperienceChapter;
   /** The chapter this panel last said it was on, and the saved revision it said it on. */
   tourChapter?:{selectedId?:string;step:number;inspectionRevision:number;pending?:boolean}};
-const same = (a:Expected,b:InspectionBinding) => a.serverEpoch===b.serverEpoch && a.sourceToken===b.sourceToken
+const same = (a:Expected & {referenceOnly?:boolean},b:InspectionBinding) => !a.referenceOnly && a.serverEpoch===b.serverEpoch && a.sourceToken===b.sourceToken
   && a.baseStateRevision===b.stateRevision && a.baseInspectionRevision===b.inspectionRevision;
 /**
  * The lesson a panel is showing, whichever player runs it.
@@ -113,8 +122,13 @@ const revisionKey = (b:InspectionBinding) => JSON.stringify([b.serverEpoch,b.sou
 const MAX_TOUR_REVISION_SOURCES = 4;
 const MAX_TOUR_REVISIONS = 512;
 const pending = (c:Command) => c.receipt.status==='queued' || c.receipt.status==='rendering';
+/** Whether a change sets where the structure sits: a placement, a focus framing, a restored view or a framed install. */
+const movesPlacement = (change?:{kind:string;patch?:any}):boolean => change?.kind==='placement' || change?.kind==='focus'
+  || change?.kind==='restore-view' || (change?.kind==='lesson' && change.patch?.frame===true)
+  || (change?.kind==='compound' && Array.isArray(change.patch?.ops) && change.patch.ops.some(movesPlacement));
 const SPATIAL_STALE_MS = 3_000;
 const PANEL_HEARTBEAT_GRACE_MS = 10_000;
+const PANEL_ENTRY_HOLD_MS = 45_000;
 /**
  * A headset panel gets six times the desktop grace.
  *
@@ -324,9 +338,9 @@ export function tourCommandSentence(action:string, tour?:TourState|null) {
   const check='Check get_inspection_state with this commandId for its rendered receipt.';
   const running=Boolean(tour?.active), at=(tour?.step??-1)+1, total=tour?.total??0;
   const scene=(n:number)=>total>0?`scene ${n} of ${total}`:`scene ${n}`;
-  const heard='and the wearer hears "Tour started."';
+  const scheduled='with the "Tour started." announcement scheduled; hearing is unconfirmed.';
   if(action==='next'||action==='back') {
-    if(!running) return `No tour was running, so this starts the lesson at ${action==='next'?'scene 1':'its last scene'} ${heard} ${check}`;
+    if(!running) return `No tour was running, so this starts the lesson at ${action==='next'?'scene 1':'its last scene'} ${scheduled} ${check}`;
     const target=action==='next'?at+1:at-1;
     if(target<1||(total>0&&target>total))
       return `This tour is already at ${scene(at)}, so the panel has no scene in that direction and will refuse this. ${check}`;
@@ -334,11 +348,11 @@ export function tourCommandSentence(action:string, tour?:TourState|null) {
   }
   if(action==='play') return running
     ? `Playing this tour from ${scene(at)}. ${check}`
-    : `No tour was running, so this starts the lesson ${heard} ${check}`;
+    : `No tour was running, so this starts the lesson ${scheduled} ${check}`;
   if(action==='pause') return running
     ? `Pausing this tour at ${scene(at)}. ${check}`
     : `No tour is running in this panel, so this pause changes nothing on screen. ${check}`;
-  if(action==='start') return `Starting the named lesson at its first scene ${heard} ${check}`;
+  if(action==='start') return `Starting the named lesson at its first scene ${scheduled} ${check}`;
   if(action==='rejoin') return running || at<1
     ? `Returning this tour to the chapter it stopped at. ${check}`
     : `Returning this tour to ${scene(at)}. ${check}`;
@@ -618,12 +632,21 @@ export class InspectionCommands {
     const u=this.utterances.get(utteranceId);
     return u?{utteranceId:u.utteranceId,sequence:u.sequence,supersededBy:u.supersededBy}:undefined;
   }
-  private checkUtterance(input:Expected & {utteranceId?:string;panelId:string},binding:InspectionBinding) {
+  /** Replies follow verified source continuations, but ordinary view edits do not retire them. */
+  utteranceSourceMatchesPanel(utteranceId:string,panelId:string):boolean {
+    const u=this.utterances.get(utteranceId),panel=this.panels.get(panelId);
+    return Boolean(u && panel && u.panelIds.includes(panelId)
+      && u.binding.serverEpoch===panel.serverEpoch && u.binding.sourceToken===panel.sourceToken);
+  }
+  private checkUtterance(input:Expected & {utteranceId?:string;panelId:string;change?:{kind:string;patch?:unknown}},binding:InspectionBinding) {
     if(!input.utteranceId) return;
     const u=this.utterances.get(input.utteranceId);
     if(!u || !u.panelIds.includes(input.panelId)) throw Error('This utterance does not belong to the targeted inspection panel.');
     if(u.supersededBy) throw Error('This utterance was superseded by a newer correction or cancellation.');
     if(u.binding.serverEpoch!==binding.serverEpoch || u.binding.sourceToken!==binding.sourceToken || u.binding.stateRevision!==binding.stateRevision || u.binding.inspectionRevision!==binding.inspectionRevision) throw new UtteranceBindingError('The scene or saved revision changed since this utterance began. Ask again; the request will not be retargeted.');
+    // Words spoken before the wearer moved the structure cannot move it
+    // again. That includes "undo that", which would now take back the move.
+    if(u.wearerMoved && movesPlacement(input.change)) throw new UtteranceBindingError('The wearer moved the structure since this utterance began. Ask again; the request will not be retargeted.');
   }
   controlUtterance(input:Expected & {panelId:string;commandId:string;utteranceId?:string;change:{kind:'utterance';patch:{action:'begin'|'correct'|'cancel'}}},binding:InspectionBinding,
     handoff?:{panelId:string;previous:InspectionBinding;controlled:(action:'correct'|'cancel',utteranceId:string)=>void}) {
@@ -686,7 +709,7 @@ export class InspectionCommands {
         c.receipt.supersededBy=u.utteranceId;
         if(c.receipt.status==='superseded') c.receipt.fenceReleased='pending';
         c.receipt.reason='A newer utterance dropped this earlier request. This is not a rendered confirmation.';
-        if(!c.renderFence) delete c.expected;
+        if(!c.renderFence) delete c.expected;delete c.localBase;
         changed.push({...c.receipt});
       }
       for(const [operation,controller] of this.sourceOperations) {
@@ -709,10 +732,23 @@ export class InspectionCommands {
       throw Error('This receipt does not belong to the claimed panel command.');
     return c;
   }
-  admit(input:Expected & {panelId:string;commandId:string;claimToken:string},binding:InspectionBinding) {
+  admit(input:Expected & {panelId:string;commandId:string;claimToken:string},binding:InspectionBinding,historyScene?:InspectionScene) {
     this.refresh(binding);
     const c=this.claimed(input);
     if(c.receipt.status!=='rendering'||c.admitted) return {admitted:false,command:{...c.receipt},reason:c.receipt.reason??'This command was already admitted; it cannot mutate twice.'};
+    if(historyScene) {
+      // The host supplies this only for a claimed Undo/Redo. Following panels
+      // retain their own camera and placement while sharing scientific edits.
+      // Check all other fields against the queued scene, then bind the view
+      // for completion. A placement op still overrides it through the usual
+      // expectedInspection rule; later unrequested movement cannot slip in.
+      const local=c.localBase && structuredClone(c.localBase);
+      if(local) { local.camera=structuredClone(historyScene.camera);local.inspection.placement=structuredClone(historyScene.inspection.placement); }
+      if(!local || inspectionJson(local)!==inspectionJson(historyScene)
+        || c.input.change.kind==='save-view' || c.input.change.kind==='restore-view')
+        return {admitted:false,command:{...c.receipt},reason:'The local scene changed before the history command arrived.'};
+      c.expected=expectedInspection(local,c.input.change);
+    }
     c.admitted=true;
     return {admitted:true,command:{...c.receipt}};
   }
@@ -739,7 +775,7 @@ export class InspectionCommands {
     c.renderFence=false;
     c.fenceReleasedAt=at;
     c.receipt.fenceReleased=reason;
-    delete c.expected;
+    delete c.expected;delete c.localBase;
   }
   private releasePredecessors(c:Command,reason:FenceRelease|'replacement-rendered') {
     for(let id=c.replacesCommandId;id;) {
@@ -826,7 +862,7 @@ export class InspectionCommands {
     this.releaseQueuedSupersessions(c);
     this.continueUtterance(c.input.utteranceId,input.panelId,
       {serverEpoch:input.serverEpoch,sourceToken:input.sourceToken,stateRevision:input.baseStateRevision,inspectionRevision:input.baseInspectionRevision},binding,panelId);
-    delete c.expected;
+    delete c.expected;delete c.localBase;
     this.receiptChanged(c.input.commandId);
     return {...c.receipt};
   }
@@ -882,7 +918,8 @@ export class InspectionCommands {
    */
   private sawCompanion=false;
   /** The last headset page dropped for silence. See `QUIET_WEARER_MEMORY_MS`. */
-  private quietCompanion?:{panelId:string; seen:number};
+  private quietCompanion?:Panel;
+  private sourceLoadPanels=new Set<string>();
   /**
    * The host's stated budget for one command to be rendered.
    *
@@ -907,10 +944,53 @@ export class InspectionCommands {
   /** The budget this queue is stating, for the host that has to publish the same number. */
   renderBudget() { return this.renderBudgetMs; }
   constructor(private now:()=>number=Date.now,private usedToolCommandIds=new Set<string>()) {}
+  private holdForEntry(c:Command, now:number) {
+    if(c.receipt.status!=='queued')return;
+    const panel=this.panels.get(c.input.panelId), xr=panel?.xrStartup?.value;
+    if(!c.entryHold && panelEntering(xr) && now<c.deadline) {
+      c.entryHold={until:now+PANEL_ENTRY_HOLD_MS,ready:false};
+      c.deadline=c.deliveryDeadline=c.entryHold.until;
+      c.receipt.heldForPanel=true;
+    }
+    if(!c.entryHold || c.entryHold.ready)return;
+    const failed=xr && !panelEntering(xr) && (xr.phase==='idle' || xr.presenting===false || xr.reloadRequired || xr.errorName);
+    if(!panel || failed || now>=c.entryHold.until) {
+      c.receipt.status=failed?'rejected':!panel?'conflict':'expired';
+      c.receipt.reason=failed?'panel_entry_failed':!panel?'panel_closed':'panel_entry_timeout';
+      c.receipt.detail=failed?`VR entry ended before the panel was ready${xr.errorName?` (${xr.errorName})`:''}. The change was not sent.`
+        :!panel?'The targeted panel closed before VR entry finished. The change was not sent.'
+        :'The panel did not finish VR entry and become ready within 45 seconds. The change was not sent.';
+      delete c.expected;delete c.localBase;
+      this.receiptChanged(c.input.commandId);
+      return;
+    }
+    // Active XR can still be busy rebuilding the edited scene. Keep holding
+    // until both entry and readiness finish, even if diagnostic beats stop.
+    if(!panelEntering(xr) && panel.availability==='ready' && !this.pauseOf(panel,now)) {
+      c.entryHold.ready=true;
+      c.deadline=c.deliveryDeadline=now+15000;
+    }
+  }
   private refresh(binding:InspectionBinding) {
     const now=this.now();
     this.refreshFences(binding);
     for(const c of this.commands.values()) if(pending(c)) {
+      this.holdForEntry(c,now);
+      if(!pending(c))continue;
+      // Lesson geometry needs this exact page. A hidden page may keep waiting
+      // while it checks in, but host reads and other pages' polls are not proof
+      // that it survived. Keep the full busy Quest grace before giving up.
+      if(c.receipt.status==='queued' && c.input.change.kind==='lesson') {
+        const panel=this.panels.get(c.input.panelId);
+        if(!panel || now-panel.seen>=graceFor(panel)) {
+          c.receipt.status='expired';c.receipt.reason='panel_lost';
+          c.receipt.detail='The targeted page stopped checking in beyond its heartbeat allowance. The lesson was not sent. Retry on the current page.';
+          delete c.expected;delete c.localBase;
+          this.receiptChanged(c.input.commandId);
+          continue;
+        }
+        if(this.pauseOf(panel,now)) c.deadline=c.deliveryDeadline=now+15000;
+      }
       const held=c.tourTransition?.binding;
       // A queued edit whose page had already paused when its
       // deadline came is not expired here. Nothing may have asked the host
@@ -928,10 +1008,13 @@ export class InspectionCommands {
           c.receipt.reason='panel_hold_expired';
           c.receipt.detail=c.holdReason ?? 'The change was not sent because the panel did not become ready. Try again when the view is ready.';
         }
-        delete c.expected;
+        delete c.expected;delete c.localBase;
       }
     }
     for(const [id,p] of this.panels) {
+      // Waiting for a sleeping renderer does not waive its liveness allowance.
+      if(now-p.seen<graceFor(p) && this.pauseOf(p,now) && (this.sourceLoadPanels.has(id)
+        || [...this.commands.values()].some(c=>c.input.panelId===id && c.input.change.kind==='lesson' && c.receipt.status==='queued')))continue;
       if(p.sourceRecoveryUntil!==undefined && now>=p.sourceRecoveryUntil) {
         if(p.availability==='unsaved') p.unsavedSince=p.sourceRecoveryUntil;
         delete p.sourceRecoveryUntil;
@@ -951,17 +1034,24 @@ export class InspectionCommands {
           && same({serverEpoch:c.tourTransition.binding.serverEpoch,sourceToken:c.tourTransition.binding.sourceToken,
             baseStateRevision:c.tourTransition.binding.stateRevision,baseInspectionRevision:c.tourTransition.binding.inspectionRevision},binding)
           : c.input.panelId===id && same(c.input,binding)));
-      if(!rendering) {
+      // Source hydration has no command claim. If its last report was busy
+      // and visible, give its geometry the same full source render budget.
+      // An explicitly hidden page cannot be building that geometry yet.
+      const sourceRendering=this.sourceLoadPanels.has(id) && p.availability==='busy'
+        && this.pauseOf(p,now)==='silent' && now-p.seen<this.renderBudgetMs;
+      if(!rendering && !sourceRendering) {
         if(p.availability==='unsaved')this.reclaimPanel(p,now,'The unsaved panel stopped heartbeating and its panel grace expired. Its unsaved work remains local; reopen the saved view.');
         else {
           this.panels.delete(id);
-          if(p.surface==='companion') this.quietCompanion={panelId:id,seen:p.seen};
+          this.sourceLoadPanels.delete(id);
+          if(p.surface==='companion') this.quietCompanion=p;
         }
       }
     }
   }
   private reclaimPanel(panel:Panel,at:number,reason:string) {
     this.panels.delete(panel.panelId);
+    this.sourceLoadPanels.delete(panel.panelId);
     this.reclaimedPanels.push({panelId:panel.panelId,surface:panel.surface,inspectionRevision:panel.baseInspectionRevision,reclaimedAt:at,reason});
     if(this.reclaimedPanels.length>8)this.reclaimedPanels.shift();
   }
@@ -984,6 +1074,11 @@ export class InspectionCommands {
       const [preferred,...older]=this.preferredPanels(group);
       if(!preferred || this.pauseOf(preferred,this.now()))continue;
       for(const panel of older) {
+        // A remembered foreground claim predating a new tab is not evidence
+        // that the wearer rejected that tab. Let it report visibility first;
+        // otherwise its first background heartbeat permanently retires it while
+        // its renderer can subsequently enter XR with no host connection.
+        if(preferred.visibleAt===undefined || preferred.visibleAt<=panel.attachedAt)continue;
         // Local work and admitted operations retain their exact owner and fences.
         if(panel.availability==='unsaved' || (panel.availability==='busy' && !this.pauseOf(panel,this.now()))
           || [...this.sourceOperations.keys()].some(op=>op.panelId===panel.panelId)
@@ -994,7 +1089,7 @@ export class InspectionCommands {
       }
     }
   }
-  attach(expected:Expected & {surface?:Panel['surface'];replacesPanelId?:string;pageBuild?:string},binding:InspectionBinding,preserveTransitionPanel=false) {
+  attach(expected:Expected & {surface?:Panel['surface'];replacesPanelId?:string;pageBuild?:string;renderedSourceSha256?:string},binding:InspectionBinding,preserveTransitionPanel=false) {
     this.refresh(binding);
     if(!same(expected,binding)) throw Error('The panel must save or load the current inspection before attaching.');
     const surface=expected.surface??'desktop';
@@ -1005,6 +1100,7 @@ export class InspectionCommands {
     // It keeps the mounted renderer and its admitted command on one ID.
     if(preserveTransitionPanel) {
       if(!retiring)throw Error('The transition panel is no longer attached. Reopen the saved view.');
+      this.sourceLoadPanels.delete(retiring.panelId);
       Object.assign(retiring,expected,{seen:this.now(),availability:'ready'});
       delete retiring.unsavedSince;
       return retiring.panelId;
@@ -1060,7 +1156,7 @@ export class InspectionCommands {
         lastPanel:{panelId:panel.panelId,availability:panel.availability,
           stateRevision:panel.baseStateRevision,inspectionRevision:panel.baseInspectionRevision}};
     }
-    this.panels.delete(input.panelId);
+    this.panels.delete(input.panelId);this.sourceLoadPanels.delete(input.panelId);
     for(const c of this.commands.values()) if(c.input.panelId===input.panelId) {
       // A tour transferring its claim through a source load keeps it;
       // every other command on the lost panel drops its fence.
@@ -1068,7 +1164,7 @@ export class InspectionCommands {
       this.releaseFence(c,'panel-lost');
       if(pending(c)) {
         c.receipt.status=c.receipt.status==='rendering'?'unconfirmed':'conflict';
-        c.receipt.reason='The targeted panel detached.';delete c.expected;
+        c.receipt.reason='The targeted panel detached.';delete c.expected;delete c.localBase;
       }
     }
     return true;
@@ -1078,7 +1174,7 @@ export class InspectionCommands {
     const now=this.now();
     return {reclaimedPanels:this.reclaimedPanels.map(panel=>({...panel})),panels:[...this.panels.values()].map(p=>({panelId:p.panelId,surface:p.surface,availability:p.availability,
       availabilityCause:availabilityCauseSchema.parse(p.availability==='busy'?classifyPanelAvailability(p.xrStartup?.value):null),
-      current:same(p,binding),...(p.registeringRevision && same(p,binding)?{registeringRevision:true}:{}),inspectionRevision:p.baseInspectionRevision,tour:p.tourState??null,
+      current:same(p,binding),...(p.referenceOnly?{referenceOnly:true}:{}),...(p.registeringRevision && same(p,binding)?{registeringRevision:true}:{}),inspectionRevision:p.baseInspectionRevision,tour:p.tourState??null,animation:p.animation??null,
       xrStartup:p.xrStartup?{...p.xrStartup.value,ageMs:Math.max(0,now-p.xrStartup.receivedAt),stale:now-p.xrStartup.receivedAt>=SPATIAL_STALE_MS}:null,
       spatialContext:p.spatial?{...p.spatial.value,reference:'molecule-center',axes:'molecule-local',units:'molecular-radius',
         ageMs:Math.max(0,now-p.spatial.receivedAt),stale:now-p.spatial.receivedAt>=SPATIAL_STALE_MS}:null})),
@@ -1097,7 +1193,8 @@ export class InspectionCommands {
    * One command's receipt, plus how long this host is
    * still prepared to wait for it.
    *
-   * A queued command has a 15 s deadline to reach a panel; one that a panel
+   * A queued command has a 15 s deadline to reach a panel (up to 45 s for
+   * reported VR entry and readiness); one that a panel
    * has claimed and is rendering has its captured source budget from the claim
    * (120 s by default). A caller following
    * the receipt used to guess its own cap — 60 s in the agent CLI — which is
@@ -1142,6 +1239,9 @@ export class InspectionCommands {
   private pauseOf(panel:Panel, now:number):WearerPause|undefined {
     if(panel.surface!=='companion') return undefined;
     const xr=panel.xrStartup?.value;
+    // Entry may hide the flat page or block heartbeat timers while building.
+    // Its commands have their own bounded hold, not a sleeping-page save.
+    if(panelEntering(xr))return undefined;
     if(xr?.presenting===true && xr.sessionVisibility==='hidden') return 'headset-hidden';
     if(xr?.presenting!==true && xr?.visible===false) return 'page-hidden';
     // A busy page can freeze when the headset sleeps, so silence still pauses it.
@@ -1176,6 +1276,7 @@ export class InspectionCommands {
    */
   private keepablePause(c:Command,binding:InspectionBinding,at:number) {
     if(c.receipt.status!=='queued' || !c.expected || c.tourTransition || !same(c.input,binding)
+      || (c.entryHold && !c.entryHold.ready)
       || !keptWhilePaused(c.input.change) || this.panels.get(c.input.panelId)?.availability==='unsaved') return undefined;
     return this.pausedTarget(c.input.panelId,at);
   }
@@ -1296,9 +1397,9 @@ export class InspectionCommands {
       // A scene the host refuses to save stays queued until its deadline. One
       // already past it loses the scene `refresh` holds it by, so the next
       // refresh expires it as it would have expired at the deadline.
-      try { check(kept); } catch { if(now>=c.deadline) delete c.expected; continue; }
+      try { check(kept); } catch { if(now>=c.deadline) delete c.expected;delete c.localBase; continue; }
       c.receipt.status='saved'; c.receipt.savedRevision=binding.inspectionRevision+1; c.receipt.wearerPaused=pause.reason;
-      delete c.receipt.heldForPanel; delete c.holdReason; delete c.expected;
+      delete c.receipt.heldForPanel; delete c.holdReason; delete c.expected;delete c.localBase;
       this.receiptChanged(c.input.commandId);
       return {command:{...c.receipt},scene:kept,pause};
     }
@@ -1367,6 +1468,12 @@ export class InspectionCommands {
    * companion page, so it needs this one field and nothing else.
    */
   surfaceOf(panelId:string) { return this.panels.get(panelId)?.surface; }
+  /** A map and its reference atoms are different drawings. The host derives
+   * this status from the verified density/catalog identities, never a page flag. */
+  setDensityReferenceSource(sourceSha256:string|undefined) {
+    for(const panel of this.panels.values()) panel.referenceOnly=Boolean(sourceSha256
+      && (panel.surface==='desktop' || panel.surface==='detailed') && panel.renderedSourceSha256===sourceSha256);
+  }
   /**
    * The tour one panel last reported on its heartbeat.
    *
@@ -1378,6 +1485,15 @@ export class InspectionCommands {
   reportTourState(panelId:string,state:TourState) {
     const panel=this.panels.get(panelId);if(panel)panel.tourState=structuredClone(state);
   }
+  animationStateOf(panelId:string,binding?:InspectionBinding):AnimationState|null {
+    if(binding)this.refresh(binding);
+    const panel=this.panels.get(panelId);
+    // A caller selecting a panel for a scientific read must not borrow a
+    // clock from an older source/revision, even if custom chapter IDs recur.
+    if(binding && (!panel || !same(panel,binding)))
+      throw Error('The measurement panel is not showing the current saved inspection. Read current state and choose a current panel, or omit panelId to measure the saved scene.');
+    return structuredClone(panel?.animation ?? null);
+  }
   tourStateOf(panelId:string):TourState|undefined { return this.panels.get(panelId)?.tourState; }
   /**
    * What kind of edit one command was.
@@ -1388,9 +1504,97 @@ export class InspectionCommands {
    */
   changeKindOf(commandId:string):string|undefined { return this.commands.get(commandId)?.input.change.kind; }
   hasCommand(commandId:string):boolean { return this.commands.has(commandId); }
+  lessonChangeOf(commandId:string) {
+    const change=this.commands.get(commandId)?.input.change;
+    return change?.kind==='lesson'?structuredClone(change):undefined;
+  }
   viewChangeOf(commandId:string):InspectionViewChange|undefined {
     const change=this.commands.get(commandId)?.input.change;
     return change?.kind==='save-view'||change?.kind==='restore-view'?structuredClone(change):undefined;
+  }
+  /**
+   * A delivered command hands its claim back while the page saves local work.
+   *
+   * An unbound command can follow any save its inputs survive. A bound one
+   * (explicit revisions, or a voice utterance) follows only a placement save,
+   * and `canSettleLocalSave` is where that is enforced: a page that defers
+   * over scientific work has its save refused, reports `unsaved`, and the
+   * command conflicts as before.
+   */
+  deferForLocalSave(input:Expected & {panelId:string;commandId:string;claimToken:string},binding:InspectionBinding) {
+    this.refresh(binding);
+    const c=this.commands.get(input.commandId);
+    if(!c || c.claimToken!==input.claimToken || c.input.panelId!==input.panelId || !same(input,binding)
+      || !same(c.input,binding) || !(c.input.deferLocalSave || c.localBase) || c.admitted || c.receipt.status!=='rendering')
+      return {deferred:false};
+    c.receipt.status='queued';c.receipt.heldForPanel=true;c.deadline=c.deliveryDeadline??this.now();
+    c.holdReason='The panel is finishing its local save.';delete c.claimToken;
+    this.refresh(binding);this.receiptChanged(c.input.commandId);
+    return {deferred:c.receipt.status==='queued',command:{...c.receipt}};
+  }
+  /**
+   * Whether this panel's save may commit while commands wait for it.
+   *
+   * Every waiting command must still be queued on this panel, with no render
+   * claimed or fenced. A placement save (`placementOnly`: only the camera and
+   * the structure's placement moved) may commit under any of them; anything
+   * else only under unbound commands, which compare their inputs afterwards.
+   */
+  canSettleLocalSave(panelId:string|undefined,binding:InspectionBinding,placementOnly=false) {
+    this.refresh(binding);
+    const pendingCommands=[...this.commands.values()].filter(c=>pending(c)||c.renderFence);
+    return pendingCommands.length>0 && pendingCommands.every(c=>c.receipt.status==='queued' && !c.renderFence
+      && c.input.panelId===panelId && (c.input.deferLocalSave || (placementOnly && c.localBase!==undefined)));
+  }
+  /**
+   * Move the commands waiting on this panel past its committed save.
+   *
+   * `previous` is the saved scene the save replaced. A placement save is the
+   * wearer's, so every queued command whose inputs it left alone follows it,
+   * bound or not; a scientific save carries only unbound commands, and the
+   * rest conflict here with the cause rather than later as merely stale.
+   */
+  settleLocalSave(panelId:string|undefined,before:InspectionBinding,after:InspectionBinding,scene:InspectionScene,previous?:InspectionScene|null) {
+    const placementOnly=Boolean(previous) && sameEntryScene(previous,scene);
+    for(const c of this.commands.values()) {
+      if(c.receipt.status!=='queued' || c.renderFence || c.input.panelId!==panelId || !same(c.input,before))continue;
+      const change=c.input.change;
+      if(!(c.input.deferLocalSave || placementOnly) || !c.localBase || change.kind==='save-view' || change.kind==='restore-view'
+        || !compatibleLocalSave(c.localBase,scene,change)) {
+        c.receipt.status='conflict';c.receipt.reason=localSaveConflictReason(placementOnly);delete c.expected;delete c.localBase;
+      } else {
+        c.input.baseInspectionRevision=after.inspectionRevision;
+        c.localBase=structuredClone(scene);c.expected=expectedInspection(scene,change);
+        c.receipt.heldForPanel=true;
+        const panel=this.panels.get(c.input.panelId);
+        if(panel) {panel.registrationFrom={...before};panel.baseInspectionRevision=after.inspectionRevision;panel.registeringRevision=true;}
+      }
+      this.receiptChanged(c.input.commandId);
+    }
+    if(placementOnly && previous) this.followWearerPlacement(panelId,before,after,previous,scene);
+  }
+  /**
+   * Words the wearer is still speaking survive their own placement save.
+   *
+   * An utterance is bound to the revision at which the words began, so a
+   * grab, a stick nudge or the VR entry seat between the words and the
+   * command used to refuse it: "The scene or saved revision changed since
+   * this utterance began." Moving the structure does not change what the
+   * words are about, so the binding follows the save. One that moved the
+   * structure is marked, and `checkUtterance` then refuses a command from
+   * those words that would move it again — "undo that" spoken before the move
+   * would otherwise take back the move. Never across a render in flight.
+   */
+  private followWearerPlacement(panelId:string|undefined,before:InspectionBinding,after:InspectionBinding,previous:InspectionScene,scene:InspectionScene) {
+    if(panelId===undefined || [...this.commands.values()].some(c=>c.receipt.status==='rendering' || c.renderFence)) return;
+    const moved=inspectionJson(previous.inspection.placement)!==inspectionJson(scene.inspection.placement);
+    for(const u of this.utterances.values()) {
+      if(u.supersededBy || !u.panelIds.includes(panelId) || u.binding.serverEpoch!==before.serverEpoch
+        || u.binding.sourceToken!==before.sourceToken || u.binding.stateRevision!==before.stateRevision
+        || u.binding.inspectionRevision!==before.inspectionRevision) continue;
+      u.binding={...after};
+      if(moved) u.wearerMoved=true;
+    }
   }
   hasPending(binding:InspectionBinding) { this.refresh(binding);return [...this.commands.values()].some(c=>pending(c)||c.renderFence); }
   /** A source-changing experience transition cannot target a dirty or stale panel. */
@@ -1398,6 +1602,28 @@ export class InspectionCommands {
     this.refresh(binding);
     const panel=this.panels.get(panelId);
     return Boolean(panel && same(panel,binding) && panel.availability==='ready' && !this.hasPending(binding));
+  }
+  holdSourceLoad(panelId:string) {
+    if(!this.panels.has(panelId) && this.quietCompanion?.panelId===panelId)
+      this.panels.set(panelId,this.quietCompanion);
+    this.sourceLoadPanels.add(panelId);
+  }
+  /** A host replacement owns the next source, even during input or sleep. */
+  sourceLoadRefusal(panelId:string,binding:InspectionBinding,requireReady=false):string|undefined {
+    this.refresh(binding);
+    let panel=this.panels.get(panelId);
+    if(!panel && !requireReady && this.quietWearer(this.now())?.panelId===panelId) {
+      panel=this.quietCompanion;
+      if(panel)this.panels.set(panelId,panel);
+    }
+    if(!panel)return 'The source-load panel is no longer attached. Reconnect its page before loading.';
+    if(panel.serverEpoch!==binding.serverEpoch || panel.sourceToken!==binding.sourceToken
+      || (requireReady && !same(panel,binding)))return 'The source-load panel is showing an older source or revision. Wait for its current load to finish.';
+    if(this.hasPending(binding))return 'An inspection command is already in progress. Wait for its render receipt before loading a source.';
+    if(requireReady && panel.availability!=='ready')return panel.availability==='unsaved'
+      ? 'The comparison panel has unsaved local work. Save it before adding a comparison.'
+      : `The comparison panel is busy (${classifyPanelAvailability(panel.xrStartup?.value)??'busy'}). Wait for it before adding a comparison.`;
+    return undefined;
   }
   /**
    * A receipt belongs to the source it was rendered on.
@@ -1437,7 +1663,7 @@ export class InspectionCommands {
     // A turntable command is read out as "motion", not as its field name "state".
     // A compound is read out as the kinds it carries, not as the
     // one field name "ops" that would tell a reader nothing about the picture.
-    return c?{...c.receipt,change:c.input.change.kind,fields:c.input.change.kind==='motion'?['motion']
+    return c?{...c.receipt,change:c.input.change.kind,fields:c.input.change.kind==='animation'?['animation']:c.input.change.kind==='motion'?['motion']
       :c.input.change.kind==='compound'?c.input.change.patch.ops.map(op=>op.kind)
       :Object.keys(c.input.change.patch)}:null;
   }
@@ -1479,7 +1705,7 @@ export class InspectionCommands {
     // queued for it only waits out its deadline. Say so now instead.
     // `keepForPausedWearer` has already saved every edit that can be saved.
     const pause=panel?.availability==='unsaved'?undefined:this.pausedTarget(input.panelId,this.now());
-    if(pause) throw Error(wearerPausedRefusal(pause,keptWhilePaused(input.change)?undefined:input.change.kind));
+    if(pause && input.change.kind!=='lesson') throw Error(wearerPausedRefusal(pause,keptWhilePaused(input.change)?undefined:input.change.kind));
     // `busy` is queued, not refused.
     //
     // A Quest 2 panel goes `busy` for two to five seconds every time the system
@@ -1491,9 +1717,14 @@ export class InspectionCommands {
     // heartbeat, and the 15 s deadline is the bound on how long it can wait.
     // A correction can also arrive while its superseded render is rolling
     // back. Hold it until that claim settles and the panel reports ready.
-    // Unrelated unsaved work, missing panels and stale revisions still refuse.
-    if(!panel || !same(panel,binding) || (panel.availability==='unsaved' && !this.awaitingSupersededRender(input,binding)))
-      throw Error('The target panel is unavailable, busy, or has unsaved work. Read get_inspection_state.');
+    // Implicit commands wait for a local save and compare its inputs before
+    // rebasing. Explicit revisions, missing panels and stale sources still refuse.
+    if(!panel || (!same(panel,binding) && !(pause && input.change.kind==='lesson'
+      && panel.serverEpoch===binding.serverEpoch && panel.sourceToken===binding.sourceToken)) || (panel.availability==='unsaved' && !input.deferLocalSave && !this.awaitingSupersededRender(input,binding)))
+      throw Error(input.change.kind==='lesson'
+        ? !panel?'The lesson panel is no longer attached. Reconnect its page before installing the lesson.'
+          :'The lesson panel is showing an older source or revision. Wait for its current load to finish.'
+        :'The target panel is unavailable, busy, or has unsaved work. Read get_inspection_state.');
     if([...this.commands.values()].some(pending)) throw Error('An inspection command is already in progress. Check its status first.');
     if(input.change.kind==='save-view'||input.change.kind==='restore-view') throw Error('Use the named-view command path.');
     const expected=expectedInspection(scene,input.change);
@@ -1506,6 +1737,7 @@ export class InspectionCommands {
     if(this.commands.size>=32) throw Error('This saved revision has too many failed commands. Make a deliberate manual edit or open a new session before trying again.');
     const receipt:Receipt={commandId:input.commandId,panelId:input.panelId,status:'queued',operation:visualOperation(input.change,tool),acceptedAt:this.now(),
       renderBudgetMs:this.renderBudgetMs,
+      assistantName:input.assistantName, action:actionText(input.change),
       ...(input.appliedTo?{appliedTo:structuredClone(input.appliedTo)}:{}),
       ...(input.focus?{focus:{...input.focus}}:{}),
       ...(input.actionPostedAt!==undefined?{actionPostedAt:input.actionPostedAt}:{}),
@@ -1514,7 +1746,10 @@ export class InspectionCommands {
     const holdReason=receipt.heldForPanel ? [...this.commands.values()].some(c=>c.renderFence)
       ? 'The change was not sent because the previous cancelled change was still being restored. Try again when the view is ready.'
       : 'The change was not sent because the panel stayed busy. Try again when the view is ready.' : undefined;
-    this.commands.set(input.commandId,{input:structuredClone(input),signature,expected,receipt,holdReason,deadline:this.now()+15000,issuedAt:++this.serial});
+    // Every queued command keeps the scene it was admitted against, so a
+    // placement save can carry a bound command too (`settleLocalSave`).
+    this.commands.set(input.commandId,{input:structuredClone(input),signature,expected,localBase:structuredClone(scene),receipt,holdReason,deliveryDeadline:this.now()+15000,deadline:this.now()+15000,issuedAt:++this.serial});
+    this.holdForEntry(this.commands.get(input.commandId)!,this.now());
     return {...receipt};
   }
   enqueueView(input:Expected & {panelId:string;commandId:string;utteranceId?:string;change:InspectionViewChange},binding:InspectionBinding,scene:InspectionScene|null) {
@@ -1569,7 +1804,7 @@ export class InspectionCommands {
     panel.sourceRecoveryUntil=until;
   }
   pageBuildOf(panelId:string) { return this.panels.get(panelId)?.pageBuild; }
-  poll(input:Expected & {panelId:string; availability:Panel['availability']; pageBuild?:string;spatialContext?:SpatialContext|null;tourState?:TourState;experience?:ExperienceChapter;xrStartup?:XrStartup},binding:InspectionBinding) {
+  poll(input:Expected & {panelId:string; availability:Panel['availability']; pageBuild?:string;spatialContext?:SpatialContext|null;animation?:AnimationState|null;tourState?:TourState;experience?:ExperienceChapter;xrStartup?:XrStartup},binding:InspectionBinding) {
     this.refresh(binding);
     const panel=this.panels.get(input.panelId);
     if(!panel) return {attached:false,...(this.supersededPanels.has(input.panelId)?{superseded:true}:{})};
@@ -1580,7 +1815,8 @@ export class InspectionCommands {
     // Completion has already proved the next saved revision on this panel.
     // A heartbeat sent during that render must not overwrite the proof or
     // conflict a queued correction. Wait for registration at the new revision.
-    if(panel.registrationFrom && same(panel,binding) && same(input,panel.registrationFrom) && input.availability!=='unsaved') {
+    if(panel.registrationFrom && same(panel,binding) && same(input,panel.registrationFrom) && (input.availability!=='unsaved'
+      || [...this.commands.values()].some(c=>c.receipt.status==='queued' && c.input.panelId===input.panelId && c.input.deferLocalSave))) {
       panel.seen=now;
       panel.pageBuild=input.pageBuild;
       if(panel.registeringRevision && input.availability==='busy') panel.availability='busy';
@@ -1616,12 +1852,18 @@ export class InspectionCommands {
     if(Object.hasOwn(input,'spatialContext')) panel.spatial=spatialContext?{value:spatialContext,receivedAt:now}:undefined;
     const c=[...this.commands.values()].find(c=>c.input.panelId===input.panelId && c.receipt.status==='queued');
     if(!c) return {attached:true};
-    if(!same(input,binding) || (input.availability==='unsaved'
+    // Wake-up may first need to follow saved edits on this source. Do not
+    // reject its queued lesson before that shared-scene restore can run.
+    if(c.input.change.kind==='lesson' && !same(input,binding)
+      && input.serverEpoch===binding.serverEpoch && input.sourceToken===binding.sourceToken)return {attached:true};
+    if(!same(input,binding) || (input.availability==='unsaved' && !c.input.deferLocalSave
       && !this.awaitingSupersededRender({...input,utteranceId:c.input.utteranceId},binding))) {
       c.receipt.status='conflict'; c.receipt.reason='The target panel has newer or unsaved local work.';
-      delete c.expected;
+      delete c.expected;delete c.localBase;
       return {attached:true};
     }
+    this.holdForEntry(c,now);
+    if(c.receipt.status!=='queued' || (c.entryHold && !c.entryHold.ready))return {attached:true};
     // A hidden page that says `ready` would claim the command and
     // then wait thirty seconds for a frame the browser never draws. Hold it,
     // and the host saves it for the page if it can be saved. The hold reason
@@ -1632,7 +1874,7 @@ export class InspectionCommands {
       return {attached:true};
     }
     const fenced=[...this.commands.values()].some(c=>c.renderFence);
-    if(input.availability!=='ready' || fenced) {
+    if((input.availability!=='ready' && !(c.input.change.kind==='lesson' && classifyPanelAvailability(panel.xrStartup?.value)==='busy')) || fenced) {
       c.receipt.heldForPanel=true;
       c.holdReason=fenced
         ? 'The change was not sent because the previous cancelled change was still being restored. Try again when the view is ready.'
@@ -1643,7 +1885,8 @@ export class InspectionCommands {
     // budget. `published` reports the remaining time from this fixed claim;
     // heartbeats and receipt retries never extend it.
     c.claimToken=randomUUID(); c.receipt.status='rendering'; c.deadline=this.now()+(c.receipt.renderBudgetMs??120000);
-    return {attached:true,delivery:{commandId:c.input.commandId,panelId:input.panelId,claimToken:c.claimToken,
+    // Receipt waiting is a caller preference, not a deadline for panel readiness.
+    return {attached:true,delivery:{commandId:c.input.commandId,panelId:input.panelId,claimToken:c.claimToken,queueWaitMs:Math.max(0,now-c.receipt.acceptedAt),deferLocalSave:c.input.deferLocalSave===true,settleBudgetMs:Math.min(15000,Math.max(0,(c.deliveryDeadline??now+15000)-now)),
       ...(c.input.utteranceId?{utteranceId:c.input.utteranceId}:{}),change:structuredClone(c.input.change)}};
   }
   /**
@@ -1653,7 +1896,7 @@ export class InspectionCommands {
    * scene that came back actually lights that region. Omitting it keeps the
    * older exact comparison, which is what every caller without a catalog wants.
    */
-  complete(input:Expected & {panelId:string;commandId:string;claimToken:string;scene?:InspectionScene;allowReplacement?:boolean;failure?:string;failureReason?:string;scaleAppliesOnNextEntry?:boolean;placementAdjusted?:boolean;placementFit?:PlacementFitEvidence;recenterCompletion?:RecenterCompletion;geometryBudget?:GeometryBudgetReceipt},binding:InspectionBinding,catalog?:EmphasisCatalog) {
+  complete(input:Expected & {panelId:string;commandId:string;claimToken:string;scene?:InspectionScene;allowReplacement?:boolean;failure?:string;failureReason?:string;scaleAppliesOnNextEntry?:boolean;placementAdjusted?:boolean;placementFit?:PlacementFitEvidence;wearerPlacement?:boolean;recenterCompletion?:RecenterCompletion;geometryBudget?:GeometryBudgetReceipt;animation?:AnimationState|null},binding:InspectionBinding,catalog?:EmphasisCatalog) {
     this.refresh(binding);
     const c=this.commands.get(input.commandId);
     if(!c || c.input.panelId!==input.panelId || c.claimToken!==input.claimToken
@@ -1688,7 +1931,7 @@ export class InspectionCommands {
     if(input.failure) {
       c.receipt.status='rejected';c.receipt.reason=input.failure;
       if(input.failureReason) c.receipt.detail=input.failureReason;
-      delete c.expected;
+      delete c.expected;delete c.localBase;
       this.receiptChanged(c.input.commandId);
       return {accepted:false,command:{...c.receipt}};
     }
@@ -1700,9 +1943,22 @@ export class InspectionCommands {
     const recenter=c.input.change.kind==='placement' && c.input.change.patch.recenter===true;
     const resetConfirmed=!recenter || Boolean(input.recenterCompletion?.structureReset && input.scene
       && inspectionJson(input.recenterCompletion.placement)===inspectionJson(input.scene.inspection.placement));
-    const matched=resetConfirmed && input.scene && (viewChange?.kind==='restore-view' && c.expected ? scientificMatch(input.scene,c.expected)
+    const animationChange=c.input.change.kind==='animation'?c.input.change:undefined;
+    const animation=input.animation;
+    const animationConfirmed=!animationChange || Boolean(animation
+      && (!animationChange.target || (animation.id===animationChange.target.id && animation.chapterId===animationChange.target.chapterId))
+      && animationReceiptMatches(animationChange.patch, animation, Math.max(0, this.now() - c.receipt.acceptedAt) / 1000)
+      && (!input.scene?.inspection.animation || inspectionJson(input.scene.inspection.animation.playback) === inspectionJson(animation)));
+    // A lesson chapter is drawn whole only with its clock. A tour or lesson
+    // receipt whose scene carries an animation must report the state of that
+    // same animation.
+    const lessonChange=c.input.change.kind==='tour' || c.input.change.kind==='lesson';
+    const sceneAnimation=input.scene?.inspection.animation?.playback;
+    const lessonClockConfirmed=!lessonChange || !sceneAnimation
+      || (Boolean(animation) && animation!.id===sceneAnimation.id && animation!.chapterId===sceneAnimation.chapterId);
+    const matched=animationConfirmed && resetConfirmed && lessonClockConfirmed && input.scene && (viewChange?.kind==='restore-view' && c.expected ? scientificMatch(input.scene,c.expected)
       : c.expected ? matchesInspectionChange(input.scene,c.expected,c.input.change as InspectionChange,catalog,
-        input.placementAdjusted===true,input.placementFit) : false);
+        input.placementAdjusted===true,input.placementFit,input.wearerPlacement===true) : false);
     // A capture may differ from the host's last shared scene, but its immutable
     // source identity must remain the one this command was admitted against.
     const captured=input.scene && c.expected && viewChange?.kind==='save-view'
@@ -1713,7 +1969,7 @@ export class InspectionCommands {
       if(c.input.change.kind==='placement' || (c.input.change.kind==='compound'
         && c.input.change.patch.ops.some(op=>op.kind==='placement')))
         c.receipt.detail='The placement was not rendered as requested.';
-      delete c.expected;
+      delete c.expected;delete c.localBase;
       this.receiptChanged(c.input.commandId);
       return {accepted:false,command:{...c.receipt}};
     }
@@ -1731,6 +1987,7 @@ export class InspectionCommands {
     // Only a render-quality command can leave half of itself pending, and only
     // the panel that rendered it knows whether it did.
     if(input.scaleAppliesOnNextEntry && c.input.change.kind==='render-quality') c.receipt.scaleAppliesOnNextEntry=true;
+    if(animationChange && animation) c.receipt.animation=structuredClone(animation);
     if(input.geometryBudget) c.receipt.geometryBudget=structuredClone(input.geometryBudget);
     // Completing an expensive render is itself proof that this claimed panel
     // is alive. Give it one normal heartbeat grace period to poll using the
@@ -1738,6 +1995,8 @@ export class InspectionCommands {
     const panel=this.panels.get(input.panelId);
     if(panel) {
       panel.seen=this.now();
+      if(animationChange && animation) panel.animation=structuredClone(animation);
+      else if((c.input.change.kind==='tour'||c.input.change.kind==='lesson') && input.animation!==undefined) panel.animation=structuredClone(input.animation);
       // The report arrives after the panel saved the committed scene, so it is
       // already on the revision the host is about to publish. Advancing its
       // base here keeps the next request from being refused as stale in the
@@ -1750,10 +2009,17 @@ export class InspectionCommands {
         panel.registeringRevision=true;
       }
     }
-    delete c.expected;
+    delete c.expected;delete c.localBase;
     this.receiptChanged(c.input.commandId);
     return viewChange?.kind==='save-view'
       ? {accepted:true,command:{...c.receipt},capturedScene:input.scene}
       : {accepted:true,command:{...c.receipt},scene:input.scene};
   }
+}
+
+function actionText(change:CommandChange):string {
+  if(change.kind==='animation')return change.patch.state==='pause'?'paused animation':change.patch.state==='play'?'played animation':'updated animation';
+  if(change.kind==='tour')return `${change.patch.action==='pause'?'paused':change.patch.action==='start'?'started':change.patch.action} tour`;
+  if(change.kind==='motion')return change.patch.state==='stop'?'stopped spinning':'started spinning';
+  return `updated ${change.kind}`;
 }

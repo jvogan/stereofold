@@ -111,6 +111,7 @@ export function createReplySegmentPlayer(options = {}) {
   let active;
   let timer;
   let stopped = false;
+  let pending = [];
 
   const clearHold = () => {
     if (timer === undefined) return;
@@ -146,9 +147,12 @@ export function createReplySegmentPlayer(options = {}) {
 
   /** Abandon the running reply. Returns how many of its segments never started. */
   const drop = reason => {
+    const queued = pending.reduce((count, batch) => count + batch[1].length, 0);
+    pending = [];
     clearHold();
     if (!active) return 0;
-    const { captionId, index, total } = active;
+    const { captionId, index } = active;
+    const total = active.total + queued;
     active = undefined;
     generation++;
     const dropped = Math.max(0, total - index - 1);
@@ -178,7 +182,8 @@ export function createReplySegmentPlayer(options = {}) {
       if (stopped || token !== generation) return;
       // A segment that made no sound still has to hold the row long enough to
       // be read, or a paragraph would flash past in a single frame.
-      if (!played && index < total - 1) {
+      const moreComing = (caption?.voiceOffset ?? 0) + index + 1 < caption?.speechTotal;
+      if (!played && (index < total - 1 || moreComing)) {
         await hold(replySegmentHoldSeconds(segment, caption));
         if (stopped || token !== generation) return;
       }
@@ -187,6 +192,8 @@ export function createReplySegmentPlayer(options = {}) {
     if (total > 1) record(scope, 'reply-segments-end',
       { ...(active?.captionId ? { captionId: active.captionId } : {}), segments: total });
     active = undefined;
+    const next = pending.shift();
+    if (next) void run(...next);
   };
 
   return {
@@ -196,6 +203,12 @@ export function createReplySegmentPlayer(options = {}) {
       const dropped = drop('replaced');
       void run(caption, segments, context);
       return dropped;
+    },
+    /** Continue the same reply without cutting off its current clip. */
+    enqueue(caption, segments, context) {
+      if (stopped || !Array.isArray(segments) || !segments.length) return;
+      if (active) pending.push([caption, segments, context]);
+      else void run(caption, segments, context);
     },
     drop,
     running() { return active ? { ...active } : undefined; },

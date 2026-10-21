@@ -163,7 +163,7 @@ export function createLessonResting({ emphasize, snapshot, rebuildLabels, getEmp
      * absent is false, so lessons that never authored plates keep drawing
      * exactly as they did. Framing and placement remain tour actions.
      */
-    async install(value) {
+    async install(value, { preserveEmphasis = false } = {}) {
       if (!value) {
         // The clear must be complete: no baseline, no plate flag, no plates,
         // and the resting paint taken back off if this viewer applied it.
@@ -186,7 +186,7 @@ export function createLessonResting({ emphasize, snapshot, rebuildLabels, getEmp
       // A restored scene, or a key the wearer asked for by name, is not the
       // lesson's to overwrite. The baseline is still recorded, so the next
       // takeover returns to it rather than to a plain structure.
-      if (!ownsPaintedKey(emphasis)) return snapshot();
+      if (preserveEmphasis || !ownsPaintedKey(emphasis)) return snapshot();
       try { return await paint({ ...emphasis, origin: 'resting' }, resting.componentLabels); }
       catch (error) { resting = had; throw error; }
     },

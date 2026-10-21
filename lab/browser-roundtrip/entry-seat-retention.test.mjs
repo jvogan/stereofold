@@ -27,7 +27,7 @@ function harness({ held = false, presenting = true, current = seat(), entry = se
     immersiveSession: { toolbarPlacementPoints: () => [] }, scientificRepresentations: () => [],
     resetViewPlacement: options => { calls.push(options); return options.seat; },
     loadedSphere: () => ({ center: [0, 0, 0], radius: 1 }), cameraSnapshot: value => value,
-    restoreTourSeat: async () => {}, recordJourneySeat() {}, structuredClone,
+    restoreTourSeat: async () => {}, recordJourneySeat() {}, releaseWearerPlacement() {}, structuredClone,
     applyMatrix4: point => point, Mat4, Vec3,
   });
   for (const name of ['roomAnchorPlacement', 'restoreJourneySeat']) vm.runInContext(closure(name), context);

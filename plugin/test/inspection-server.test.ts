@@ -115,6 +115,13 @@ async function claimHeadsetUtterance(t:any, panelId:string, utteranceId:string, 
   expect(heard.structuredContent.transcripts).toHaveLength(1);
   return heard.structuredContent.cursor as number;
 }
+/** A turn the agent opens itself, the way the agent CLI's `--utterance begin` declares one. */
+async function beginAgentTurn(t:any, binding:Record<string,unknown>, panelId:string, commandId:string,
+  action:'begin'|'correct'|'cancel'='begin') {
+  const declared=await t.call('update_inspection',{...binding,panelId,commandId,change:{kind:'utterance',patch:{action}}});
+  expect(declared.isError,JSON.stringify(declared.content)).not.toBe(true);
+  return {utteranceId:declared.structuredContent.lifecycle.utterance.utteranceId as string,text:declared.content[0].text as string};
+}
 describe('packaged molecular inspection sessions',()=>{
   it('reads companion status without consulting an unconfigured reply voice',async()=>{
     const previousRemember=process.env.STEREOFOLD_LAN_REMEMBER;
@@ -423,8 +430,29 @@ describe('packaged molecular inspection sessions',()=>{
       expect(state.tours).toEqual(expect.arrayContaining([expect.objectContaining({id:'tubulin-eb3-lattice',scenes:20})]));
       // Bound the entire MCP result, not just one field: routine polls must not
       // silently reintroduce tens of kilobytes of chapter forecasts elsewhere.
-      const compactBytes=Buffer.byteLength(JSON.stringify(compact));
-      expect(compactBytes).toBeLessThan(12_000);
+      // Receipts also carry terminal and command-id fields for text-only hosts.
+      const compactJson=JSON.stringify(compact),compactBytes=Buffer.byteLength(compactJson);
+      // This fixture's source provenance adds 236 bytes across structured and
+      // escaped text state. Budget it explicitly while retaining the old limit
+      // for every pre-existing field, including both panel projections.
+      expect(compactBytes).toBeLessThan(12_750);
+      const textState=JSON.parse(compact.content.at(-1).text.slice(8,-4));
+      expect(state.sourceProvenance).toEqual({kind:'pasted',sha256:t.scene.sourceSha256});
+      expect(textState.sourceProvenance).toEqual(state.sourceProvenance);
+      expect(textState.targetPanel).toMatchObject({panelId,current:true,availability:'ready',inspectionRevision:2});
+      expect(textState.command).toMatchObject({commandId,status:'rendered',renderedRevision:2,panelId,terminal:true});
+      expect(textState.panels).toEqual([textState.targetPanel]);
+      const withoutProvenance=structuredClone(compact);
+      delete withoutProvenance.structuredContent.sourceProvenance;
+      const legacyBlock=withoutProvenance.content.at(-1);
+      const legacyText=JSON.parse(legacyBlock.text.slice(8,-4));
+      delete legacyText.sourceProvenance;
+      legacyBlock.text=legacyBlock.text.slice(0,8)+JSON.stringify(legacyText)+legacyBlock.text.slice(-4);
+      expect(Buffer.byteLength(JSON.stringify(withoutProvenance))).toBeLessThan(12_500);
+      expect(JSON.stringify(compact)).toBe(compactJson);
+      expect(state.voiceDelivery).toMatchObject({mode:'none',acknowledgement:'unavailable'});
+      expect(state.commands[0]).not.toHaveProperty('assistantName');
+      expect(state.commands[0]).not.toHaveProperty('action');
       const expanded=await t.call('get_inspection_state',{sessionId:t.sessionId,commandId,includeExperienceCatalog:true});
       expect(expanded.isError).not.toBe(true);
       const catalog=expanded.structuredContent.experienceCatalog;
@@ -433,6 +461,9 @@ describe('packaged molecular inspection sessions',()=>{
       expect((await t.hydrate())._meta[KEY].experienceCatalog).toEqual(catalog);
       expect(Buffer.byteLength(JSON.stringify(expanded))-compactBytes).toBeGreaterThan(15_000);
       expect(expanded.structuredContent.command).toEqual(state.command);
+      expect(expanded.structuredContent.voiceDelivery).toHaveProperty('mode');
+      expect(expanded.structuredContent.commands[0]).toHaveProperty('assistantName');
+      expect(expanded.structuredContent.commands[0]).toHaveProperty('action');
       expect(expanded.structuredContent.tours).toEqual(state.tours);
       const disabled=await t.call('get_inspection_state',{sessionId:t.sessionId,includeExperienceCatalog:false});
       expect(disabled.structuredContent).not.toHaveProperty('experienceCatalog');
@@ -1090,6 +1121,134 @@ describe('packaged molecular inspection sessions',()=>{
       expect(older.structuredContent).toMatchObject({queued:false,stale:true,utteranceId:oldId,activeUtteranceId:newId});
       expect((await t.call('poll_inspection',{...binding,panelId,availability:'ready'}))._meta[KEY].headsetCaption).toBeUndefined();
       expect(rendered).toEqual(['New answer.']);
+    } finally {await t.close();}
+  });
+  // The agent CLI's `--utterance begin` threads a host-minted ID into the
+  // call it wraps. A reply bound to it was refused as stale because only a
+  // claimed recording could become active, so the agent could not open a turn.
+  it('speaks a reply bound to a turn the agent began, until a newer turn begins',async()=>{
+    const rendered:string[]=[];
+    const replyAudio={ready:true,enabled:true,describe:()=>'test synthesiser',synthesize:async(text:string)=>{rendered.push(text);return undefined;}};
+    const t=await setup({transcriber:replyBindingTranscriber(),replyAudio});try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      const poll=async()=>(await t.call('poll_inspection',{...binding,panelId,availability:'ready'}))._meta[KEY];
+      await poll();
+      const first=await beginAgentTurn(t,binding,panelId,'agent-turn-1');
+      expect(first.text).toContain(`say_to_headset accepts utteranceId ${first.utteranceId}`);
+      const saying=t.call('say_to_headset',{text:'Hello, this is Claude.',utteranceId:first.utteranceId});
+      await new Promise(resolve=>setTimeout(resolve,25));
+      const caption=(await poll()).headsetCaption;
+      expect((await saying).structuredContent).toMatchObject({queued:true,delivered:true,stale:false,spoken:true,
+        utteranceBinding:'active',utteranceId:first.utteranceId,activeUtteranceId:first.utteranceId});
+      expect(caption).toMatchObject({text:'Hello, this is Claude.',utteranceId:first.utteranceId,speak:true});
+      expect(rendered).toEqual(['Hello, this is Claude.']);
+
+      // A second begun turn owns replies; the first is stale and never spoken.
+      const second=await beginAgentTurn(t,binding,panelId,'agent-turn-2');
+      expect(await beginAgentTurn(t,binding,panelId,'agent-turn-1')).toEqual(first);
+      expect((await t.call('say_to_headset',{text:'First turn.',utteranceId:first.utteranceId})).structuredContent).toMatchObject({
+        queued:false,delivered:false,stale:true,utteranceBinding:'stale',utteranceId:first.utteranceId,activeUtteranceId:second.utteranceId});
+      // The wearer speaking afterwards takes it over in turn.
+      const spoken='88888888-8888-4888-8888-888888888888';
+      await claimHeadsetUtterance(t,panelId,spoken);
+      expect(await beginAgentTurn(t,binding,panelId,'agent-turn-2')).toEqual(second);
+      expect((await t.call('say_to_headset',{text:'Second turn.',utteranceId:second.utteranceId})).structuredContent).toMatchObject({
+        stale:true,utteranceId:second.utteranceId,activeUtteranceId:spoken});
+      expect(rendered).toEqual(['Hello, this is Claude.']);
+      // An unbound reply is shown and spoken whichever turn is active.
+      const unbound=t.call('say_to_headset',{text:'Still here.'});
+      await new Promise(resolve=>setTimeout(resolve,25));
+      expect((await poll()).headsetCaption).toMatchObject({text:'Still here.',speak:true});
+      expect((await unbound).structuredContent).toMatchObject({delivered:true,spoken:true,utteranceBinding:'unbound',unbound:true});
+    } finally {await t.close();}
+  });
+  it('makes the wearer’s earlier turn stale for replies when the agent begins its own',async()=>{
+    const t=await setup({transcriber:replyBindingTranscriber()});try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+      const spoken='99999999-9999-4999-8999-999999999999';
+      await claimHeadsetUtterance(t,panelId,spoken);
+      const turn=await beginAgentTurn(t,binding,panelId,'agent-after-voice');
+      expect((await t.call('say_to_headset',{text:'Voice answer.',utteranceId:spoken,speak:false})).structuredContent).toMatchObject({
+        queued:false,stale:true,utteranceBinding:'stale',utteranceId:spoken,activeUtteranceId:turn.utteranceId});
+      // A begin supersedes no request, so an action on those words is still admitted.
+      const acted=await t.call('update_inspection',{...binding,panelId,commandId:'voice-after-begin',utteranceId:spoken,
+        change:{kind:'render-quality',patch:{level:'best'}}});
+      expect(acted.isError,JSON.stringify(acted.content)).not.toBe(true);
+      const saying=t.call('say_to_headset',{text:'Agent answer.',utteranceId:turn.utteranceId,speak:false});
+      await new Promise(resolve=>setTimeout(resolve,25));
+      await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+      expect((await saying).structuredContent).toMatchObject({queued:true,delivered:true,stale:false,
+        utteranceBinding:'active',utteranceId:turn.utteranceId});
+    } finally {await t.close();}
+  });
+  it('yields a begun turn to words the agent had not heard yet, and only to those',async()=>{
+    const t=await setup({transcriber:replyBindingTranscriber()});try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+      const heard='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',talking='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      const cursor=await claimHeadsetUtterance(t,panelId,heard);
+      // The wearer is already talking when the agent begins its turn.
+      const press={sessionId:t.sessionId,panelId,utteranceId:talking,mime:'audio/webm;codecs=opus'};
+      expect((await t.call('push_to_talk_audio',{...press,seq:0,data:'AAAA',final:false})).isError).not.toBe(true);
+      const turn=await beginAgentTurn(t,binding,panelId,'agent-mid-speech');
+      // Reading the words it had already heard does not take the turn back.
+      expect((await t.call('listen_voice',{timeoutSeconds:1,cursor:0})).structuredContent.transcripts).toHaveLength(1);
+      expect((await t.call('say_to_headset',{text:'Heard answer.',utteranceId:heard,speak:false})).structuredContent).toMatchObject({
+        stale:true,utteranceId:heard,activeUtteranceId:turn.utteranceId});
+      // Words it had not heard do, once they are claimed.
+      expect((await t.call('push_to_talk_audio',{...press,seq:1,final:true})).isError).not.toBe(true);
+      expect((await t.call('listen_voice',{timeoutSeconds:1,cursor})).structuredContent.transcripts).toHaveLength(1);
+      expect((await t.call('say_to_headset',{text:'Agent turn.',utteranceId:turn.utteranceId,speak:false})).structuredContent).toMatchObject({
+        stale:true,utteranceId:turn.utteranceId,activeUtteranceId:talking});
+      const saying=t.call('say_to_headset',{text:'Your answer.',utteranceId:talking,speak:false});
+      await new Promise(resolve=>setTimeout(resolve,25));
+      await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+      expect((await saying).structuredContent).toMatchObject({delivered:true,stale:false,utteranceId:talking});
+    } finally {await t.close();}
+  });
+  it('keeps a correction’s own turn when the words it superseded are claimed afterwards',async()=>{
+    const t=await setup({transcriber:replyBindingTranscriber()});try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+      const talking='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+      const press={sessionId:t.sessionId,panelId,utteranceId:talking,mime:'audio/webm;codecs=opus'};
+      expect((await t.call('push_to_talk_audio',{...press,seq:0,data:'AAAA',final:false})).isError).not.toBe(true);
+      const correction=await beginAgentTurn(t,binding,panelId,'agent-correct','correct');
+      expect((await t.call('push_to_talk_audio',{...press,seq:1,final:true})).isError).not.toBe(true);
+      expect((await t.call('listen_voice',{timeoutSeconds:1})).structuredContent.transcripts).toHaveLength(1);
+      expect((await t.call('say_to_headset',{text:'Superseded.',utteranceId:talking,speak:false})).structuredContent).toMatchObject({
+        stale:true,utteranceId:talking,activeUtteranceId:correction.utteranceId});
+      const saying=t.call('say_to_headset',{text:'Corrected.',utteranceId:correction.utteranceId,speak:false});
+      await new Promise(resolve=>setTimeout(resolve,25));
+      await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+      expect((await saying).structuredContent).toMatchObject({delivered:true,stale:false,utteranceId:correction.utteranceId});
+    } finally {await t.close();}
+  });
+  it('does not make a turn begun on the Mac’s own panel a headset turn',async()=>{
+    const t=await setup({transcriber:replyBindingTranscriber()});try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      await t.call('attach_inspection',{...binding,surface:'companion'});
+      const desktop=(await t.call('attach_inspection',{...binding,surface:'desktop'})).structuredContent.panelId;
+      await t.call('poll_inspection',{...binding,panelId:desktop,availability:'ready'});
+      const typed=await beginAgentTurn(t,binding,desktop,'desktop-turn');
+      expect(typed.text).not.toContain('say_to_headset accepts');
+      expect((await t.call('say_to_headset',{text:'Typed answer.',utteranceId:typed.utteranceId,speak:false})).structuredContent)
+        .toMatchObject({queued:false,stale:true,utteranceId:typed.utteranceId,activeUtteranceId:null});
     } finally {await t.close();}
   });
   it('answers with the caption alone when this host cannot render speech',async()=>{
@@ -2219,6 +2378,232 @@ describe('source replacement render wait',()=>{
     const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
     return {...binding,panelId};
   }
+  async function renderReplacement(t:any,before:any,utteranceId?:string) {
+    const replaced=await t.call('replace_inspection_source',{...before,pdbId:'4HHB',...(utteranceId?{utteranceId}:{})});
+    expect(replaced.isError,JSON.stringify(replaced.content)).not.toBe(true);
+    return finishReplacement(t,before);
+  }
+  async function finishReplacement(t:any,before:any) {
+    const data=(await t.hydrate())._meta[KEY];
+    const next={sessionId:t.sessionId,serverEpoch:data.serverEpoch,sourceToken:data.sourceToken,
+      baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision};
+    expect(next.sourceToken).not.toBe(before.sourceToken);
+    const saved=(await t.call('sync_inspection',{...next,scene:t.scene})).structuredContent;
+    next.baseInspectionRevision=saved.inspectionRevision;
+    const attached=await t.call('attach_inspection',{...next,surface:'companion',replacesPanelId:before.panelId});
+    expect(attached.isError,JSON.stringify(attached.content)).not.toBe(true);
+    expect(attached.structuredContent.sourceRenderReceipt).toMatchObject({status:'rendered',rendered:true});
+    expect(attached.structuredContent.panelId).toBe(before.panelId);
+    return {...next,panelId:attached.structuredContent.panelId};
+  }
+  async function takeReply(t:any,binding:any) {
+    for(let i=0;i<100;i++) {
+      const caption=(await t.call('poll_inspection',{...binding,availability:'ready'}))._meta[KEY].headsetCaption;
+      if(caption) return caption;
+      await new Promise(resolve=>setTimeout(resolve,5));
+    }
+    throw Error('The companion did not receive the expected reply.');
+  }
+  it.each([false,true])('admits delayed speech after source render only for its owning utterance (owns source: %s)',async ownsSource=>{
+    let release!:()=>void,started!:()=>void;
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    const synthesizing=new Promise<void>(resolve=>{started=resolve;});
+    const clip={mimeType:'audio/ogg; codecs=opus',base64:'T2dnUw==',format:'ogg-opus' as const,bytes:4,seconds:1};
+    const synthesize=vi.fn(async()=>{started();await gate;return clip;});
+    const t=await setup({fetchPdbText:async()=>cif,
+      replyAudio:{ready:true,enabled:true,describe:()=>'gated test audio',synthesize}});
+    let saying:Promise<any>|undefined;
+    try {
+      const before=await ready(t);
+      await t.call('poll_inspection',{...before,availability:'ready'});
+      const {utteranceId}=await beginAgentTurn(t,before,before.panelId,'source-reply-owner');
+      saying=t.call('say_to_headset',{text:'An answer about this structure.',utteranceId});
+      await synthesizing;
+      const original=await takeReply(t,before);
+      expect(original).toMatchObject({utteranceId,text:'An answer about this structure.'});
+      const next=await renderReplacement(t,before,ownsSource?utteranceId:undefined);
+      // The provider cannot finish until the replacement has actually rendered.
+      release();
+      const said=(await saying).structuredContent;
+      expect(said).toMatchObject({stale:!ownsSource,audible:ownsSource,
+        utteranceBinding:ownsSource?'active':'stale',utteranceId});
+      if(ownsSource) {
+        const spoken=await takeReply(t,next);
+        expect(spoken).toMatchObject({utteranceId,voiceFor:original.id});
+        expect(spoken.segments.some((segment:any)=>segment.audio)).toBe(true);
+      } else {
+        expect((await t.call('poll_inspection',{...next,availability:'ready'}))._meta[KEY].headsetCaption).toBeUndefined();
+        const stale=await t.call('say_to_headset',{text:'Another answer about the old structure.',utteranceId});
+        expect(stale.structuredContent).toMatchObject({stale:true,queued:false,audible:false});
+        expect(synthesize).toHaveBeenCalledTimes(1);
+        const unbound=t.call('say_to_headset',{text:'The current structure is ready.',speak:false});
+        expect((await takeReply(t,next)).text).toBe('The current structure is ready.');
+        expect((await unbound).structuredContent).toMatchObject({stale:false,delivered:true,utteranceBinding:'unbound'});
+      }
+    } finally {release();await saying?.catch(()=>{});await t.close();}
+  });
+  it('keeps an utterance reply eligible after an ordinary saved scene revision',async()=>{
+    const t=await setup();
+    let saying:Promise<any>|undefined;
+    try {
+      const before=await ready(t);
+      await t.call('poll_inspection',{...before,availability:'ready'});
+      const {utteranceId}=await beginAgentTurn(t,before,before.panelId,'revision-reply-owner');
+      const moved=structuredClone(t.scene);moved.inspection.placement.scale=2;
+      const saved=(await t.call('sync_inspection',{...before,scene:moved})).structuredContent;
+      expect(saved.inspectionRevision).toBeGreaterThan(before.baseInspectionRevision);
+      const next={...before,baseInspectionRevision:saved.inspectionRevision};
+      saying=t.call('say_to_headset',{text:'The structure is larger.',utteranceId,speak:false});
+      expect(await takeReply(t,next)).toMatchObject({utteranceId,text:'The structure is larger.'});
+      expect((await saying).structuredContent).toMatchObject({stale:false,delivered:true,utteranceBinding:'active'});
+    } finally {await saying?.catch(()=>{});await t.close();}
+  });
+  it('rejects an already queued utterance caption when a different source renders before its heartbeat',async()=>{
+    let prepared!:()=>void;
+    const rendering=new Promise<void>(resolve=>{prepared=resolve;});
+    const t=await setup({fetchPdbText:async()=>cif,replyAudio:{ready:true,enabled:true,describe:()=>'test audio',
+      synthesize:async()=>{prepared();return {mimeType:'audio/ogg; codecs=opus',base64:'T2dnUw==',format:'ogg-opus' as const,bytes:4,seconds:1};}}});
+    let saying:Promise<any>|undefined;
+    try {
+      const before=await ready(t);
+      await t.call('poll_inspection',{...before,availability:'ready'});
+      const {utteranceId}=await beginAgentTurn(t,before,before.panelId,'queued-source-reply');
+      saying=t.call('say_to_headset',{text:'This answer belongs to the old structure.',utteranceId});
+      await rendering;
+      const next=await renderReplacement(t,before);
+      const beat=(await t.call('poll_inspection',{...next,availability:'ready'}))._meta[KEY];
+      expect(beat.headsetCaption).toBeUndefined();
+      expect(beat.headsetCaptionRejections).toEqual([expect.objectContaining({utteranceId,stale:true})]);
+      expect((await saying).structuredContent).toMatchObject({stale:true,queued:false,delivered:false,audible:false});
+    } finally {await saying?.catch(()=>{});await t.close();}
+  });
+  it('keeps a reply to words recorded during a source swap after the explicit continuation renders',async()=>{
+    let release!:()=>void,started!:()=>void;
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    const fetching=new Promise<void>(resolve=>{started=resolve;});
+    const t=await setup({transcriber:replyBindingTranscriber(),fetchPdbText:async()=>{started();await gate;return cif;}});
+    let replacing:Promise<any>|undefined,saying:Promise<any>|undefined;
+    try {
+      const before=await ready(t);
+      await t.call('poll_inspection',{...before,availability:'ready'});
+      replacing=t.call('replace_inspection_source',{...before,pdbId:'4HHB'});
+      await fetching;
+      const utteranceId='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+      await claimHeadsetUtterance(t,before.panelId,utteranceId);
+      release();
+      expect((await replacing).isError).not.toBe(true);
+      const next=await finishReplacement(t,before);
+      saying=t.call('say_to_headset',{text:'I heard your question while the structure was loading.',utteranceId,speak:false});
+      expect(await takeReply(t,next)).toMatchObject({utteranceId});
+      expect((await saying).structuredContent).toMatchObject({stale:false,delivered:true,utteranceBinding:'active'});
+    } finally {release();await replacing?.catch(()=>{});await saying?.catch(()=>{});await t.close();}
+  });
+  it.each(['animation', 'drag', 'headset-hidden', 'page-hidden'])('loads a file source while the wearer is %s',async activity=>{
+    const t=await setup();
+    try {
+      const before=await ready(t);
+      await t.call('poll_inspection',{...before,availability:'busy',xrStartup:{phase:'active',pending:false,
+        reloadRequired:false,mode:'immersive-ar',presenting:activity!=='page-hidden',visible:activity!=='page-hidden',
+        sessionVisibility:activity==='headset-hidden'?'hidden':'visible',gestureActive:null}});
+      const replaced=await t.call('replace_inspection_source',{sessionId:t.sessionId,
+        source:{kind:'file',path:new URL('../../fixtures/4HHB.cif',import.meta.url).pathname}});
+      expect(replaced.isError,JSON.stringify(replaced.content)).not.toBe(true);
+      expect(replaced.structuredContent.sourceTransition.sourceChanged).toBe(true);
+      expect(replaced.structuredContent.sourceRenderStatus.rendered).toBe(false);
+      const data=(await t.hydrate())._meta[KEY];
+      const {panelId:_panel,...previous}=before;
+      const next={...previous,sourceToken:data.sourceToken,baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision};
+      const catalog=data.catalog??await decodeInspectionCatalog(data.catalogWire);
+      const scene={...t.scene,sourceSha256:catalog.source.sha256,selectionKeys:[]};
+      const saved=(await t.call('sync_inspection',{...next,scene})).structuredContent;
+      const attached=await t.call('attach_inspection',{...next,baseInspectionRevision:saved.inspectionRevision,
+        surface:'companion',replacesPanelId:before.panelId});
+      expect(attached.isError,JSON.stringify(attached.content)).not.toBe(true);
+      expect(attached.structuredContent.sourceRenderReceipt).toMatchObject({status:'rendered',rendered:true});
+      const current=(await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent;
+      expect(current.panels).toContainEqual(expect.objectContaining({panelId:before.panelId,current:true,availability:'ready'}));
+    } finally {await t.close();}
+  });
+  it('keeps a source load for a slowly polling sleeping page beyond its render grace',async()=>{
+    let now=1_000_000;
+    const t=await setup({now:()=>now,fetchPdbText:async()=>cif});
+    try {
+      const before=await ready(t);
+      const hidden={phase:'active',pending:false,reloadRequired:false,mode:'immersive-ar',presenting:true,
+        visible:true,sessionVisibility:'hidden',gestureActive:null};
+      await t.call('poll_inspection',{...before,availability:'busy',xrStartup:hidden});
+      now+=90_000;
+      const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,pdbId:'4HHB'});
+      expect(loaded.isError,JSON.stringify(loaded.content)).not.toBe(true);
+      await t.call('poll_inspection',{...before,availability:'busy',xrStartup:hidden});
+      for(let i=0;i<4;i++) {
+        now+=90_000;
+        const beat=await t.call('poll_inspection',{...before,availability:'busy',xrStartup:hidden});
+        expect(beat.structuredContent.attached).toBe(true);
+      }
+      const pending=(await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent;
+      expect(pending.panels.some((p:any)=>p.panelId===before.panelId)).toBe(true);
+      expect(pending.sourceRenderReceipt).toBeUndefined();
+      await t.call('poll_inspection',{...before,availability:'busy',xrStartup:{...hidden,sessionVisibility:'visible'}});
+      const data=(await t.hydrate())._meta[KEY];
+      const {panelId,...prior}=before;
+      const next={...prior,sourceToken:data.sourceToken,baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision};
+      const saved=(await t.call('sync_inspection',{...next,scene:t.scene})).structuredContent;
+      const attached=await t.call('attach_inspection',{...next,baseInspectionRevision:saved.inspectionRevision,surface:'companion',replacesPanelId:panelId});
+      expect(attached.isError,JSON.stringify(attached.content)).not.toBe(true);
+      expect(attached.structuredContent.sourceRenderReceipt.status).toBe('rendered');
+    } finally {await t.close();}
+  });
+  it('settles a source load when its hidden owner vanishes and lets a replacement load again',async()=>{
+    let now=1_000_000;
+    const t=await setup({now:()=>now,fetchPdbText:async()=>cif});
+    try {
+      const before=await ready(t);
+      await t.call('poll_inspection',{...before,availability:'busy',xrStartup:{phase:'idle',pending:false,
+        reloadRequired:false,mode:null,presenting:false,visible:false,gestureActive:null}});
+      const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,pdbId:'4HHB'});
+      expect(loaded.isError,JSON.stringify(loaded.content)).not.toBe(true);
+      // No detach and no more owner heartbeats. Host reads must not renew it.
+      for(let i=0;i<17;i++) {
+        now+=10_000;
+        expect((await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent.sourceRenderReceipt).toBeUndefined();
+      }
+      now+=10_000;
+      const state=(await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent;
+      expect(state.sourceRenderReceipt).toMatchObject({status:'failed',rendered:false,panelId:before.panelId});
+      expect(state.sourceRenderReceipt.failureReason).toMatch(/no longer attached/);
+      expect(state.panels).toEqual([]);
+      // A fresh page hydrates and saves the current source without the old ID.
+      const data=(await t.hydrate())._meta[KEY];
+      const next={sessionId:t.sessionId,serverEpoch:data.serverEpoch,sourceToken:data.sourceToken,
+        baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision};
+      const saved=await t.call('sync_inspection',{...next,scene:t.scene});
+      expect(saved.isError,JSON.stringify(saved.content)).not.toBe(true);
+      next.baseInspectionRevision=saved.structuredContent.inspectionRevision;
+      const attached=await t.call('attach_inspection',{...next,surface:'companion'});
+      expect(attached.isError,JSON.stringify(attached.content)).not.toBe(true);
+      const again=await t.call('replace_inspection_source',{...next,panelId:attached.structuredContent.panelId,pdbId:'4HHB'});
+      expect(again.isError,JSON.stringify(again.content)).not.toBe(true);
+      expect(again.structuredContent.sourceTransition.sourceChanged).toBe(true);
+    } finally {await t.close();}
+  });
+  it('a placement save during source fetching cannot cancel the load',async()=>{
+    let fetched!:()=>void,release!:()=>void;
+    const fetching=new Promise<void>(resolve=>{fetched=resolve;});
+    const hold=new Promise<void>(resolve=>{release=resolve;});
+    const t=await setup({fetchPdbText:async()=>{fetched();await hold;return cif;}});
+    try {
+      const before=await ready(t);
+      const replacing=t.call('replace_inspection_source',{...before,pdbId:'4HHB'});
+      await fetching;
+      const moved=structuredClone(t.scene);moved.inspection.placement.scale=2;
+      expect((await t.call('sync_inspection',{...before,scene:moved})).isError).not.toBe(true);
+      release();
+      const loaded=await replacing;
+      expect(loaded.isError,JSON.stringify(loaded.content)).not.toBe(true);
+      expect(loaded.structuredContent.sourceTransition.sourceChanged).toBe(true);
+    } finally {release();await t.close();}
+  });
   it('retains the active spoken request and its source-bound referent through failed-source recovery',async()=>{
     const t=await setup({fetchPdbText:async()=>cif,transcriber:referentTranscriber()});
     try {
@@ -2332,7 +2717,7 @@ describe('source replacement render wait',()=>{
       expect(data.sourceGeometryBudget).toBe(true);
       const panelId=(await t.call('attach_inspection',{...next,surface:'companion',replacesPanelId:before.panelId,geometryBudget})).structuredContent.panelId;
       const result=await replacing;
-      expect(result.structuredContent.sourceRenderReceipt).toEqual({status:'rendered',panelId,
+      expect(result.structuredContent.sourceRenderReceipt).toEqual({status:'rendered',panelId,commandId:expect.any(String),
         sourceToken:next.sourceToken,inspectionRevision:next.baseInspectionRevision,geometryBudget,
         renderedAt:expect.any(Number),renderedRevision:next.baseInspectionRevision});
       // The field a caller reads as "the wearer saw it" is true only
@@ -2393,6 +2778,21 @@ describe('source replacement render wait',()=>{
     } finally {await t.close();}
   });
 
+  it('accepts the next source immediately after a failed render without waiting for a heartbeat',async()=>{
+    const t=await setup({fetchPdbText:async()=>cif});
+    try {
+      const before=await ready(t);
+      await t.call('replace_inspection_source',{...before,pdbId:'4HHB'});
+      const data=(await t.hydrate())._meta[KEY];
+      const failed={sessionId:t.sessionId,serverEpoch:data.serverEpoch,sourceToken:data.sourceToken,
+        baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision,panelId:before.panelId};
+      await t.call('report_source_failure',{...failed,previousSourceToken:before.sourceToken,
+        failure:'render_failed',failureReason:'Draw failed.'});
+      const next=await t.call('replace_inspection_source',{sessionId:t.sessionId,pdbId:'1CRN'});
+      expect(next.isError,JSON.stringify(next.content)).not.toBe(true);
+      expect(next.structuredContent.sourceTransition.sourceChanged).toBe(true);
+    }finally{await t.close();}
+  });
   it('keeps a heartbeating failed-source owner recoverable beyond the render budget',async()=>{
     let now=1_000_000;
     const t=await setup({fetchPdbText:async()=>cif,now:()=>now});
@@ -2475,7 +2875,8 @@ describe('source replacement render wait',()=>{
         baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision,panelId:before.panelId};
       await t.call('report_source_failure',{...failed,previousSourceToken:before.sourceToken,
         failure:'representation_budget_exceeded',failureReason:'Source is over the geometry budget.'});
-      expect((await t.call('replace_inspection_source',{...failed,pdbId:'1CRN'})).isError).toBe(true);
+      const readyState=(await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent;
+      expect(readyState.sourceRecovery).toEqual({panelId:before.panelId,ready:true});
       const heartbeat={...before,availability:'unsaved',sourceFailureToken:data.sourceToken};
       expect((await t.call('poll_inspection',heartbeat)).isError).not.toBe(true);
       expect((await t.call('update_inspection',{...failed,commandId:'wrong-coordinates',change:{kind:'appearance',patch:{labels:true}}})).isError).toBe(true);
@@ -2717,6 +3118,8 @@ describe('what control_tour tells the agent it just did',()=>{
       const text=answer.content[0].text as string;
       expect(text).toContain('starts the lesson at scene 1');
       expect(text).toContain('Tour started.');
+      expect(text).toContain('announcement scheduled; hearing is unconfirmed');
+      expect(text).not.toContain('wearer hears');
       expect(text).not.toContain('queued');
       expect(answer.structuredContent.command.status).toBe('queued');
     } finally {await t.close();}
@@ -2831,12 +3234,10 @@ describe('verified source resolution and replacement',()=>{
         expect(refused.content[0].text).toContain(limit);
         expect(refused.content[0].text).not.toContain('ready for a command');
       }
-      // A request this surface would have honoured still waits on the panel.
-      const busy=await t.call('replace_inspection_source',{...binding,source:{kind:'file',path:filePath}});
-      expect(busy.isError).toBe(true);
-      expect(busy.content[0].text).toContain('unavailable, dirty, stale, or rendering another command');
-      // Nothing was replaced by any of the four.
-      expect((await t.hydrate())._meta[KEY].sourceToken).toBe(binding.sourceToken);
+      // An explicit source load supersedes local work on the outgoing source.
+      const loaded=await t.call('replace_inspection_source',{...binding,source:{kind:'file',path:filePath}});
+      expect(loaded.isError).not.toBe(true);
+      expect((await t.hydrate())._meta[KEY].sourceToken).not.toBe(binding.sourceToken);
     } finally {await t.close();}
   });
   /**
@@ -3631,9 +4032,9 @@ function segmentedSynthesizer() {
     for(let tick=0;tick<400&&started.length<count;tick++) await new Promise(resolve=>setTimeout(resolve,5));
     if(started.length<count) throw Error(`only ${started.length} of ${count} segments reached the synthesiser`);
   };
-  const finish=async(text:string,voice:string,seconds=3,advanceMs=0)=>{
+  const finish=async(text:string,voice:string|undefined,seconds=3,advanceMs=0)=>{
     clock.ms+=advanceMs;
-    gates.get(text)!(clip(voice,seconds));
+    gates.get(text)!(voice===undefined?undefined:clip(voice,seconds));
     gates.delete(text);
     await new Promise(resolve=>setTimeout(resolve,25));
   };
@@ -3768,4 +4169,94 @@ it('plays a reply in order and never sends a superseded reply the segments behin
     expect(shown.text).toBe('Newer answer.');
     expect(shown.segments.map((segment:any)=>segment.text)).toEqual(['Newer answer.']);
   } finally {await t.close();}
+});
+
+it('delivers ready speech after the caption was taken while later segments are still rendering',async()=>{
+  const gate=segmentedSynthesizer();
+  const t=await setup({replyAudio:gate.replyAudio,now:gate.now});
+  try {
+    const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+    const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+      baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+    const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+    const poll=()=>t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+    await poll();
+    const saying=t.call('say_to_headset',{text:FOUR_SENTENCES.join(' ')});
+    await gate.awaitStarted(3);
+    const caption=(await poll())._meta[KEY].headsetCaption;
+    expect(caption.audio).toBeUndefined();
+    await gate.finish(FOUR_SENTENCES[0]!,'a',3,4_000);
+    const first=(await poll())._meta[KEY].headsetCaption;
+    expect(first).toMatchObject({voiceFor:caption.id,voiceOffset:0,audio:gate.clip('a',3)});
+    expect(first.segments.map((segment:any)=>segment.text)).toEqual(FOUR_SENTENCES.slice(0,1));
+    expect(gate.pending()).toHaveLength(3);
+    await gate.finish(FOUR_SENTENCES[2]!,'c',3,100);
+    expect((await poll())._meta[KEY].headsetCaption).toBeUndefined();
+    await gate.finish(FOUR_SENTENCES[1]!,'b',3,100);
+    const middle=(await poll())._meta[KEY].headsetCaption;
+    expect(middle).toMatchObject({voiceFor:caption.id,voiceOffset:1});
+    expect(middle.segments.map((segment:any)=>segment.text)).toEqual(FOUR_SENTENCES.slice(1,3));
+    await gate.finish(FOUR_SENTENCES[3]!,'d',3,100);
+    const last=(await poll())._meta[KEY].headsetCaption;
+    expect(last).toMatchObject({voiceFor:caption.id,voiceOffset:3});
+    expect(last.segments.map((segment:any)=>segment.text)).toEqual(FOUR_SENTENCES.slice(3));
+    expect((await saying).structuredContent).toMatchObject({audible:true,spokenVia:'voice'});
+    expect((await poll())._meta[KEY].headsetCaption).toBeUndefined();
+  } finally {
+    for(const line of gate.pending())await gate.finish(line,'cleanup');
+    await t.close();
+  }
+});
+
+it('withdraws an unclaimed early spoken batch when a newer reply takes the turn',async()=>{
+  const gate=segmentedSynthesizer();
+  const t=await setup({replyAudio:gate.replyAudio,now:gate.now});
+  try {
+    const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+    const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+      baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+    const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+    const poll=()=>t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+    await poll();
+    const older=t.call('say_to_headset',{text:FOUR_SENTENCES.join(' ')});
+    await gate.awaitStarted(3);await poll();
+    await gate.finish(FOUR_SENTENCES[0]!,'a',3,4_000);
+    const newer=t.call('say_to_headset',{text:'New caption.',speak:false});await settle();
+    expect((await poll())._meta[KEY].headsetCaption.text).toBe('New caption.');
+    await newer;
+    for(const line of gate.pending())await gate.finish(line,'late');
+    expect((await older).structuredContent.stale).toBe(true);
+    expect((await poll())._meta[KEY].headsetCaption).toBeUndefined();
+  } finally {
+    for(const line of gate.pending())await gate.finish(line,'cleanup');
+    await t.close();
+  }
+});
+
+
+it('delivers silent tails without losing their words or claiming that they carry speech',async()=>{
+  const gate=segmentedSynthesizer();
+  const t=await setup({replyAudio:gate.replyAudio,now:gate.now});
+  try {
+    const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+    const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+      baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+    const panelId=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+    const poll=()=>t.call('poll_inspection',{...binding,panelId,availability:'ready'});
+    await poll();
+    const saying=t.call('say_to_headset',{text:FOUR_SENTENCES.join(' ')});
+    await gate.awaitStarted(3);
+    await gate.finish(FOUR_SENTENCES[0]!,'a',3,4000);
+    const opening=(await poll())._meta[KEY].headsetCaption;
+    for(const line of FOUR_SENTENCES.slice(1))await gate.finish(line,undefined);
+    const said=await saying;
+    const tail=(await poll())._meta[KEY].headsetCaption;
+    expect(tail).toMatchObject({voiceFor:opening.id,voiceOffset:1,speechTotal:4});
+    expect(tail.segments.map((segment:any)=>segment.text)).toEqual(FOUR_SENTENCES.slice(1));
+    expect(tail.segments.every((segment:any)=>!segment.audio)).toBe(true);
+    expect(said.structuredContent).toMatchObject({audible:true,spokenVia:'caption',audibleSegments:1});
+  } finally {
+    for(const line of gate.pending())await gate.finish(line,undefined);
+    await t.close();
+  }
 });

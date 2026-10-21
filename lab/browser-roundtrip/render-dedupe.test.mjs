@@ -406,7 +406,7 @@ function deferredClearanceHarness() {
     fitAppearanceInWorker: (options, ownership) => new Promise((resolve, reject) => fits.push({ options, ownership, resolve, reject })),
     recordManipulation: (kind, detail) => records.push({ kind, ...detail }),
     componentLabels: { active: () => true, relayout: async (_reason, guard) => { assert.equal(guard.isCurrent(), true); labels.push(c.inspectionState.placement()); } },
-    appearanceWork: undefined, GRABBABLE_STATUS: new Set(['ready', 'mutating']), pendingGrowthTurn: false,
+    hostLoadDepth: 0, roomEntry: undefined, appearanceWork: undefined, GRABBABLE_STATUS: new Set(['ready', 'mutating']), pendingGrowthTurn: false,
     xrTransformBatchDepth: 0, xrTransformPending: false,
   });
   c.immersiveSession = { syncBounds() {}, platePoints: () => [[0, 0, -1]],

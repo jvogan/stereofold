@@ -1,8 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import { describe, it, expect, vi } from 'vitest';
 // @ts-ignore Shared JavaScript playback of the reply audio this Mac rendered.
 import { installReplyAudio, decodeReplyAudioBase64, replyAudioClipFrom, unlockReplyAudio, REPLY_AUDIO_EVENT } from '../../lab/browser-roundtrip/reply-audio.mjs';
 // @ts-ignore Shared JavaScript name of the per-segment caption event.
-import { REPLY_SEGMENT_EVENT } from '../../lab/browser-roundtrip/reply-segments.mjs';
+import { REPLY_SEGMENT_EVENT, replySegmentsOf, replyCaptionHoldMs } from '../../lab/browser-roundtrip/reply-segments.mjs';
 
 const CLIP_BYTES = Buffer.from('OggS a short spoken sentence');
 const clip = (overrides: Record<string, unknown> = {}) => ({
@@ -396,4 +397,62 @@ describe('a reply that takes more than one segment', () => {
     expect(synth.spoken).toEqual([silent.text]);
     controller.stop();
   });
+});
+
+describe('speech arriving while the opening is playing',()=>{
+  it('queues a continuation without interrupting, overlapping, replaying, or advancing its caption early',async()=>{
+    const audio=fakeAudio();const events=target();const {scope,entries}=scopeWith();
+    const controller=installReplyAudio({scope,target:events,contextFactory:audio.factory,synth:fakeSynth(),gestureTargets:[]});
+    const shown:string[]=[];
+    events.addEventListener(REPLY_SEGMENT_EVENT,(event:any)=>shown.push(event.detail.text));
+    const first=caption({id:'voice-0',voiceFor:'original',voiceOffset:0,text:'First.'});
+    const second=caption({id:'voice-1',voiceFor:'original',voiceOffset:1,text:'Second.'});
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:first});await settle();
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:second});await settle();
+    expect(audio.started).toHaveLength(1);
+    expect(audio.started[0].stopped).toBe(false);
+    expect(shown).toEqual(['First.']);
+    audio.started[0].end();await settle();
+    expect(audio.started).toHaveLength(2);expect(shown).toEqual(['First.','Second.']);
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:second});await settle();
+    expect(audio.started).toHaveLength(2);
+    audio.started[1].end();await settle();
+    // A slow last segment may arrive after the player has gone idle.
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:caption({id:'voice-2',voiceFor:'original',voiceOffset:2,text:'Third.'})});await settle();
+    expect(audio.started).toHaveLength(3);expect(shown).toEqual(['First.','Second.','Third.']);
+    expect(entries.filter(e=>e.kind==='reply-audio-play')).toHaveLength(3);
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:caption({id:'voice-3',voiceFor:'original',voiceOffset:3,text:'Fourth.'})});await settle();
+    expect(audio.started).toHaveLength(3);
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:caption({id:'replacement',speak:false,audio:undefined})});await settle();
+    audio.started[2].end();await settle();
+    expect(audio.started).toHaveLength(3);
+    expect(detailOf(entries,'reply-segments-dropped')).toMatchObject({dropped:1,total:2});
+    await controller.stop();
+  });
+
+  it('discards a late continuation after a newer caption replaces the reply',async()=>{
+    const audio=fakeAudio();const events=target();const {scope}=scopeWith();
+    const controller=installReplyAudio({scope,target:events,contextFactory:audio.factory,synth:fakeSynth(),gestureTargets:[]});
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:caption({id:'original'})});await settle();
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:caption({id:'newer',speak:false,audio:undefined})});await settle();
+    events.dispatchEvent({type:REPLY_AUDIO_EVENT,detail:caption({id:'late',voiceFor:'original',voiceOffset:1})});await settle();
+    expect(audio.started).toHaveLength(1);expect(audio.started[0].stopped).toBe(true);
+    await controller.stop();
+  });
+});
+
+
+it('keeps the immersive caption on the sounding segment when a continuation arrives',async()=>{
+  const source=await readFile(new URL('../../lab/browser-roundtrip/immersive-session.mjs',import.meta.url),'utf8');
+  const start=source.indexOf('          const onReply = event => {');
+  const end=source.indexOf('          globalThis.addEventListener?.(REPLY_CAPTION_EVENT',start);
+  const shown:string[]=[];
+  const handlers=new Function('replySegmentsOf','replyCaptionHoldMs','record','recordTalkReplySeat',
+    source.slice(start,end)+'\nreturn {onReply,onSegment};')(
+    replySegmentsOf,replyCaptionHoldMs,{toolbar:{setStatus:(text:string)=>shown.push(text)}},()=>{});
+  handlers.onReply({detail:caption({text:'First.'})});
+  handlers.onReply({detail:caption({id:'tail',voiceFor:'caption-1',voiceOffset:1,text:'Second.'})});
+  expect(shown).toEqual(['First.']);
+  handlers.onSegment({detail:{text:'Second.'}});
+  expect(shown).toEqual(['First.','Second.']);
 });

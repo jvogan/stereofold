@@ -17,6 +17,24 @@ const drawn = (scale: number, translation: [number, number, number]) => {
   return scene;
 };
 
+describe('a lesson that keeps the placement, when the wearer moves the structure while it draws', () => {
+  const lessonChange = { kind: 'lesson', patch: { frame: false, lesson: { id: 'walk', chapters: [{ id: 'one' }] } } } as any;
+  const shown = (scale: number, selectionKeys: string[] = []) => {
+    const scene = drawn(scale, [-1, 0, 0]) as any;
+    scene.selectionKeys = selectionKeys;
+    scene.inspection.lessonPlayback = { tourId: 'lesson-walk', chapterId: 'one', stopped: false };
+    return scene as InspectionScene;
+  };
+  it('confirms the lesson at the placement the wearer chose, and only for a placement', () => {
+    expect(matchesInspectionChange(shown(2), expected, lessonChange)).toBe(true);
+    // The wearer resized it to 1.4 during the draw.
+    expect(matchesInspectionChange(shown(1.4), expected, lessonChange)).toBe(false);
+    expect(matchesInspectionChange(shown(1.4), expected, lessonChange, undefined, false, undefined, true)).toBe(true);
+    // The flag never covers a scientific difference the matcher checks.
+    expect(matchesInspectionChange(shown(1.4, ['A:1']), expected, lessonChange, undefined, false, undefined, true)).toBe(false);
+  });
+});
+
 describe('stereo placement adjustment receipt', () => {
   it('accepts a bounded move and shrink, including one caused by appearance geometry', () => {
     expect(matchesInspectionChange(drawn(1.5, [1, 0, 0]), expected, change, undefined, true, evidence)).toBe(true);

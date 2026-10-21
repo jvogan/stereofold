@@ -1,6 +1,8 @@
+import { arrayAtMost } from './array-bounds.js';
 // @ts-ignore Shared numerical placement guardrails used by the renderer.
 import { PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE, PLACEMENT_MAX_TRANSLATION } from '../../lab/browser-roundtrip/placement-limits.mjs';
 import { z } from 'zod';
+import { molecularAnimationSchema, animationTargetOwners } from './molecular-animation.js';
 import { lessonFigureSchema } from './lesson-figure.js';
 // @ts-ignore Shared bounded visibility identifiers used by the renderer.
 import { MAX_HIDDEN_CHAINS, MAX_VISIBILITY_IDENTIFIER } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
@@ -46,6 +48,7 @@ export const MOLECULAR_LESSON_LIMITS = {
   maxMovieDurationSeconds: 20,
   minTotalDurationSeconds: 0.5,
   maxCaptionCharacters: 2_000,
+  maxDetailsCharacters: 2_000,
 } as const;
 
 const idSchema = z.string().trim().min(1).max(64).regex(/^[a-z][a-z0-9_-]*$/iu);
@@ -54,7 +57,7 @@ const captionSchema = z.string().trim().min(1).max(MOLECULAR_LESSON_LIMITS.maxCa
 const durationSchema = z.number().finite().min(0.1).max(20);
 /** A chapter is a taught scene, not one cinematic step. See maxChapterDurationSeconds. */
 const chapterDurationSchema = z.number().finite().min(0.1).max(MOLECULAR_LESSON_LIMITS.maxChapterDurationSeconds);
-const vector3Schema = z.array(z.number().finite()).length(3);
+const vector3Schema = z.array(z.number().finite()).refine(v => v.length === 3, 'Expected exactly 3 items.');
 const easingSchema = z.enum(['linear', 'ease_in', 'ease_out', 'ease_in_out']);
 const objectIdSchema = z.string().trim().min(1).max(64).regex(/^[a-z][a-z0-9_-]*$/iu);
 const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/iu);
@@ -68,8 +71,8 @@ const lessonVisibilitySchema = z.object({
       labelChain: z.string().trim().min(1).max(MAX_VISIBILITY_IDENTIFIER),
       copyId: z.string().trim().min(1).max(MAX_VISIBILITY_IDENTIFIER),
     }).strict(),
-  ])).max(MAX_HIDDEN_CHAINS).optional(),
-  classes: z.array(z.enum(['water', 'ligand', 'ion', 'polymer'])).max(4).optional(),
+  ])).superRefine(arrayAtMost(MAX_HIDDEN_CHAINS)).optional(),
+  classes: z.array(z.enum(['water', 'ligand', 'ion', 'polymer'])).superRefine(arrayAtMost(4)).optional(),
 }).strict().superRefine((value, context) => {
   const named = Boolean(value.chains?.length || value.classes?.length);
   if (value.op === 'reset' && named)
@@ -91,7 +94,7 @@ const layerSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(1).max(160),
   representation: layerRepresentationSchema,
-  colorOverrides: z.array(z.object({ target: z.record(z.string(), z.unknown()), color: z.record(z.string(), z.unknown()) }).strict()).max(16).optional(),
+  colorOverrides: z.array(z.object({ target: z.record(z.string(), z.unknown()), color: z.record(z.string(), z.unknown()) }).strict()).superRefine(arrayAtMost(16)).optional(),
   target: z.record(z.string(), z.unknown()),
   color: z.record(z.string(), z.unknown()).optional(),
   labelMode: z.enum(['atom', 'residue', 'chain']).optional(),
@@ -106,7 +109,8 @@ const layerSchema = z.object({
 
 /** Source references are supplied by the caller; the compiler never invents URLs. */
 const sourceRefSchema = z.object({
-  kind: z.enum(['local', 'public', 'publication']),
+  kind: z.enum(['local', 'public', 'publication', 'modelled']),
+  note: z.string().trim().min(1).max(600).optional(),
   ref: z.string().trim().min(1).max(2_048),
 }).strict();
 
@@ -146,14 +150,14 @@ const cameraSchema = z.object({
 
 const scenePatchSchema = z.object({
   antialiasing: z.enum(['off', 'fast', 'quality']).optional(),
-  annotations: z.array(z.unknown()).max(32).optional(),
+  annotations: z.array(z.unknown()).superRefine(arrayAtMost(32)).optional(),
   background: hexColorSchema.optional(),
   camera: cameraSchema.optional(),
   clearExisting: z.boolean().optional(),
-  density: z.array(z.unknown()).max(32).optional(),
-  layers: z.array(layerSchema).max(64).optional(),
+  density: z.array(z.unknown()).superRefine(arrayAtMost(32)).optional(),
+  layers: z.array(layerSchema).superRefine(arrayAtMost(64)).optional(),
   lighting: z.enum(['flat', 'soft', 'studio']).optional(),
-  measurements: z.array(z.unknown()).max(32).optional(),
+  measurements: z.array(z.unknown()).superRefine(arrayAtMost(32)).optional(),
   scientificAnnotations: z.record(z.string(), z.unknown()).optional(),
   viewSettings: z.record(z.string(), z.unknown()).optional(),
   representationOptions: z.record(z.string(), z.unknown()).optional(),
@@ -164,12 +168,12 @@ const transformSchema = z.discriminatedUnion('kind', [
     kind: z.literal('components'),
     pivot: z.union([z.literal('object_center'), vector3Schema]).optional(),
     rotation: z.object({ axis: vector3Schema.refine((value) => Math.hypot(...value) > 1e-8, 'Rotation axis must be non-zero.'), degrees: z.number().finite().min(-3_600).max(3_600) }).strict().optional(),
-    scale: z.union([z.number().finite().min(0.01).max(100), z.array(z.number().finite().min(0.01).max(100)).length(3)]).optional(),
+    scale: z.union([z.number().finite().min(0.01).max(100), z.array(z.number().finite().min(0.01).max(100)).refine(v => v.length === 3, 'Expected exactly 3 items.')]).optional(),
     translation: vector3Schema.optional(),
   }).strict(),
   z.object({
     kind: z.literal('matrix'),
-    values: z.array(z.number().finite()).length(16),
+    values: z.array(z.number().finite()).refine(v => v.length === 16, 'Expected exactly 16 items.'),
   }).strict().superRefine(({ values }, context) => {
     if (Math.abs(values[3] ?? 0) > 1e-8 || Math.abs(values[7] ?? 0) > 1e-8 || Math.abs(values[11] ?? 0) > 1e-8 || Math.abs((values[15] ?? 0) - 1) > 1e-8) {
       context.addIssue({ code: 'custom', message: 'Transform matrices must be affine with final row [0, 0, 0, 1].', path: ['values'] });
@@ -206,7 +210,7 @@ const lessonChangeSchema = z.discriminatedUnion('kind', [
   z.object({
     ...commonMotion,
     kind: z.literal('spin'),
-    objectIds: z.array(objectIdSchema).min(1).max(64).optional(),
+    objectIds: z.array(objectIdSchema).refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(64)).optional(),
   }).strict(),
   z.object({
     ...commonMotion,
@@ -243,7 +247,11 @@ const lessonChangeSchema = z.discriminatedUnion('kind', [
     transform: transformSchema,
   }).strict(),
   z.object({
-    durationSeconds: durationSchema,
+    // Keep the cap server-side: a published union-branch maximum makes some
+    // MCP hosts dump every unrelated branch instead of this one diagnostic.
+    durationSeconds: z.number().finite().min(0.1).refine(value => value <= 20,
+      'durationSeconds must be at most 20 seconds per hold; split the hold into entries of 20 seconds or less.')
+      .describe('0.1–20 seconds per hold entry. Split longer holds into entries of at most 20 seconds.'),
     kind: z.literal('hold'),
   }).strict(),
 ]);
@@ -279,12 +287,29 @@ export const chapterMotionSchema = z.union([
 export type ChapterMotionObject = z.infer<typeof chapterMotionObjectSchema>;
 export type ChapterMotion = z.infer<typeof chapterMotionSchema>;
 
+const lessonPartSchema = z.object({
+  id: idSchema,
+  label: z.string().trim().min(1).max(60),
+  aliases: z.array(z.string().trim().min(1).max(60)).superRefine(arrayAtMost(16)).optional(),
+  color: hexColorSchema,
+  chain: z.string().trim().min(1).max(8).optional(),
+  residues: z.object({
+    from: z.number().int().min(-9_999).max(99_999),
+    to: z.number().int().min(-9_999).max(99_999),
+  }).strict().refine(({ from, to }) => to >= from, 'A residue range must not run backwards.').optional(),
+  note: z.string().trim().max(300).optional(),
+}).strict().refine((part) => part.chain != null || part.residues != null,
+  'An emphasis part must name a chain, a residue range, or both.');
+
 const chapterSchema = z.object({
+  animation: molecularAnimationSchema.optional(),
   id: idSchema,
   title: titleSchema,
   caption: captionSchema,
+  /** Optional desktop disclosure; never a caption or spoken line. */
+  details: z.string().trim().max(MOLECULAR_LESSON_LIMITS.maxDetailsCharacters).optional(),
   durationSeconds: chapterDurationSchema,
-  changes: z.array(lessonChangeSchema).min(1).max(MOLECULAR_LESSON_LIMITS.maxChapterSteps),
+  changes: z.array(lessonChangeSchema).refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(MOLECULAR_LESSON_LIMITS.maxChapterSteps)),
   immersive: z.object({
     appearance: z.object({
       background: hexColorSchema.optional(),
@@ -362,25 +387,14 @@ const chapterSchema = z.object({
     // Chains and residue numbers here are AUTHOR identifiers, the ones a paper
     // and a Mol* label both use. Author numbering is not always the canonical
     // numbering for a protein; a lesson that differs must say so in `note`.
+    // Additional named targets are commandable without repainting the key or adding plates.
+    parts: z.array(lessonPartSchema).superRefine(arrayAtMost(16)).optional(),
     emphasis: z.object({
-      parts: z.array(z.object({
-        id: idSchema,
-        label: z.string().trim().min(1).max(60),
-        aliases: z.array(z.string().trim().min(1).max(60)).max(16).optional(),
-        color: hexColorSchema,
-        chain: z.string().trim().min(1).max(8).optional(),
-        residues: z.object({
-          from: z.number().int().min(-9_999).max(99_999),
-          to: z.number().int().min(-9_999).max(99_999),
-        }).strict().refine(({ from, to }) => to >= from, 'A residue range must not run backwards.').optional(),
-        note: z.string().trim().max(300).optional(),
-      }).strict().refine((part) => part.chain != null || part.residues != null,
-        'An emphasis part must name a chain, a residue range, or both.'))
-        // 12 held every chain and domain of this complex and
-        // nothing else. A marker part — the amber band the PAM's three
-        // nucleotides sit inside, so three yellow bases are findable at wearer
-        // resolution — is a thirteenth, and a second lesson would want its own.
-        .min(1).max(16),
+      parts: z.array(lessonPartSchema)
+        // Match the saved scene's 32-part bound. Exact contact patches can
+        // span more than 16 disjoint ranges; never fill non-contact gaps just
+        // to fit a colour-key limit (the tubulin end/side faces need 23).
+        .refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(32)),
       // One part, or the several that make up one idea: RuvC is a single active
       // site assembled from three separate stretches of the chain, and a
       // chapter about it has to light all three.
@@ -392,7 +406,11 @@ const chapterSchema = z.object({
       // "paint the whole key and fade nothing", which is what put three fully
       // lit strands under a caption about one of them. A focus
       // can never name more parts than the key carries, so that is the bound.
-      focus: z.union([idSchema, z.array(idSchema).min(1).max(16)]).optional(),
+      focus: z.union([idSchema, z.array(idSchema).refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(32))]).optional(),
+      // Parts a caption names beside the subject ("the yellow PAM ... on the
+      // blue non-target strand"), drawn in their key colour at full strength.
+      // They are not framed and not explained; the focus stays the subject.
+      alsoLit: z.array(idSchema).refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(32)).optional(),
       contextOpacity: z.number().finite().min(0).max(1).default(0.12),
       framing: z.enum(['fill', 'context']).optional(),
       // On a whole-structure wall chapter, shade one lightness step per protofilament so the three strands stay countable while alpha stays blue and beta stays amber.
@@ -408,6 +426,17 @@ const chapterSchema = z.object({
           context.addIssue({ code: 'custom', message: `Emphasis focus "${wanted}" is not one of the colour-key parts.`, path: ['focus'] });
         }
       }
+      // With no focus the whole key is lit already.
+      if (emphasis.alsoLit && !focus.length) {
+        context.addIssue({ code: 'custom', message: 'Lighting parts beside the focus needs a focus.', path: ['alsoLit'] });
+      }
+      for (const lit of emphasis.alsoLit ?? []) {
+        if (!ids.includes(lit)) {
+          context.addIssue({ code: 'custom', message: `Emphasis alsoLit "${lit}" is not one of the colour-key parts.`, path: ['alsoLit'] });
+        } else if (focus.includes(lit)) {
+          context.addIssue({ code: 'custom', message: `Emphasis alsoLit "${lit}" is already its focus.`, path: ['alsoLit'] });
+        }
+      }
       // Framing with no focus frames the whole complex, and is
       // how an opening or a recap chapter gets a deterministic size and place
       // instead of whatever the wearer's entry seat happened to leave behind.
@@ -415,19 +444,27 @@ const chapterSchema = z.object({
     figure: lessonFigureSchema.optional(),
   }).strict().refine((immersive) => immersive.appearance != null || immersive.placement != null || immersive.view != null
     || immersive.motion != null || immersive.narration != null || immersive.visibility != null || immersive.emphasis != null || immersive.figure != null, 'Immersive chapter controls cannot be empty.').optional(),
-}).strict();
+}).strict().superRefine((chapter, ctx) => {
+  if (!chapter.animation) return;
+  for (const [index, distance] of (chapter.immersive?.figure?.distances ?? []).entries()) {
+    const a = animationTargetOwners(chapter.animation.tracks, distance.a), b = animationTargetOwners(chapter.animation.tracks, distance.b);
+    if (a.size !== 1 || b.size !== 1 || [...a][0] !== [...b][0]) ctx.addIssue({code: 'custom',
+      message: 'Measurement endpoints must lie on the same moving body or both be static.',
+      path: ['immersive','figure','distances',index]});
+  }
+});
 
-const manifestSchema = z.object({
+export const molecularLessonSchema = z.object({
   version: z.literal(MOLECULAR_LESSON_VERSION),
   id: idSchema,
   title: titleSchema,
   mode: z.enum(['explore', 'guided']),
   provenance: z.object({
-    sourceRefs: z.array(sourceRefSchema).min(1).max(MOLECULAR_LESSON_LIMITS.maxSourceRefs),
+    sourceRefs: z.array(sourceRefSchema).refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(MOLECULAR_LESSON_LIMITS.maxSourceRefs)),
     sourceSha256: z.string().regex(/^[0-9a-f]{64}$/iu).optional(),
     note: z.string().trim().max(2_000).optional(),
   }).strict(),
-  chapters: z.array(chapterSchema).min(1).max(MOLECULAR_LESSON_LIMITS.maxChapters),
+  chapters: z.array(chapterSchema).refine(v => v.length >= 1, 'Expected at least one item.').superRefine(arrayAtMost(MOLECULAR_LESSON_LIMITS.maxChapters)),
   /**
    * How the lesson presents itself in immersion.
    *
@@ -443,6 +480,10 @@ const manifestSchema = z.object({
   presentation: z.object({
     captionCard: z.enum(['hidden', 'shown']).default('shown'),
     end: z.enum(['rest', 'hold']).optional(),
+    /** Opt-in continuation of a registered staged demo after its final dwell. */
+    continueToStage: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/iu).optional(),
+    /** Same id asserts the same absolute Angstrom coordinate frame across sources. */
+    coordinateFrame: z.string().regex(/^[a-z][a-z0-9_-]{0,127}$/iu).optional(),
   }).strict().optional(),
   /**
    * What this lesson is drawn from, when it is not atoms.
@@ -481,7 +522,7 @@ const manifestSchema = z.object({
   });
 });
 
-export type MolecularLessonManifest = z.infer<typeof manifestSchema>;
+export type MolecularLessonManifest = z.infer<typeof molecularLessonSchema>;
 export type MolecularLessonChapter = MolecularLessonManifest['chapters'][number];
 export type MolecularLessonChange = MolecularLessonChapter['changes'][number];
 export type MolecularLessonSourceRef = MolecularLessonManifest['provenance']['sourceRefs'][number];
@@ -547,6 +588,7 @@ export interface CompiledMolecularLesson {
     readonly caption: string;
     readonly startSeconds: number;
     readonly endSeconds: number;
+    readonly animation?: MolecularLessonChapter['animation'];
   }[];
   readonly guidedApplyScenePlans: readonly GuidedApplyScenePlan[];
   /** Present only when the complete lesson fits the installed render_movie limit. */
@@ -554,8 +596,22 @@ export interface CompiledMolecularLesson {
   readonly totalDurationSeconds: number;
 }
 
+export const MAX_MOLECULAR_LESSON_BYTES = 256 * 1024;
+export function assertLessonSize(input: unknown): void {
+  const json = JSON.stringify(input);
+  if (!json || new TextEncoder().encode(json).byteLength > MAX_MOLECULAR_LESSON_BYTES)
+    throw Error(`Invalid molecular lesson at lesson: manifest must be at most ${MAX_MOLECULAR_LESSON_BYTES} UTF-8 JSON bytes.`);
+}
+export const lessonStartSchema = z.object({
+  chapterId: z.string().min(1).max(64).optional().describe('Chapter id to show; omitted keeps the active chapter if present, otherwise the first.'),
+  autoplay: z.boolean().optional().describe('Use false while building or checking; advance with explicit next. Omitted starts timed playback.'),
+  narration: z.boolean().optional().describe('Use false while building or checking. True schedules narration; it does not confirm hearing.'),
+}).strict();
+export type LessonStart = z.output<typeof lessonStartSchema>;
+
 export function parseMolecularLesson(input: unknown): MolecularLessonManifest {
-  const result = manifestSchema.safeParse(input);
+  assertLessonSize(input);
+  const result = molecularLessonSchema.safeParse(input);
   if (!result.success) {
     const issue = result.error.issues[0];
     const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
@@ -688,7 +744,7 @@ export function compileMolecularLesson(input: unknown, options: { target?: 'less
     const immersiveSceneChange = chapter.immersive && (chapter.immersive.visibility != null
       || chapter.immersive.appearance != null || chapter.immersive.placement != null
       || chapter.immersive.view != null || chapter.immersive.emphasis != null || chapter.immersive.figure != null);
-    if (!chapter.changes.some(isDeliberateChange) && !immersiveSceneChange) {
+    if (!chapter.animation && !chapter.changes.some(isDeliberateChange) && !immersiveSceneChange) {
       throw new Error(`Invalid molecular lesson at chapters.${chapter.id}: include at least one deliberate scene change.`);
     }
     const startSeconds = elapsed;
@@ -698,7 +754,7 @@ export function compileMolecularLesson(input: unknown, options: { target?: 'less
     }
     timeline.push(...movieChanges);
     elapsed += chapter.durationSeconds;
-    chapters.push({ id: chapter.id, title: chapter.title, caption: chapter.caption, startSeconds, endSeconds: elapsed });
+    chapters.push({ id: chapter.id, title: chapter.title, caption: chapter.caption, startSeconds, endSeconds: elapsed, ...(chapter.animation ? {animation: chapter.animation} : {}) });
   }
 
   if (elapsed < MOLECULAR_LESSON_LIMITS.minTotalDurationSeconds || elapsed > MOLECULAR_LESSON_LIMITS.maxLessonDurationSeconds) {
@@ -727,7 +783,9 @@ export function compileMolecularLesson(input: unknown, options: { target?: 'less
     })))
     : [];
 
-  const renderMoviePlan = elapsed <= MOLECULAR_LESSON_LIMITS.maxMovieDurationSeconds
+  const hasAnimation = manifest.chapters.some(chapter => chapter.animation);
+  if (hasAnimation && options.target === 'movie') throw Error('Molecular animation requires the Stereofold renderer; external movie export has no chain-track adapter.');
+  const renderMoviePlan = !hasAnimation && elapsed <= MOLECULAR_LESSON_LIMITS.maxMovieDurationSeconds
     ? { timeline, totalDurationSeconds: elapsed }
     : undefined;
 

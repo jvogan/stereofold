@@ -106,6 +106,8 @@ export function inspectionRefusalCaption(message:string):string {
     .replace(/Read get_inspection_state(?: and (?:ask|try) again)?\./g, 'Try again with the current view.')
     .replaceAll('Check get_inspection_state with this commandId for its rendered receipt.', 'Wait for the view to confirm that it rendered.')
     .replaceAll('Open a lesson with inspect_lesson first.', 'Open a lesson first.')
+    .replaceAll('Call prepare_composite again on this runtime host.', 'Prepare the composite again on this host.')
+    .replaceAll('Call prepare_composite again.', 'Prepare the composite again.')
     .replaceAll('Pass the referent listen_voice returned, or name a part from lesson.parts.', 'Point to the part again, or name a part from the lesson.')
     .replaceAll('use focus_selection with the captured referent or explicitly name a lesson part.', 'ask to focus on the selected residues or name a lesson part.')
     .replaceAll('open the coordinate file with stereo_structure.inspect_file.', 'open the coordinate file.')
@@ -113,6 +115,7 @@ export function inspectionRefusalCaption(message:string):string {
     .replaceAll('Clear it with manage_companion action="recover-browser".', 'Ask the desktop app to recover the headset browser.')
     .replaceAll('Stop its sharing from that session with manage_companion action="close",', 'Stop sharing from that session,')
     .replaceAll('Call open_companion with connection="lan" first.', 'Share the current view over private Wi-Fi first.')
+    .replace(/Load one with replace_inspection_source\([^)]*\)\./g, 'Open a staged lesson first.')
     .replace(/Open one with inspect_lesson, for example [^.]+\.json\./g, 'Open a staged lesson first.')
     .replaceAll('The panel may call manage_companion with action status, close or revoke;', 'The panel can check, close or revoke sharing;');
 }

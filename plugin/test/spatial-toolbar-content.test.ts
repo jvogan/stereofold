@@ -142,7 +142,7 @@ it('paints final Done as an active button with the same text alpha as Next',()=>
     expect(done.state).toBeUndefined();
     expect(done.accent).toBeUndefined();
     expect(toolbarTextProps(menuAlpha(quiet).labels))
-      .toMatchObject({alpha:quiet?0.55:1,borderWidth:0,background:false});
+      .toMatchObject({alpha:quiet?0.9:1,borderWidth:0,background:false});
     const navigating=button({...FINAL_CHAPTER_TOUR,navigating:true},'Done');
     expect(navigating.style).toBe('state');
     expect(navigating.targetable).toBe(false);

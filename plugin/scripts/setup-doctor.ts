@@ -4,7 +4,7 @@
  * local control capabilities.
  */
 import { constants } from 'node:fs';
-import { lstat, open, readdir, stat } from 'node:fs/promises';
+import { lstat, open, readdir, readFile, stat } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
 import { basename, isAbsolute, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -124,7 +124,12 @@ export async function inspectBuild(root = pluginRoot): Promise<BuildHealth> {
   const dist = resolve(root, 'dist');
   const files: string[] = [];
   let oldestArtifact = Infinity;
-  for (const file of runtimeFiles) {
+  let requiredRuntime = runtimeFiles;
+  try {
+    if ((await readFile(resolve(dist, 'inspector.html'), 'utf8')).includes('STEREOFOLD_INSPECTOR_SCRIPT_'))
+      requiredRuntime = [...runtimeFiles, 'inspector-script-1.js', 'inspector-script-2.js'];
+  } catch { /* The ordinary missing-file check below reports unreadable HTML. */ }
+  for (const file of requiredRuntime) {
     try {
       const details = await stat(resolve(dist, file));
       if (!details.isFile() || details.size === 0) files.push(file);

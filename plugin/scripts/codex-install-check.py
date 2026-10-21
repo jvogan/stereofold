@@ -17,6 +17,7 @@ import sys
 DIRECTORY_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
 VIEWER_PLACEHOLDER = "stereofold-viewer-build-unstamped-000000000000000000000000000000"
 BUNDLE_PATHS = ("dist/viewer.html", "dist/server.mjs", "dist/inspector.html", "dist/inspector.css", "dist/inspector-host.js")
+SCRIPT_BUNDLE_PATHS = ("dist/inspector-script-1.js", "dist/inspector-script-2.js")
 PLUGIN_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 VERSION_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]{0,127}$")
 
@@ -122,6 +123,21 @@ def fingerprint(value: str, *, require_stamp: bool = True) -> dict:
         if inspector_html.count(css_marker) != 1:
             raise ValueError("Inspector must contain exactly one stylesheet marker")
         inspector_html = inspector_html.replace(css_marker, bundles["dist/inspector.css"])
+    script_namespace = b"STEREOFOLD_INSPECTOR_SCRIPT_"
+    if script_namespace in inspector_html:
+        markers = (b"/* STEREOFOLD_INSPECTOR_SCRIPT_1 */", b"/* STEREOFOLD_INSPECTOR_SCRIPT_2 */")
+        joined_markers = b"".join(markers)
+        if (inspector_html.count(script_namespace) != 2 or any(inspector_html.count(marker) != 1 for marker in markers)
+                or b"<script>" + joined_markers + b"</script>" not in inspector_html):
+            raise ValueError("Inspector must contain two ordered inline script markers")
+        for relative in SCRIPT_BUNDLE_PATHS:
+            bundles[relative] = read_regular(root, relative)
+            if len(bundles[relative]) > 3 * 1024 * 1024:
+                raise ValueError("Inspector script chunk exceeds its storage limit")
+        script = b"".join(bundles[relative] for relative in SCRIPT_BUNDLE_PATHS)
+        if script_namespace in script or css_marker in script or b"</script" in script.lower():
+            raise ValueError("Inspector script contains invalid inline content")
+        inspector_html = inspector_html.replace(joined_markers, script)
     inspector_stamp = viewer_stamp(inspector_html)
     if require_stamp and inspector_stamp is None:
         raise ValueError("Artifact inspector has no verified build stamp")
@@ -258,7 +274,9 @@ def main() -> None:
         observed = fingerprint(args.artifact)
         if observed["version"] != args.version:
             raise ValueError(f"Artifact version {observed['version']} does not match {args.version}")
-        for relative in BUNDLE_PATHS:
+        if observed["files"].keys() != expected["files"].keys():
+            raise ValueError("Artifact runtime companion files do not match the prepared release")
+        for relative in observed["files"]:
             if observed["files"][relative] != expected["files"][relative]:
                 raise ValueError(f"Artifact does not match the prepared release: {relative}")
         if observed["viewerBuild"] != expected["viewerBuild"] or observed["viewerBuild"] != args.viewer_stamp:

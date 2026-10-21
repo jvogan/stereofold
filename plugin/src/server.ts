@@ -1,5 +1,7 @@
+import { registerTextTool as registerHostTool } from './tool-text-state.js';
+import { createPreparedCompositeStore } from './prepared-composite.js';
 import { MAX_STRUCTURE_SOURCE_BYTES, STRUCTURE_SOURCE_SIZE_LABEL } from './inspection-limits.js';
-import { resolveStructureSource, inspectionSource, type StructureSourceRequest, type StructureSelection } from './structure-sources.js';
+import { resolveStructureSource, inspectionSource, type StructureSourceRequest, type StructureSelection, type ResolvedStructureSource } from './structure-sources.js';
 import { registerInspection } from './inspection-server.js';
 import type { DeviceCaptureHooks } from './headset-view-device.js';
 import type { DevtoolsTransport } from './headset-devtools.js';
@@ -17,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { abortable } from './abortable.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { registerAppResource, registerAppTool as registerHostTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { LocalSceneService } from './scene-service.js';
 import { DEPTH_FIXTURE_ID, DEPTH_FIXTURE_PDB } from './depth-fixture.js';
 import { DEFAULT_LOOK_COLOR, DEFAULT_LOOK_STYLE, type LookColor, type LookStyle } from './look.js';
@@ -73,6 +75,7 @@ type StructureCache = {
   pdbId?: string;
   fixture?: 'three-depth-markers';
   sourceKind?: StructureSourceRequest['kind'];
+  sourceFilename?: string;
   sourceSelection?: StructureSelection;
 };
 
@@ -305,6 +308,8 @@ export interface StereoStructureServerOptions {
   fetchPdbText?: (pdbId: string, signal?:AbortSignal) => Promise<string>;
   /** Test injection for non-RCSB remote sources; injected responses are never disk-cached. */
   sourceFetch?: typeof fetch;
+  /** Composite cache location override for isolated tests. */
+  compositeCachePath?: (file: string) => string;
   /** Test seam for deterministic TTL/LRU behavior. */
   now?: () => number;
   /** Idle-session lifetime; defaults to 30 minutes. */
@@ -564,7 +569,10 @@ export function createStereoStructureServer(
   viewerHtmlPath = fileURLToPath(new URL('./viewer.html', import.meta.url)),
   options: StereoStructureServerOptions = {},
 ): McpServer {
-  const server = new McpServer({ name: SERVER_NAME, version: '0.1.21' });
+  const server = new McpServer({ name: SERVER_NAME, version: '0.1.22' }, {
+    capabilities: { experimental: { 'claude/channel': {} } },
+    instructions: 'The headset wearer cannot see this terminal. For a headset channel request: act, confirm, stop. Act at once with one scene tool call carrying utteranceId (from utterance_id), the change and waitForRenderMs:10000. Only update_inspection, control_tour, focus_selection and emphasize support this binding: leave out sessionId, panelId and referent, which the host takes from the utterance. Other scene tools still require sessionId, including undo_last_change, redo_last_change and replace_inspection_source. Common requests need no read first: pause or play is update_inspection animation {state}; next or back is control_tour; bigger or smaller is placement scale about 1.25x or 0.8x the scale in your last receipt or continue_session; a named ligand is an update_inspection selection of residues {componentId} spelled as the wearer said it (the host refuses one the structure lacks, so never substitute another); a chapter topic is control_tour next or back to the step continue_session listed; labels on one residue, range or ligand are one update_inspection compound of a selection of residues and appearance {labels:true}. Once rendered, answer with say_to_headset {text, utteranceId} in one short sentence and end the turn with no summary. A typed request also needs only a short confirmation. The selection highlight can replace a color set on selected atoms: call them highlighted, name no color for them, and leave a region unselected when its color should show. Labels show residue names and ligand codes: give a ligand its common name in your reply, and use install_lesson for a text label on a named region. Pushed transcripts recovered by listen_voice may already have been handled: deduplicate by utteranceId.',
+  });
   const now = options.now ?? Date.now;
   const sessions = new SessionStore<StereoSession>(
     now,
@@ -579,6 +587,7 @@ export function createStereoStructureServer(
   const sessionEnds = new Set<(sessionId: string) => void>();
   sessions.onEvict = (sessionId) => { for (const listener of sessionEnds) listener(sessionId); };
   const loadPdbText = options.fetchPdbText ?? fetchPdbText;
+  const composites = createPreparedCompositeStore({ cachePath: options.compositeCachePath, fetchPdbText: options.fetchPdbText, fetch: options.sourceFetch });
   // Process-local random identity. Render tokens restart at one when a server
   // restarts, so viewers compare them only inside this lifecycle epoch.
   const serverEpoch = randomUUID();
@@ -788,11 +797,12 @@ export function createStereoStructureServer(
     if ('source' in input || 'structureText' in input) {
       const reservation=input.sessionId==null?undefined:beginSourceLoad(input.sessionId);
       try {
-        const source=await resolveStructureSource('source' in input?input.source:{kind:'pasted',text:input.structureText,format:input.format??'mmcif'},{fetchPdbText:loadPdbText,fetch:options.sourceFetch,...(options.sourceFetch?{cacheRoot:false as const}:{})});
+        const source=await resolveStructureSource('source' in input?input.source:{kind:'pasted',text:input.structureText,format:input.format??'mmcif'},{resolveComposite:composites.resolve,fetchPdbText:loadPdbText,fetch:options.sourceFetch,...(options.sourceFetch?{cacheRoot:false as const}:{})});
         const sourceSession=input.sessionId==null?createSession(serverEpoch):currentSourceLoad(input.sessionId,reservation!.revision);
         return completeOpen(input.sessionId,{
           ...withState(sourceSession,{...applyOpenAppearance(sourceSession.state,input),pdbId:source.pdbId}),
-          structureCache:{structureText:source.structureText,format:source.format,...(source.pdbId?{pdbId:source.pdbId}:{}),sourceKind:source.kind},
+          structureCache:{structureText:source.structureText,format:source.format,...(source.pdbId?{pdbId:source.pdbId}:{}),sourceKind:source.kind,
+            ...(source.sourceFilename?{sourceFilename:source.sourceFilename}:{})},
           sourceRevision:reservation?.revision??sourceSession.sourceRevision+1,
         },renderToken,{committed});
       } finally {if(input.sessionId && reservation) finishSourceLoad(input.sessionId,reservation);}
@@ -879,7 +889,7 @@ export function createStereoStructureServer(
   }
   registerAppTool(server, 'stereo_structure.open', openToolConfig, openStructureTool);
   async function resolveInspectionSource(request:StructureSourceRequest,signal?:AbortSignal) {
-    const resolved=await abortable(resolveStructureSource(request,{fetchPdbText:loadPdbText,fetch:options.sourceFetch,
+    const resolved=await abortable(resolveStructureSource(request,{resolveComposite:composites.resolve,fetchPdbText:loadPdbText,fetch:options.sourceFetch,
       signal,...(options.sourceFetch?{cacheRoot:false as const}:{})}),signal);
     return abortable(inspectionSource(resolved),signal);
   }
@@ -890,20 +900,22 @@ export function createStereoStructureServer(
     ...(options.headsetDevtools?{headsetDevtools:options.headsetDevtools}:{}),
     ...(options.environment?{environment:options.environment}:{}),
     ...(options.loopbackListenDenied?{loopbackListenDenied:options.loopbackListenDenied}:{}),
+    prepareComposite: composites.prepare,
     resolveComparisonSource: resolveInspectionSource,
-    openVerifiedSource: async ({sessionId,source:request,selection,verify,signal,beforeCommit,committed}:{sessionId?:string;source:StructureSourceRequest;selection?:StructureSelection;verify:(text:string)=>Promise<void>|void;signal?:AbortSignal;beforeCommit?:()=>void;committed?:()=>void}) => {
+    openVerifiedSource: async ({sessionId,source:request,resolved,selection,verify,signal,beforeCommit,committed}:{sessionId?:string;source:StructureSourceRequest;resolved?:ResolvedStructureSource;selection?:StructureSelection;verify:(text:string)=>Promise<void>|void;signal?:AbortSignal;beforeCommit?:()=>void;committed?:()=>void}) => {
       signal?.throwIfAborted();
       const renderToken=reserveRenderToken();
       const reservation=sessionId==null?undefined:beginSourceLoad(sessionId);
       try {
-        const source=await resolveInspectionSource(request,signal);
+        const source=resolved??await resolveInspectionSource(request,signal);
         await abortable(Promise.resolve(verify(source.structureText)),signal);
         const sourceSession=sessionId==null?createSession(serverEpoch):currentSourceLoad(sessionId,reservation!.revision);
         signal?.throwIfAborted();
         beforeCommit?.();
         const opened=completeOpen(sessionId,{
           ...withState(sourceSession,{...sourceSession.state,pdbId:source.pdbId}),
-          structureCache:{structureText:source.structureText,format:'mmcif',...(source.pdbId?{pdbId:source.pdbId}:{}),sourceKind:source.kind,sourceSelection:selection},
+          structureCache:{structureText:source.structureText,format:'mmcif',...(source.pdbId?{pdbId:source.pdbId}:{}),sourceKind:source.kind,sourceSelection:selection,
+            ...(source.sourceFilename?{sourceFilename:source.sourceFilename}:{})},
           sourceRevision:reservation?.revision??sourceSession.sourceRevision+1,
         },renderToken);
         committed?.();
@@ -942,7 +954,7 @@ export function createStereoStructureServer(
      * under the same source-load reservation, so a slower open cannot overwrite
      * a newer one.
      */
-    openVerifiedLocal: async ({sessionId,structureText,pdbId,verify}:{sessionId:string;structureText:string;pdbId?:string;verify:(structureText:string)=>Promise<void>|void}) => {
+    openVerifiedLocal: async ({sessionId,structureText,pdbId,verify,committed}:{sessionId:string;structureText:string;pdbId?:string;verify:(structureText:string)=>Promise<void>|void;committed?:()=>void}) => {
       const renderToken=reserveRenderToken();
       const reservation=beginSourceLoad(sessionId);
       try {
@@ -952,7 +964,7 @@ export function createStereoStructureServer(
           ...withState(sourceSession,{...sourceSession.state,pdbId}),
           structureCache:{structureText,format:'mmcif',...(pdbId?{pdbId}:{})},sourceRevision:reservation.revision,
         };
-        return completeOpen(sessionId,updated,renderToken);
+        return completeOpen(sessionId,updated,renderToken,{committed});
       } finally { finishSourceLoad(sessionId,reservation); }
     },
     htmlPath:fileURLToPath(new URL('./inspector.html', new URL(viewerHtmlPath, 'file://'))) });
@@ -1303,7 +1315,20 @@ export function closeOnSignal(close: () => Promise<unknown>, {
   for (const name of signals) target.on(name, handle);
 }
 
+/**
+ * Send console output to stderr for the life of the stdio server. stdout is
+ * the MCP transport, and one stray line there (a timing note, or a bundled
+ * library's diagnostic) makes the client drop the connection.
+ */
+export function keepStdoutForTransport(target: Pick<Console, 'log' | 'info' | 'debug' | 'error'> = console): void {
+  const toStderr = (...args: unknown[]) => target.error(...args);
+  target.log = toStderr;
+  target.info = toStderr;
+  target.debug = toStderr;
+}
+
 async function main(): Promise<void> {
+  keepStdoutForTransport();
   const server = createStereoStructureServer();
   announceHostReadiness();
   await server.connect(new StdioServerTransport());

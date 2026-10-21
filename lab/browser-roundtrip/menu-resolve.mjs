@@ -152,5 +152,11 @@ export function createMenuResolve({ solve, settleMs = MENU_SETTLE_MS, maxWaitMs 
     reasons = [];
   }
 
-  return Object.freeze({ seed, moved, dispose, pending: () => timer !== undefined });
+  /** A placement owner has awaited the final glass draw and can solve now. */
+  function flush() {
+    if (timer !== undefined) cancel(timer);
+    fire();
+  }
+
+  return Object.freeze({ seed, moved, dispose, flush, pending: () => timer !== undefined });
 }

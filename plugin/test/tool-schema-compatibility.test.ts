@@ -6,7 +6,7 @@ import { MODEL_VISIBLE_TOOL_NAMES, REGISTERED_TOOL_NAMES } from '../scripts/tool
 import { sceneStylesSchema } from '../src/inspection-contract.js';
 
 /** Check every branch, definition and nested property of the exported schema. */
-function incompatibleArrays(node: unknown, path: string): string[] {
+function incompatibleArrays(node: unknown, path: string, forbidBounds = false): string[] {
   if (!node || typeof node !== 'object') return [];
   const schema = node as Record<string, unknown>;
   const problems: string[] = [];
@@ -15,10 +15,10 @@ function incompatibleArrays(node: unknown, path: string): string[] {
   if ('prefixItems' in schema) problems.push(`${path}.prefixItems (tuple)`);
   // A homogeneous array's maxItems is a real budget and remains supported.
   // Tuple tails may export only maxItems without a homogeneous item schema.
-  if ('maxItems' in schema && (!schema.items || typeof schema.items !== 'object' || Array.isArray(schema.items)))
-    problems.push(`${path}.maxItems (tuple without homogeneous items)`);
+  if ('maxItems' in schema && (forbidBounds || !schema.items || typeof schema.items !== 'object' || Array.isArray(schema.items)))
+    problems.push(`${path}.maxItems (${forbidBounds ? 'array bound' : 'tuple without homogeneous items'})`);
   for (const [key, value] of Object.entries(schema)) {
-    problems.push(...incompatibleArrays(value, Array.isArray(node) ? `${path}[${key}]` : `${path}.${key}`));
+    problems.push(...incompatibleArrays(value, Array.isArray(node) ? `${path}[${key}]` : `${path}.${key}`, forbidBounds));
   }
   return problems;
 }
@@ -57,7 +57,9 @@ describe('Codex model-visible input schemas', () => {
         return visibility === undefined || visibility.includes('model');
       });
       expect(visible.map(tool => tool.name).sort()).toEqual(MODEL_VISIBLE_TOOL_NAMES);
-      const problems = visible.flatMap(tool => incompatibleArrays(tool.inputSchema, `${tool.name}.inputSchema`));
+      const inlineTools = new Set(['prepare_composite', 'install_lesson', 'inspect_lesson', 'measure', 'remove_measurement']);
+      const problems = visible.flatMap(tool => incompatibleArrays(tool.inputSchema, `${tool.name}.inputSchema`,
+        inlineTools.has(tool.name.replace('stereo_structure.', ''))));
       expect(problems, problems.join('\n')).toEqual([]);
     } finally { await client.close(); await server.close(); }
   });

@@ -78,6 +78,51 @@ async function withViewer(action) {
   }
 }
 
+test('a same-source reload settles retired animation geometry before rebuilding its retained figure', async () => {
+  await withViewer(async (h, c) => {
+    h.canvas.webgl.extensions = {};
+    c.lessonFigure = createLessonFigure({ plugin: c.plugin, getStructure: () => c.structure, getTransform: () => Mat4.identity() });
+    const figure = { layers: [
+      { id: 'x', target: { chain: 'X' }, representation: 'spacefill', color: '#25859b', opacity: 1 },
+    ], labels: [], distances: [] };
+    await c.lessonFigure.install(figure);
+    c.scientificRepresentationCount = () => 1 + c.retainedRepresentationCount + c.lessonFigure.count();
+    const appearance = c.applyInspectionAppearance;
+    c.applyInspectionAppearance = async () => { await appearance(); await c.lessonFigure.refresh(); };
+
+    // A same-digest adoption retains the figure definition but queues old
+    // animation removal. Model a Canvas3D object retired at an awaited build,
+    // as the production animation queue can do while figure cells are staged.
+    const retiredBody = {}, renderObjects = h.canvas.getRenderObjects;
+    let retired = false, cleanup, release;
+    h.canvas.getRenderObjects = () => [...renderObjects(), ...(!retired ? [retiredBody] : [])];
+    c.molecularAnimation = { ...c.molecularAnimation,
+      forget() {
+        cleanup = new Promise(resolve => { release = resolve; }).then(() => { retired = true; });
+        return cleanup;
+      },
+      async settled() { release?.(); await cleanup; h.canvas.commit(true); },
+    };
+    const build = c.plugin.builders.structure.tryCreateComponentFromExpression.bind(c.plugin.builders.structure);
+    let cleanupLandedDuringFigure = false;
+    c.plugin.builders.structure.tryCreateComponentFromExpression = async (...args) => {
+      const component = await build(...args);
+      if (cleanup && !retired) {
+        cleanupLandedDuringFigure = true;
+        release(); await cleanup;
+      }
+      return component;
+    };
+    await h.load(assembly, { modelNumber: 1, assemblyId: '1' });
+    assert.equal(cleanupLandedDuringFigure, false, 'source-owned cleanup must settle before a figure samples external geometry');
+    assert.equal(c.state.status, 'ready');
+    assert.deepEqual(c.lessonFigure.definition(), figure);
+    assert.equal(c.lessonFigure.count(), 1);
+    assert.equal(c.forgotten, 0, 'same-source scientific identity and lesson names are retained');
+    await c.lessonFigure.forget();
+  });
+});
+
 for (const [name, source, options, identity] of [
   ['model', assembly, { modelNumber: 2, assemblyId: '1' }, { modelNumber: 2, assemblyId: '1' }],
   ['assembly', asymmetric, { modelNumber: 1, assemblyId: 'asymmetric_unit' }, { modelNumber: 1, assemblyId: 'asymmetric_unit' }],

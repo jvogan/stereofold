@@ -1,7 +1,11 @@
+import { yieldBrowserTask } from './browser-task-yield.mjs';
 import identity from '../identity/identity.cjs';
 import molstarInt from '../../plugin/node_modules/molstar/lib/commonjs/mol-data/int.js';
 
-const { atomKey, copyKey, deepFreeze, residueKey } = identity;
+import { snapshotSelectionCatalog } from './catalog-snapshot.mjs';
+export { snapshotSelectionCatalog } from './catalog-snapshot.mjs';
+
+const { atomKey, copyKey, residueKey } = identity;
 const { OrderedSet } = molstarInt;
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -52,7 +56,7 @@ function coordinate(value) {
   return number;
 }
 
-function indexSource(model) {
+function* indexSourceSteps(model) {
   requireValue(model.sourceData?.kind === 'mmCIF', 'Selection requires a parsed mmCIF model.');
   const frame = model.sourceData.data.frame;
   const atoms = frame.categories.atom_site;
@@ -76,6 +80,7 @@ function indexSource(model) {
     const id = integer(cell(atoms, 'id', index), 'Source atom id');
     requireValue(!rows.has(id), 'Source atom ids are not unique within the model.');
     rows.set(id, index);
+    if ((index & 127) === 127) yield;
   }
   return { atoms, entityTypes, rows };
 }
@@ -133,10 +138,8 @@ function atomIdentity(unit, element, source) {
   return { identity: i, coordinates, entityType, element: read('type_symbol') };
 }
 
-function snapshotCatalog(input) {
-  let catalog;
-  try { catalog = structuredClone(input); }
-  catch { throw new Error('The identity catalog cannot be copied as structured data.'); }
+function* snapshotCatalogSteps(input) {
+  const catalog = snapshotSelectionCatalog(input);
   requireValue(catalog?.schemaVersion === 'draft-identity-1' && catalog.molstarVersion === '5.11.0',
     'Selection requires the pinned Mol* 5.11 identity catalog.');
   requireValue(/^[a-f0-9]{64}$/u.test(catalog.source?.sha256 ?? '') && text(catalog.assemblyId),
@@ -157,6 +160,7 @@ function snapshotCatalog(input) {
   const residueKeys = new Set();
   const sites = new Map();
   denseArray(catalog.rows, row => row && typeof row === 'object', 'Catalog residues');
+  let checkedSites = 0;
   for (const row of catalog.rows) {
     const i = row.identity;
     requireValue(i && row.key === residueKey(i) && i.sourceHash === catalog.source.sha256
@@ -176,9 +180,10 @@ function snapshotCatalog(input) {
         && tuple(site.sourceCoordinatesAngstrom, 3) && tuple(site.assemblyCoordinatesAngstrom, 3),
       'A canonical atom site is inconsistent or repeated.');
       sites.set(site.key, { site, row });
+      if ((++checkedSites & 63) === 0) yield;
     }
   }
-  return { catalog: deepFreeze(catalog), sites };
+  return { catalog, sites };
 }
 
 function copyFor(unit, labelChain, copies) {
@@ -209,10 +214,10 @@ function selectionKeys(input, byKey) {
  * This adapter verifies parsed identities, source coordinates and copy operators.
  * Recreate it after replacing the model, assembly or represented structure.
  */
-export function createSelectionAdapter(structure, inputCatalog) {
+function* createSelectionAdapterSteps(structure, inputCatalog) {
   requireValue(structure?.units?.length && structure.unitMap && structure.root,
     'Selection requires a nonempty Mol* structure.');
-  const { catalog, sites } = snapshotCatalog(inputCatalog);
+  const { catalog, sites } = yield* snapshotCatalogSteps(inputCatalog);
   const sources = new Map();
   const modelByNumber = new Map();
   const units = new Map();
@@ -226,13 +231,20 @@ export function createSelectionAdapter(structure, inputCatalog) {
     const existing = modelByNumber.get(unit.model.modelNum);
     requireValue(!existing || existing === unit.model, 'One model number refers to multiple loaded models.');
     modelByNumber.set(unit.model.modelNum, unit.model);
-    if (!sources.has(unit.model)) sources.set(unit.model, indexSource(unit.model));
+    if (!sources.has(unit.model)) sources.set(unit.model, yield* indexSourceSteps(unit.model));
     const atoms = new Map();
+    // Mol* units have one immutable operator, but can contain several chains.
+    // Validate each chain's copy once within this binding, including ambiguity.
+    const copiesByChain = new Map();
     units.set(unit.id, { unit, atoms });
     for (let localIndex = 0; localIndex < unit.elements.length; localIndex++) {
       const element = unit.elements[localIndex];
       const raw = atomIdentity(unit, element, sources.get(unit.model));
-      const copy = copyFor(unit, raw.identity.labelChain, catalog.copies);
+      let copy = copiesByChain.get(raw.identity.labelChain);
+      if (!copy) {
+        copy = copyFor(unit, raw.identity.labelChain, catalog.copies);
+        copiesByChain.set(raw.identity.labelChain, copy);
+      }
       const key = atomKey({ sourceHash: catalog.source.sha256, modelNumber: unit.model.modelNum,
         assemblyId: copy.assemblyId, generatorIndex: copy.generatorIndex, operatorIds: copy.operatorIds,
         copyId: copy.copyId, ...raw.identity });
@@ -254,6 +266,7 @@ export function createSelectionAdapter(structure, inputCatalog) {
       rowPositions.push({ unit, localIndex });
       positions.set(match.row.key, rowPositions);
       scopes.add(scopeKey(unit.model.modelNum, copy.copyId, raw.identity.labelChain));
+      if ((localIndex & 63) === 63) yield;
     }
   }
   // An unresolved position belongs to a represented chain/copy, without having
@@ -373,4 +386,32 @@ export function createSelectionAdapter(structure, inputCatalog) {
   }
 
   return Object.freeze({ rows, toLoci, fromLoci, describe, sourceAtomIdToSelectionKey });
+}
+
+
+/** Synchronous compatibility path for desktop and existing tools. */
+export function createSelectionAdapter(structure, inputCatalog) {
+  const work = createSelectionAdapterSteps(structure, inputCatalog);
+  for (;;) { const step = work.next(); if (step.done) return step.value; }
+}
+
+/** Same source, coordinate, identity and assembly checks, with bounded work
+ * slices so XR can submit fresh head poses while a replacement is verified.
+ * Nothing is published until the complete adapter passes every check. */
+export async function createSelectionAdapterAsync(structure, inputCatalog, {
+  check = () => {}, now = () => performance.now(), budgetMs = 4,
+  yieldTask = yieldBrowserTask,
+} = {}) {
+  check();
+  const work = createSelectionAdapterSteps(structure, inputCatalog);
+  let started = now();
+  try {
+    for (;;) {
+      const step = work.next();
+      if (step.done) { check(); return step.value; }
+      if (now() - started < budgetMs) continue;
+      await yieldTask();
+      check(); started = now();
+    }
+  } finally { work.return(); }
 }

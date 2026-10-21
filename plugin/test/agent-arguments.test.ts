@@ -8,8 +8,8 @@ import { sendAgentCall } from '../scripts/inspection-agent.js';
 import { readControlState } from '../scripts/local-agent.js';
 import { fakeAgentHost } from './helpers/fake-agent-host.js';
 import {
-  BINDING_FIELDS, bindingFieldsFor, choosePanel, commandReceiptOf, describeCommandOutcome, fillAgentArguments,
-  IN_DETAILED_VIEW_MESSAGE, isPreDispatchRefusal, isReceiptPending, needsInspectionState, PANEL_BLUR_POLL_MS,
+  BINDING_FIELDS, bindingFieldsFor, choosePanel, commandReceiptOf, describeCommandOutcome, fillAgentArguments, filledBindingFor,
+  HOST_REBASED_TOOLS, IN_DETAILED_VIEW_MESSAGE, isPreDispatchRefusal, isReceiptPending, needsInspectionState, PANEL_BLUR_POLL_MS,
   PANEL_BLUR_WAIT_MS, PreDispatchRefusal, RECEIPT_PENDING, sentAfterBlurNote, shouldWaitOutBlur,
   TOOLS_NEEDING_COMMAND_ID, TOOLS_NEEDING_PANEL,
 } from '../scripts/agent-arguments.js';
@@ -61,6 +61,33 @@ describe('the binding fields a local tool call has to carry', () => {
     expect(mismatched).toEqual([]);
   });
 
+  /**
+   * The map above still lists both revisions for these three, because their
+   * schemas take them. The CLI leaves them out, which is only legal while the
+   * host fills each one itself; this pins that, tool for tool.
+   */
+  it('leaves out only revisions the host publishes as its own to fill', async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createStereoStructureServer('/does-not-need-to-exist.html');
+    const client = new Client({ name: 'Host-filled revision test', version: '1' });
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const { tools } = await client.listTools();
+      expect([...HOST_REBASED_TOOLS].sort()).toEqual(['control_tour', 'install_lesson', 'update_inspection']);
+      for (const name of tools.map(tool => tool.name.replace('stereo_structure.', ''))) {
+        const left = bindingFieldsFor(name).filter(field => !filledBindingFor(name).includes(field));
+        if (!HOST_REBASED_TOOLS.has(name)) { expect(left, name).toEqual([]); continue; }
+        expect(left, name).toEqual(['baseStateRevision', 'baseInspectionRevision']);
+        const properties = (tools.find(tool => tool.name === `stereo_structure.${name}`)!.inputSchema as
+          { properties: Record<string, { description?: string }>; required?: string[] }).properties;
+        for (const field of left) {
+          expect(properties[field]?.description, `${name}.${field}`).toBe(IMPLICIT_BINDING_NOTE);
+        }
+      }
+    } finally { await client.close(); await server.close(); }
+  });
+
   it('reaches the Claude Code route as well as the two MCP hosts', async () => {
     // Codex desktop and Claude Science call dist/server.mjs directly, so a
     // model-visible registration is enough for them. The standalone host keeps
@@ -68,7 +95,7 @@ describe('the binding fields a local tool call has to carry', () => {
     // terminal however it is registered.
     const host = await readFile(new URL('../scripts/serve-inspection.ts', import.meta.url), 'utf8');
     const permitted = host.match(/const permitted=new Set\(\[(.+?)\]\);/s)?.[1] ?? '';
-    for (const name of ['open_detailed_view', 'import_detailed_view', 'say_to_headset', 'listen_voice',
+    for (const name of ['prepare_composite', 'install_lesson', 'measure', 'remove_measurement', 'open_detailed_view', 'import_detailed_view', 'say_to_headset', 'listen_voice',
       'open_companion', 'manage_companion', 'get_inspection_state', 'update_inspection', 'control_tour',
       'focus_selection', 'emphasize', 'get_readiness', 'grow_structure', 'read_headset_browser',
       'undo_last_change', 'redo_last_change']) {
@@ -81,6 +108,14 @@ describe('the binding fields a local tool call has to carry', () => {
     expect([...bindingFieldsFor('open_detailed_view')]).toEqual(BINDING_FIELDS);
     expect([...bindingFieldsFor('say_to_headset')]).toEqual([]);
     expect([...bindingFieldsFor('listen_voice')]).toEqual([]);
+  });
+
+  it('binds measurement annotations while leaving read-only measurements panel-free', () => {
+    expect([...bindingFieldsFor('measure')]).toEqual([]);
+    expect([...bindingFieldsFor('measure', { annotate: true })]).toEqual(BINDING_FIELDS);
+    expect(fillAgentArguments('measure', { targets: [] }, state).arguments).not.toHaveProperty('panelId');
+    expect(fillAgentArguments('measure', { targets: [], annotate: true }, state).arguments)
+      .toMatchObject({ panelId: 'quest', serverEpoch: state.serverEpoch });
   });
 
   it('admits chunked hydration only through the authenticated panel route', async () => {

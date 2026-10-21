@@ -85,6 +85,8 @@ async function setup(options: Record<string, unknown> = {}) {
   const launched: Launch[] = [];
   const [a, b] = InMemoryTransport.createLinkedPair();
   const server = createStereoStructureServer(join(folder, 'viewer.html'), {
+    // Expiry belongs to this fixture, independent of a running shared scene.
+    sceneServiceFile: join(folder, 'scene-service.json'),
     replyAudio: silentReplyAudio,
     questLaunch: { platform: 'darwin', opener: '/bin/echo',
       launch: (command: string, args: readonly string[]) => { launched.push({ command, args: [...args] }); return { reason: 'started' as const }; } },
@@ -301,6 +303,17 @@ describe('open_inspector, the panel a host with no panel gets from the server', 
     expect(union).toBeDefined();
     expect(new Set(union!.split('|').map(name => name.replace(/'/gu, '')))).toEqual(INSPECTOR_PANEL_COMPANION_ACTIONS);
     expect(source.match(/'manage_companion'/gu)).toHaveLength(1);
+  });
+
+  it('reports local expiry before any inspector listener is opened', async () => {
+    let clock = 1_700_000_000_000;
+    const t = await setup({ now: () => clock, sessionTtlMs: 60_000 }); cleanups.push(t.close);
+    clock += 60_000;
+    const gone = await t.call('get_inspection_state', { sessionId: t.sessionId });
+    expect(gone.isError).toBe(true);
+    expect(gone.content[0].text).toContain('expired');
+    const state = JSON.parse(gone.content[1].text.slice('```json\n'.length, -'\n```'.length));
+    expect(state).toMatchObject({ isError: true, error: { message: gone.content[0].text } });
   });
 
   it('forgets the page key and stops listening when the session expires, then serves the next session', async () => {

@@ -4,6 +4,18 @@ import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { emphasisPartSchema } from '../src/inspection-contract.js';
 
 describe('portable lesson immersive adapter', () => {
+  it('discloses modelled local references and notes without manufacturing links', () => {
+    const lesson = createGenericMolecularLesson({ sourceRef: 'own.cif' });
+    lesson.provenance.sourceRefs = [
+      { kind: 'modelled', ref: 'linkers.cif', note: 'Idealised linkers' },
+      { kind: 'public', ref: 'https://www.rcsb.org/structure/5SYF' },
+    ];
+    expect(molecularLessonToTour(lesson).steps[0].sources).toEqual([
+      { title: 'Local modelled source: linkers.cif — Idealised linkers' },
+      { title: 'Structure source', url: 'https://www.rcsb.org/structure/5SYF' },
+    ]);
+  });
+
   it('carries bounded visibility operations without adding placement or camera moves', () => {
     const lesson: any = createGenericMolecularLesson({ sourceRef: 'own.cif' });
     lesson.chapters[0].immersive = { visibility: { op: 'only', chains: ['A-2'], classes: ['polymer'] } };
@@ -53,7 +65,7 @@ describe('portable lesson immersive adapter', () => {
         durationMs: lesson.chapters[i].durationSeconds * 1000,
         ...lesson.chapters[i].immersive,
       });
-      expect(tour.steps[i].sources).toEqual([]);
+      expect(tour.steps[i].sources).toEqual([{ title: 'Local source: /private/user-molecule.cif' }]);
       expect(tour.steps[i]).not.toHaveProperty('camera');
     }
   });
@@ -110,6 +122,19 @@ describe('lesson emphasis', () => {
     const whole = molecularLessonToTour(withEmphasis({ parts: key, framing: 'fill' }));
     expect(whole.steps[0]?.emphasis).toMatchObject({ framing: 'fill' });
     expect(whole.steps[0]?.emphasis?.focus).toBeUndefined();
+  });
+
+  it('carries the parts a chapter lights beside its focus, and only parts of its own key', () => {
+    const tour = molecularLessonToTour(withEmphasis({ parts: key, focus: 'site', alsoLit: ['protein'], framing: 'fill' }));
+    expect(tour.steps[0].emphasis).toMatchObject({ focus: 'site', alsoLit: ['protein'] });
+    expect(() => molecularLessonToTour(withEmphasis({ parts: key, focus: 'site', alsoLit: ['ligand'] })))
+      .toThrow('not one of the colour-key parts');
+    // Lit beside the focus, not a second focus.
+    expect(() => molecularLessonToTour(withEmphasis({ parts: key, focus: 'site', alsoLit: ['site'] })))
+      .toThrow('already its focus');
+    // With no focus the whole key is lit, so there is nothing to light beside it.
+    expect(() => molecularLessonToTour(withEmphasis({ parts: key, alsoLit: ['protein'] })))
+      .toThrow('needs a focus');
   });
 
   it('refuses a part that names nothing, a backwards range or an unknown field', () => {

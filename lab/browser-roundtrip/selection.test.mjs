@@ -4,6 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createSelectionAdapter } from './selection.mjs';
+import * as selectionModule from './selection.mjs';
+import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 import extraction from '../identity/extract.cjs';
 import identity from '../identity/identity.cjs';
 
@@ -298,4 +301,95 @@ test('cached selections validate edited keys and stay scoped to the represented 
   const b = adapters[1].toLoci(adapters[1].rows.map(row => row.key));
   assert.notEqual(a.structure, b.structure);
   assert.throws(() => adapters[1].toLoci(adapters[0].rows.map(row => row.key)), /unknown/);
+});
+
+test('source binding resolves each unit/chain operator once, without caching across loads', () => {
+  const { structures: [structure], catalog } = fixtures['1CRN'];
+  let reads = 0;
+  const units = structure.units.map(unit => {
+    const conformation = Object.create(unit.conformation);
+    Object.defineProperty(conformation, 'operator', { get() { reads++; return unit.conformation.operator; } });
+    return Object.assign(Object.create(unit), { conformation });
+  });
+  const instrumented = Object.assign(Object.create(structure), { units });
+  const chains = units.reduce((n, unit) => n + new Set(Array.from(unit.elements,
+    element => unit.model.atomicHierarchy.chains.label_asym_id.value(unit.model.atomicHierarchy.chainAtomSegments.index[element]))).size, 0);
+  const first = createSelectionAdapter(instrumented, catalog);
+  assert.deepEqual(first.rows, fixtures['1CRN'].adapters[0].rows);
+  assert.equal(reads, chains, 'operator validation is shared only within this immutable unit/chain');
+  createSelectionAdapter(instrumented, catalog);
+  assert.equal(reads, 2 * chains, 'a new binding checks its operators again');
+});
+
+
+test('a load snapshots the catalog once and keeps source and selection isolated from caller edits', async () => {
+  const { structures: [structure], catalog, bytes } = fixtures['1CRN'];
+  const viewer = await readFile(new URL('./viewer.mjs', import.meta.url), 'utf8');
+  const begin = viewer.indexOf('async function checkedFixture(');
+  const end = viewer.indexOf('\n}\n', begin) + 2;
+  const clone = globalThis.structuredClone;
+  let catalogCopies = 0;
+  globalThis.structuredClone = value => {
+    if (value?.rows || value?.catalog?.rows) catalogCopies++;
+    return clone(value);
+  };
+  try {
+    const context = vm.createContext({
+      detached: value => globalThis.structuredClone(value),
+      snapshotSelectionCatalog: selectionModule.snapshotSelectionCatalog,
+      isVolumeFixture: () => false, failure: (_code, message) => Error(message),
+      TextEncoder, crypto: webcrypto, representationName() {},
+      normalizeExperienceVisibility: value => value,
+    });
+    vm.runInContext(viewer.slice(begin, end), context);
+    const input = clone(catalog);
+    const pending = context.checkedFixture({ id: 'test', cif: bytes.toString(), sha256: input.source.sha256, catalog: input },
+      { modelNumber: 1, assemblyId: '1', representation: 'cartoon' });
+    input.rows[0].atomSites.length = 0;
+    const { source } = await pending;
+    const adapter = createSelectionAdapter(structure, source.catalog);
+    assert.deepEqual(adapter.rows, fixtures['1CRN'].adapters[0].rows);
+    assert.equal(catalogCopies, 1, 'source verification and selection share one private catalog snapshot');
+    assert.throws(() => { source.catalog.rows[0].atomSites.length = 0; }, TypeError);
+    const forged = clone(source.catalog);
+    forged.rows[0].atomSites[0].assemblyCoordinatesAngstrom[0] += 10;
+    assert.throws(() => createSelectionAdapter(structure, forged), /coordinates/);
+  } finally { globalThis.structuredClone = clone; }
+});
+
+
+test('cooperative source binding keeps exact Loci and services frame work between identity checks', async () => {
+  for (const name of ['1CRN', 'identity-edge', 'asymmetric', 'voice-ligand']) {
+    const { structures, catalog } = fixtures[name];
+    for (const structure of structures) {
+      const sync = createSelectionAdapter(structure, catalog);
+      let turns = 0;
+      const asyncAdapter = await selectionModule.createSelectionAdapterAsync(structure, catalog, {
+        budgetMs: 0, yieldTask: () => new Promise(resolve => setTimeout(() => { turns++; resolve(); }, 0)),
+      });
+      if (structure.elementCount > 64) assert.ok(turns > 0, 'XR work gets event-loop turns before binding completes');
+      assert.deepEqual(asyncAdapter.rows, sync.rows);
+      const keys = sync.rows.filter(row => row.atomSites.length).map(row => row.key);
+      const loci = asyncAdapter.toLoci(keys);
+      assert.deepEqual(asyncAdapter.fromLoci(loci), sync.fromLoci(sync.toLoci(keys)));
+      assert.equal(StructureElement.Loci.size(loci), StructureElement.Loci.size(sync.toLoci(keys)));
+      assert.deepEqual(asyncAdapter.sourceAtomIdToSelectionKey(), sync.sourceAtomIdToSelectionKey());
+    }
+  }
+});
+
+test('cooperative binding rejects corrupted identity and cancellation without publishing an adapter', async () => {
+  const { structures: [structure], catalog } = fixtures['1CRN'];
+  const corrupt = structuredClone(catalog);
+  corrupt.rows.at(-1).atomSites[0].assemblyCoordinatesAngstrom[0] += 1;
+  await assert.rejects(selectionModule.createSelectionAdapterAsync(structure, corrupt, { budgetMs: 0, yieldTask: async () => {} }),
+    /assembly coordinates/);
+  let cancelled = false, turns = 0;
+  await assert.rejects(selectionModule.createSelectionAdapterAsync(structure, catalog, {
+    budgetMs: 0, yieldTask: async () => { turns++; cancelled = true; },
+    check() { if (cancelled) throw Error('source replaced'); },
+  }), /source replaced/);
+  assert.equal(turns, 1);
+  const rebound = await selectionModule.createSelectionAdapterAsync(structure, catalog);
+  assert.equal(rebound.rows.length, fixtures['1CRN'].adapters[0].rows.length);
 });

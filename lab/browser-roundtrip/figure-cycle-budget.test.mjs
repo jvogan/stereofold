@@ -54,14 +54,14 @@ test('a costly current figure does not hide a cheaper complete prospective style
   assert.ok(h.spatialRepresentations().includes('spacefill'), 'new base and figure together fit Spacefill');
 });
 
-test('figure install, replacement and removal invalidate availability without repeating geometry work in steady frames', () => {
+test('figure changes preserve applicable choices without computing prospective geometry in menu frames', () => {
   const f = fixture();
   const choices = f.h.spatialRepresentations(), count = f.queries();
   f.h.spatialRepresentations();
   assert.equal(f.queries(), count);
   f.replaceFigure({ layers: [{ target: { chain: 'local-B' } }] });
   assert.deepEqual(plain(f.h.spatialRepresentations()), plain(choices));
-  assert.ok(f.queries() > count, 'a changed authored graph with no override must be budgeted prospectively too');
+  assert.equal(f.queries(), count, 'availability does not trigger unused geometry; the chosen action budgets it');
   const replaced = f.queries(); f.h.spatialRepresentations(); assert.equal(f.queries(), replaced);
   f.replaceFigure(undefined);
   assert.deepEqual(plain(f.h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
@@ -101,4 +101,13 @@ test('measured 9AX6 assembly 1 overview admits Ribbons, Spacefill and Surface an
   assert.ok(atoms.every(decision => Object.keys(decision.typeParams).length === 0));
   assert.doesNotThrow(() => requireGeometryBudget({ ...counts[0], representation: 'ball-and-stick', ...options }),
     'both base and full scene remain permitted; only the full scene needs a warning');
+});
+
+ test('cartoon source admission and the menu never infer an unused full-source bond graph', () => {
+  const { h } = fixture();
+  h.lessonFigure.geometryEntries = () => [];
+  Object.defineProperty(h.structure.obj.data, 'bondCount', { get() { throw Error('unused full-source bonds'); } });
+  assert.doesNotThrow(() => h.geometryFor('cartoon'));
+  assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
+  assert.throws(() => h.geometryFor('ball-and-stick'), /unused full-source bonds/, 'an explicit bond style still requires its exact graph');
 });

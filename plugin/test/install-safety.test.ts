@@ -744,6 +744,29 @@ describe('Codex profile routing and artifact verification', () => {
     }
   });
 
+  it('fingerprints the exact reconstructed split inspector and rejects a missing script companion', async () => {
+    const fixture = await installerFixture();
+    try {
+      const original = `<!doctype html><script>const build='${viewerPlaceholder}';const text='🧬 $&';</script>`;
+      const digest = createHash('sha256').update(original).digest('hex');
+      const rendered = original.replace(viewerPlaceholder, digest);
+      const script = rendered.slice(rendered.indexOf('<script>') + 8, rendered.lastIndexOf('</script>'));
+      const middle = script.indexOf(';') + 1;
+      await writeFile(resolve(fixture.artifact, 'dist/inspector.html'), '<!doctype html><script>/* STEREOFOLD_INSPECTOR_SCRIPT_1 *//* STEREOFOLD_INSPECTOR_SCRIPT_2 */</script>');
+      await writeFile(resolve(fixture.artifact, 'dist/inspector-script-1.js'), script.slice(0, middle));
+      await writeFile(resolve(fixture.artifact, 'dist/inspector-script-2.js'), script.slice(middle));
+      const result = await runInstallCheck(['fingerprint', '--artifact', fixture.artifact], {});
+      expect(result.code, result.stderr).toBe(0);
+      const fingerprint = JSON.parse(result.stdout);
+      expect(fingerprint.inspectorBuild).toBe(digest);
+      expect(fingerprint.files['dist/inspector-script-2.js'].bytes).toBe(Buffer.byteLength(script.slice(middle)));
+      await rm(resolve(fixture.artifact, 'dist/inspector-script-2.js'));
+      const missing = await runInstallCheck(['fingerprint', '--artifact', fixture.artifact], {});
+      expect(missing.code).toBe(1);
+      expect(missing.stderr).toContain('inspector-script-2.js');
+    } finally { await rm(fixture.root, { force: true, recursive: true }); }
+  });
+
   it('previews all runtime asset hashes and shared paths without writes or CLI calls', async () => {
     const fixture = await installerFixture();
     try {

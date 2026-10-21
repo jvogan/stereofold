@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -8,6 +9,7 @@ import {
 } from './plate-standoff.mjs';
 import { SPATIAL_TOOLBAR_LAYOUT, createToolbarPanel, toolbarCaptionPoints, toolbarDrawnMenuPoints, toolbarMenuRowPoints,
   toolbarPlatePoints } from './spatial-toolbar-geometry.mjs';
+import { focusPlacement } from './focus-placement.mjs';
 
 /**
  * A bad growth seat, in the geometry that caused it.
@@ -379,4 +381,64 @@ test('the default vertical seat is the eye line when nothing forces it down', ()
   const lifted = menuAvoidance({ subject: { ...subject, y: -0.2 }, menu, caption });
   assert.ok(Math.abs(lifted.y) < 1e-6, `raised to ${lifted.y.toFixed(3)} rather than left low`);
   assert.equal(lifted.move, 'raise');
+});
+
+/**
+ * The hemoglobin heme close-up, in the glass a headset draws for it: the
+ * chapter card at the top, the assistant status card beneath the menu column.
+ * The box around the two spans the middle of the lens, and the heme, framed
+ * level in the gap between them and clear of both, was shifted to the lens
+ * edge. With the status beneath the column it was lowered or raised instead.
+ * Status lines are measured with the headset's glyph advances, so the panel
+ * draws the status card a wearer would see, or sets it aside.
+ */
+const glyphAdvances = JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url), 'utf8')).advances;
+const NO_ASSISTANT = ['No assistant connected', 'Hold A or X to talk', 'Assistant: next tour'];
+function hemeCloseUp(status) {
+  const panel = createToolbarPanel({ head: HEAD, rows: [{ label: 'Talk' }, { label: 'Play' }, { label: 'Done' },
+    { label: 'Menu' }], readout: [{ text: 'Iron and oxygen · 5/5' },
+    { text: 'Iron: 0.4 Å above in T; within 0.05 Å of the plane in R.' }],
+    measureText: text => Array.from(text).reduce((width, glyph) => width + (glyphAdvances[glyph] ?? .6), 0), ...status });
+  const captions = toolbarCaptionPoints(panel);
+  const corners = (half, centre = [0, 0, 0]) => [-1, 1].flatMap(sx => [-1, 1].flatMap(sy => [-1, 1]
+    .map(sz => [centre[0] + sx * half[0], centre[1] + sy * half[1], centre[2] + sz * half[2]])));
+  const chain = [22, 20, 18], heme = [6, 6, 3];
+  const plan = focusPlacement({ headInRoom: HEAD.transform.matrix, renderFromRoom: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    cameraScale: 0.0242, center: [0, 0, 0], radius: Math.hypot(...chain),
+    placement: { rotation: [0, 0, 0], translation: [0, 0, 0], scale: 1 },
+    targetCenter: [0, 0, 0], targetRadius: Math.hypot(...heme), framing: 'fill',
+    subjectPoints: corners(heme), assemblyPoints: corners(chain), platePoints: toolbarPlatePoints(panel),
+    captionPoints: captions, menuPoints: toolbarDrawnMenuPoints(panel), menuRows: toolbarMenuRowPoints(panel),
+    minExtentFraction: 0.15, elevationDegrees: 0 });
+  return { panel, captions, frame: plan.standoff.frame };
+}
+
+for (const [name, status, shown] of [
+  ['its one-line glance', { assistantLines: NO_ASSISTANT, assistantGlance: ['No assistant · A/X to talk'] }, ['No assistant']],
+  ['three lines', { assistantLines: ['Claude', 'A/X: talk', 'Ready'] }, ['Claude', 'A/X: talk', 'Ready']],
+]) test(`a close-up framed in the gap between the caption and a status card showing ${name} stays centred`, () => {
+  const { panel, captions, frame } = hemeCloseUp(status);
+  assert.deepEqual(panel.statusPoints.map(line => line.text), shown, 'the status card is drawn');
+  assert.equal(captions.plates?.length, 2, 'the caption card and the status card, each on its own');
+  const [card, statusCard] = captions.plates.map(lensRectOf);
+  const box = lensRectOf(captions);
+  assert.ok(box.bottom < 0 && box.top > 0 && card.bottom > 0 && statusCard.top < 0,
+    'the box spans the eye line, and the gap between the two cards holds it');
+  assert.equal(frame.move, 'none', 'nothing it overlaps moves it');
+  assert.ok(Math.hypot(frame.subject.x, frame.subject.y) < 1e-9,
+    `centred where it was framed, not at ${frame.subject.x.toFixed(3)}, ${frame.subject.y.toFixed(3)} of the lens`);
+  for (const plate of [card, statusCard])
+    assert.equal(lensRectsOverlap(lensRect(frame.subject), plate, PLATE_CLEARANCE_LENS), false);
+});
+
+test('a close-up beneath the caption card stays in the centre band when the status is set aside', () => {
+  const { panel, captions, frame } = hemeCloseUp({ assistantLines: NO_ASSISTANT });
+  assert.equal(panel.statusBacking, undefined, 'no status line fits the column, so the status is set aside');
+  assert.equal(captions.plates, undefined, 'one card, so there is no gap to keep');
+  const card = lensRectOf(captions);
+  assert.ok(card.bottom > 0, 'the card sits above the eye line');
+  assert.notEqual(frame.move, 'shift');
+  assert.ok(Math.abs(frame.subject.x) <= SUBJECT_CENTRE_LENS && Math.abs(frame.subject.y) <= SUBJECT_CENTRE_LENS,
+    `centred, not at ${frame.subject.x.toFixed(3)}, ${frame.subject.y.toFixed(3)} of the lens`);
+  assert.equal(lensRectsOverlap(lensRect(frame.subject), card, PLATE_CLEARANCE_LENS), false);
 });

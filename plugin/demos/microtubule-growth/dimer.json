@@ -15,7 +15,7 @@
       }
     ],
     "sourceSha256": "d5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db",
-    "note": "The deposited asymmetric unit of entry 5SYF: one alpha-tubulin chain of 437 residues and one beta-tubulin chain of 426 residues, from Sus scrofa, reconstructed by cryo-electron microscopy at 3.5 Angstrom."
+    "note": "The deposited asymmetric unit of entry 5SYF: one alpha-tubulin chain of 437 residues and one beta-tubulin chain of 426 residues, from Sus scrofa, reconstructed by cryo-electron microscopy at 3.5 Angstrom. Chapter 3 contact patches use protein heavy atoms within 4.5 Angstrom in 5SYF model 1; see repository docs/microtubule-contact-faces.md for partner operators, exact author residues and source digest."
   },
   "chapters": [
     {
@@ -272,7 +272,7 @@
     {
       "id": "highlight",
       "title": "Both faces",
-      "caption": "As a surface: one end stacks on the next dimer, and the sides meet neighbouring protofilaments.",
+      "caption": "Amber marks contacts at the alpha end and one lateral face in the 5SYF lattice.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -325,78 +325,272 @@
           ],
           "rotation": [
             0,
-            220,
+            -20,
             0
           ],
           "scale": 1.6
         },
         "view": "fit",
-        "narration": "Ends stack head to tail; flat sides meet neighbours.",
-        "motion": {
-          "kind": "dolly",
-          "metres": 0.15,
-          "seconds": 8
-        },
+        "narration": "Amber marks end-stacking and one lateral contact face.",
+        "motion": "hold",
         "emphasis": {
           "parts": [
             {
-              "id": "alpha-tubulin",
-              "label": "Alpha tubulin",
-              "color": "#4a90e2",
+              "id": "end-contact-1",
+              "label": "End contact",
+              "color": "#f5a623",
               "chain": "A",
               "residues": {
                 "from": 1,
+                "to": 2
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-2",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 130,
+                "to": 131
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-3",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 133,
+                "to": 133
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-4",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 163,
+                "to": 163
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-5",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 199,
+                "to": 199
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-6",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 245,
+                "to": 249
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-7",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 251,
+                "to": 251
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-8",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 253,
+                "to": 254
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-9",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 256,
+                "to": 258
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-10",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 260,
+                "to": 263
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-11",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 314,
+                "to": 315
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-12",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 324,
+                "to": 327
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-13",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 329,
+                "to": 329
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-14",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 336,
+                "to": 336
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-15",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 346,
+                "to": 353
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-16",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 434,
+                "to": 435
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "end-contact-17",
+              "label": "End contact",
+              "color": "#f5a623",
+              "chain": "A",
+              "residues": {
+                "from": 437,
                 "to": 437
               },
-              "note": "Author chain A of 5SYF, residues 1-437: alpha tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GTP and magnesium."
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 14. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
             },
             {
-              "id": "beta-tubulin",
-              "label": "Beta tubulin",
+              "id": "side-alpha-contact-1",
+              "label": "Lateral alpha contact",
               "color": "#f5a623",
-              "chain": "B",
-              "residues": {
-                "from": 1,
-                "to": 436
-              },
-              "note": "Author chain B of 5SYF, residues 1-436: beta tubulin, Sus scrofa. Residues 501 and 502 of the same author chain are its GDP and Taxol."
-            },
-            {
-              "id": "gtp",
-              "label": "GTP",
-              "color": "#4a90e2",
               "chain": "A",
               "residues": {
-                "from": 501,
-                "to": 502
+                "from": 279,
+                "to": 285
               },
-              "note": "Author chain A residues 501 and 502: the deposited GTP and the magnesium ion beside it. Blue because they belong to alpha."
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain A, assembly operator 15. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
             },
             {
-              "id": "gdp",
-              "label": "GDP",
+              "id": "side-beta-contact-1",
+              "label": "Lateral beta contact",
               "color": "#f5a623",
               "chain": "B",
               "residues": {
-                "from": 501,
-                "to": 501
+                "from": 218,
+                "to": 218
               },
-              "note": "Author chain B residue 501: the deposited GDP. Amber because it belongs to beta."
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 15. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
             },
             {
-              "id": "taxol",
-              "label": "Taxol",
+              "id": "side-beta-contact-2",
+              "label": "Lateral beta contact",
               "color": "#f5a623",
               "chain": "B",
               "residues": {
-                "from": 502,
-                "to": 502
+                "from": 279,
+                "to": 280
               },
-              "note": "Author chain B residue 502, ligand TA1: the Taxol that stabilises this lattice. Amber because it belongs to beta."
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 15. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "side-beta-contact-3",
+              "label": "Lateral beta contact",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 282,
+                "to": 285
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 15. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "side-beta-contact-4",
+              "label": "Lateral beta contact",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 297,
+                "to": 297
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 15. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
+            },
+            {
+              "id": "side-beta-contact-5",
+              "label": "Lateral beta contact",
+              "color": "#f5a623",
+              "chain": "B",
+              "residues": {
+                "from": 338,
+                "to": 338
+              },
+              "note": "5SYF model 1: protein heavy-atom contact <=4.5 Angstrom to author chain B, assembly operator 15. Exact contacting residues only; see repository docs/microtubule-contact-faces.md. Residue colour marks a contact patch, not binding energy."
             }
           ],
-          "contextOpacity": 0.18,
-          "framing": "fill"
+          "contextOpacity": 1,
+          "framing": "context"
         }
       }
     },
@@ -546,7 +740,7 @@
     {
       "id": "wide",
       "title": "The repeat",
-      "caption": "Everything that follows is copies of this dimer, placed by the 26 helical operators 5SYF deposits.",
+      "caption": "5SYF stages repeat this dimer via deposited assembly operators. EB3 filament and tip use a separate experiment.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -673,7 +867,7 @@
           "contextOpacity": 0.18,
           "framing": "fill"
         },
-        "narration": "This dimer is the unit every later tier repeats.",
+        "narration": "Later stages repeat this dimer. EB3 stages use other data.",
         "motion": {
           "kind": "turntable",
           "degrees": 30,

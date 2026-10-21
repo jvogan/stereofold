@@ -19,7 +19,8 @@ import {
 /** The sidecar is a local declaration, not a signed Structure Viewer receipt. */
 export const STRUCTURE_VIEWER_SCENE_FILE_KIND = 'structure-viewer-local-snapshot' as const;
 export const MAX_STRUCTURE_VIEWER_PROVENANCE_BYTES = 64 * 1024;
-export const MAX_MOLECULAR_LESSON_BYTES = 256 * 1024;
+import { MAX_MOLECULAR_LESSON_BYTES } from './molecular-lesson.js';
+export { MAX_MOLECULAR_LESSON_BYTES };
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const sceneFileDeclarationSchema = z.object({

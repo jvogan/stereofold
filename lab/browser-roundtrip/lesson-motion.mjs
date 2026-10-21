@@ -31,12 +31,17 @@ export const LESSON_MOTION_KINDS = Object.freeze(['orbit', 'dolly']);
  * Validate one chapter tick. Degrees and factors are taken as authored: an
  * orbit delta is a fraction of a degree at 50 ms ticks, so there is nothing to
  * normalise into a signed half-turn here — the guard is only that the numbers
- * exist and the dolly keeps the camera outside its target.
+ * exist and the dolly keeps the camera outside its target. An orbit axis is
+ * x, y or z, or a lesson camera spin's own axis vector, kept as a unit vector.
  */
 export function normalizeLessonMotion(move) {
   if (!move || typeof move !== 'object') return undefined;
   if (move.kind === 'orbit' && ['x', 'y', 'z'].includes(move.axis) && Number.isFinite(move.degrees)) {
     return { kind: 'orbit', axis: move.axis, degrees: move.degrees };
+  }
+  if (move.kind === 'orbit' && Array.isArray(move.axis) && move.axis.length === 3 && move.axis.every(Number.isFinite)
+    && magnitude(move.axis) > 1e-8 && Number.isFinite(move.degrees)) {
+    return { kind: 'orbit', axis: scale(move.axis, 1 / magnitude(move.axis)), degrees: move.degrees };
   }
   if (move.kind === 'dolly' && Number.isFinite(move.factor) && move.factor > 0) {
     return { kind: 'dolly', factor: move.factor };
@@ -126,10 +131,25 @@ function rotateAboutAxis(v, axis, radians) {
  * Same arithmetic as the viewer's `orbit`/`dolly` — the eye vector turns about
  * the target (or scales along itself) and `up` turns with it — minus the
  * mutation: nothing here is a saved edit, so nothing here may reach the tour
- * as a takeover. Returns only the fields a chapter is allowed to move;
- * `target` is never the lesson's to change.
+ * as a takeover. Returns only the fields a chapter is allowed to move.
+ *
+ * Without a pivot option, `target` never moves. With `pivot`, an orbit turns the whole
+ * camera rigidly about that point — position, target and up alike — so the
+ * pivot keeps its place in the view and the eye-to-target distance is kept.
+ * In a headset `camera.view` is the room-to-render transform, so a turn about
+ * the camera target swings a molecule seated away from that target on a circle
+ * around the wearer: hemoglobin's 180-degree turntable carried it through the
+ * wearer's head. The viewer passes the molecule's presented centre there.
+ *
+ * `dollyPivot` is the immersive equivalent: translate position and target
+ * together toward the presented molecule. Camera.update enforces a minimum
+ * eye-to-target distance in XR; scaling that distance at its floor is erased
+ * on the next frame. A rigid translation preserves that distance and the view
+ * orientation while changing distance to the actual subject. Repeated factors
+ * compose about the same molecular pivot, including across pauses. The floor
+ * itself, scene scale, molecular placement and desktop dolly stay unchanged.
  */
-export function lessonCameraMove(camera, move) {
+export function lessonCameraMove(camera, move, { pivot, dollyPivot } = {}) {
   const norm = normalizeLessonMotion(move);
   if (!norm) throw Error('A lesson motion needs an orbit (axis x, y or z, finite degrees) or a positive dolly factor.');
   const target = Array.isArray(camera?.target) ? [...camera.target] : [0, 0, 0];
@@ -141,14 +161,36 @@ export function lessonCameraMove(camera, move) {
   }
   if (norm.kind === 'orbit') {
     const radians = norm.degrees * Math.PI / 180;
+    const axis = typeof norm.axis === 'string' ? AXIS_VECTORS[norm.axis] : norm.axis;
+    const centre = pivot && pivot.length === 3 && [...pivot].every(Number.isFinite) ? [...pivot] : undefined;
+    if (centre) {
+      return {
+        target: add(centre, rotateAboutAxis(subtract(target, centre), axis, radians)),
+        position: add(centre, rotateAboutAxis(subtract(position, centre), axis, radians)),
+        up: rotateAboutAxis(up, axis, radians),
+      };
+    }
     return {
       target,
-      position: add(target, rotateAboutAxis(eye, AXIS_VECTORS[norm.axis], radians)),
-      up: rotateAboutAxis(up, AXIS_VECTORS[norm.axis], radians),
+      position: add(target, rotateAboutAxis(eye, axis, radians)),
+      up: rotateAboutAxis(up, axis, radians),
     };
   }
+  // Keep the existing inside-target bound for either presentation route.
   const next = magnitude(eye) * norm.factor;
   // The same inside-the-target bound the viewer's own dolly refuses at.
   if (next <= 0.001) throw Error('A lesson dolly would place the camera inside its target.');
+  if (dollyPivot !== undefined) {
+    if (!dollyPivot || dollyPivot.length !== 3 || ![...dollyPivot].every(Number.isFinite))
+      throw Error('An immersive dolly needs a finite presented molecular centre.');
+    const fromPivot = subtract(position, dollyPivot);
+    const subjectDistance = magnitude(fromPivot) * norm.factor;
+    if (!Number.isFinite(subjectDistance) || subjectDistance <= 0.001)
+      throw Error('An immersive dolly would place the camera inside its subject.');
+    const delta = scale(fromPivot, norm.factor - 1);
+    return { target: add(target, delta), position: add(position, delta), up };
+  }
+  // A flat view still scales the eye vector about its fixed camera target.
+  // The orbit-only `pivot` option deliberately does not affect this path.
   return { target, position: add(target, scale(eye, next / magnitude(eye))), up };
 }

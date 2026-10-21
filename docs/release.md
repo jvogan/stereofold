@@ -14,9 +14,10 @@ npm dependencies at runtime. The staging helper uses macOS `renameatx_np` or
 Linux `renameat2` for an exclusive descriptor-relative rename and fails closed
 on other build platforms; the already-staged artifact has no Python dependency.
 
-The command first refreshes the five Git-eligible runtime bundles,
+The command first refreshes the Git-eligible runtime bundles and companions,
 `plugin/dist/server.mjs`, `plugin/dist/viewer.html`, `plugin/dist/inspector.html`,
-`plugin/dist/inspector.css`, and `plugin/dist/inspector-host.js`, the stock Mol* viewer assets under
+`plugin/dist/inspector.css`, `plugin/dist/inspector-script-1.js`,
+`plugin/dist/inspector-script-2.js`, and `plugin/dist/inspector-host.js`, the stock Mol* viewer assets under
 `plugin/dist/molstar/`, and generated `plugin/THIRD_PARTY_NOTICES.md`. Then
 `plugin/scripts/release.ts` stages the distribution directory:
 
@@ -38,6 +39,8 @@ plugin/release/stereofold/
 ├── dist/viewer.html
 ├── dist/inspector.html
 ├── dist/inspector.css
+├── dist/inspector-script-1.js
+├── dist/inspector-script-2.js
 ├── dist/inspector-host.js
 ├── dist/scene-socket-relay.mjs
 ├── dist/headset-host.mjs
@@ -54,10 +57,11 @@ plugin/release/stereofold/
 ## Git eligibility and release layout
 
 Relative to `plugin/`, keep `dist/server.mjs`, `dist/viewer.html`,
-`dist/inspector.html`, `dist/inspector.css`, and `dist/inspector-host.js` eligible for Git; check that
+`dist/inspector.html`, `dist/inspector.css`, `dist/inspector-script-1.js`,
+`dist/inspector-script-2.js`, and `dist/inspector-host.js` eligible for Git; check that
 none is hidden by a parent ignore rule before release.
 
-The five runtime bundles are intentionally Git-eligible even though the
+The runtime bundles and companions are intentionally Git-eligible even though the
 workspace ignores other `dist/` directories. That makes the repository's
 `plugin/` path directly runnable after a fresh clone. `stereo_structure.open_inspector`
 requires `dist/inspector-host.js` to host the inspector panel in a local browser.
@@ -125,7 +129,7 @@ The release command performs these checks after staging:
 - the selected source tree stays identical throughout staging and the staged
   bytes match its initial snapshot;
 - the MIT project license, generated third-party notices, icon, logo, skills,
-  all five runtime bundles and the stock Mol* viewer assets are present;
+  all runtime bundles and companions and the stock Mol* viewer assets are present;
 - notices identify the MCP SDKs, Mol*, Zod, and every transitive package that
   esbuild reports in the JavaScript runtime bundles, using their installed package
   metadata and full license/notice files;

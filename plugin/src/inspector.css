@@ -82,22 +82,33 @@ body:not([data-companion="true"]) .session-notice[data-scene-preflight] { max-he
 .tour-player-heading select { min-height:32px; padding:4px 24px 4px 7px; }
 .tour-player-summary,.tour-player-scene p { margin:0; font-size:13px; color:var(--secondary); }
 .tour-player-scene { display:grid; gap:4px; padding:8px 9px; border:1px solid var(--line); border-radius:5px; background:var(--page); }
+.tour-player-reading { position:relative; display:grid; min-height:0; }
+.tour-player-scene { scrollbar-gutter:stable; scrollbar-color:var(--teal) var(--page); }
+.tour-player-scene:focus-visible { outline:2px solid var(--teal); outline-offset:-3px; }
+.tour-player-scroll-hint { position:absolute; right:12px; bottom:8px; padding:3px 7px; border:1px solid var(--line); border-radius:4px; background:var(--page); color:var(--teal); font-size:11px; pointer-events:none; }
+.tour-player-scroll-hint[hidden] { display:none; }
 .tour-player-scene h3 { margin:0; font-size:16px; line-height:1.2; }
 .tour-player-body { line-height:1.35; }
 .tour-player-heading h2 { display:none; }
 .tour-player-heading select { width:100%; min-width:0; }
 .tour-player[data-selected="false"] .tour-player-summary,
-.tour-player[data-selected="false"] .tour-player-scene,
+.tour-player[data-selected="false"] .tour-player-reading,
 .tour-player[data-selected="false"] .tour-player-actions { display:none; }
 .inspector:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) > .inspector-heading,
 .inspector:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) > .tool-tabs,
 .inspector:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) > .tool-content { display:none; }
-.tour-player[data-selected="true"] { flex:1; min-height:0; grid-template-rows:auto auto minmax(0,1fr) auto; }
+.tour-player[data-selected="true"] { flex:1; min-height:0; grid-template-rows:auto minmax(0,1fr) auto; }
+/* The inactive overview already appears in the keyboard-scrollable body.
+   Its duplicate auto-height summary must not push Start below the panel. */
+.tour-player[data-selected="true"] .tour-player-summary { display:none; }
 .tour-player[data-selected="true"] .tour-player-scene { min-height:0; overflow-y:auto; align-content:start; }
 .tour-player[data-active="true"] { grid-template-rows:auto minmax(0,1fr) auto; }
 .tour-player[data-active="true"] .tour-player-summary { display:none; }
 .tour-player-status { min-height:1.2em; color:var(--muted)!important; }
 .tour-player-sources { font-size:12px!important; }
+.tour-player-details { margin-top:4px; font-size:12px; color:var(--secondary); }
+.tour-player-details summary { cursor:pointer; color:var(--teal); }
+.tour-player-details [data-tour-details] { margin-top:6px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; line-height:1.4; }
 .tour-player-sources a { color:var(--teal); text-decoration:underline; text-underline-offset:2px; }
 .tour-player-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 .tour-player-actions button { min-height:30px; padding:5px 8px; }
@@ -230,6 +241,30 @@ body:not([data-companion="true"]) .experience-room { display:none; }
 .tour-player[data-exploring="true"] .tour-player-scene { max-height:130px; }
 .tour-player[data-exploring="true"] .tour-player-summary { display:none; }
 .tour-player-summary:empty { display:none; }
+/* At a usable narrow desktop width the lesson needs a full-height reading
+   column. The generic short-card bottom sheet cannot fit its transport row.
+   Hiding the panel still returns the full canvas; exploration keeps its sheet. */
+@media (min-width:560px) and (max-width:959px) and (max-height:760px) {
+  body:not([data-companion="true"]) .workspace[data-inspector-open="true"]:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) {
+    display:grid; grid-template-columns:minmax(0,1fr) 288px; grid-template-rows:minmax(0,1fr);
+  }
+  body:not([data-companion="true"]) .workspace[data-inspector-open="true"]:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) .inspector {
+    position:static; width:auto; max-height:none; min-height:0; overflow:hidden; border:0; border-left:1px solid var(--line);
+  }
+  /* The sequence is still an absolute sheet. Its desktop grid-row:2 would
+     anchor it to an empty implicit row below this one-row lesson layout. */
+  body:not([data-companion="true"]) .workspace[data-inspector-open="true"]:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) .sequence-panel {
+    grid-area:1 / 1 / -1 / -1;
+  }
+  body:not([data-companion="true"]) .workspace[data-inspector-open="true"] .tour-player[data-selected="true"]:not([data-exploring="true"]) {
+    flex:1 1 0; min-height:0;
+  }
+}
+@media (min-width:560px) and (max-width:760px) and (max-height:760px) {
+  body:not([data-companion="true"]) .workspace[data-inspector-open="true"]:has(.tour-player[data-selected="true"]:not([data-exploring="true"])) {
+    grid-template-columns:minmax(0,1fr) 248px;
+  }
+}
 /* One clear microphone action in the structure stage. Anchoring it to the
    stage, rather than the viewport, keeps it above the footer boundary as the
    entry controls change height. `.canvas-caption` reserves the row above it. */

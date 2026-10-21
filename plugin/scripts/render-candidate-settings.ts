@@ -4,6 +4,7 @@ import { impostorSplitSetting, type ImpostorSplit } from '../src/molstar-imposto
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export interface RenderSettings {
+  readonly uniformCacheEnabled: boolean;
   readonly opaqueDepthEnabled: boolean;
   readonly zeroLightEnabled: boolean;
   readonly matteLightEnabled: boolean;
@@ -58,7 +59,7 @@ export function readRenderSettings(env: Readonly<Record<string, string | undefin
   const sphereOcclusionEnabled = binaryFlag(env, 'STEREOFOLD_SPHERE_OCCLUSION', sphereComposition);
   if (sphereOcclusionEnabled && !sphereComposition)
     throw new Error('Sphere occlusion requires the opaque-depth, impostor-scale and XR single-pass compositions.');
-  return { opaqueDepthEnabled, zeroLightEnabled, matteLightEnabled, impostorScaleEnabled, xrCulling,
+  return { uniformCacheEnabled: binaryFlag(env, 'STEREOFOLD_UNIFORM_CACHE_PATCH', true), opaqueDepthEnabled, zeroLightEnabled, matteLightEnabled, impostorScaleEnabled, xrCulling,
     xrSinglePassEnabled,
     conservativeDepthEnabled: binaryFlag(env, 'STEREOFOLD_CONSERVATIVE_DEPTH'),
     sphereNormalsEnabled: binaryFlag(env, 'STEREOFOLD_SPHERE_NORMALS'),
@@ -147,5 +148,5 @@ export function renderSettingsManifest(settings: RenderSettings): {
   version: 1; diagnosticOnly: boolean; opaqueDepthEnabled: boolean;
 } & RenderSettings {
   const candidate = RENDER_CANDIDATES.some(([, field]) => settings[field]) || settings.impostorSplit !== null;
-  return { version: 1, diagnosticOnly: candidate || settings.xrCulling || !settings.opaqueDepthEnabled || !settings.zeroLightEnabled || !settings.matteLightEnabled || !settings.impostorScaleEnabled || !settings.xrSinglePassEnabled || !settings.sphereOcclusionEnabled || !settings.xrSkipFinalFlushEnabled, ...settings };
+  return { version: 1, diagnosticOnly: !settings.uniformCacheEnabled || candidate || settings.xrCulling || !settings.opaqueDepthEnabled || !settings.zeroLightEnabled || !settings.matteLightEnabled || !settings.impostorScaleEnabled || !settings.xrSinglePassEnabled || !settings.sphereOcclusionEnabled || !settings.xrSkipFinalFlushEnabled, ...settings };
 }

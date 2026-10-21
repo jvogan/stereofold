@@ -269,3 +269,21 @@ test(`acceptance 6 cold desktop rebuild settles on both exits of one page (${rec
   }
 });
 }
+
+for (const mode of ['immersive-ar','immersive-vr']) test(`${mode} rejected invisible-page entry retires requesting phase while retaining its actual failure`,async()=>{
+  const {requestHeadsetSession}=await import('./xr-session-request.mjs');
+  let rejectRequest;const failure=Error('The page is not visible');
+  const runtime={requestSession:()=>new Promise((_resolve,reject)=>{rejectRequest=reject;})};
+  const c=vm.createContext({MODES:new Map([[mode,mode]]),disposed:false,reloadRequired:false,active:undefined,entering:undefined,ending:undefined,
+    startupPhase:'idle',requestedMode:null,frameCount:0,viewCount:0,blendMode:null,errorName:null,gestureActive:null,
+    navigator:{userActivation:{isActive:true}},isReady:()=>true,supportedRuntime:()=>runtime,
+    requestHeadsetSession,headsetOptionalFeatures:()=>[],headsetEntryDeadlineMs:()=>1000,
+    xrError:message=>Error(message)});
+  vm.runInContext(functionSource('enter','  '),c);
+  const entry=c.enter(mode),rejection=assert.rejects(entry,error=>error===failure);
+  assert.equal(c.startupPhase,'requesting-headset');assert.ok(c.entering,'an unanswered native prompt remains pending');
+  rejectRequest(failure);await rejection;
+  assert.equal(c.startupPhase,'idle','a rejected request is no longer an unanswered Allow prompt');
+  assert.equal(c.entering,undefined);assert.equal(c.active,undefined);assert.equal(c.errorName,'Error');
+  assert.equal(c.reloadRequired,false,'an ordinary native visibility rejection remains retryable');
+});

@@ -12,8 +12,10 @@ import { createReplyAudioSynthesizer } from '../src/headset-reply-audio.js';
 import { PRIVATE_INSPECTION_META_KEY as KEY, cameraPose } from '../src/inspection-contract.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 import { readStructureHeading } from '../src/structure-heading.js';
+import { lessonSourceInitialization } from '../src/lesson-source-initialization.js';
+import { lessonEntryCameraScene } from '../src/lesson-entry-camera.js';
 import { mountExperiencePlayer } from '../src/experience-player.js';
-import { savedLessonPlayback } from '../src/tour-player.js';
+import { savedLessonPlayback, stopUnanimatedLessonPlayback } from '../src/tour-player.js';
 import { TOURS } from '../src/tour-catalog.js';
 import { abortableSwapPhase, createSourceSwapTrace, SWAP_PHASE_TIMEOUT_MS } from '../src/source-swap-trace.js';
 import { followsSourceTransition } from '../src/inspection-panel-recovery.js';
@@ -112,7 +114,7 @@ async function toolbarMenu(t: Awaited<ReturnType<typeof setup>>) {
   const captions: string[] = [], plates: string[] = [];
   const live = toolbarFrameHarness(toolbarRuntime, { state: { tour: t.context.panelTour.getState() },
     onAction: async (action: any) => {
-      try { await vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: t.context.panelTour }); complete?.(); }
+      try { await vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: t.context.panelTour, recordManipulation() {}, talkCaption: undefined }); complete?.(); }
       catch (error) { fail?.(error); throw error; }
     } });
   // Let the real serialized action wait for an XR frame. Yield between frames
@@ -144,7 +146,7 @@ function menu(player: ReturnType<typeof mountExperiencePlayer>) {
     readRows: () => spatialToolbarRows({ tour: player.getState(), collapsed: false }),
     readState: () => ({ tour: player.getState() }),
     runAction: (action: any) => {
-      pending = vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: player });
+      pending = vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: player, recordManipulation() {}, talkCaption: undefined });
     },
   });
   return { detach, press: async (id: string) => {
@@ -192,7 +194,7 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
       highlightColor: '#ffff00', opacity: 1, labels: false, clipping: 0, fog: 0 }, placement: { translation: [.2, 0, 0], rotation: [0, 30, 0], scale: 1.2 } } };
   const originalScene = structuredClone(scene);
   const context = journeyNavigationHarness({ PRIVATE_KEY: KEY, binding: bound(initial), savedScene: scene,
-    tourHeartbeat, applyTourCommand, savedLessonPlayback, TOURS, inspectionRefusalCaption, shouldCaptionInspectionRefusal, isCompanion: true, console: { warn() {} },
+    tourHeartbeat, applyTourCommand, savedLessonPlayback, stopUnanimatedLessonPlayback, TOURS, lessonSourceInitialization, lessonEntryCameraScene, inspectionRefusalCaption, shouldCaptionInspectionRefusal, isCompanion: true, console: { warn() {} },
     toolResultError: (result: any) => result.isError ? result.content[0].text : undefined,
     publishModelContext() {}, detailedView: { note() {} }, updateReadinessStrip() {},
     voiceCommandSpeaker: () => undefined,
@@ -209,7 +211,10 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
         throw Object.assign(error as Error, { status: 409, code: 'companion_request' });
       }
     },
-    workspace: { snapshot: () => ({ ready: true, interactionActive: false }), capture: () => scene },
+    workspace: { snapshot: () => ({ ready: true, interactionActive: false }), capture: () => scene,
+      // These captures already omit tab-local history/views. Read the live
+      // method so follower and renderer adapters retain the same scene proof.
+      serializeCapture() { return JSON.stringify(this.capture()); } },
     recoverConfirmation: async (error: Error) => { throw error; },
   });
   install(context, 'call');
@@ -231,6 +236,7 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
     document, completedHydration: true, voiceOwnedSourceTransition: false, voiceInteraction: undefined, tourPlayer: undefined,
     sourceGeometryBudget, geometryBudgetChanged, sourceAdvisory: undefined, activePreviewRecording: undefined,
     sourceGeometryBudgetSupported: initial.sourceGeometryBudget === true, rendererContextSupported: initial.rendererContext === true,
+    renderedSourceIdentitySupported: initial.renderedSourceIdentity === true,
     canRefreshInspectionAttach, isStaleInspectionAttach, MAX_ATTACH_REFRESHES, STALE_ATTACH_MESSAGE,
     epoch: initial.serverEpoch, sourceSwapTrace: undefined, sourceSwapContext: {}, retry: {}, reload: {}, details: {},
     syncHandoff() {}, handoffVersion: 0, registerComparisonSources: async () => {},
@@ -396,10 +402,12 @@ it('voice replaces a presenting standoff through Mol* with two current panels an
     };
     const heldBounds = roomBounds(), heldCamera = viewer.canvas.camera.getSnapshot();
     const heldCameraScale = viewer.canvas.camera.scale;
+    expect(viewer.placementReleases).toEqual(['source-load']);
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     // Replace and then return, retaining the same scene, page, XR session and panel.
     for (const pdbId of ['1CRN', '4HHB']) {
       const oldToken = t.context.binding.sourceToken;
+      const releases = viewer.placementReleases.length;
       let answer: any, toolError: unknown, drawError: unknown, settled = false;
       pending = t.call('replace_inspection_source', { ...t.context.expected(), panelId: owner, pdbId, utteranceId, waitForRenderMs: 130_000 })
         .then(value => { answer = value; }, error => { toolError = error; });
@@ -422,6 +430,7 @@ it('voice replaces a presenting standoff through Mol* with two current panels an
       expect(answer.structuredContent.sourceRenderStatus).toMatchObject({ rendered: true, panelId: owner });
       const after = await t.state();
       expect(after.sourceRenderReceipt).toMatchObject({ panelId: owner, rendered: true });
+      expect(viewer.placementReleases.slice(releases)).toEqual(['source-load']);
       expect(after.reclaimedPanels).toEqual([]);
       expect(after.panels).toHaveLength(2);
       expect(t.context.panelId).toBe(owner);
@@ -450,6 +459,41 @@ it('voice replaces a presenting standoff through Mol* with two current panels an
   }
 });
 
+for (const failDraw of [false, true]) it(`returning to the entry seat releases the wearer placement only after a successful draw (failure ${failDraw})`, async () => {
+  // @ts-ignore Extract the production room-placement closure with explicit adapters.
+  const { pageFunction } = await import('../../lab/browser-roundtrip/fixtures/label-action-harness.mjs');
+  const releaseWearerPlacement = vi.fn(), takeWearerPlacement = vi.fn();
+  const placement = { translation: [0, 1, -3], scale: 1 };
+  let finishDraw!: () => void;
+  const drawing = new Promise<void>(resolve => { finishDraw = resolve; });
+  const placeInspection = vi.fn(async () => {
+    await drawing;
+    if (failDraw) throw Error('Entry seat draw failed');
+    return { rendered: true };
+  });
+  const context = vm.createContext({
+    assertReady() {}, canvas: { xr: { isPresenting: { value: true } }, camera: { scale: 1 } },
+    performance: { now: () => 0 }, latestHeadSample: 0, latestRoomPlacementPose: {},
+    loadedSphere: () => ({ center: [0, 0, 0], radius: 1 }), roomAnchor: undefined,
+    roomAnchorPlacement: () => placement, setInspectionMotion: async () => {}, placeInspection,
+    inspectionSnapshot: () => ({ placement }), notePlacement() {}, wearerPlacedInRoom: false,
+    releaseWearerPlacement, takeWearerPlacement,
+  });
+  vm.runInContext(pageFunction(viewerSource, 'placeRoomTarget'), context);
+  const pending = context.placeRoomTarget('entry');
+  await vi.waitFor(() => expect(placeInspection).toHaveBeenCalledOnce());
+  expect(releaseWearerPlacement).not.toHaveBeenCalled();
+  finishDraw();
+  if (failDraw) {
+    await expect(pending).rejects.toThrow('Entry seat draw failed');
+    expect(releaseWearerPlacement).not.toHaveBeenCalled();
+  } else {
+    await expect(pending).resolves.toEqual({ rendered: true });
+    expect(releaseWearerPlacement).toHaveBeenCalledExactlyOnceWith('entry-seat');
+  }
+  expect(takeWearerPlacement).not.toHaveBeenCalled();
+});
+
 for (const failAt of ['after_representation', 'after_room_anchor']) it(`a source failure at ${failAt} records its reason and rolls back before retry`, async () => {
   const network = inMemoryCompanionNetwork(); transport.lan = true;
   let t: Awaited<ReturnType<typeof setup>> | undefined, viewer: any;
@@ -461,6 +505,7 @@ for (const failAt of ['after_representation', 'after_room_anchor']) it(`a source
     const initial = await t.read(), catalog = await decodeInspectionCatalog(initial.catalogWire ?? initial.catalog);
     viewer = await sourceLoadHarness({ id: '4HHB', cif: hhb, sha256: catalog.source.sha256, catalog }, scene,
       (kind: string, detail: any) => t!.diagnostics.push({ kind, ...detail }));
+    expect(viewer.placementReleases).toEqual(['source-load']);
     const beforeCamera = viewer.canvas.camera.getSnapshot(), beforeScale = viewer.canvas.camera.scale;
     const load = t.context.workspace.loadSource;
     t.context.workspace.loadSource = async (next: any, options: any) => { await viewer.load(next); await load(next, options); };
@@ -469,6 +514,7 @@ for (const failAt of ['after_representation', 'after_room_anchor']) it(`a source
     viewer.context.failAt = failAt;
     const reason = `Injected ${failAt} failure`;
     await expect(t.context.poll()).rejects.toThrow(reason);
+    expect(viewer.placementReleases).toEqual(['source-load']);
     expect(viewer.context.state.lastLoadFailure).toMatchObject({ message: reason, recovered: true });
     expect(viewer.snapshot()).toMatchObject({ sourceSha256: scene.sourceSha256, ready: true });
     expect(viewer.snapshot().inspection.placement).toEqual(scene.inspection.placement);
@@ -483,7 +529,10 @@ for (const failAt of ['after_representation', 'after_room_anchor']) it(`a source
     expect(t.events).toContain('Structure load failed. Your previous view is still shown.');
     viewer.context.failAt = undefined;
     await t.context.poll();
+    expect((await t.state()).sourceRenderReceipt).toMatchObject({ rendered: false });
+    await t.context.hydrate(t.context.binding.sessionId);
     expect((await t.state()).sourceRenderReceipt).toMatchObject({ panelId: owner, rendered: true });
+    expect(viewer.placementReleases).toEqual(['source-load', 'source-load']);
   } finally {
     viewer?.dispose(); await t?.close(); network.close(); transport.lan = false;
     vi.unstubAllGlobals(); forgetCompanionPageKey();
@@ -650,6 +699,8 @@ it('a failed replacement draw keeps the panel and cannot publish a rendered rece
       change: { kind: 'appearance', patch: { opacity: .5 } } })).rejects.toThrow('Load and save the intended inspection before changing appearance.');
     t.context.workspace.loadSource = loaded;
     await t.context.poll();
+    expect((await t.state()).sourceRenderReceipt).toMatchObject({ rendered: false });
+    await t.context.hydrate(t.context.binding.sessionId);
     expect((await t.state()).sourceRenderReceipt).toMatchObject({ rendered: true, panelId: owner });
     expect(t.context.panelId).toBe(owner);
   } finally {
@@ -2370,8 +2421,13 @@ async function drawnCorrectionPage(t: Awaited<ReturnType<typeof setup>>, network
   })).structuredContent.lifecycle.utterance.utteranceId;
   const deliver = async () => {
     const sent = { ...t.context.expected(), panelId: t.context.panelId, availability: t.context.liveAvailability() };
-    const delivery = (await t.context.call('poll_inspection', sent))._meta[KEY].delivery;
-    if (delivery) await t.context.receive(delivery, sent, t.context.generation);
+    const response = await t.context.call('poll_inspection', sent), delivery = response._meta[KEY].delivery;
+    if (delivery) t.context.rendering = t.context.rendering.then(() => t.context.receivePollDelivery(response, sent, t.context.generation));
+    // A post-command beat can append the next delivery while this one settles.
+    for (;;) {
+      const pending = t.context.rendering; await pending;
+      if (pending === t.context.rendering) break;
+    }
     return delivery;
   };
   return { frames, captions, mutations, completionFrames, renderer, edit, utterance, deliver, undoBefore, inspectionState,
@@ -2501,7 +2557,9 @@ it.each(['busy', 'cancelled-render'] as const)('an expired dispatch hold explain
       const old = await page.utterance('d82-held-begin', 'begin');
       await page.edit('d82-held-surface', { representation: 'molecular-surface' }, old);
       const delivery = (await poll('ready'))._meta[KEY].delivery;
-      await t.context.call('complete_inspection', { ...t.context.expected(), ...delivery, change: undefined, utteranceId: undefined, phase: 'admit' });
+      // Delivery includes browser-only render-settling hints, not completion inputs.
+      await t.context.call('complete_inspection', { ...t.context.expected(), panelId: delivery.panelId,
+        commandId: delivery.commandId, claimToken: delivery.claimToken, phase: 'admit' });
       const correction = await page.utterance('d82-held-correct', 'correct');
       await page.edit('d82-held', { representation: 'cartoon' }, correction);
       expect((await poll('ready'))._meta[KEY].delivery).toBeUndefined();
@@ -2616,6 +2674,7 @@ for (const action of ['model', 'menu']) it(`${action} Done restores a clear reco
       const owner = t.context.panelId;
       const result = action === 'model' ? await t.remote('done') : (await controls.press('done'), await t.state());
       expect(result.experienceCompletion.status).toBe('rendered');
+      expect(geometry.placementReleases).toEqual(Array(pass + 1).fill('entry-seat'));
       expect(t.context.panelId).toBe(owner);
       expect.soft(sourceViewer.canvas.camera.scale).toBe(sourceCameraScale);
       expect.soft(fetches.mock.calls.filter(([url]) => url === '/source')).toHaveLength(sourceReads);
@@ -2711,9 +2770,11 @@ for (const action of ['model', 'menu']) it(`${action} Done clears the held menu 
       expect((await t.state(action === 'model' ? `model-done-${pass}` : undefined)).experienceCompletion.status).toBe('pending');
       expect(controls.plates).not.toContain('Restored your pre-tour view.');
       expect(t.events.slice(before)).not.toContain('acknowledge_experience_step');
+      expect(geometry.placementReleases).toEqual(Array(pass).fill('entry-seat'));
       release(); await pending; pending = undefined;
       result = await t.state(action === 'model' ? `model-done-${pass}` : undefined);
       expect(result.experienceCompletion.status).toBe('rendered');
+      expect(geometry.placementReleases).toEqual(Array(pass + 1).fill('entry-seat'));
       if (action === 'model') expect(result.command.status).toBe('rendered');
       expect(t.context.panelId).toBe(owner);
       expect(result.panels.map((panel: any) => panel.panelId)).toEqual([owner]);
@@ -2824,6 +2885,8 @@ it('a failed source load keeps its caption, says so on the plate and never says 
     // The retry is a load of its own and is acknowledged as one.
     t.context.workspace.loadSource = loadSource;
     await t.context.poll();
+    expect((await t.state()).sourceRenderReceipt).toMatchObject({ rendered: false });
+    await t.context.hydrate(t.context.binding.sessionId);
     const after = await t.state();
     expect(after.sourceRenderReceipt).toMatchObject({ panelId: owner, rendered: true });
     expect(readout.copy().slice(2)).toEqual(['Waiting · structure',

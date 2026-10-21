@@ -167,8 +167,9 @@ describe('inspection-agent', () => {
       const sent = host.calls[1];
       expect(sent.name).toBe('update_inspection');
       expect(sent.arguments.serverEpoch).toBe(BINDING.serverEpoch);
-      expect(sent.arguments.baseStateRevision).toBe(4);
-      expect(sent.arguments.baseInspectionRevision).toBe(9);
+      // The host fills update_inspection's revisions on arrival.
+      expect(sent.arguments).not.toHaveProperty('baseStateRevision');
+      expect(sent.arguments).not.toHaveProperty('baseInspectionRevision');
       expect(sent.arguments.panelId).toBe('quest-panel');
       expect(String(sent.arguments.commandId)).toMatch(/^cli-/);
       // The host's own sentence, then the receipt this run actually holds.

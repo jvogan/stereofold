@@ -108,7 +108,9 @@ test('scoped opacity masks the base and combines emphasis fading with hidden-key
 
 test('appearance restore, recovery and source replacement carry only their own styles before painting',()=>{
   const restore=pageFunction(viewer,'restoreInspection');
-  assert.ok(restore.indexOf('stylesState = normalizeStyles(next.inspection.styles)')<restore.indexOf('await applyInspectionAppearance()'));
+  const styles=restore.indexOf('stylesState = normalizeStyles(next.inspection.styles)');
+  const appearance=restore.indexOf('await applyInspectionAppearance({ preservePlacement: Boolean(placement) })');
+  assert.ok(styles>=0 && appearance>styles, 'restore adopts its styles before rebuilding with the held placement');
   const rebuild=pageFunction(viewer,'applyInspectionAppearance');
   assert.ok(rebuild.indexOf('await rebuildStyleLayers()')<rebuild.indexOf('await paintEmphasisLayers'));
   assert.ok(rebuild.indexOf('await paintEmphasisLayers')<rebuild.indexOf('await paintVisibilityLayers'));

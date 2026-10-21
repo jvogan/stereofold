@@ -43,7 +43,14 @@ function rotateZYX(vector, degrees) {
  * source origin that would exceed the translation range is expressed by a
  * matching offset of Mol*'s render reference frame. The tracked pose stays local.
  */
-export function preserveSourceTransitionAnchor({ priorBase, priorVisible, priorPlacement, priorCameraScale, nextBase, nextVisible }) {
+export function preserveSourceTransitionAnchor({ priorBase, priorVisible, priorPlacement, priorCameraScale, nextBase, nextVisible,
+  priorCoordinateFrame, nextCoordinateFrame }) {
+  // A staged gallery declares one common absolute Å frame. Anchor its unit
+  // sphere at the shared origin instead of normalizing different batch bounds;
+  // this retains the exact transform of every common target atom.
+  const sharedFrame = typeof priorCoordinateFrame === 'string' && priorCoordinateFrame.length > 0
+    && priorCoordinateFrame === nextCoordinateFrame;
+  if (sharedFrame) priorVisible = nextVisible = { center: [0, 0, 0], radius: 1 };
   const oldBase = finiteSphere(priorBase, 'Prior source bounds');
   const oldVisible = finiteSphere(priorVisible ?? priorBase, 'Prior visible bounds');
   const placement = finitePlacement(priorPlacement);
@@ -77,7 +84,8 @@ export function preserveSourceTransitionAnchor({ priorBase, priorVisible, priorP
     throw Error('The next source cannot preserve the current room position within the supported placement range.');
   }
   return { placement: { translation, rotation: [...placement.rotation], scale: nextScale }, cameraScale: nextCameraScale,
-    usedCameraScale: nextScale !== unconstrainedPlacementScale, ...(cameraOffset ? { cameraOffset } : {}) };
+    usedCameraScale: nextScale !== unconstrainedPlacementScale, ...(cameraOffset ? { cameraOffset } : {}),
+    ...(sharedFrame ? { preservesCoordinateFrame: true } : {}) };
 }
 
 export function transformedVisibleCenter({ base, visible, placement }) {

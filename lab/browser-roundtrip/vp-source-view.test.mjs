@@ -48,7 +48,7 @@ test('fresh source fits only candidate geometry, while preserving explicit and i
       const radius=Math.max(sphere.radius+(options.extraRadius??0),options.minRadius??0);
       this.focusSnapshot(canvas.camera.getFocus(sphere.center,radius),options);
     },focusSnapshot(snapshot,options){canvas.requestCameraReset({snapshot,durationMs:options.durationMs??0});}};
-    const context=vm.createContext({state:{},retainedRepresentationCount:0,styleLayers:[],BoundaryHelper,
+    const context=vm.createContext({now:()=>0,recordCost(){},state:{},retainedRepresentationCount:0,styleLayers:[],BoundaryHelper,
       assertLoad(){},markRecord(){},recordBoundingSphere:record=>record.structure.obj.data.boundary.sphere,
       plugin:{state:{data:{updateCellState(){}}},managers:{camera:cameraManager}},
       canvas,waitForFrame:async()=>{},checkpoint:async()=>{}});

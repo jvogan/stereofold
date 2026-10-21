@@ -1,0 +1,5079 @@
+{
+  "version": 1,
+  "id": "binder-gallery-extended-batch-07",
+  "dataset": "Anthropic/scorpion-toxin-binder-design",
+  "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+  "license": "CC-BY-4.0",
+  "coordinateFrame": "binder-gallery-extended-aligned-v1",
+  "composite": {
+    "file": "binder-gallery-extended-batch-07.cif",
+    "sha256": "82f89241db9e35669236509602a7fa70701cc0e9845b5c2da6aa3c093d50ac57",
+    "bytes": 3207428,
+    "atomSites": 29067,
+    "derivation": {
+      "kind": "bundled-file",
+      "path": "binder-gallery/extended/batch-07/gallery.cif"
+    }
+  },
+  "sharedReferences": [
+    {
+      "targetId": "aah1",
+      "uuid": "30fc4a66",
+      "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+      "chain": "T12",
+      "matrix": [
+        [
+          -0.643033220523567,
+          0.6015831939546453,
+          0.4739260892316621,
+          0.42658936072279174
+        ],
+        [
+          0.40703624632201857,
+          0.7926563967231892,
+          -0.45389132059766346,
+          1.4470663312584928
+        ],
+        [
+          -0.6487139365569161,
+          -0.09896210125668065,
+          -0.7545705606712282,
+          -0.11690404924757558
+        ]
+      ],
+      "displayedTargetSha256": "373d8bac76b240236013cc9c3a635bfc7b766fb884f14f72d8d7a718f129ab6e"
+    }
+  ],
+  "entries": [
+    {
+      "id": "binder-2375ac8e",
+      "uuid": "2375ac8e",
+      "globalOrdinal": 155,
+      "displayLabel": "Design155",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design155",
+      "targetLabel": "Target3",
+      "binderChain": "D155",
+      "targetChain": "P155",
+      "binderSequence": "MIDTTPVPLRKGPDPAVSLRANELLEKLLRGEATPEEVQNLLAILDSLPTDMDPALREVVDYLKALARKKLGEEVEFPELSPRAQRLLDEIKARVEARAEAAAKEAAAKEAAAKASEIPPVEEILKLFEDALKKAAEDPSVSVDEVVEGIIKTLKQLEKNGMPKKVVAEIARRAAELAAKYGASEEAVKKLLELAEEFEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/2375ac8e/2375ac8e_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/2375ac8e/2375ac8e_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "cc19c4bc59d59653a20d13deba8406a1190ab2c831ccd18318d56acbe5e44cb9",
+        "bytes": 162810,
+        "downloaded": true,
+        "gitBlobSha1": "d8cc67bdb87688f589cf0ab355e7a3a2d3d92d4f"
+      },
+      "originalChainMapping": {
+        "A": "D155",
+        "B": "P155"
+      },
+      "atomCount": 2006,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            0.7064903083193278,
+            -0.28360028765405654,
+            -0.6484152381718052,
+            5.295242620541224
+          ],
+          [
+            -0.13567744456839423,
+            -0.9534798571414178,
+            0.2691984269288595,
+            -3.9435150466710143
+          ],
+          [
+            -0.6945956199734156,
+            -0.10221075710569066,
+            -0.712102440555873,
+            18.133147113540822
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.28808360788219495,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7191,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7191,
+          "reportedFinalScore": "0.7191"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.70292490319324,
+            -28.304536381511316,
+            -20.876810677931964
+          ],
+          "max": [
+            30.290040438920848,
+            24.60504118730121,
+            65.71671443933124
+          ]
+        },
+        "centerAngstrom": [
+          5.793557767863804,
+          -1.8497475971050523,
+          22.41995188069964
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.858769865732068,
+            -28.304536381511316,
+            -20.876810677931964
+          ],
+          "max": [
+            30.290040438920848,
+            24.60504118730121,
+            65.71671443933124
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          6.54828277568032,
+          -1.987141446664984,
+          24.463103462875587
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.70292490319324,
+            -23.534183033869542,
+            -10.440966288744207
+          ],
+          "max": [
+            14.676364691061275,
+            5.181532346840895,
+            11.463545857026409
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          6.597896832058073e-15,
+          -8.823492507839072,
+          -5.921189464667501e-16
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D155",
+            "originalChain": "A",
+            "residueNumbers": [
+              117,
+              118,
+              119,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              150,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "P155",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 117,
+                "targetResidueNumber": 18,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4581454567441203
+              },
+              {
+                "binderResidueNumber": 153,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4721057011560013
+              },
+              {
+                "binderResidueNumber": 160,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.51044641035866
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5507073943089154
+              }
+            ],
+            "binder": {
+              "chain": "D155",
+              "residueNumbers": [
+                117,
+                131,
+                153,
+                160
+              ]
+            },
+            "target": {
+              "chain": "P155",
+              "residueNumbers": [
+                15,
+                17,
+                18,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D155",
+            "originalChain": "A",
+            "residueNumbers": [
+              117,
+              118,
+              119,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 153,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.7609997927812806
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.2639452457237983
+              },
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.2988478903650784
+              },
+              {
+                "binderResidueNumber": 117,
+                "targetResidueNumber": 18,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.370674985527773
+              }
+            ],
+            "binder": {
+              "chain": "D155",
+              "residueNumbers": [
+                117,
+                131,
+                153,
+                156
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                18,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-4cc8857b",
+      "uuid": "4cc8857b",
+      "globalOrdinal": 157,
+      "displayLabel": "Design157",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design157",
+      "targetLabel": "Target3",
+      "binderChain": "D157",
+      "targetChain": "P157",
+      "binderSequence": "MIDTTPVPLRKGPDPAVSLRANELLEKLLRGEATPEEVQNLLAILDSLPTDMDPALREVVDYLKALARKKLGEEVEFPELSPRAQRLLDEIKARVEARAEAAAKEAAAKEAAAKASEIPPIEEIIELFEKALEEAAKDPSVSVDEVVEGIIKTLKQLYKNGMPPKEVAEIARRAAELAEKYGASEEAVEKLRELAEEFEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/4cc8857b/4cc8857b_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/4cc8857b/4cc8857b_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "7a8b62b996dc4151ddb98fdf943edf730c68d86e0805ef5e3fbe18f2c6d1133b",
+        "bytes": 163782,
+        "downloaded": true,
+        "gitBlobSha1": "af3e1fda2b5b26c58c24660bc41aa57c0794cc7b"
+      },
+      "originalChainMapping": {
+        "A": "D157",
+        "B": "P157"
+      },
+      "atomCount": 2018,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.9064355111038207,
+            -0.34139921203250034,
+            0.248638778619794,
+            14.301650197127342
+          ],
+          [
+            -0.07481967402853514,
+            0.7092018942717226,
+            0.7010240292170188,
+            5.382310191865728
+          ],
+          [
+            -0.415664143977104,
+            0.6168300018522019,
+            -0.6683891592678569,
+            18.042190706579664
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.350989049438179,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.682,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.682,
+          "reportedFinalScore": "0.6820"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.741480176328906,
+            -23.400108036885047,
+            -21.141404182519654
+          ],
+          "max": [
+            56.9248689451739,
+            25.340626055617268,
+            58.714830323696575
+          ]
+        },
+        "centerAngstrom": [
+          19.091694384422496,
+          0.9702590093661101,
+          18.786713070588462
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.473282528581608,
+            -8.366487991883702,
+            -21.141404182519654
+          ],
+          "max": [
+            56.9248689451739,
+            25.340626055617268,
+            58.714830323696575
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          19.557923049435097,
+          7.942760590680269,
+          21.271866842623034
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.741480176328906,
+            -23.400108036885047,
+            -10.345884069102553
+          ],
+          "max": [
+            14.654812668687043,
+            5.004054191027797,
+            10.184764515809391
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          0.0,
+          -8.823492507839077,
+          -3.4117329772607986e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D157",
+            "originalChain": "A",
+            "residueNumbers": [
+              115,
+              116,
+              117,
+              118,
+              119,
+              123,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              150,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "P157",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.453809635750066
+              },
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4547018684685367
+              },
+              {
+                "binderResidueNumber": 160,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.479092697816487
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.557480850264692
+              }
+            ],
+            "binder": {
+              "chain": "D157",
+              "residueNumbers": [
+                127,
+                131,
+                156,
+                160
+              ]
+            },
+            "target": {
+              "chain": "P157",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D157",
+            "originalChain": "A",
+            "residueNumbers": [
+              115,
+              116,
+              117,
+              118,
+              119,
+              123,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              150,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 153,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.7120047223941106
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.1677355207532973
+              },
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.190545788138382
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3626973043949295
+              }
+            ],
+            "binder": {
+              "chain": "D157",
+              "residueNumbers": [
+                127,
+                131,
+                153,
+                156
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-28491140",
+      "uuid": "28491140",
+      "globalOrdinal": 158,
+      "displayLabel": "Design158",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design158",
+      "targetLabel": "Target3",
+      "binderChain": "D158",
+      "targetChain": "P158",
+      "binderSequence": "MIDTTPVPLRKGPDPAVSLRANELLEKLLRGEATPEEVQNLLAILDSLPTDMDPALREVVDYLKALARKKLGEEVEFPELSPRAQRLLDEIKARVEARAEAAAKEAAAKEAAAKASEIPAPEEIIELFEEALEKAAKDPSVSVDEVVEGIKKTLEQLLKNGMAPKVVAEIARRAAELAEKYGASKESVEELRKLAEEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/28491140/28491140_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/28491140/28491140_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "96eea1a2d1c447e1deafe32b807c7135ac3aefe6fb23ede961e3e3b0958e1a78",
+        "bytes": 163134,
+        "downloaded": true,
+        "gitBlobSha1": "9b975d73e3afbd6049e7775a19d3347d4cc3a0ad"
+      },
+      "originalChainMapping": {
+        "A": "D158",
+        "B": "P158"
+      },
+      "atomCount": 2010,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.04540441798536878,
+            -0.6280057291979422,
+            0.7768830303990245,
+            21.552452527885727
+          ],
+          [
+            -0.9927265720737313,
+            -0.0584365845260471,
+            -0.10525739255590985,
+            -0.9808896039045989
+          ],
+          [
+            0.1115006364383126,
+            -0.7760115783179355,
+            -0.6207846956798804,
+            5.451121592002954
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.24644790250606738,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.6709,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.6709,
+          "reportedFinalScore": "0.6709"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.41547043514808,
+            -23.673901234743436,
+            -20.46676381467764
+          ],
+          "max": [
+            69.84826135519064,
+            25.25346051497883,
+            35.65744406045873
+          ]
+        },
+        "centerAngstrom": [
+          25.716395460021282,
+          0.7897796401176969,
+          7.595340122890544
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.321454443795936,
+            -22.83871899098593,
+            -20.46676381467764
+          ],
+          "max": [
+            69.84826135519064,
+            25.25346051497883,
+            35.65744406045873
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          28.4523040607563,
+          1.5270207409546068,
+          7.507907903555958
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.41547043514808,
+            -23.673901234743436,
+            -10.652613963496952
+          ],
+          "max": [
+            14.614604360760936,
+            5.373571491557957,
+            9.898222797958002
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          4.173028765575192e-15,
+          -8.823492507839068,
+          -2.7773198203321376e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D158",
+            "originalChain": "A",
+            "residueNumbers": [
+              116,
+              117,
+              119,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              150,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "P158",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.2181912621843964
+              },
+              {
+                "binderResidueNumber": 119,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.463169646436629
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.527885202213928
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.629740899843954
+              }
+            ],
+            "binder": {
+              "chain": "D158",
+              "residueNumbers": [
+                119,
+                127,
+                131,
+                156
+              ]
+            },
+            "target": {
+              "chain": "P158",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D158",
+            "originalChain": "A",
+            "residueNumbers": [
+              116,
+              117,
+              119,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 153,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.688977692337359
+              },
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.906800335320054
+              },
+              {
+                "binderResidueNumber": 119,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.390610637255152
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4369702470397328
+              }
+            ],
+            "binder": {
+              "chain": "D158",
+              "residueNumbers": [
+                119,
+                131,
+                153,
+                156
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                17,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-d15c8ece",
+      "uuid": "d15c8ece",
+      "globalOrdinal": 160,
+      "displayLabel": "Design160",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design160",
+      "targetLabel": "Target3",
+      "binderChain": "D160",
+      "targetChain": "P160",
+      "binderSequence": "MIDTTPVPLRKGPDPAVSLRANELLEKLLRGEATPEEVQNLLAILDSLPTDMDPALREVVDYLKALARKKLGEEVEFPELSPRAQRLLDEIKARVEARAEAAAKEAAAKEAAAKASEIPAKEEILELFEEALRKAAEDPSVSVDEVVEGIKKTLEQLLKNGMAPKEVAEIARKAAELAREYGASEEAVESLLKLAEEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/d15c8ece/d15c8ece_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/d15c8ece/d15c8ece_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "4044b2f7876ca5343ca6124a61caee5c502d49140f547d1a7ae9d04bc305f9b6",
+        "bytes": 163053,
+        "downloaded": true,
+        "gitBlobSha1": "0748ec5964e37f9db6a76e12418806a40caf5268"
+      },
+      "originalChainMapping": {
+        "A": "D160",
+        "B": "P160"
+      },
+      "atomCount": 2009,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.15697009177198828,
+            -0.5884260754808213,
+            0.7931677905609467,
+            20.487878234371994
+          ],
+          [
+            -0.9875661970384602,
+            0.08655428734878134,
+            -0.1312301863465039,
+            -0.9794502452956204
+          ],
+          [
+            0.008567190676480064,
+            -0.8039049129317385,
+            -0.594696136029259,
+            8.313725550357935
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.24369063109353015,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7159,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7159,
+          "reportedFinalScore": "0.7159"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.16941624007124,
+            -24.02015864234043,
+            -20.725018685770905
+          ],
+          "max": [
+            67.56180343998696,
+            24.18419326303303,
+            43.120470540642714
+          ]
+        },
+        "centerAngstrom": [
+          24.69619359995786,
+          0.08201731034630022,
+          11.197725927435904
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.75874537195278,
+            -24.02015864234043,
+            -20.725018685770905
+          ],
+          "max": [
+            67.56180343998696,
+            24.18419326303303,
+            43.120470540642714
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          26.996473999824026,
+          1.4735750473892189,
+          11.221298766170996
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.16941624007124,
+            -23.634279268142237,
+            -10.518538858310459
+          ],
+          "max": [
+            14.633095916128319,
+            5.359798477504637,
+            9.876296917048018
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          -1.0714533317017383e-15,
+          -8.823492507839076,
+          2.4107699963289115e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D160",
+            "originalChain": "A",
+            "residueNumbers": [
+              116,
+              117,
+              118,
+              119,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              150,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "P160",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.1285141840816384
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5159203631481764
+              },
+              {
+                "binderResidueNumber": 119,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.652789208262639
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.6870352588495816
+              }
+            ],
+            "binder": {
+              "chain": "D160",
+              "residueNumbers": [
+                119,
+                127,
+                131,
+                156
+              ]
+            },
+            "target": {
+              "chain": "P160",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D160",
+            "originalChain": "A",
+            "residueNumbers": [
+              116,
+              117,
+              118,
+              119,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 153,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.704763990340344
+              },
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.934203337499078
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3442659166101936
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.6139731735313716
+              }
+            ],
+            "binder": {
+              "chain": "D160",
+              "residueNumbers": [
+                127,
+                131,
+                153,
+                156
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-8995a1e3",
+      "uuid": "8995a1e3",
+      "globalOrdinal": 162,
+      "displayLabel": "Design162",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design162",
+      "targetLabel": "Target3",
+      "binderChain": "D162",
+      "targetChain": "P162",
+      "binderSequence": "SIENKDTLLRKLADPAELDRLIAQVREQIAKETDPKRRAHLEQVLAILEKARAGELTPEQAVAEIDRLDSTVAEAAAKEAAAKEAAAKASEIPAKEEILELFRKALEEAAANPEVSVDEVVEGIIKTLEQLLKNGMEPKVVAEIAREAARLAEEYGASKEAVEKLLKLAEEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/8995a1e3/8995a1e3_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/8995a1e3/8995a1e3_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "ac0d432b42adc2afd4469800f57c8e83eff805ebae7720d8ade2e81fd6827242",
+        "bytes": 146934,
+        "downloaded": true,
+        "gitBlobSha1": "ef2ac1d1f5d8b0d65bfb1d7372017840ddbae906"
+      },
+      "originalChainMapping": {
+        "A": "D162",
+        "B": "P162"
+      },
+      "atomCount": 1810,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.05819045448944503,
+            0.6198346006364736,
+            -0.7825720023487519,
+            9.1831963690517
+          ],
+          [
+            -0.7675038831879125,
+            -0.5290663568506536,
+            -0.3619759375155368,
+            0.7241085524485313
+          ],
+          [
+            -0.6383977289259315,
+            0.5795635063585352,
+            0.5065120746829371,
+            15.299605355082782
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.24011775393614485,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7496,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7496,
+          "reportedFinalScore": "0.7496"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.338137562066045,
+            -23.577257110371374,
+            -20.83795407466713
+          ],
+          "max": [
+            36.813253861344094,
+            26.37215590747495,
+            59.81986477698725
+          ]
+        },
+        "centerAngstrom": [
+          9.237558149639025,
+          1.3974493985517888,
+          19.49095535116006
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.363703562737545,
+            -17.228238254922744,
+            -20.83795407466713
+          ],
+          "max": [
+            36.813253861344094,
+            26.37215590747495,
+            59.81986477698725
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          11.6695552710806,
+          4.457054703043512,
+          20.660219288532858
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.338137562066045,
+            -23.577257110371374,
+            -9.877545041392317
+          ],
+          "max": [
+            14.622846008107766,
+            5.153201963379689,
+            11.347817430514088
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          4.0602442043434294e-15,
+          -8.823492507839072,
+          3.3553406966449175e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D162",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "P162",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 134,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.409134934261183
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.489802859761565
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.508102621075957
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.541288042506569
+              }
+            ],
+            "binder": {
+              "chain": "D162",
+              "residueNumbers": [
+                101,
+                105,
+                130,
+                134
+              ]
+            },
+            "target": {
+              "chain": "P162",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D162",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.8030225180392736
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.0867572801305
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.363609807058428
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.406414653737917
+              }
+            ],
+            "binder": {
+              "chain": "D162",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                130
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-cdc4f510",
+      "uuid": "cdc4f510",
+      "globalOrdinal": 163,
+      "displayLabel": "Design163",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design163",
+      "targetLabel": "Target3",
+      "binderChain": "D163",
+      "targetChain": "P163",
+      "binderSequence": "SIENKDTLLRKLADPAELDRLIAQVREQIAKETDPKRRAHLEQVLAILEKARAGELTPEQAVAEIDRLDSTVAEAAAKEAAAKEAAAKASEIPAEEEILELFEEALKKAAEDPSVSVDEVVEGIIKTLEQLRKNGMAPEKVAKIAYRAAELAEKYGASEESVEKLRELAKEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/cdc4f510/cdc4f510_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/cdc4f510/cdc4f510_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "56e35b0b9342f11db4bda49d3eea89f8f9a4f372670724fd66cdc68b02d05197",
+        "bytes": 147339,
+        "downloaded": true,
+        "gitBlobSha1": "380f1b42702c0e3cf0053c2afcac01c77279e589"
+      },
+      "originalChainMapping": {
+        "A": "D163",
+        "B": "P163"
+      },
+      "atomCount": 1815,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            0.10645716517180276,
+            0.49785606319262304,
+            -0.8607010005373104,
+            8.78697187063448
+          ],
+          [
+            -0.5642010189201582,
+            -0.6825273333148265,
+            -0.46457900246094574,
+            3.2589350341116408
+          ],
+          [
+            -0.818745431885297,
+            0.5350661450890872,
+            0.20823097307189029,
+            15.626378632296214
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.27025708311777513,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7219,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7219,
+          "reportedFinalScore": "0.7219"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -17.53459402681665,
+            -23.51957325230646,
+            -20.832393293322518
+          ],
+          "max": [
+            36.60030538567008,
+            25.617980827858144,
+            61.24133124210614
+          ]
+        },
+        "centerAngstrom": [
+          9.532855679426717,
+          1.0492037877758413,
+          20.204468974391812
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -16.0667884999745,
+            -7.496566628180165,
+            -20.832393293322518
+          ],
+          "max": [
+            36.60030538567008,
+            25.617980827858144,
+            61.24133124210614
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          11.114397346479956,
+          7.805932985239326,
+          21.048831923693243
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -17.53459402681665,
+            -23.51957325230646,
+            -10.602887320224193
+          ],
+          "max": [
+            14.616365631801951,
+            5.106326753465649,
+            11.853990548269591
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          -1.578983857244667e-15,
+          -8.82349250783907,
+          6.5133084111342514e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D163",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "P163",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.523936719068604
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5276750133763723
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5384823017785467
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5629417620836854
+              }
+            ],
+            "binder": {
+              "chain": "D163",
+              "residueNumbers": [
+                101,
+                105,
+                130,
+                131
+              ]
+            },
+            "target": {
+              "chain": "P163",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D163",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.700162264577595
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.0301453781415146
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3090763427056524
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4687380717791734
+              }
+            ],
+            "binder": {
+              "chain": "D163",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                130
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-d62f6cc0",
+      "uuid": "d62f6cc0",
+      "globalOrdinal": 164,
+      "displayLabel": "Design164",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design164",
+      "targetLabel": "Target3",
+      "binderChain": "D164",
+      "targetChain": "P164",
+      "binderSequence": "SIENKDTLLRKLADPAELDRLIAQVREQIAKETDPKRRAHLEQVLAILEKARAGELTPEQAVAEIDRLDSTVAEAAAKEAAAKEAAAKASEIPPEEEILELFEEALRKAAEDPSVSVDEVVEGIKKTLEQLYKNGMPPEVVAKIARRAAEAARKYGASEEAVEELLKLAEEFEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/d62f6cc0/d62f6cc0_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/d62f6cc0/d62f6cc0_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "654ecdebcf13f0f4f89d2c0e480399d7a73840fb48c62b9dae95da285cac6798",
+        "bytes": 147258,
+        "downloaded": true,
+        "gitBlobSha1": "2fd967bcdf5528e4961d3f0b9c1a3ab772bf868d"
+      },
+      "originalChainMapping": {
+        "A": "D164",
+        "B": "P164"
+      },
+      "atomCount": 1814,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.15930539614010825,
+            0.59337994520568,
+            -0.7890006536045121,
+            7.439183153034509
+          ],
+          [
+            -0.7511801121062425,
+            -0.5914403759650183,
+            -0.29313259943992875,
+            2.175286396415994
+          ],
+          [
+            -0.6405858489981615,
+            0.5459839945511787,
+            0.5399548571475608,
+            15.9412246077186
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.2816102905780294,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7148,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7148,
+          "reportedFinalScore": "0.7148"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -17.87963380253986,
+            -23.56544624178392,
+            -21.226012103061187
+          ],
+          "max": [
+            32.55051431238142,
+            24.515864800797825,
+            62.69259798758835
+          ]
+        },
+        "centerAngstrom": [
+          7.335440254920778,
+          0.47520927950695224,
+          20.73329294226358
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.598386718337789,
+            -11.493845351877027,
+            -21.226012103061187
+          ],
+          "max": [
+            32.55051431238142,
+            24.515864800797825,
+            62.69259798758835
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          9.35926225855943,
+          6.475345292619355,
+          21.585459899434543
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -17.87963380253986,
+            -23.56544624178392,
+            -10.561387647502913
+          ],
+          "max": [
+            14.615017251539893,
+            5.141009795878361,
+            11.869482500784187
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          2.086514382787596e-15,
+          -8.823492507839065,
+          3.157967714489334e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D164",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "P164",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.502586901134647
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5088365593170625
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.510086893511328
+              },
+              {
+                "binderResidueNumber": 134,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5720954634499904
+              }
+            ],
+            "binder": {
+              "chain": "D164",
+              "residueNumbers": [
+                101,
+                105,
+                130,
+                134
+              ]
+            },
+            "target": {
+              "chain": "P164",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D164",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.7085765074679227
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.1344923785799867
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.469265870671474
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.516487068732349
+              }
+            ],
+            "binder": {
+              "chain": "D164",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                130
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-062f6e47",
+      "uuid": "062f6e47",
+      "globalOrdinal": 165,
+      "displayLabel": "Design165",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design165",
+      "targetLabel": "Target3",
+      "binderChain": "D165",
+      "targetChain": "P165",
+      "binderSequence": "SIENKDTLLRKLADPAELDRLIAQVREQIAKETDPKRRAHLEQVLAILEKARAGELTPEQAVAEIDRLDSTVAEAAAKEAAAKEAAAKASEIPPEEEIIKLFEEALKKAAADPSVSVDEVVEGIKKTLEQLYKNGMPPSKVAKIAREAAKLAKEYGASEEAVEELEKLAEEFEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/062f6e47/062f6e47_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/062f6e47/062f6e47_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "578657c69586bd64680c00198b104ba77bcf972a0d12ec56ac5ed01e6398fff3",
+        "bytes": 146691,
+        "downloaded": true,
+        "gitBlobSha1": "6468459c35b5602955117f071a30d20ec08b9dd0"
+      },
+      "originalChainMapping": {
+        "A": "D165",
+        "B": "P165"
+      },
+      "atomCount": 1807,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            0.42759462246698204,
+            0.39578278666629885,
+            -0.8127230922128256,
+            10.850647487586714
+          ],
+          [
+            -0.46690247794816614,
+            -0.6731562880151443,
+            -0.5734655072378226,
+            3.508926687362643
+          ],
+          [
+            -0.7740574364497625,
+            0.6246731927050574,
+            -0.10304604501138534,
+            14.779847618186034
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.2656614947968907,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7505,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7505,
+          "reportedFinalScore": "0.7505"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.76662488459845,
+            -23.561586900658376,
+            -20.56033328385167
+          ],
+          "max": [
+            42.171345211170255,
+            24.782465551013722,
+            58.017956274090736
+          ]
+        },
+        "centerAngstrom": [
+          11.702360163285903,
+          0.6104393251776727,
+          18.728811495119533
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -13.689641062906373,
+            -7.087243424631397,
+            -20.56033328385167
+          ],
+          "max": [
+            42.171345211170255,
+            24.782465551013722,
+            58.017956274090736
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          13.850660354271051,
+          8.124539775122173,
+          19.538294764544393
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.76662488459845,
+            -23.561586900658376,
+            -10.68752561527329
+          ],
+          "max": [
+            14.644208298210106,
+            5.192123284225006,
+            11.60293098803284
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          4.285813326806953e-15,
+          -8.823492507839074,
+          -4.08844034465137e-16
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D165",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              97,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "P165",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4012147829856323
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5135954519551627
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.523603411282263
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.531443472576051
+              }
+            ],
+            "binder": {
+              "chain": "D165",
+              "residueNumbers": [
+                101,
+                105,
+                130,
+                131
+              ]
+            },
+            "target": {
+              "chain": "P165",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D165",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              97,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.5388596852881204
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.9979269979381065
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4151514318717346
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5373993625413824
+              }
+            ],
+            "binder": {
+              "chain": "D165",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                130
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-eeaf0e49",
+      "uuid": "eeaf0e49",
+      "globalOrdinal": 166,
+      "displayLabel": "Design166",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design166",
+      "targetLabel": "Target3",
+      "binderChain": "D166",
+      "targetChain": "P166",
+      "binderSequence": "SIENKDTLLRKLADPAELDRLIAQVREQIAKETDPKRRAHLEQVLAILEKARAGELTPEQAVAEIDRLDSTVAEAAAKEAAAKEAAAKASEIPAEEEIIKLFEEALEKAAADPSVSVDEVVEGIIKTLEQLLKNGMAPSVVAKIARRAAELAEKYGASKEAVERLRELAKEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/eeaf0e49/eeaf0e49_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/eeaf0e49/eeaf0e49_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "8b3b42fe19d910bfc6a7db291f1e99f80d570a76ee1bc1f4288aa23932dc6bb4",
+        "bytes": 146367,
+        "downloaded": true,
+        "gitBlobSha1": "f0417795aaad682d268a5e7c107a779ad0d84551"
+      },
+      "originalChainMapping": {
+        "A": "D166",
+        "B": "P166"
+      },
+      "atomCount": 1803,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.0323992408218077,
+            0.8327161415826231,
+            -0.5527514059158242,
+            12.367340674202671
+          ],
+          [
+            -0.695073226966473,
+            -0.41618028419400144,
+            -0.5862313367627275,
+            0.20092643984234737
+          ],
+          [
+            -0.7182085340265639,
+            0.36520925316310104,
+            0.5922826209297943,
+            13.41522561134939
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.30795887814884215,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7026,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7026,
+          "reportedFinalScore": "0.7026"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -17.84733495808011,
+            -23.65066987115228,
+            -21.07257331516569
+          ],
+          "max": [
+            46.235935467707904,
+            26.31969477701691,
+            55.87745331395857
+          ]
+        },
+        "centerAngstrom": [
+          14.194300254813896,
+          1.334512452932314,
+          17.40243999939644
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.186139884954232,
+            -19.26154612681797,
+            -21.07257331516569
+          ],
+          "max": [
+            46.235935467707904,
+            26.31969477701691,
+            55.87745331395857
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          15.934376777200933,
+          3.5786162506928245,
+          18.300104068422435
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -17.84733495808011,
+            -23.65066987115228,
+            -10.509140640380172
+          ],
+          "max": [
+            14.603800819818463,
+            5.2324063701016135,
+            11.839367531843717
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          2.3684757858670005e-15,
+          -8.823492507839076,
+          2.32618157540509e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D166",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "P166",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5129977227433553
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.552789748915632
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.56159360399246
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.6352642269854334
+              }
+            ],
+            "binder": {
+              "chain": "D166",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                130
+              ]
+            },
+            "target": {
+              "chain": "P166",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D166",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.626956513137576
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.2710874374819667
+              },
+              {
+                "binderResidueNumber": 130,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.413960558537399
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.466458531072187
+              }
+            ],
+            "binder": {
+              "chain": "D166",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                130
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-e1d7f65f",
+      "uuid": "e1d7f65f",
+      "globalOrdinal": 167,
+      "displayLabel": "Design167",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design167",
+      "targetLabel": "Target3",
+      "binderChain": "D167",
+      "targetChain": "P167",
+      "binderSequence": "SIENKDTLLRKLADPAELDRLIAQVREQIAKETDPKRRAHLEQVLAILEKARAGELTPEQAVAEIDRLDSTVAEAAAKEAAAKEAAAKASEIPAPEEILELFREALEKAAASPDVSVDEVVEGILKTLDQLLKNGMAPKVVAEIAREAARLAREYGASEEAVQRLLEKAEEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/e1d7f65f/e1d7f65f_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/e1d7f65f/e1d7f65f_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "b46177a818e41c93762ab4a062af337b9932ca3a9b76f7307fcdc9f372ed03d5",
+        "bytes": 146529,
+        "downloaded": true,
+        "gitBlobSha1": "ca4e1ddcef293493b21af8cc2c56f1506fed13b3"
+      },
+      "originalChainMapping": {
+        "A": "D167",
+        "B": "P167"
+      },
+      "atomCount": 1805,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.710697277049763,
+            -0.5560069705006795,
+            -0.43100537020866553,
+            11.674883370416715
+          ],
+          [
+            0.1143386775552772,
+            -0.6958063103720568,
+            0.709069986151815,
+            4.566524259905736
+          ],
+          [
+            -0.6941441112686633,
+            0.45465352434692663,
+            0.5580807518540266,
+            14.2908755150944
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.26636978246110277,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7246,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7246,
+          "reportedFinalScore": "0.7246"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.949355993970077,
+            -23.651086532097498,
+            -20.70753649355948
+          ],
+          "max": [
+            46.7385147397246,
+            24.692982002139654,
+            57.81530695717371
+          ]
+        },
+        "centerAngstrom": [
+          13.894579372877262,
+          0.5209477350210783,
+          18.553885231807115
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -14.800053056931123,
+            -6.7685699136123825,
+            -20.70753649355948
+          ],
+          "max": [
+            46.7385147397246,
+            24.692982002139654,
+            57.81530695717371
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          15.208635815637972,
+          8.712938719236654,
+          19.449714424743917
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.949355993970077,
+            -23.651086532097498,
+            -10.459000235775916
+          ],
+          "max": [
+            14.654646569052312,
+            5.183149736246778,
+            10.840691812196326
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          4.68055929111812e-15,
+          -8.823492507839077,
+          2.6081429784844945e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D167",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              97,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              131,
+              134
+            ]
+          },
+          "target": {
+            "chain": "P167",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 134,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.419809790032189
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.505283298108728
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5673232261739325
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.592176359813087
+              }
+            ],
+            "binder": {
+              "chain": "D167",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                134
+              ]
+            },
+            "target": {
+              "chain": "P167",
+              "residueNumbers": [
+                17,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D167",
+            "originalChain": "A",
+            "residueNumbers": [
+              91,
+              92,
+              93,
+              97,
+              98,
+              101,
+              102,
+              105,
+              115,
+              119,
+              120,
+              122,
+              123,
+              124,
+              126,
+              127,
+              130,
+              134
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.5868041011578695
+              },
+              {
+                "binderResidueNumber": 105,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.0705327918742173
+              },
+              {
+                "binderResidueNumber": 134,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4494869819795646
+              },
+              {
+                "binderResidueNumber": 101,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4641029731298403
+              }
+            ],
+            "binder": {
+              "chain": "D167",
+              "residueNumbers": [
+                101,
+                105,
+                127,
+                134
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                17,
+                34,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-0bf88e5c",
+      "uuid": "0bf88e5c",
+      "globalOrdinal": 168,
+      "displayLabel": "Design168",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design168",
+      "targetLabel": "Target3",
+      "binderChain": "D168",
+      "targetChain": "P168",
+      "binderSequence": "MIDTTPVPLRKGPDPAVSLRANELLEKLLRGEATPEEVQNLLAILDSLPTDMDPALREVVDYLKALARKKLGEEVEFPELSPRAQRLLDEIKARVEARAEAAAKEAAAKEAAAKASEIPAEEEILELFEEALKKAAEDPSVSVDEVVEGIIKTLEQLRKNGMAPEKVAKIAYRAAELAEKYGASEESVEKLRELAKEYEK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/0bf88e5c/0bf88e5c_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/0bf88e5c/0bf88e5c_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "519cd164a6b14a6d3d62e1ccdcac291beb8ed5cdd00ed28bc6a5ef4d7df826bc",
+        "bytes": 163701,
+        "downloaded": true,
+        "gitBlobSha1": "32726c00dd7009126d95f804eae49ae2272bd95e"
+      },
+      "originalChainMapping": {
+        "A": "D168",
+        "B": "P168"
+      },
+      "atomCount": 2017,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.10889583898612999,
+            -0.6318862113016493,
+            0.7673731245087719,
+            21.04105023238833
+          ],
+          [
+            -0.9245337567763753,
+            -0.21923585999958564,
+            -0.3117257934005534,
+            -1.9012891590197298
+          ],
+          [
+            0.36521093744912614,
+            -0.7434079994572899,
+            -0.5603262598794035,
+            4.9321307330361295
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.2564621805698104,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.6887,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.6887,
+          "reportedFinalScore": "0.6887"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -18.84202687044975,
+            -23.617111667901767,
+            -20.749173219632766
+          ],
+          "max": [
+            68.79914296312425,
+            25.047794664504984,
+            35.334210195317695
+          ]
+        },
+        "centerAngstrom": [
+          24.978558046337252,
+          0.7153414983016084,
+          7.2925184878424645
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -15.635005418082592,
+            -22.81957968032826,
+            -20.749173219632766
+          ],
+          "max": [
+            68.79914296312425,
+            25.047794664504984,
+            35.334210195317695
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          27.85429731884944,
+          0.3864535416756937,
+          6.7404955534453075
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -18.84202687044975,
+            -23.617111667901767,
+            -10.610292464846673
+          ],
+          "max": [
+            14.632000529972057,
+            5.2993403377021355,
+            11.224378164128531
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          4.7933438523498825e-15,
+          -8.823492507839068,
+          -1.1842378929335002e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D168",
+            "originalChain": "A",
+            "residueNumbers": [
+              116,
+              117,
+              118,
+              119,
+              124,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              150,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "P168",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3594725776526304
+              },
+              {
+                "binderResidueNumber": 157,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.4676443012512115
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.5582582818002417
+              },
+              {
+                "binderResidueNumber": 127,
+                "targetResidueNumber": 34,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.673601638719147
+              }
+            ],
+            "binder": {
+              "chain": "D168",
+              "residueNumbers": [
+                127,
+                131,
+                156,
+                157
+              ]
+            },
+            "target": {
+              "chain": "P168",
+              "residueNumbers": [
+                15,
+                17,
+                34,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D168",
+            "originalChain": "A",
+            "residueNumbers": [
+              116,
+              117,
+              118,
+              119,
+              127,
+              128,
+              131,
+              141,
+              145,
+              146,
+              148,
+              149,
+              152,
+              153,
+              156,
+              157,
+              160
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              15,
+              16,
+              17,
+              18,
+              19,
+              34,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 153,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.706670660414914
+              },
+              {
+                "binderResidueNumber": 156,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.1259235803587453
+              },
+              {
+                "binderResidueNumber": 131,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3294886168634883
+              },
+              {
+                "binderResidueNumber": 119,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.530639860517969
+              }
+            ],
+            "binder": {
+              "chain": "D168",
+              "residueNumbers": [
+                119,
+                131,
+                153,
+                156
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                15,
+                17,
+                36,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-569c6be9",
+      "uuid": "569c6be9",
+      "globalOrdinal": 169,
+      "displayLabel": "Design169",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design169",
+      "targetLabel": "Target3",
+      "binderChain": "D169",
+      "targetChain": "P169",
+      "binderSequence": "SSLELSDEEIEENRKILLDALLAAGVDKETAEKIVEEIIKLVKSNKHISFDDIINIFIKHGVTEEQFRKFLELLRDRYLESTQVSPEELKLIDENVEDVINRYREKLAKLAEAAAKEAAAKEAAAKANELVQLEIEAIELSKKLYENGIENTPKEEIDRFIELQNKIADMIEKLINTNSVEETVKILSEYIEEVAEYYKSQTDDPKLIKEIEEAKERNIKELEKLIKQYLESKK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/569c6be9/569c6be9_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/569c6be9/569c6be9_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "e71ceb8335ee3b820028062a0c4f7d5eabfc1c5bfe2a65062b555aa0ad8fee9a",
+        "bytes": 192780,
+        "downloaded": true,
+        "gitBlobSha1": "9e9e52e0ddd5a4974bf07e903a0803ee82e058d7"
+      },
+      "originalChainMapping": {
+        "A": "D169",
+        "B": "P169"
+      },
+      "atomCount": 2376,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            -0.9402371650063664,
+            -0.18585952510521744,
+            -0.2853249208682168,
+            7.100097884541307
+          ],
+          [
+            0.340478254126274,
+            -0.4999610921750077,
+            -0.7963124165667002,
+            21.120994769152716
+          ],
+          [
+            0.005350888516453802,
+            -0.8458694599279708,
+            0.5333631265406789,
+            -7.49100655661537
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.4146183739463153,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "published_final_score",
+        "evidenceKind": "computational-score",
+        "reason": "No intended target has both a published Adaptyv hit and a positive KD; selected the highest published intended-target final_score. A score is not measured binding.",
+        "rankingMetric": "final_score",
+        "rankingValue": 0.7618,
+        "qualifier": null
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "no hit",
+            "kd": {
+              "reported": "",
+              "value": null,
+              "unit": "nM",
+              "qualifier": "not_reported",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "hit",
+            "kd": {
+              "reported": "65.2",
+              "value": 65.2,
+              "unit": "nM",
+              "qualifier": "point_estimate",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7618,
+          "reportedFinalScore": "0.7618"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -21.29401916468214,
+            -23.343760078829312,
+            -40.62721198685431
+          ],
+          "max": [
+            39.72512779738668,
+            69.42824555899196,
+            23.16075968463249
+          ]
+        },
+        "centerAngstrom": [
+          9.215554316352272,
+          23.042242740081324,
+          -8.73322615111091
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -21.29401916468214,
+            -12.833655115306676,
+            -40.62721198685431
+          ],
+          "max": [
+            39.72512779738668,
+            69.42824555899196,
+            23.16075968463249
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          8.718996864091768,
+          27.86447261694271,
+          -9.113795685675466
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -17.452622303453154,
+            -23.343760078829312,
+            -10.494110813623056
+          ],
+          "max": [
+            14.596596585740876,
+            4.61795452486243,
+            11.726408318957333
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          3.4963213981846198e-15,
+          -8.823492507839067,
+          -8.458842092382145e-16
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D169",
+            "originalChain": "A",
+            "residueNumbers": [
+              134,
+              137,
+              138,
+              141,
+              142,
+              144,
+              145,
+              149,
+              160,
+              161,
+              164,
+              165,
+              167,
+              168,
+              171,
+              172,
+              175,
+              187,
+              190,
+              191,
+              194,
+              198,
+              207,
+              214,
+              217,
+              218,
+              222,
+              225,
+              229
+            ]
+          },
+          "target": {
+            "chain": "P169",
+            "originalChain": "B",
+            "residueNumbers": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              23,
+              26,
+              33,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42,
+              56,
+              61,
+              62,
+              63
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 134,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.715750540826605
+              },
+              {
+                "binderResidueNumber": 141,
+                "targetResidueNumber": 8,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.9599246612033925
+              },
+              {
+                "binderResidueNumber": 145,
+                "targetResidueNumber": 26,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.1857510888329004
+              },
+              {
+                "binderResidueNumber": 175,
+                "targetResidueNumber": 38,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3945317792001877
+              }
+            ],
+            "binder": {
+              "chain": "D169",
+              "residueNumbers": [
+                134,
+                141,
+                145,
+                175
+              ]
+            },
+            "target": {
+              "chain": "P169",
+              "residueNumbers": [
+                8,
+                15,
+                26,
+                38
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D169",
+            "originalChain": "A",
+            "residueNumbers": [
+              134,
+              137,
+              138,
+              141,
+              142,
+              144,
+              145,
+              149,
+              160,
+              161,
+              164,
+              165,
+              167,
+              168,
+              169,
+              171,
+              172,
+              175,
+              187,
+              190,
+              194,
+              198,
+              207,
+              214,
+              217,
+              218,
+              222,
+              225,
+              229
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              23,
+              26,
+              33,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42,
+              56,
+              61,
+              62,
+              63
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 198,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.1717375740263942
+              },
+              {
+                "binderResidueNumber": 145,
+                "targetResidueNumber": 26,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.867598775550855
+              },
+              {
+                "binderResidueNumber": 168,
+                "targetResidueNumber": 39,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.8764453022712297
+              },
+              {
+                "binderResidueNumber": 141,
+                "targetResidueNumber": 8,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.914099130806171
+              }
+            ],
+            "binder": {
+              "chain": "D169",
+              "residueNumbers": [
+                141,
+                145,
+                168,
+                198
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                8,
+                26,
+                39,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-0af4b327",
+      "uuid": "0af4b327",
+      "globalOrdinal": 170,
+      "displayLabel": "Design170",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design170",
+      "targetLabel": "Target3",
+      "binderChain": "D170",
+      "targetChain": "P170",
+      "binderSequence": "SSLELSDEEIEENRKILLDALLAAGVDKETAEKIVEEIIKLVKSNKHISFDDIINIFIKHGVTEEQFRKFLELLRDRYLESTQVSPEELKLIDENVEDVINRYREKLAKLAEAAAKEAAAKEAAAKADKLVELELEAIELSKKLYEEGIENTPQEEIDKFIDIQNEIADLIEKIINENSIEEAVKILSEYIDKVAEYYKSQTTDPELIAEIEKAKEENIARLKKLIEEYRKSQE",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/0af4b327/0af4b327_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/0af4b327/0af4b327_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "e12ab362cec7b38e3f0379c0a6430f9062687e2d43b5229a3d9dff5330e50848",
+        "bytes": 192132,
+        "downloaded": true,
+        "gitBlobSha1": "8005ca54ce17b9ef67aa95cd7208155e0ca628e6"
+      },
+      "originalChainMapping": {
+        "A": "D170",
+        "B": "P170"
+      },
+      "atomCount": 2368,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            0.7661953049702872,
+            0.2846490578800493,
+            -0.576124698732392,
+            -3.0741110578013116
+          ],
+          [
+            -0.4489663177438987,
+            -0.4043099980011298,
+            -0.7968454499134768,
+            23.11216522623931
+          ],
+          [
+            -0.4597542823867699,
+            0.8691998270618367,
+            -0.18198258285533625,
+            -9.28257956008463
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.2751992791637376,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "adaptyv_hit_kd",
+        "evidenceKind": "measured-hit",
+        "reason": "Smallest reported positive Adaptyv KD among intended targets with a published Adaptyv hit; this alone does not establish the dataset binder criteria.",
+        "rankingMetric": "Adaptyv_KD_nM",
+        "rankingValue": 1.65,
+        "qualifier": "approximate"
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "hit",
+            "kd": {
+              "reported": "1.65",
+              "value": 1.65,
+              "unit": "nM",
+              "qualifier": "approximate",
+              "notes": [
+                "AaH I: Adaptyv Bio's KD is approximate"
+              ]
+            }
+          },
+          "twist": {
+            "result": "hit",
+            "kd": {
+              "reported": "12.5",
+              "value": 12.5,
+              "unit": "nM",
+              "qualifier": "point_estimate",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7608,
+          "reportedFinalScore": "0.7608"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -23.609095889603708,
+            -23.460913405367474,
+            -44.88358517211138
+          ],
+          "max": [
+            23.62517273558139,
+            77.51179197245717,
+            22.905817059255646
+          ]
+        },
+        "centerAngstrom": [
+          0.008038422988841276,
+          27.02543928354485,
+          -10.988884056427867
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -23.609095889603708,
+            -14.61305278575092,
+            -44.88358517211138
+          ],
+          "max": [
+            23.62517273558139,
+            77.51179197245717,
+            22.905817059255646
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          -4.6452779766321,
+          30.08129755772315,
+          -9.898051181228324
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -16.966114302522698,
+            -23.460913405367474,
+            -10.235182162639836
+          ],
+          "max": [
+            14.634495704042617,
+            4.532554439610287,
+            11.791859974494601
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          -1.0714533317017383e-15,
+          -8.823492507839074,
+          4.6241670105022394e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D170",
+            "originalChain": "A",
+            "residueNumbers": [
+              134,
+              137,
+              138,
+              141,
+              142,
+              144,
+              145,
+              149,
+              157,
+              160,
+              161,
+              164,
+              165,
+              167,
+              168,
+              169,
+              171,
+              172,
+              175,
+              187,
+              190,
+              191,
+              194,
+              198,
+              207,
+              214,
+              218,
+              221,
+              222,
+              225,
+              229
+            ]
+          },
+          "target": {
+            "chain": "P170",
+            "originalChain": "B",
+            "residueNumbers": [
+              5,
+              8,
+              9,
+              10,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              23,
+              26,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42,
+              61,
+              62,
+              63
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 164,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.7418028740228575
+              },
+              {
+                "binderResidueNumber": 221,
+                "targetResidueNumber": 35,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.8752991148748333
+              },
+              {
+                "binderResidueNumber": 141,
+                "targetResidueNumber": 8,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.9922493211629297
+              },
+              {
+                "binderResidueNumber": 145,
+                "targetResidueNumber": 26,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.0487440036841402
+              }
+            ],
+            "binder": {
+              "chain": "D170",
+              "residueNumbers": [
+                141,
+                145,
+                164,
+                221
+              ]
+            },
+            "target": {
+              "chain": "P170",
+              "residueNumbers": [
+                8,
+                15,
+                26,
+                35
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D170",
+            "originalChain": "A",
+            "residueNumbers": [
+              134,
+              137,
+              138,
+              141,
+              142,
+              144,
+              145,
+              149,
+              157,
+              160,
+              161,
+              164,
+              165,
+              167,
+              168,
+              169,
+              171,
+              172,
+              175,
+              187,
+              190,
+              191,
+              194,
+              198,
+              207,
+              214,
+              218,
+              221,
+              222,
+              225,
+              229
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              5,
+              8,
+              9,
+              10,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              23,
+              26,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42,
+              61,
+              62,
+              63
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 198,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.143867578318637
+              },
+              {
+                "binderResidueNumber": 164,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.7084294545742447
+              },
+              {
+                "binderResidueNumber": 145,
+                "targetResidueNumber": 26,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.761373200104857
+              },
+              {
+                "binderResidueNumber": 141,
+                "targetResidueNumber": 8,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.7831536175355924
+              }
+            ],
+            "binder": {
+              "chain": "D170",
+              "residueNumbers": [
+                141,
+                145,
+                164,
+                198
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                8,
+                15,
+                26,
+                42
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "binder-39f80384",
+      "uuid": "39f80384",
+      "globalOrdinal": 171,
+      "displayLabel": "Design171",
+      "target": "AaH I",
+      "targetId": "aah1",
+      "binderLabel": "Design171",
+      "targetLabel": "Target3",
+      "binderChain": "D171",
+      "targetChain": "P171",
+      "binderSequence": "SSLELSDEEIEENRKILLDALLAAGVDKETAEKIVEEIIKLVKSNKHISFDDIINIFIKHGVTEEQFRKFLELLRDRYLESTQVSPEELKLIDENVEDVINRYREKLAKLAEAAAKEAAAKEAAAKANELVQLEIEAIELSKKLYENGIENTPQEEIDRFIELQNKIADLIEKIIETNSVEEAVKILSEYIDEVADYYKSQTDDPALIKEIEEAKERNIKELEKLIKKYLESKK",
+      "targetSequence": "KRDGYIVYPNNCVYHCVPPCDGLCKKNGGSSGSCSFLVPSGLACWCKDLPDNVPIKDTSRKCT",
+      "source": {
+        "file": "structures/39f80384/39f80384_esmfold2-aah1.pdb",
+        "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/resolve/0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1/structures/39f80384/39f80384_esmfold2-aah1.pdb",
+        "revision": "0bac3d0286f7f83b5339f5b4f1e67fbe47a6e7c1",
+        "predictor": "ESMFold2",
+        "kind": "published predicted complex",
+        "sha256": "088d0f534cc5537e80c1579f4a123350e0be3afd71b8cbd61c1ac0254a2224db",
+        "bytes": 192213,
+        "downloaded": true,
+        "gitBlobSha1": "514dddf21ec53138f80646dcfe4d401f514bd037"
+      },
+      "originalChainMapping": {
+        "A": "D171",
+        "B": "P171"
+      },
+      "atomCount": 2369,
+      "alignment": {
+        "method": "Equal-weight target CA Kabsch; identical proper rigid transform applied to both original chains",
+        "matrix": [
+          [
+            0.7110704716746129,
+            -0.6128852328174366,
+            0.34460190902947924,
+            -5.299405927369374
+          ],
+          [
+            -0.49695362395519926,
+            -0.09136015511589299,
+            0.8629544702329287,
+            23.237335666998792
+          ],
+          [
+            -0.4974091675373899,
+            -0.7848726096963234,
+            -0.36953904610777516,
+            -5.576250985230271
+          ]
+        ],
+        "targetCaRmsdAngstrom": 0.3377464994486305,
+        "referenceUuid": "30fc4a66",
+        "coordinateFrame": "binder-gallery-extended-aligned-v1"
+      },
+      "presentationReferenceTarget": {
+        "chain": "T12",
+        "uuid": "30fc4a66",
+        "sourceFile": "structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb",
+        "description": "Same canonical target atoms and absolute coordinates in every batch; aligned-reference overlay differs from original predicted pair"
+      },
+      "selection": {
+        "basis": "adaptyv_hit_kd",
+        "evidenceKind": "measured-hit",
+        "reason": "Smallest reported positive Adaptyv KD among intended targets with a published Adaptyv hit; this alone does not establish the dataset binder criteria.",
+        "rankingMetric": "Adaptyv_KD_nM",
+        "rankingValue": 147.0,
+        "qualifier": "point_estimate"
+      },
+      "assay": {
+        "id": "aah1",
+        "name": "AaH I",
+        "intended": true,
+        "publishedBinder": false,
+        "assays": {
+          "adaptyv": {
+            "result": "hit",
+            "kd": {
+              "reported": "147",
+              "value": 147.0,
+              "unit": "nM",
+              "qualifier": "point_estimate",
+              "notes": []
+            }
+          },
+          "twist": {
+            "result": "hit",
+            "kd": {
+              "reported": "19.9",
+              "value": 19.9,
+              "unit": "nM",
+              "qualifier": "point_estimate",
+              "notes": []
+            }
+          }
+        },
+        "computational": {
+          "finalScore": 0.7659,
+          "reportedFinalScore": "0.7659"
+        }
+      },
+      "spatial": {
+        "boundsAngstrom": {
+          "min": [
+            -25.763185798967186,
+            -23.438231508585044,
+            -38.247042941054815
+          ],
+          "max": [
+            23.182078700549646,
+            77.69998374087314,
+            22.139189996076322
+          ]
+        },
+        "centerAngstrom": [
+          -1.29055354920877,
+          27.130876116144044,
+          -8.053926472489247
+        ],
+        "binderBoundsAngstrom": {
+          "min": [
+            -25.763185798967186,
+            -14.883888690192695,
+            -38.247042941054815
+          ],
+          "max": [
+            23.182078700549646,
+            77.69998374087314,
+            22.139189996076322
+          ]
+        },
+        "binderCaCentroidAngstrom": [
+          -5.599158978169513,
+          30.78579144703015,
+          -8.321161814067537
+        ],
+        "targetBoundsAngstrom": {
+          "min": [
+            -16.399878685166136,
+            -23.438231508585044,
+            -10.419482538312133
+          ],
+          "max": [
+            14.617138026418363,
+            4.501963207870933,
+            11.770185524753739
+          ]
+        },
+        "targetCaCentroidAngstrom": [
+          2.0301221021717147e-15,
+          -8.823492507839065,
+          3.947459643111668e-15
+        ]
+      },
+      "contacts": {
+        "originalPair": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "original published predicted pair, unchanged by its common rigid transform",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D171",
+            "originalChain": "A",
+            "residueNumbers": [
+              134,
+              137,
+              138,
+              141,
+              142,
+              144,
+              145,
+              149,
+              160,
+              161,
+              164,
+              165,
+              167,
+              168,
+              169,
+              171,
+              172,
+              175,
+              187,
+              190,
+              191,
+              194,
+              198,
+              207,
+              210,
+              214,
+              217,
+              218,
+              222,
+              225,
+              229
+            ]
+          },
+          "target": {
+            "chain": "P171",
+            "originalChain": "B",
+            "residueNumbers": [
+              8,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              21,
+              23,
+              26,
+              32,
+              33,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42,
+              56,
+              61,
+              62,
+              63
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 134,
+                "targetResidueNumber": 15,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.4776670478496476
+              },
+              {
+                "binderResidueNumber": 141,
+                "targetResidueNumber": 8,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.0752912057234525
+              },
+              {
+                "binderResidueNumber": 164,
+                "targetResidueNumber": 13,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.361664766153819
+              },
+              {
+                "binderResidueNumber": 222,
+                "targetResidueNumber": 36,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.3924147741689854
+              }
+            ],
+            "binder": {
+              "chain": "D171",
+              "residueNumbers": [
+                134,
+                141,
+                164,
+                222
+              ]
+            },
+            "target": {
+              "chain": "P171",
+              "residueNumbers": [
+                8,
+                13,
+                15,
+                36
+              ]
+            }
+          }
+        },
+        "referenceOverlay": {
+          "method": "Inter-chain heavy-atom minimum-distance proximity; any atom pair at or below cutoff",
+          "cutoffAngstrom": 4.5,
+          "coordinateMode": "displayed aligned-reference overlay, coordinates rounded to 9 decimals",
+          "atomSelection": "All ATOM sites with element other than H or D; backbone and side-chain atoms included",
+          "interpretation": "Geometric proximity only; not a bond assignment, functional claim, affinity estimate or ranking",
+          "binder": {
+            "chain": "D171",
+            "originalChain": "A",
+            "residueNumbers": [
+              134,
+              137,
+              138,
+              141,
+              142,
+              144,
+              145,
+              149,
+              160,
+              161,
+              164,
+              165,
+              167,
+              168,
+              169,
+              171,
+              172,
+              175,
+              190,
+              191,
+              194,
+              198,
+              207,
+              210,
+              214,
+              217,
+              218,
+              222,
+              225,
+              229
+            ]
+          },
+          "target": {
+            "chain": "T12",
+            "originalChain": "B",
+            "residueNumbers": [
+              8,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              21,
+              23,
+              26,
+              32,
+              33,
+              34,
+              35,
+              36,
+              38,
+              39,
+              40,
+              41,
+              42,
+              56,
+              61,
+              62,
+              63
+            ]
+          },
+          "displayExamples": {
+            "selectionMethod": "Sort side-chain heavy-atom residue pairs at or below 4.5 Angstrom by minimum distance, then binder/target author residue number; take first four with no reused residue on either side",
+            "atomSelection": "Exclude H/D and backbone N, CA, C, O, OXT; residues without side-chain heavy atoms cannot supply an example",
+            "purpose": "Small illustrative display subset; not key sites, proven interactions, functional importance or a binder ranking",
+            "maximumPairs": 4,
+            "pairs": [
+              {
+                "binderResidueNumber": 198,
+                "targetResidueNumber": 42,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 1.8638778589834086
+              },
+              {
+                "binderResidueNumber": 145,
+                "targetResidueNumber": 26,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.8118554976032675
+              },
+              {
+                "binderResidueNumber": 142,
+                "targetResidueNumber": 17,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 2.9753870487477503
+              },
+              {
+                "binderResidueNumber": 141,
+                "targetResidueNumber": 8,
+                "minimumSidechainHeavyAtomDistanceAngstrom": 3.0314552381602895
+              }
+            ],
+            "binder": {
+              "chain": "D171",
+              "residueNumbers": [
+                141,
+                142,
+                145,
+                198
+              ]
+            },
+            "target": {
+              "chain": "T12",
+              "residueNumbers": [
+                8,
+                17,
+                26,
+                42
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

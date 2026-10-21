@@ -115,8 +115,10 @@ PATH and has no window of its own, so every optional helper it should reach
 has to be named by absolute path in `env`. Read [Voice and helper configuration](voice.md) for optional helper overrides.
 
 For requested Claude Science setup, grant the connector read access to the plugin root using the installed app's
-permission controls. The sandbox also needs read and Unix-socket access to the
-`.stereofold` folder: in `~/.claude-science/config.toml`, add its absolute path
+permission controls. A grant to the assistant's kernel may not update the MCP
+connector sandbox. For versions using `~/.claude-science/config.toml`, include
+the actual plugin root in `[sandbox] user_read_paths`. The sandbox also needs
+read and Unix-socket access to the `.stereofold` folder: add its absolute path
 to `[sandbox] user_read_paths` and to `[sandbox.network] allow_unix_sockets`,
 keeping the paths already in both lists. Then restart Claude Science and reconnect the connector so the daemon reads
 the changed configuration. For a headset, the user runs
@@ -133,6 +135,52 @@ that directory using the requested host's permission settings, preserving
 other configuration. Captures report the bridge file, media type, source and
 SHA-256, or a bridge error; configured transcript delivery writes public voice
 fields. The directory provides file delivery alongside the scene/socket bridge.
+
+#### Claude Science recovery sequence
+
+Check these separately, in order; fixing one does not establish the next:
+
+1. **Connector startup.** Resolve the Node executable and server argument from
+   the actual connector configuration. Read that runtime's skills and assets;
+   an older granted checkout may lack the requested demo. If the error names
+   an unreadable server, grant the plugin root to the connector sandbox and
+   restart/reconnect. Preserve existing paths. A visible folder in a kernel
+   is not proof that the connector can read it.
+2. **Shared owner.** Call `continue_session({assistant:"Claude"})` once and
+   read the complete result. `role:"none"` with
+   `kind:"external-owner-unavailable"` requires host/socket recovery, not a
+   new local `inspect` call. Preserve a live owner when `retry:true` is set.
+3. **Listener denial.** `listen EPERM ... 127.0.0.1` establishes that this
+   process cannot open the listener. Changing `open_companion` to LAN still
+   needs its local renderer and does not fix that denial. Stop retrying
+   `open_inspector`/`open_companion` in that process. Start the supported
+   terminal headset host outside the connector sandbox, then join it through
+   the configured scene record and Unix socket. Use an available authorized
+   local terminal; when the agent has no such execution surface, give the
+   user one exact command. Do not broaden unrelated sandbox permissions.
+4. **Requested source.** A failed public download alone does not establish
+   its cause. Keep the returned error. For a bundled lesson, use its local
+   coordinates and lesson directly; no placeholder PDB download is needed.
+   See the [binder gallery guide](../../molecular-presentation/references/binder-gallery.md)
+   for its new-session and terminal-host commands.
+5. **Rendered delivery.** After joining, retain the returned `sessionId`.
+   Reuse an already-loaded requested lesson; otherwise replace the source in
+   that session. Verify the current source's rendered receipt and the Quest
+   page's `in-vr` state, then use `control_tour` with `action:"play"` when
+   playback was requested. A successful tool listing, created session, or
+   dispatched launch does not confirm that the headset shows the scene.
+
+The terminal host must remain running. A socket failure after startup can
+also mean mismatched record/socket paths or a host that exited; inspect the
+reported reason before assuming a missing permission. An on-disk permission
+entry does not prove the currently running daemon has reloaded it.
+
+A watcher cannot start a missing owner outside its own listener-restricted
+sandbox. Do not keep a background polling loop running when no owner exists
+and no authorized host launch is underway. Retry briefly when `retry:true`
+identifies a recovering live owner; otherwise state the one missing action
+and resume after the host starts. Re-list a tool schema when it is missing or
+incompatible, then reuse it; intentionally invalid calls are not schema discovery.
 
 ### Claude Code
 

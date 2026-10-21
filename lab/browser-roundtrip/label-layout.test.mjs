@@ -23,6 +23,8 @@ import {
   exactPlateSearch,
   drawnPlateRects,
   layoutComponentPlates,
+  menuGlassObstacles,
+  MENU_PLATE_AIR,
   plateDrawDepth,
   partsSilhouette,
   plateHalfExtents,
@@ -529,6 +531,24 @@ test('the ten names clear the menu column the run actually drew, at the size it 
       assert.ok(Math.abs(entry.rect[key] - expected[key]) < 1e-9, `${entry.id}.${key}`);
     }
   }
+});
+
+// The menu admits a chapter only with 0.04 of view between its glass and
+// every drawn plate in each eye. A plate the solver laid flush against the
+// card failed that, and the menu left the forward view for a turned-head seat.
+test('the names keep the admission air off the menu glass, not just off its edge', () => {
+  const menu = menuRectAtSeat();
+  const air = (rect, glass) => Math.max(Math.abs(rect.x - glass.x) - rect.halfWidth - glass.halfWidth,
+    Math.abs(rect.y - glass.y) - rect.halfHeight - glass.halfHeight);
+  const drawnAir = obstacles => {
+    const { sizing, result } = solve(1, { obstacles });
+    const drawn = drawnPlateRects({ plates: chapter(1), placements: result.placements, ...SEAT,
+      characterUnits: sizing.characterUnits, measureText: text => text.length * 0.55 });
+    return Math.min(...drawn.map(entry => air(entry.rect, menu)));
+  };
+  assert.ok(MENU_PLATE_AIR >= 0.04 + 0.015 + 0.005, 'the gap, the quad pad and the parallax');
+  assert.ok(drawnAir([menu]) < MENU_PLATE_AIR, 'with the bare glass a name sits closer than the air');
+  assert.ok(drawnAir(menuGlassObstacles([menu, null])) >= MENU_PLATE_AIR - 1e-9);
 });
 
 test('without the menu rectangle the plates the crop shows land on the menu column', () => {

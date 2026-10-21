@@ -226,8 +226,7 @@ export function referentAppliedTo(change:InspectionChange, referent:RequestRefer
           throw Error('Selection-relative labels or highlighting require the captured selection to remain selected. Select the captured canonical keys and confirm rendering before retrying.');
         captured.forEach(key=>targets.add(key));
       }
-      if(scope!=='scene' && op.kind==='placement')
-        throw Error('Placement moves the whole molecule; use referentScope="scene" for a whole-scene placement.');
+      // A placement moves the whole molecule whatever was pointed at when it was asked for.
       if(op.kind!=='appearance' || op.patch.labels===false || Object.keys(op.patch).some(key=>key!=='labels' && key!=='highlightColor')) whole=true;
     }
   }
@@ -266,10 +265,10 @@ export type SceneHistoryEntry = {
 /**
  * The scene fields an undo restores. The viewpoint is never one of them.
  *
- * The six fields include the complete scoped-style array. Restoring that array
+ * These fields include the complete scoped-style and measurement arrays. Restoring them
  * also restores overlaps and earlier partial styles exactly.
  */
-const FIELDS = ['appearance','placement','selection','emphasis','visibility','styles','companion-structure'] as const;
+const FIELDS = ['appearance','placement','selection','emphasis','visibility','styles','companion-structure','measurement'] as const;
 export type SceneField = (typeof FIELDS)[number];
 const emphasisOf = (scene:InspectionScene) => scene.inspection.emphasis;
 /** An emphasis as a COMMAND may carry it: the saved key without its origin. */
@@ -296,6 +295,7 @@ export function movedFields(before:InspectionScene, after:InspectionScene):Scene
     : field==='selection' ? !sameJson([...before.selectionKeys].sort(),[...after.selectionKeys].sort())
     : field==='styles' ? !sameJson(normalizeStyles(before.inspection.styles),normalizeStyles(after.inspection.styles))
     : field==='companion-structure' ? !sameJson(before.inspection.companionStructure,after.inspection.companionStructure)
+    : field==='measurement' ? !sameJson(before.inspection.measurementLines ?? [],after.inspection.measurementLines ?? [])
     : field==='visibility' ? !sameJson(commandVisibility(before),commandVisibility(after))
     : !sameJson(commandEmphasis(before),commandEmphasis(after)));
 }
@@ -405,6 +405,7 @@ export function undoChangeFor(entry:SceneHistoryEntry):InspectionChange {
     : field==='selection' ? {kind:'selection',patch:{selectionKeys:[...entry.before.selectionKeys]}}
     : field==='styles' ? {kind:'styles',patch:{styles:normalizeStyles(entry.before.inspection.styles)}}
     : field==='companion-structure' ? {kind:'companion-structure',patch:structuredClone(entry.before.inspection.companionStructure ?? {remove:true as const})}
+    : field==='measurement' ? {kind:'measurement',patch:{lines:structuredClone(entry.before.inspection.measurementLines ?? [])}}
     : field==='visibility' ? {kind:'visibility',patch:commandVisibility(entry.before)}
     : {kind:'emphasis',patch:commandEmphasis(entry.before)});
   if(!ops.length) throw Error('That operation changed nothing an undo could restore.');

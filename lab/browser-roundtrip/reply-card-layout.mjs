@@ -45,16 +45,25 @@ export function replyCardOffset({ points, menuPoints = [], eye, target, up = [0,
 export async function replyCardOffsetAsync(options, { isCurrent = () => true,
   yieldTask = () => new Promise(resolve => setTimeout(resolve, 0)),
   now = () => performance.now(), budgetMs = 2 } = {}) {
-  const { points, menuPoints = [], eye, target, up = [0, 1, 0], gap = .025, clearance: initialClearance,
+  const { points, menuPoints = [], eye, target, up = [0, 1, 0], belowMenu, gap = .025, clearance: initialClearance,
     onFallback = () => {}, withinView = () => true, onSeat = () => {} } = options;
   options = { points, menuPoints, eye, target, up, gap, clearance: initialClearance, onFallback, withinView, onSeat };
   if (!isCurrent()) return undefined;
   if (options.clearance?.views?.length !== 2) return replyCardOffset(options);
+  if (belowMenu) {
+    const offset = belowMenuOffset(points, menuPoints, belowMenu, initialClearance, gap);
+    const corners = shiftPoints(points, offset);
+    const verdict = measureReplyCardClearance(corners, menuPoints, initialClearance, gap);
+    onSeat(withinView(corners) ? verdict : { outcome: 'blocked', measured: true });
+    return offset;
+  }
   // XR eye matrices and caller-owned geometry arrays may change on the next
   // frame. One search must keep one measured scene throughout every yield.
   const copyPoints = points => points?.map(point => Array.from(point));
+  const stableMenu = Object.assign(copyPoints(options.menuPoints ?? []),
+    options.menuPoints?.plates ? { plates: options.menuPoints.plates.map(copyPoints) } : {});
   const clearance = options.clearance;
-  const stable = { ...options, points: copyPoints(options.points), menuPoints: copyPoints(options.menuPoints ?? []),
+  const stable = { ...options, points: copyPoints(options.points), menuPoints: stableMenu,
     eye: Array.from(options.eye), target: Array.from(options.target), up: options.up && Array.from(options.up),
     clearance: { ...clearance, renderFromRoom: clearance.renderFromRoom && Array.from(clearance.renderFromRoom),
       views: clearance.views.map(view => ({ ...view, projectionMatrix: Array.from(view.projectionMatrix),
@@ -82,6 +91,27 @@ function renderer(clearance) {
   const matrix = clearance?.renderFromRoom;
   return point => (matrix ? [0, 1, 2].map(i => matrix[i] * point[0] + matrix[i + 4] * point[1]
     + matrix[i + 8] * point[2] + matrix[i + 12]) : point);
+}
+
+/** Convert the tangent margin into a room-space drop beneath the menu.
+ * Solve (y - d*upY)/(-z + d*upZ) <= menuBottom - gap for
+ * every corner in each eye, including pitched eyes and render-space scaling. */
+function belowMenuOffset(points, menuPoints, up, clearance, gap) {
+  if (!menuPoints.length) return [0, 0, 0];
+  const render = renderer(clearance);
+  const transform = (m, p) => [0, 1, 2].map(i => m[i] * p[0] + m[i + 4] * p[1] + m[i + 8] * p[2] + m[i + 12]);
+  let distance = 0;
+  for (const view of clearance.views) {
+    const eye = p => transform(view.transform.inverse.matrix, render(p));
+    const origin = eye([0, 0, 0]), axis = eye(up).map((v, i) => v - origin[i]);
+    const edge = Math.min(...menuPoints.map(eye).map(p => p[1] / -p[2])) - gap;
+    for (const p of points.map(eye)) {
+      const slope = axis[1] + edge * axis[2];
+      if (slope > 1e-9) distance = Math.max(distance, (p[1] + edge * p[2]) / slope);
+    }
+  }
+  // A micron avoids a roundoff overlap at exact equality in either eye.
+  return up.map(v => -v * (distance > 0 ? distance + 1e-6 : 0));
 }
 
 /**
@@ -150,10 +180,16 @@ function replyObstacles(clearance, menuPoints, render) {
       rects.push({ x, y, hw, hh });
     }
     const m = view.transform.inverse.matrix;
-    const menu = screenRectFromPoints({ points: menuPoints.map(render).map(p => [0, 1, 2].map(i =>
-      m[i] * p[0] + m[i + 4] * p[1] + m[i + 8] * p[2] + m[i + 12])),
-      eye: [0, 0, 0], target: [0, 0, -1] });
-    return { rects, menu: menu ? { x: menu.x, y: menu.y, hw: menu.halfWidth, hh: menu.halfHeight } : undefined };
+    // Menu points that carry their drawn plates (`points.plates`) are cleared
+    // plate by plate. One rectangle around a compact control, its status and
+    // the label space reserved above it spans the glass from top to bottom.
+    const menus = (menuPoints.plates?.length ? menuPoints.plates : [menuPoints]).map(points => {
+      const menu = screenRectFromPoints({ points: points.map(render).map(p => [0, 1, 2].map(i =>
+        m[i] * p[0] + m[i + 4] * p[1] + m[i + 8] * p[2] + m[i + 12])),
+        eye: [0, 0, 0], target: [0, 0, -1] });
+      return menu && { x: menu.x, y: menu.y, hw: menu.halfWidth, hh: menu.halfHeight };
+    }).filter(Boolean);
+    return { rects, menus };
   });
 }
 const clearsRect = (rect, obstacle, gap) => !obstacle || Math.abs(rect.x - obstacle.x) >= rect.hw + obstacle.hw + gap
@@ -167,7 +203,7 @@ export function measureReplyCardClearance(points, menuPoints, clearance, gap = .
   const render = renderer(clearance), obstacles = replyObstacles(clearance, menuPoints, render);
   const projected = clearance.views.map(view => projectPlateQuad(points.map(render), view));
   const inside = Math.min(...projected.map(view => view.inside));
-  const clear = projected.every(({ rect }, i) => rect && clearsRect(rect, obstacles[i].menu, gap)
+  const clear = projected.every(({ rect }, i) => rect && obstacles[i].menus.every(menu => clearsRect(rect, menu, gap))
     && obstacles[i].rects.every(obstacle => clearsRect(rect, obstacle, gap)));
   return { measured: true, inside: Math.round(inside * 1e4) / 1e4,
     outcome: inside > REPLY_CARD_INSIDE_THRESHOLD && clear ? 'shown' : 'blocked' };
@@ -212,7 +248,7 @@ function* clearReplyOffset({ points, menuPoints, eye, target, up, gap, clearance
     const projected = clearance.views.map(view => projectPlateQuad(corners, view));
     return { offset,
       inside: Math.min(...projected.map(view => view.inside)),
-      menuClear: projected.every(({ rect }, i) => Boolean(rect) && clears(rect, obstacles[i].menu)),
+      menuClear: projected.every(({ rect }, i) => Boolean(rect) && obstacles[i].menus.every(menu => clears(rect, menu))),
       structureClear: () => projected.every(({ rect }, i) => Boolean(rect) && obstacles[i].rects.every(o => clears(rect, o))) };
   };
   const whole = seat => seat.inside > REPLY_CARD_INSIDE_THRESHOLD;

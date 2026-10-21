@@ -88,3 +88,13 @@ test('a footprint wake disposes live gestures before the rebuild', () => {
   assert.ok(updateAt >= 0, 'the wake branch never calls update()');
   assert.ok(disposeAt < updateAt, 'update() ran before gestures.dispose() on the wake path');
 });
+
+test('the independent chapter glass is targeted in its own forward-facing plane', async () => {
+  const { hitToolbarGlass } = await import('./spatial-toolbar-wake.mjs');
+  const panel = createToolbarPanel({ head:HEAD, rows:spatialToolbarRows({collapsed:true}),
+    readout:[{text:'The chapter above the molecule',forwardView:true}],readoutPage:0 });
+  const plate = panel.captionBacking;
+  const ray = dx => ({ origin:[0,1.6,0], direction:plate.point.map((v,i)=>v-[0,1.6,0][i]+dx*plate.right[i]) });
+  assert.equal(hitToolbarGlass(panel,ray(0)),true);
+  assert.equal(hitToolbarGlass(panel,ray(plate.halfWidth+.1)),false);
+});

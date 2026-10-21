@@ -1,3 +1,5 @@
+// @ts-ignore Shared menu status used by the extracted inspector closure.
+import { assistantStatus } from '../../lab/browser-roundtrip/assistant-status.mjs';
 import { createPollBackoff } from '../src/inspection-poll-backoff.js';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -144,6 +146,21 @@ describe('the host reads a headset page from its check-ins', () => {
     clock += 250;
     beat(1);
     expect(commands.wearerPage(binding).state).toBe('in-vr');
+  });
+
+  it('gives a visible busy source renderer its full geometry budget, but still bounds silence', () => {
+    let clock = 0;
+    const commands = new InspectionCommands(() => clock);
+    commands.setRenderBudget(300_000);
+    const panelId = commands.attach({ ...expected, surface: 'companion' }, binding);
+    commands.poll({ ...expected, panelId, availability: 'busy', xrStartup: xr() as any }, binding);
+    commands.holdSourceLoad(panelId);
+    clock = 200_000;
+    expect(commands.summary(binding).panels.map(p => p.panelId)).toContain(panelId);
+    clock = 299_999;
+    expect(commands.summary(binding).panels.map(p => p.panelId)).toContain(panelId);
+    clock = 300_000;
+    expect(commands.summary(binding).panels).toEqual([]);
   });
 
   it('keeps an edit whose page went quiet before its deadline, however late the host next looks', () => {
@@ -411,8 +428,9 @@ function wakingPage({ attached = true, sourceToken = 't', shared = true } = {}) 
   const saved = { inspection: { appearance: { uniformColor: '#ff8800' } }, sourceSha256: 'sha' };
   const h: any = vm.createContext({
     failedSourceLoad:undefined,pollBackoff:createPollBackoff(),
-    closed: false, experiencePreparing: false, pollInFlight: false, beatInFlight: false, pollTimer: undefined,
+    closed: false, experiencePreparing: false, pollInFlight: false, beatInFlight: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, pollTimer: undefined,
     generation: 1, dirty: false, blocked: false, remote: false, loading: false, edits: 0,
+    heldComparisons: new Map(), comparisonRegistration: 0,
     binding: { sessionId: 's', serverEpoch: 'e', sourceToken: 't', stateRevision: 1, inspectionRevision: 1 },
     panelId: 'panel', savedScene: {}, pendingReceipt: undefined, isCompanion: true, repairNeeded: false, nextRepairAt: 0,
     replyOnThisBeat: false, hiddenSince: undefined, steppedAside: undefined, HIDDEN_STEP_ASIDE_MS: 10_000,
@@ -422,11 +440,12 @@ function wakingPage({ attached = true, sourceToken = 't', shared = true } = {}) 
     document: { visibilityState: 'hidden', body: { dataset: {} }, querySelector: () => undefined },
     app: { getHostCapabilities: () => ({}) },
     workspace: { snapshot: () => ({ ready: true, interactionActive: false, xrPresenting: false, sourceSha256: 'sha' }),
-      capture: () => h.savedScene, viewer: { xr: { spatialContext: () => null, blind: () => false } },
+      capture: () => h.savedScene, serializeCapture() { return JSON.stringify(this.capture()); },
+      viewer: { xr: { spatialContext: () => null, blind: () => false } },
       restoreShared: async (scene: any) => { restored.push(scene); return scene; } },
     expected: () => ({ sessionId: 's', serverEpoch: 'e', sourceToken: 't', baseStateRevision: 1, baseInspectionRevision: h.binding.inspectionRevision }),
-    liveAvailability: () => 'ready', tourHeartbeat: () => ({}), tourPlayer: undefined, panelTour: undefined, experiencePlayer: undefined, experienceView: undefined,
-    xrStartupReport: () => ({}), isRendererHeartbeatFailure: () => false, noteRendererHeartbeat: () => {}, noteAgentPresence: () => {},
+    liveAvailability: () => 'ready', tourHeartbeat: () => ({}), tourPlayer: undefined, installedLesson: undefined, panelTour: undefined, experiencePlayer: undefined, experienceView: undefined,
+    xrStartupReport: () => ({}), isRendererHeartbeatFailure: () => false, noteRendererHeartbeat: () => {}, noteAgentPresence: () => {}, assistantStatus,
     noteNamedViews: () => {}, receiveSpokenReply: () => {}, recordTalkReplyDelivery: () => {}, requestHeadsetViewCapture: () => {},
     showOutcome: () => {}, retireStaleHud: () => {}, syncHandoff: () => {}, scheduleSave: () => {}, handoffSpokenRequest: async () => {},
     voiceBindingKey: () => 'key', clearConnectionProblem: () => {},
@@ -441,7 +460,7 @@ function wakingPage({ attached = true, sourceToken = 't', shared = true } = {}) 
     notice: blank(), message: blank(), retry: blank(), reload: blank(), pairAgain: blank(), details: blank(), detailsText: blank(), outcome: blank(),
   });
   h.globalThis = { dispatchEvent: () => true };
-  run(pageFunctions(['armPoll', 'beatSuspended', 'busyBeat', 'poll', 'problemMessage', 'showProblem', 'showConnectionProblem',
+  run(pageFunctions(['armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'poll', 'problemMessage', 'showProblem', 'showConnectionProblem',
     'registerComparisonSources', 'stepAsideWhileHidden']), h);
   return { h, restored, saved, hydrated, attaches };
 }
@@ -513,7 +532,7 @@ describe('a headset page with a scene saved while it slept', () => {
     const outcome = blank(), plates: string[][] = [];
     const h: any = vm.createContext({ outcome, binding: { inspectionRevision: 1 }, hudSignature: '', hudWaitingSince: 0,
       workspace: { snapshot: () => ({ xrPresenting }), viewer: { xr: { outcome: async (text: string, state: string) => { plates.push([text, state]); } } } },
-      recordHeadsetEvent: () => {}, JSON, Array, Number, String, Date });
+      recordHeadsetEvent: () => {}, assistantStatus, JSON, Array, Number, String, Date });
     run(pageFunctions(['showOutcome', 'clearWaitingHud']), h);
     return { h, outcome, plates };
   }
@@ -657,7 +676,7 @@ it('shared follow preserves epoch recovery before revision ordering when the pri
 });
 
 
-it('a refused-source owner keeps heartbeating and follows only a newer authorized replacement while clean',async()=>{
+it('a refused-source owner keeps heartbeating and follows a newer authorized replacement',async()=>{
   vi.useFakeTimers();
   const page=wakingPage({attached:false,sourceToken:'failed'}),sent:any[]=[];
   try {
@@ -676,10 +695,10 @@ it('a refused-source owner keeps heartbeating and follows only a newer authorize
     expect(page.hydrated).toEqual([]);
     page.h.dirty=true;token='next';
     await page.h.poll();
-    expect(sent.at(-1)).not.toHaveProperty('sourceFailureToken');
-    expect(page.hydrated).toEqual([]);
-    // Return to the source-failure state; the protected dirty test retires its
-    // stale registration, so retain the known capability as a fresh fixture.
+    expect(sent.at(-1).sourceFailureToken).toBe('failed');
+    expect(page.hydrated).toEqual(['s']);
+    page.hydrated.length=0;
+    // Another host load also overrides the outgoing dirty gesture state.
     page.h.panelId='panel';page.h.dirty=false;
     await page.h.poll();
     expect(page.hydrated).toEqual(['s']);
@@ -701,5 +720,45 @@ it('a refused stale source acknowledgement does not prevent discovering a newer 
     await page.h.poll();
     expect(calls).toEqual(['report_source_failure','poll_inspection']);
     expect(page.hydrated).toEqual(['s']);
+  }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
+});
+
+it('an authorized source transition interrupts an active drag instead of waiting for release',async()=>{
+  vi.useFakeTimers();const page=wakingPage({sourceToken:'new'});
+  try {
+    page.h.document.visibilityState='visible';
+    const snapshot=page.h.workspace.snapshot;
+    page.h.workspace.snapshot=()=>({...snapshot(),interactionActive:true});
+    await page.h.poll();
+    expect(page.hydrated).toEqual(['s']);
+  }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
+});
+
+it('the fast heartbeat keeps failed-source recovery while the wearer holds the old molecule',async()=>{
+  vi.useFakeTimers();const page=wakingPage({sourceToken:'failed'}),sent:any[]=[];
+  try {
+    Object.assign(page.h,{failedSourceLoad:{sessionId:'s',sourceToken:'failed'},retryHydrationId:'s'});
+    page.h.liveAvailability=()=> 'busy';
+    const original=page.h.call;
+    page.h.call=async(name:string,args:any)=>{sent.push(args);return original(name,args);};
+    await page.h.busyBeat(1);
+    expect(sent.at(-1)).toMatchObject({sourceFailureToken:'failed',availability:'ready'});
+    // Explicit hydration owns a competing renderer transaction and revokes it.
+    await page.h.busyBeat(1,true);
+    expect(sent.at(-1)).not.toHaveProperty('sourceFailureToken');
+    expect(sent.at(-1).availability).toBe('busy');
+  }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
+});
+
+it('the fast heartbeat dispatches a lesson admitted during a busy grab',async()=>{
+  vi.useFakeTimers();const page=wakingPage(),received:any[]=[];
+  try {
+    page.h.liveAvailability=()=> 'busy';page.h.receive=async(delivery:any)=>{received.push(delivery);};
+    const original=page.h.call;
+    const delivery={change:{kind:'lesson'},panelId:'panel',commandId:'lesson'};
+    page.h.call=async(name:string,args:any)=>{const response=await original(name,args);
+      response._meta[KEY].delivery=delivery;return response;};
+    await page.h.busyBeat(1);await page.h.rendering;
+    expect(received).toEqual([delivery]);
   }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
 });

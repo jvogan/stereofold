@@ -418,6 +418,22 @@ grow, from the address `demos/index.json` records and against the digest it
 records; the wearer hears "Fetching those coordinates now. Give me a moment."
 and the grow finishes when they land.
 
+Each indexed cache file includes its full SHA-256 before the extension, for
+example `kinesin-walk-motion.<sha256>.cif`. Different installed builds can share
+the cache. A matching old unversioned file is copied atomically to that name;
+the old file is never changed or deleted. The offline `prepare-composite`
+script also adds the digest to `--out` and reports the actual `path` in JSON.
+Publication uses a unique temporary file followed by rename. Prepared handles
+keep their own digest-named artifact and continue to resolve after restart.
+
+Cleanup is deferred maintenance, never part of launching, preparing or serving
+a scene. `pruneAddressedDemoFiles` keeps at least the three most recently
+modified digests per indexed filename, plus anything used in the current
+process. By default it only reports candidates. Deletion requires an
+`isUnused(path)` check confirming that no host is serving or may reopen that
+path; without that proof older digests stay. Run maintenance between host runs.
+Legacy names, source downloads and prepared-handle artifacts are excluded.
+
 The `filament` tier needs a prepared EMD-6347 density map. Prepared maps are
 not included in installed plugins or shares. The source demo launcher downloads
 and prepares the map on the computer hosting the session; later runs reuse its

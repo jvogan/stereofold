@@ -133,9 +133,17 @@ export function installSpatialAimHook({ readRows, aim }) {
     },
     at(id) { return aim({ id: String(id ?? '') }); },
     miss() { return aim({ between: true }); },
+    beginDrag(options = {}) { return aim({ drag: { phase: 'begin', id: String(options.id ?? ''), kind: options.kind ?? 'trigger' } }); },
+    moveDrag(offset) { return aim({ drag: { phase: 'move', offset } }); },
+    endDrag() { return aim({ drag: { phase: 'end' } }); },
+    cancelDrag() { return aim({ drag: { phase: 'cancel' } }); },
+    dragState() { return aim({ drag: { phase: 'state' } }); },
   });
   globalThis.__stereofoldAim = hook;
   return () => {
-    if (globalThis.__stereofoldAim === hook) delete globalThis.__stereofoldAim;
+    if (globalThis.__stereofoldAim === hook) {
+      void aim({ drag: { phase: 'cancel' } });
+      delete globalThis.__stereofoldAim;
+    }
   };
 }

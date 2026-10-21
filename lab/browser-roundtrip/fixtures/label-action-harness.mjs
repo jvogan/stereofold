@@ -144,13 +144,14 @@ export function labelHarness(initialLeader = false) {
     representation: null, ligandOverlay: null,
     recordCost: (kind, detail) => records.push({ kind, ...plain(detail) }),
   });
+  vm.runInContext(viewer.match(/^const DESKTOP_LABEL_SIZE_FACTOR = [^;]+;/m)[0], h);
   vm.runInContext(viewer.match(/function colorNumber\(value\) \{[^\n]+\}/)[0], h);
   vm.runInContext(pageFunction(viewer, 'componentLabelPartsSignature'), h);
   for (const name of ['buildComponentLabelPlates', 'deleteComponentLabelCells', 'measureDrawnComponentLabels']) {
     vm.runInContext(pageFunction(viewer, name), h);
   }
   const session = (owner?.createComponentLabelSession ?? componentPaint.createComponentLabelSession)({
-    isPresenting: () => true, wantsLabels: () => true,
+    isPresenting: () => h.canvas.xr.isPresenting.value, wantsLabels: () => true,
     buildPlates: context => h.buildComponentLabelPlates(context),
     deletePlates: refs => h.deleteComponentLabelCells(refs),
     updatePlates: (refs, reason, guard) => h.updateMenuLabelPlates(refs, reason, guard),

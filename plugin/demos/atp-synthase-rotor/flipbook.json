@@ -1,0 +1,2308 @@
+{
+  "version": 1,
+  "id": "atp-synthase-rotor-flipbook",
+  "title": "ATP synthase: three rotor positions",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/6N2Y"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/6N2Z"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/6N30"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.7554/eLife.43128"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1038/386299a0"
+      }
+    ],
+    "sourceSha256": "2369ffca9424149bf9bd6c769bcb5ca754ef20a55466cca2db98d0c75d85fe2a",
+    "note": "Three deposited states of Bacillus PS3 ATP synthase from one cryo-EM dataset: 6N2Y (3.0 \u00c5), 6N2Z (3.0 \u00c5) and 6N30 (3.2 \u00c5) (Guo, Suzuki and Rubinstein, eLife 2019). Prepared from a rigid-composite recipe: states 2 and 3 are superposed on state 1 using the stator, and each state keeps its own chains (suffix -1, -2, -3): the three beta subunits, gamma, epsilon, the ten c subunits and subunit a. The alpha subunits, delta and the peripheral stalk are left out to fit the headset budget, and side chains are kept only on state 1's subunit a and marked c subunit. Each chapter shows one deposited state; the motion between states was not observed."
+  },
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "state-1",
+      "title": "State 1 of 3",
+      "caption": "Entries 6N2Y, 6N2Z and 6N30 are three deposited states of one enzyme, aligned on its fixed parts. This is state 1: the three beta subunits, the rotor, and subunit a beside the ring. The alpha subunits and the peripheral stalk are left out.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "State one: beta subunits around the rotor, subunit a by the ring.",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-1",
+            "E-1",
+            "E-1_1",
+            "F-1",
+            "F-1_1",
+            "F-1_2",
+            "G-1",
+            "H-1",
+            "a-1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d1",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "D-1",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e1",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "E-1",
+              "residues": {
+                "from": 1,
+                "to": 470
+              }
+            },
+            {
+              "id": "beta-f1",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "F-1",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma1",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-1",
+              "residues": {
+                "from": 2,
+                "to": 284
+              }
+            },
+            {
+              "id": "epsilon1",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-1",
+              "residues": {
+                "from": 4,
+                "to": 132
+              }
+            },
+            {
+              "id": "subunit-a1",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-1",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-1",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "po4_e_1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae"
+            },
+            {
+              "id": "adp_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6"
+            },
+            {
+              "id": "mg_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a"
+            }
+          ],
+          "labels": [
+            {
+              "id": "beta-tp1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 1,
+                  "to": 1
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-TP: ADP",
+              "color": "#805000",
+              "sizeFactor": 1.0,
+              "offsetX": 12,
+              "offsetY": 8
+            },
+            {
+              "id": "beta-e1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 1,
+                  "to": 1
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-E: putative Pi",
+              "color": "#4a90e2",
+              "sizeFactor": 1.0,
+              "offsetX": -16,
+              "offsetY": 8
+            },
+            {
+              "id": "beta-dp1",
+              "target": {
+                "chain": "D-1",
+                "residues": {
+                  "from": 20,
+                  "to": 20
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-DP: empty",
+              "color": "#18713a",
+              "sizeFactor": 1.0,
+              "offsetX": -10,
+              "offsetY": 24
+            },
+            {
+              "id": "marker1",
+              "target": {
+                "chain": "c0-1",
+                "residues": {
+                  "from": 2,
+                  "to": 2
+                },
+                "atomName": "CA"
+              },
+              "text": "Marked c",
+              "color": "#756000",
+              "sizeFactor": 1.0,
+              "offsetX": 0,
+              "offsetY": -8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sites-1",
+      "title": "Three different sites",
+      "caption": "One beta subunit is closed on Mg-ADP, one is open with a putative phosphate modelled at its site, and one is held open by epsilon with its site empty. The same three colours mark these conformations in every state. Beta-TP, beta-DP and beta-E name the three positions around the rotor; in this inhibited state epsilon holds the beta-DP site open and empty (Guo et al. 2019).",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "Amber: closed on ADP. Blue: putative phosphate. Green: open, empty.",
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-1",
+            "E-1",
+            "E-1_1",
+            "F-1",
+            "F-1_1",
+            "F-1_2",
+            "G-1",
+            "H-1",
+            "a-1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d1",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "D-1",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e1",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "E-1",
+              "residues": {
+                "from": 1,
+                "to": 470
+              }
+            },
+            {
+              "id": "beta-f1",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "F-1",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma1",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-1",
+              "residues": {
+                "from": 2,
+                "to": 284
+              }
+            },
+            {
+              "id": "epsilon1",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-1",
+              "residues": {
+                "from": 4,
+                "to": 132
+              }
+            },
+            {
+              "id": "subunit-a1",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-1",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-1",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 0.3,
+          "focus": [
+            "beta-d1",
+            "beta-e1",
+            "beta-f1",
+            "epsilon1"
+          ]
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "po4_e_1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae"
+            },
+            {
+              "id": "adp_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6"
+            },
+            {
+              "id": "mg_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a"
+            }
+          ],
+          "labels": [
+            {
+              "id": "beta-f1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 1,
+                  "to": 1
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-TP: ADP",
+              "color": "#805000",
+              "sizeFactor": 1.0,
+              "offsetX": 12,
+              "offsetY": 8
+            },
+            {
+              "id": "beta-e1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 1,
+                  "to": 1
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-E: putative Pi",
+              "color": "#4a90e2",
+              "sizeFactor": 1.0,
+              "offsetX": -16,
+              "offsetY": 8
+            },
+            {
+              "id": "beta-d1",
+              "target": {
+                "chain": "D-1",
+                "residues": {
+                  "from": 20,
+                  "to": 20
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-DP: empty",
+              "color": "#18713a",
+              "sizeFactor": 1.0,
+              "offsetX": -10,
+              "offsetY": 24
+            },
+            {
+              "id": "eps-helix1",
+              "target": {
+                "chain": "H-1",
+                "residues": {
+                  "from": 4,
+                  "to": 4
+                },
+                "atomName": "CA"
+              },
+              "text": "Epsilon",
+              "color": "#a63818",
+              "sizeFactor": 1.0,
+              "offsetX": -14,
+              "offsetY": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "state-2",
+      "title": "State 2",
+      "caption": "In 6N2Z gamma has turned about 120 degrees counterclockwise, seen from the head, the direction of ATP synthesis, and the c-ring about 108 degrees. The closed, putative-phosphate and empty conformations have each moved one beta subunit round with gamma. Each chapter is a deposited state; the motion between them was not observed.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "State two: gamma turned about 120 degrees; each beta site changed.",
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-2",
+            "D-2_1",
+            "D-2_2",
+            "E-2",
+            "F-2",
+            "F-2_1",
+            "G-2",
+            "H-2",
+            "a-2",
+            "c0-2",
+            "c1-2",
+            "c2-2",
+            "c3-2",
+            "c4-2",
+            "c5-2",
+            "c6-2",
+            "c7-2",
+            "c8-2",
+            "c9-2"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d2",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "D-2",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e2",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "E-2",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-f2",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "F-2",
+              "residues": {
+                "from": 1,
+                "to": 469
+              }
+            },
+            {
+              "id": "gamma2",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-2",
+              "residues": {
+                "from": 2,
+                "to": 285
+              }
+            },
+            {
+              "id": "epsilon2",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-2",
+              "residues": {
+                "from": 2,
+                "to": 131
+              }
+            },
+            {
+              "id": "subunit-a2",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-2",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-2",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-2",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-2",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "adp_d_2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6"
+            },
+            {
+              "id": "mg_d_2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a"
+            },
+            {
+              "id": "po4_f_2",
+              "target": {
+                "chain": "F-2",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae"
+            }
+          ],
+          "labels": [
+            {
+              "id": "beta-tp2",
+              "target": {
+                "chain": "D-2",
+                "residues": {
+                  "from": 19,
+                  "to": 19
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-TP: ADP",
+              "color": "#805000",
+              "sizeFactor": 1.0,
+              "offsetX": 0,
+              "offsetY": 26
+            },
+            {
+              "id": "beta-e2",
+              "target": {
+                "chain": "F-2",
+                "residues": {
+                  "from": 447,
+                  "to": 447
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-E: putative Pi",
+              "color": "#4a90e2",
+              "sizeFactor": 1.0,
+              "offsetX": 24,
+              "offsetY": -10
+            },
+            {
+              "id": "beta-dp2",
+              "target": {
+                "chain": "E-2",
+                "residues": {
+                  "from": 20,
+                  "to": 20
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-DP: empty",
+              "color": "#18713a",
+              "sizeFactor": 1.0,
+              "offsetX": -12,
+              "offsetY": 6
+            },
+            {
+              "id": "marker2",
+              "target": {
+                "chain": "c0-2",
+                "residues": {
+                  "from": 2,
+                  "to": 2
+                },
+                "atomName": "CA"
+              },
+              "text": "Marked c",
+              "color": "#756000",
+              "sizeFactor": 1.0,
+              "offsetX": 0,
+              "offsetY": -14
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "state-3",
+      "title": "State 3",
+      "caption": "In 6N30 gamma has turned about another 120 degrees. Ten c subunits cannot split into three equal steps: measured against subunit a, the deposited ring positions differ by about 108, 144 and 108 degrees, that is 3, then 4, then 3 c subunits (Guo et al. 2019).",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "State three: the ring moved three c subunits, then four.",
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-3",
+            "D-3_1",
+            "E-3",
+            "E-3_1",
+            "E-3_2",
+            "F-3",
+            "G-3",
+            "H-3",
+            "a-3",
+            "c0-3",
+            "c1-3",
+            "c2-3",
+            "c3-3",
+            "c4-3",
+            "c5-3",
+            "c6-3",
+            "c7-3",
+            "c8-3",
+            "c9-3"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d3",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "D-3",
+              "residues": {
+                "from": 1,
+                "to": 469
+              }
+            },
+            {
+              "id": "beta-e3",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "E-3",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-f3",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "F-3",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma3",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-3",
+              "residues": {
+                "from": 2,
+                "to": 285
+              }
+            },
+            {
+              "id": "epsilon3",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-3",
+              "residues": {
+                "from": 4,
+                "to": 131
+              }
+            },
+            {
+              "id": "subunit-a3",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-3",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-3",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-3",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-3",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "po4_d_3",
+              "target": {
+                "chain": "D-3",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae"
+            },
+            {
+              "id": "adp_e_3",
+              "target": {
+                "chain": "E-3",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6"
+            },
+            {
+              "id": "mg_e_3",
+              "target": {
+                "chain": "E-3",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a"
+            }
+          ],
+          "labels": [
+            {
+              "id": "beta-tp3",
+              "target": {
+                "chain": "E-3",
+                "residues": {
+                  "from": 1,
+                  "to": 1
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-TP: ADP",
+              "color": "#805000",
+              "sizeFactor": 1.0,
+              "offsetX": -12,
+              "offsetY": 6
+            },
+            {
+              "id": "beta-e3",
+              "target": {
+                "chain": "D-3",
+                "residues": {
+                  "from": 56,
+                  "to": 56
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-E: putative Pi",
+              "color": "#4a90e2",
+              "sizeFactor": 1.0,
+              "offsetX": 0,
+              "offsetY": 26
+            },
+            {
+              "id": "beta-dp3",
+              "target": {
+                "chain": "F-3",
+                "residues": {
+                  "from": 243,
+                  "to": 243
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-DP: empty",
+              "color": "#18713a",
+              "sizeFactor": 1.0,
+              "offsetX": 22,
+              "offsetY": 0
+            },
+            {
+              "id": "marker3",
+              "target": {
+                "chain": "c0-3",
+                "residues": {
+                  "from": 2,
+                  "to": 2
+                },
+                "atomName": "CA"
+              },
+              "text": "Marked c",
+              "color": "#756000",
+              "sizeFactor": 1.0,
+              "offsetX": 0,
+              "offsetY": -8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "full-turn",
+      "title": "Back to state 1",
+      "caption": "Three more c subunits bring the rotor back to state 1. Ten c subunits make one turn, so ten protons cross the membrane for each full turn of the rotor.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "Back to state one: ten c subunits, ten protons, one full turn.",
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-1",
+            "E-1",
+            "E-1_1",
+            "F-1",
+            "F-1_1",
+            "F-1_2",
+            "G-1",
+            "H-1",
+            "a-1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d1",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "D-1",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e1",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "E-1",
+              "residues": {
+                "from": 1,
+                "to": 470
+              }
+            },
+            {
+              "id": "beta-f1",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "F-1",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma1",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-1",
+              "residues": {
+                "from": 2,
+                "to": 284
+              }
+            },
+            {
+              "id": "epsilon1",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-1",
+              "residues": {
+                "from": 4,
+                "to": 132
+              }
+            },
+            {
+              "id": "subunit-a1",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-1",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-1",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 0.15,
+          "focus": [
+            "gamma1",
+            "epsilon1",
+            "subunit-a1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ]
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "po4_e_1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae"
+            },
+            {
+              "id": "adp_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6"
+            },
+            {
+              "id": "mg_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a"
+            }
+          ],
+          "labels": [
+            {
+              "id": "gamma1",
+              "target": {
+                "chain": "G-1",
+                "residues": {
+                  "from": 109,
+                  "to": 109
+                },
+                "atomName": "CA"
+              },
+              "text": "Gamma",
+              "color": "#d7263d",
+              "sizeFactor": 1.0,
+              "offsetX": 10,
+              "offsetY": 0
+            },
+            {
+              "id": "marker1",
+              "target": {
+                "chain": "c0-1",
+                "residues": {
+                  "from": 2,
+                  "to": 2
+                },
+                "atomName": "CA"
+              },
+              "text": "Marked c",
+              "color": "#756000",
+              "sizeFactor": 1.0,
+              "offsetX": 0,
+              "offsetY": -8
+            },
+            {
+              "id": "subunit-a1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 39,
+                  "to": 39
+                },
+                "atomName": "CA"
+              },
+              "text": "Subunit a",
+              "color": "#2a9d8f",
+              "sizeFactor": 1.0,
+              "offsetX": 16,
+              "offsetY": 0
+            },
+            {
+              "id": "cring1",
+              "target": {
+                "chain": "c5-1",
+                "residues": {
+                  "from": 39,
+                  "to": 39
+                },
+                "atomName": "CA"
+              },
+              "text": "c-ring",
+              "color": "#9b3157",
+              "sizeFactor": 1.0,
+              "offsetX": -12,
+              "offsetY": 6
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "proton-path",
+      "title": "Where protons cross",
+      "caption": "Protons enter from outside the cell through a half-channel in subunit a and bind Glu56 on the ring. After almost a full turn each reaches Arg169 and leaves into the cell. In state 1, Glu56 of the marked subunit is 3.7 \u00c5 from Arg169.",
+      "durationSeconds": 14,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 14
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "Protons bind Glu56, turn with the ring, and leave at Arg169.",
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "a-1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d1",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "D-1",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e1",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "E-1",
+              "residues": {
+                "from": 1,
+                "to": 470
+              }
+            },
+            {
+              "id": "beta-f1",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "F-1",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma1",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-1",
+              "residues": {
+                "from": 2,
+                "to": 284
+              }
+            },
+            {
+              "id": "epsilon1",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-1",
+              "residues": {
+                "from": 4,
+                "to": 132
+              }
+            },
+            {
+              "id": "subunit-a1",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-1",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-1",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 0.25,
+          "focus": [
+            "subunit-a1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ]
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "arg169_side1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 169,
+                  "to": 169
+                },
+                "componentId": "ARG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#2a9d8f"
+            },
+            {
+              "id": "glu56_side1",
+              "target": {
+                "chain": "c0-1",
+                "residues": {
+                  "from": 56,
+                  "to": 56
+                },
+                "componentId": "GLU"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ffd000"
+            }
+          ],
+          "labels": [
+            {
+              "id": "arg169_1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 169,
+                  "to": 169
+                },
+                "atomName": "CZ"
+              },
+              "text": "Arg169",
+              "color": "#2a9d8f",
+              "sizeFactor": 0.8,
+              "offsetX": 28,
+              "offsetY": 0
+            },
+            {
+              "id": "glu56_1",
+              "target": {
+                "chain": "c0-1",
+                "residues": {
+                  "from": 56,
+                  "to": 56
+                },
+                "atomName": "CD"
+              },
+              "text": "Glu56",
+              "color": "#756000",
+              "sizeFactor": 0.8,
+              "offsetX": -13,
+              "offsetY": 23
+            },
+            {
+              "id": "peri1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 179,
+                  "to": 179
+                },
+                "atomName": "CA"
+              },
+              "text": "Outer side",
+              "color": "#2a9d8f",
+              "sizeFactor": 0.8,
+              "offsetX": 0,
+              "offsetY": -21
+            },
+            {
+              "id": "cyto1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 62,
+                  "to": 62
+                },
+                "atomName": "CA"
+              },
+              "text": "Cytoplasmic side",
+              "color": "#2a9d8f",
+              "sizeFactor": 0.8,
+              "offsetX": 12,
+              "offsetY": 13
+            }
+          ],
+          "distances": [
+            {
+              "id": "glu56_arg169_1",
+              "a": {
+                "chain": "c0-1",
+                "residues": {
+                  "from": 56,
+                  "to": 56
+                },
+                "componentId": "GLU",
+                "atomName": "OE2"
+              },
+              "b": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 169,
+                  "to": 169
+                },
+                "componentId": "ARG",
+                "atomName": "NH2"
+              },
+              "color": "#ffffff",
+              "expectedAngstrom": 3.72,
+              "showText": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "distance",
+      "title": "Eleven nanometres apart",
+      "caption": "Arg169 is 11 nanometres from the ADP in the closed site. The rotor couples proton flow in the membrane to the catalytic sites in the head.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "narration": "Proton exit and closed catalytic site are 11 nanometres apart.",
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "D-1",
+            "E-1",
+            "E-1_1",
+            "F-1",
+            "F-1_1",
+            "F-1_2",
+            "G-1",
+            "H-1",
+            "a-1",
+            "c0-1",
+            "c1-1",
+            "c2-1",
+            "c3-1",
+            "c4-1",
+            "c5-1",
+            "c6-1",
+            "c7-1",
+            "c8-1",
+            "c9-1"
+          ]
+        },
+        "emphasis": {
+          "parts": [
+            {
+              "id": "beta-d1",
+              "label": "Beta-DP, open, empty",
+              "color": "#35c46a",
+              "chain": "D-1",
+              "residues": {
+                "from": 2,
+                "to": 471
+              }
+            },
+            {
+              "id": "beta-e1",
+              "label": "Beta-E, open, putative phosphate",
+              "color": "#4a90e2",
+              "chain": "E-1",
+              "residues": {
+                "from": 1,
+                "to": 470
+              }
+            },
+            {
+              "id": "beta-f1",
+              "label": "Beta-TP, closed, Mg-ADP",
+              "color": "#f5a623",
+              "chain": "F-1",
+              "residues": {
+                "from": 1,
+                "to": 471
+              }
+            },
+            {
+              "id": "gamma1",
+              "label": "Gamma",
+              "color": "#d7263d",
+              "chain": "G-1",
+              "residues": {
+                "from": 2,
+                "to": 284
+              }
+            },
+            {
+              "id": "epsilon1",
+              "label": "Epsilon",
+              "color": "#f46036",
+              "chain": "H-1",
+              "residues": {
+                "from": 4,
+                "to": 132
+              }
+            },
+            {
+              "id": "subunit-a1",
+              "label": "Subunit a",
+              "color": "#2a9d8f",
+              "chain": "a-1",
+              "residues": {
+                "from": 6,
+                "to": 234
+              }
+            },
+            {
+              "id": "c0-1",
+              "label": "Marked c subunit",
+              "color": "#ffd000",
+              "chain": "c0-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c1-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c1-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c2-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c2-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c3-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c3-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c4-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c4-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c5-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c5-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c6-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c6-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c7-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c7-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c8-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c8-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            },
+            {
+              "id": "c9-1",
+              "label": "c subunit",
+              "color": "#e86a92",
+              "chain": "c9-1",
+              "residues": {
+                "from": 2,
+                "to": 72
+              }
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "po4_e_1",
+              "target": {
+                "chain": "E-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "PO4"
+              },
+              "representation": "ball-and-stick",
+              "color": "#ff6fae"
+            },
+            {
+              "id": "adp_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#fff4d6"
+            },
+            {
+              "id": "mg_f_1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 601,
+                  "to": 601
+                },
+                "componentId": "MG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#8ff07a"
+            },
+            {
+              "id": "arg169_side1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 169,
+                  "to": 169
+                },
+                "componentId": "ARG"
+              },
+              "representation": "ball-and-stick",
+              "color": "#2a9d8f"
+            }
+          ],
+          "labels": [
+            {
+              "id": "arg169_1",
+              "target": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 169,
+                  "to": 169
+                },
+                "atomName": "CZ"
+              },
+              "text": "Arg169",
+              "color": "#2a9d8f",
+              "sizeFactor": 1.0,
+              "offsetX": 12,
+              "offsetY": -22
+            },
+            {
+              "id": "beta-f1",
+              "target": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 37,
+                  "to": 37
+                },
+                "atomName": "CA"
+              },
+              "text": "beta-TP: ADP",
+              "color": "#805000",
+              "sizeFactor": 1.0,
+              "offsetX": 12,
+              "offsetY": 6
+            },
+            {
+              "id": "nm1",
+              "target": {
+                "chain": "G-1",
+                "residues": {
+                  "from": 109,
+                  "to": 109
+                },
+                "atomName": "CA"
+              },
+              "text": "11 nm",
+              "color": "#46515c",
+              "sizeFactor": 1.0,
+              "offsetX": 10,
+              "offsetY": 0
+            }
+          ],
+          "distances": [
+            {
+              "id": "arg169_adp_1",
+              "a": {
+                "chain": "a-1",
+                "residues": {
+                  "from": 169,
+                  "to": 169
+                },
+                "componentId": "ARG",
+                "atomName": "CZ"
+              },
+              "b": {
+                "chain": "F-1",
+                "residues": {
+                  "from": 600,
+                  "to": 600
+                },
+                "componentId": "ADP",
+                "atomName": "PB"
+              },
+              "color": "#ffffff",
+              "showText": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

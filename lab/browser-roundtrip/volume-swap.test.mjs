@@ -193,18 +193,54 @@ test('a wrong map is a different identity, and a map with no digest has none', (
   }
 });
 
-test('the viewer reads a density scene identity off the map and never off a structure', async () => {
-  // The source rather than a live viewer: `viewer.mjs` needs Mol* and a WebGL
-  // context, and the defect was a branch that was never taken rather than a
-  // value that came out wrong. What is held here is that the branch exists and
-  // that the volume is asked about before anything reaches for `structure`.
+async function sceneReader(current) {
+  // Execute the actual identity boundary without a WebGL context. The retained
+  // record and uncommitted candidate coexist while a source swap is drawing.
   const source = await readFile(new URL('./viewer.mjs', import.meta.url), 'utf8');
   const scene = source.slice(source.indexOf('function liveScene('));
-  const body = scene.slice(0, scene.indexOf('\n  }\n'));
-  assert.match(body, /const loadedVolume = record\?\.volume \?\? volume;/);
-  assert.match(body, /loadedVolume\s*\n?\s*\?\s*volumeSceneIdentity\(/);
-  // And the structure is not dereferenced at all when a map is loaded, so the
-  // model and assembly scan below it runs over nothing rather than over a
-  // structure the density tier does not have.
-  assert.match(body, /const data = loadedVolume \? undefined :/);
+  const body = scene.slice(0, scene.indexOf('\n  }\n') + '\n  }'.length);
+  return new Function('current', 'volumeSceneIdentity', `
+    const { volume, structure, sourceRecord, representation } = current;
+    const state = { sourceSha256: sourceRecord?.sha256, selectionKeys: [] };
+    const canvas = { camera: { getSnapshot: () => ({ position: [0, 0, 10] }) } };
+    const detached = value => structuredClone(value);
+    ${body}; return liveScene;
+  `)(current, volumeSceneIdentity);
+}
+
+const atomicIdentityCell = (modelNumber = 1, assemblyId = 'asymmetric_unit') => ({ obj: { data: {
+  models: [{ modelNum: modelNumber }],
+  units: [{ conformation: { operator: { ...(assemblyId === 'asymmetric_unit' ? {} : { assembly: { id: assemblyId } }) } } }],
+} } });
+
+test('an atomic candidate keeps its own identity while the previous density map is still live', async () => {
+  const read = await sceneReader({ volume: liveCell(), sourceRecord: { sha256: 'f'.repeat(64) } });
+  for (const modelNumber of [1, 3]) for (const assemblyId of ['asymmetric_unit', '2']) {
+    const actual = read({ source: { sha256: 'a'.repeat(64) }, structure: atomicIdentityCell(modelNumber, assemblyId), selectionKeys: [] });
+    assert.equal(actual.sourceSha256, 'a'.repeat(64));
+    assert.equal(actual.modelNumber, modelNumber);
+    assert.equal(actual.assemblyId, assemblyId);
+  }
+  // Reading the current scene without a candidate still identifies the map.
+  assert.equal(read().assemblyId, 'map');
+  assert.equal(read().sourceSha256, 'f'.repeat(64));
+});
+
+test('a density candidate reads its map identity without touching its absent atomic structure', async () => {
+  const read = await sceneReader({ structure: atomicIdentityCell(), sourceRecord: { sha256: 'a'.repeat(64) } });
+  const { record, touched } = volumeCandidate();
+  const actual = read(record);
+  assert.equal(actual.modelNumber, VOLUME_MODEL_NUMBER);
+  assert.equal(actual.assemblyId, VOLUME_ASSEMBLY_ID);
+  assert.equal(actual.sourceSha256, record.source.sha256);
+  assert.deepEqual(touched, []);
+  assert.equal(read().assemblyId, 'asymmetric_unit');
+});
+
+test('an incomplete atomic candidate never borrows the retained structure identity', async () => {
+  const read = await sceneReader({ structure: atomicIdentityCell(2, '3'), sourceRecord: { sha256: 'a'.repeat(64) } });
+  const actual = read({ source: { sha256: 'b'.repeat(64) }, selectionKeys: [] });
+  assert.equal(actual.sourceSha256, 'b'.repeat(64));
+  assert.equal(actual.modelNumber, null);
+  assert.equal(actual.assemblyId, null);
 });

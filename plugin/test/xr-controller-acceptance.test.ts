@@ -143,6 +143,19 @@ describe('independent native grip movement evidence', () => {
     expect(() => assertControllerGripResponse(input, [.07,.001,-.03], axis, 'unrelated drift')).toThrow('lateral travel');
   });
 
+  it('observes the modern key-only geometry reader without changing its calls or source objects', () => {
+    const html = `globalThis.viewer={getEntryGeometry:({keyOnly:k=false}={})=>{let bounds=null;return{objects:k?[]:bounds?[bounds]:[primary?.obj?.data?.repr,ligand?.representation?.obj?.data?.repr].flatMap(x=>x?.renderObjects??[]),cameraScale:2}},beforeMenuDraw:()=>{}}`;
+    const source = { obj: { data: { sourceData: { boundary: { sphere: { center: [1,2,3], radius: 4 } } }, repr: { renderObjects: [{id:'molecule'}] } } } };
+    const context: any = {primary:source,ligand:null};
+    vm.runInNewContext(instrumentMolecularGeometry(html), context);
+    expect(context.viewer.getEntryGeometry).toBe(context.__stereofoldReadGeometry);
+    expect(context.__stereofoldReadGeometry().objects).toEqual([{id:'molecule'}]);
+    expect(context.__stereofoldReadGeometry({keyOnly:true}).objects).toEqual([]);
+    expect(context.__stereofoldReadGeometry().sourceBoundary).toBe(source.obj.data.sourceData.boundary.sphere);
+    expect(source.obj.data.repr.renderObjects).toEqual([{id:'molecule'}]);
+    expect(() => instrumentMolecularGeometry(html+html)).toThrow('exactly one');
+  });
+
   it('exposes existing scientific source bounds only in served test instrumentation', () => {
     const html = 'getEntryGeometry:()=>({objects:[primary?.obj?.data?.repr,ligand?.representation?.obj?.data?.repr].flatMap(x=>x?.renderObjects??[]),cameraScale:camera.scale})';
     const instrumented = instrumentMolecularGeometry(html);

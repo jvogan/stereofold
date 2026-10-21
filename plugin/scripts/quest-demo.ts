@@ -11,13 +11,17 @@
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compositeRecipePath, resolveCompositeText } from '../src/demo-composite-cache.js';
+import { readBundledDemoCoordinates } from '../src/bundled-demo-coordinates.js';
+import { writeVerifiedCacheFile } from '../src/verified-cache-write.js';
+import { addressedDemoPath, readAddressedDemoFile } from '../src/addressed-demo-cache.js';
 import { encodeMap, prepareMap, readMap } from './prepare-map.js';
 import { parseQuestArgs } from './quest-share.js';
-import { DEMO_TIER_BY_DEVICE } from '../src/molecular-growth.js';
+import { DEMO_TIER_BY_DEVICE, stageFitsTier } from '../src/molecular-growth.js';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { parseMolecularLesson, type MolecularLessonManifest } from '../src/molecular-lesson.js';
 
@@ -40,13 +44,13 @@ unchanged, including --headless, --browser <application>,
 
 export type DemoSource = { title: string; url: string; doi?: string };
 /**
- * How a cached coordinate file was cut from its download. Both kinds keep whole
- * deposited chains and alter no coordinate; only `chains` is recorded for the
- * chain subset, because a deposited entity travels as its own asym chain.
+ * How cached coordinates are selected or rigidly placed from deposited sources.
  */
 export type DemoDerivation =
   | { kind: 'assembly-operator-subset'; operators: string[]; ofOperators: number }
-  | { kind: 'deposited-chain-subset'; chains: string[]; entityIds: string[] };
+  | { kind: 'deposited-chain-subset'; chains: string[]; entityIds: string[] }
+  | { kind: 'prepared-rigid-composite'; recipe: string }
+  | { kind: 'bundled-file'; path: string };
 /**
  * `assemblyId` names a biological assembly the entry itself declares. The
  * asymmetric unit is what travels and Mol* builds the repeats from the entry's
@@ -106,24 +110,30 @@ export type DemoVolume = {
     download: string;
   };
 };
-export type DemoCoordinates = { file: string; sha256: string; bytes: number; atomSites: number; catalogRows?: number;
-  assemblyId?: string; download: string; derivation?: DemoDerivation; volume?: DemoVolume };
+export type DemoCoordinates = { file: string; sha256: string; bytes: number; atomSites: number; catalogRows?: number } & (
+  | { derivation: Extract<DemoDerivation, { kind: 'prepared-rigid-composite' | 'bundled-file' }>; download?: string; assemblyId?: never; volume?: never }
+  | { assemblyId?: string; download: string; derivation?: Exclude<DemoDerivation, { kind: 'prepared-rigid-composite' | 'bundled-file' }>; volume?: DemoVolume }
+);
 /** The device classes `input-capabilities.mjs` reports, as a demo tier list. */
 export type DemoTier = 'quest2' | 'quest3';
 export type DemoStage = {
-  id: string; order: string; title: string; pdbId: string; tiers: DemoTier[];
+  id: string; order: string; title: string; pdbId?: string; sourceId?: string; tiers: DemoTier[];
   lesson: string; coordinates: DemoCoordinates; sources: DemoSource[];
 };
 export type DemoEntry = {
   name: string;
   title: string;
-  pdbId: string;
+  pdbId?: string;
+  /** Public source identifier when the coordinates are not a PDB entry. */
+  sourceId?: string;
   lesson: string;
   coordinates: DemoCoordinates;
   sources: DemoSource[];
   /** A staged demo grows one subject across several sources; each stage is a whole lesson. */
   stages?: DemoStage[];
   defaultStage?: string;
+  /** Sequential batches start at their authored opening instead of their largest tier. */
+  stageMode?: 'sequence';
 };
 export type DemoIndex = { version: 1; cacheDirectory: string; demos: DemoEntry[] };
 
@@ -142,7 +152,7 @@ export function resolveDemoStage(entry: DemoEntry, stageId?: string): { entry: D
   if (stages.length === 0) throw Error(`Demo "${entry.name}" has no stages; drop --stage.`);
   const stage = stages.find(candidate => candidate.id === stageId);
   if (!stage) throw Error(`Unknown stage "${stageId}" for ${entry.name}. It has ${stages.map(candidate => candidate.id).join(', ')}.`);
-  return { entry: { ...entry, pdbId: stage.pdbId, lesson: stage.lesson, coordinates: stage.coordinates, sources: stage.sources }, stage };
+  return { entry: { ...entry, pdbId: stage.pdbId, sourceId: stage.sourceId, lesson: stage.lesson, coordinates: stage.coordinates, sources: stage.sources }, stage };
 }
 
 /** The largest stage this device class can hold, or the entry's own default. */
@@ -150,8 +160,20 @@ export function stageForDevice(entry: DemoEntry, deviceClass: string): string | 
   const stages = entry.stages;
   if (!stages?.length) return undefined;
   const tier = prefetchTier(deviceClass);
-  const allowed = stages.filter(stage => stage.tiers.includes(tier));
-  return (allowed.length ? allowed[allowed.length - 1] : stages[0]).id;
+  const allowed = stages.filter(stage => stageFitsTier(stage, tier));
+  if (!allowed.length) throw Error(`No stage of demo "${entry.name}" fits device class "${deviceClass}" (tier ${tier}).`);
+  if (entry.stageMode === 'sequence') return allowed.find(stage => stage.id === entry.defaultStage)?.id ?? allowed[0].id;
+  // Alternate presentations of identical coordinates have no larger tier to
+  // prefer. Keep their authored default while still enforcing device admission.
+  const coordinateIdentity = (stage: DemoStage) => JSON.stringify([
+    stage.coordinates.sha256, stage.coordinates.assemblyId ?? null, stage.coordinates.volume ?? null,
+  ]);
+  const identity = coordinateIdentity(stages[0]);
+  if (stages.every(stage => coordinateIdentity(stage) === identity)) {
+    const preferred = allowed.find(stage => stage.id === entry.defaultStage);
+    if (preferred) return preferred.id;
+  }
+  return allowed[allowed.length - 1].id;
 }
 
 /**
@@ -196,7 +218,7 @@ export function prefetchEntries(
   const prefetches: DemoEntry[] = [selected.entry];
   const seen = new Set([selected.entry.lesson]);
   for (const candidate of stages) {
-    if (tier !== undefined && !candidate.tiers.includes(tier)) continue;
+    if (tier !== undefined && !stageFitsTier(candidate, tier)) continue;
     const resolved = resolveDemoStage(found, candidate.id).entry;
     if (seen.has(resolved.lesson)) continue;
     seen.add(resolved.lesson);
@@ -299,6 +321,8 @@ function describeScope(coordinates: DemoCoordinates): string {
   if (volume) return ` · ${volume.emdbId} density, ${volume.downsample}x mean-downsampled, contour ${volume.contour}`;
   if (coordinates.assemblyId) return ` · assembly ${coordinates.assemblyId}, built from the entry's operators`;
   const subset = coordinates.derivation;
+  if (subset?.kind === 'bundled-file') return ` · bundled coordinates from ${subset.path}`;
+  if (subset?.kind === 'prepared-rigid-composite') return ` · rigid composite from ${subset.recipe}`;
   if (subset?.kind === 'assembly-operator-subset') return ` · ${subset.operators.length} of ${subset.ofOperators} assembly operators`;
   if (subset?.kind === 'deposited-chain-subset') return ` · deposited chain${subset.chains.length === 1 ? '' : 's'} ${subset.chains.join(', ')}`;
   return '';
@@ -314,11 +338,11 @@ export function describeSize(coordinates: DemoCoordinates): string {
 export function formatDemoList(index: DemoIndex): string {
   const width = Math.max(...index.demos.map(demo => demo.name.length));
   return index.demos.map(demo => {
-    const head = `  ${demo.name.padEnd(width)}  ${demo.pdbId}  ${demo.title}${demo.stages ? '' : describeScope(demo.coordinates)}`;
+    const head = `  ${demo.name.padEnd(width)}  ${demo.pdbId ?? demo.sourceId ?? 'Local coordinates'}  ${demo.title}${demo.stages ? '' : describeScope(demo.coordinates)}`;
     if (!demo.stages?.length) return head;
     const stageWidth = Math.max(...demo.stages.map(stage => stage.id.length));
     return [head, ...demo.stages.map(stage =>
-      `    ${stage.order} --stage ${stage.id.padEnd(stageWidth)}  ${stage.pdbId}  ${describeSize(stage.coordinates)}  ${stage.tiers.join('/')}  ${stage.title}${describeScope(stage.coordinates)}`)].join('\n');
+      `    ${stage.order} --stage ${stage.id.padEnd(stageWidth)}  ${stage.pdbId ?? stage.sourceId ?? 'Local coordinates'}  ${describeSize(stage.coordinates)}  ${stage.tiers.join('/')}  ${stage.title}${describeScope(stage.coordinates)}`)].join('\n');
   }).join('\n');
 }
 
@@ -353,6 +377,7 @@ async function fetchBytes(url: string): Promise<Buffer> {
  * headset verifies.
  */
 async function prepareVolumeCoordinates(entry: DemoEntry, path: string, log: (message: string) => void): Promise<void> {
+  if (!entry.coordinates.volume || !entry.coordinates.download) throw Error(`Demo ${entry.name}: no density download recorded.`);
   const volume = entry.coordinates.volume!;
   log(`  fetching ${entry.coordinates.download}`);
   const downloaded = await fetchBytes(entry.coordinates.download);
@@ -364,9 +389,7 @@ async function prepareVolumeCoordinates(entry: DemoEntry, path: string, log: (me
   const grid = [prepared.header.columns, prepared.header.rows, prepared.header.sections];
   if (grid.some((value, axis) => value !== volume.grid[axis]))
     throw Error(`Demo ${entry.name}: preparing ${volume.emdbId} gave a ${grid.join('x')} grid, not the ${volume.grid.join('x')} the index records.`);
-  const staging = `${path}.partial`;
-  await writeFile(staging, encodeMap(prepared), { mode: 0o600 });
-  await rename(staging, path);
+  await writeVerifiedCacheFile(path, encodeMap(prepared), entry.coordinates.sha256);
 }
 
 /**
@@ -374,14 +397,14 @@ async function prepareVolumeCoordinates(entry: DemoEntry, path: string, log: (me
  * recorded SHA-256 is the whole check: a file that does not match it is not the
  * structure the captions describe.
  */
-export async function resolveCoordinates(entry: DemoEntry, cache: string, log: (message: string) => void): Promise<string> {
-  const path = resolve(cache, entry.coordinates.file);
+export async function resolveCoordinates(entry: DemoEntry, cache: string, log: (message: string) => void,
+  hooks: { demosRoot?: string; fetchText?: (url: string) => Promise<string> } = {}): Promise<string> {
+  const cachePath = (file: string) => resolve(cache, file);
+  const path = addressedDemoPath(cachePath, entry.coordinates.file, entry.coordinates.sha256);
   const digest = async () => createHash('sha256').update(await readFile(path)).digest('hex');
-  const present = await stat(path).then(value => value.isFile(), () => false);
-  if (present) {
-    const sha256 = await digest();
-    if (sha256 === entry.coordinates.sha256) { log(`  coordinates cached · ${entry.coordinates.file}`); return path; }
-    log(`  cached ${entry.coordinates.file} does not match its recorded SHA-256; fetching it again`);
+  if (await readAddressedDemoFile(cachePath, entry.coordinates.file, entry.coordinates.sha256)) {
+    log(`  coordinates cached · ${entry.coordinates.file}`);
+    return path;
   }
   await mkdir(cache, { recursive: true, mode: 0o700 });
   if (entry.coordinates.volume) {
@@ -391,25 +414,33 @@ export async function resolveCoordinates(entry: DemoEntry, cache: string, log: (
       throw Error(`Demo ${entry.name}: preparing ${entry.coordinates.download} no longer produces the map this demo records (${sha256}).`);
     return path;
   }
-  log(`  fetching ${entry.coordinates.download}`);
-  const downloaded = await fetchText(entry.coordinates.download);
   const subset = entry.coordinates.derivation;
-  let text = downloaded;
+  let text: string;
+  if (subset?.kind === 'bundled-file') {
+    log(`  reading bundled coordinates ${subset.path}`);
+    text = await readBundledDemoCoordinates(subset.path, entry.coordinates.sha256, hooks.demosRoot ?? demosRoot);
+  } else if (subset?.kind === 'prepared-rigid-composite') {
+    text = await resolveCompositeText(compositeRecipePath(subset.recipe, hooks.demosRoot ?? demosRoot), {
+      demosRoot: hooks.demosRoot ?? demosRoot, cachePath: file => resolve(cache, file), fetchText: hooks.fetchText ?? fetchText, log,
+    });
+  } else {
+    if (!entry.coordinates.download) throw Error(`Demo ${entry.name}: no coordinate download recorded.`);
+    log(`  fetching ${entry.coordinates.download}`);
+    text = await (hooks.fetchText ?? fetchText)(entry.coordinates.download);
+  }
   if (subset?.kind === 'assembly-operator-subset') {
-    text = subsetAssemblyOperators(downloaded, subset.operators);
+    text = subsetAssemblyOperators(text, subset.operators);
     log(`  keeping assembly operators ${subset.operators.join(', ')} of ${subset.ofOperators}`);
   } else if (subset?.kind === 'deposited-chain-subset') {
-    text = subsetDepositedEntities(downloaded, subset.entityIds);
+    text = subsetDepositedEntities(text, subset.entityIds);
     log(`  keeping deposited entit${subset.entityIds.length === 1 ? 'y' : 'ies'} ${subset.entityIds.join(', ')} as chain${subset.chains.length === 1 ? '' : 's'} ${subset.chains.join(', ')}`);
   }
-  // Write beside the target and rename, so a interrupted download never leaves
-  // a half file that matches nothing and is fetched again on every run.
-  const staging = `${path}.partial`;
-  await writeFile(staging, text, { mode: 0o600 });
-  await rename(staging, path);
-  const sha256 = await digest();
+  const sha256 = createHash('sha256').update(text, 'utf8').digest('hex');
   if (sha256 !== entry.coordinates.sha256)
-    throw Error(`Demo ${entry.name}: ${entry.coordinates.download} no longer produces the coordinates this demo records (${sha256}).`);
+    throw Error(`Demo ${entry.name}: ${subset?.kind === 'prepared-rigid-composite' ? subset.recipe : entry.coordinates.download} no longer produces the coordinates this demo records (${sha256}).`);
+  // Write beside the target and rename, so an interrupted download never leaves
+  // a half file that matches nothing and is fetched again on every run.
+  await writeVerifiedCacheFile(path, text, entry.coordinates.sha256);
   return path;
 }
 
@@ -426,15 +457,13 @@ export async function resolveCoordinates(entry: DemoEntry, cache: string, log: (
 export async function resolveVolumeStructure(entry: DemoEntry, cache: string, log: (message: string) => void): Promise<string> {
   const structure = entry.coordinates.volume?.structure;
   if (!structure) throw Error(`Demo ${entry.name} is not a density tier, so it has no accompanying structure.`);
-  const path = resolve(cache, structure.file);
+  const cachePath = (file: string) => resolve(cache, file);
+  const path = addressedDemoPath(cachePath, structure.file, structure.sha256);
   const digest = async () => createHash('sha256').update(await readFile(path)).digest('hex');
-  const present = await stat(path).then(value => value.isFile(), () => false);
-  if (present && await digest() === structure.sha256) { log(`  structure cached · ${structure.file}`); return path; }
+  if (await readAddressedDemoFile(cachePath, structure.file, structure.sha256)) { log(`  structure cached · ${structure.file}`); return path; }
   await mkdir(cache, { recursive: true, mode: 0o700 });
   log(`  fetching ${structure.download}`);
-  const staging = `${path}.partial`;
-  await writeFile(staging, await fetchText(structure.download), { mode: 0o600 });
-  await rename(staging, path);
+  await writeVerifiedCacheFile(path, await fetchText(structure.download), structure.sha256);
   const sha256 = await digest();
   if (sha256 !== structure.sha256)
     throw Error(`Demo ${entry.name}: ${structure.download} no longer serves the coordinates this demo records (${sha256}).`);

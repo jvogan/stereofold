@@ -63,7 +63,7 @@ export const EMULATED_DEVICE = Object.freeze({
  */
 export { CENTRAL_CONE_HALF_ANGLE_DEGREES, EXPANDED_GRID_CONE_HALF_ANGLE_DEGREES, EYE_HALF_FIELD_DEGREES, PANEL_FRAME_MARGIN_DEGREES };
 /** The cone a row set of this form has to leave empty. */
-export const coneLimitDegrees = (collapsed: boolean, peripheral = true): number =>
+export const coneLimitDegrees = (collapsed: boolean, peripheral = false): number =>
   (collapsed ? peripheral ? PERIPHERAL_MENU_CONE_HALF_ANGLE_DEGREES : CENTRAL_CONE_HALF_ANGLE_DEGREES : EXPANDED_GRID_CONE_HALF_ANGLE_DEGREES);
 /**
  * Clear space a label needs inside its own plate, per side.
@@ -311,7 +311,7 @@ export async function buildPanel(rows: string[], collapsed: boolean, overrides: 
   const byLabel = new Map(live.map(row => [row.label, row]));
   const rowObjects = rows.map(label => ({ ...(byLabel.get(label) ?? {}), label }));
   const readout = Array.from({ length: geometry.SPATIAL_TOOLBAR_LAYOUT.maxReadoutLines },
-    (_, index) => ({ text: `Caption line ${index + 1} of the tour readout` }));
+    (_, index) => ({ text: `Caption line ${index + 1} of the tour readout`, forwardView: true }));
   const constants = overrides.toolbarConstants
     ? { ...geometry.SPATIAL_TOOLBAR_LAYOUT, ...overrides.toolbarConstants }
     : geometry.SPATIAL_TOOLBAR_LAYOUT;
@@ -325,8 +325,7 @@ export async function buildPanel(rows: string[], collapsed: boolean, overrides: 
   const points = geometry.toolbarPlatePoints(panel);
   return { panel, points, buttons, fontMeters: panel.fontMeters,
     glyphAspect: (constants as any).glyphAspect ?? 0.54,
-    readingYawDegrees: constants.peripheralSeat === true && rows.length <= constants.maxRows
-      ? Math.atan2(-panel.anchor[0], -panel.anchor[2]) * DEGREES : 0 };
+    readingYawDegrees: 0 };
 }
 
 /**
@@ -384,8 +383,7 @@ export interface EyeFrameMeasurement {
   breaches: boolean;
 }
 
-/** The intended reading frame is an explicit glance for a peripheral column.
- * Passing forward still reports its real off-screen extent; no pixels rotate. */
+/** New seats must fit the forward frame in both eyes; no reading turn is required. */
 export async function measureEyeFrame(rows: string[], collapsed: boolean,
   overrides: LayoutOverrides = {}, view: 'reading' | 'forward' = 'reading'): Promise<EyeFrameMeasurement[]> {
   return panelEyeFrame(await buildPanel(rows, collapsed, overrides), view);

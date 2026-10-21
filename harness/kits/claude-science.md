@@ -155,7 +155,7 @@ run and a dropped-file smoke test are optional.
 
 ## The real tool list
 
-The plugin has 64 registered tools: 37 model-visible `stereo_structure.*` tools
+The plugin has 68 registered tools: 41 model-visible `stereo_structure.*` tools
 and 27 app-only tools, counted from `plugin/scripts/tool-inventory.ts`.
 `pnpm --filter stereo-structure smoke` asserts those lists by name; check that
 output rather than this count. The app-only tools

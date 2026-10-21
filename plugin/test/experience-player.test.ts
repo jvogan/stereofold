@@ -194,16 +194,17 @@ it('closing the chooser over a running journey hands back its chapter untouched'
   expect(state.chapterStartedAt).toBe(running.chapterStartedAt);
 });
 
-it('autoplay holds a chapter for its spoken length spread over its plates, not 8 s a plate', async () => {
+it('autoplay holds a chapter for its spoken length on its one plate, not 8 s a plate', async () => {
   vi.useFakeTimers();
   const { player, navigate } = harness(); await player.togglePlay();
   expect(navigate).toHaveBeenCalledTimes(1);
-  // "4HHB shows alpha and beta subunits assembled around heme." is nine words: a 5.5 s chapter the plate splits in two, so each plate sits at the 3 s floor.
-  expect(player.getState()).toMatchObject({ step: 0, bodyPageCount: 2, bodyPageIndex: 0 });
-  await vi.advanceTimersByTimeAsync(3_100);
-  expect(player.getState()).toMatchObject({ step: 0, bodyPageIndex: 1 });
+  // "4HHB shows alpha and beta subunits assembled around heme." is nine words: a 5.5 s chapter. The caption goes to
+  // the plate whole (the chapter card wraps and pages it), so the one plate holds the whole 5.5 s.
+  expect(player.getState()).toMatchObject({ step: 0, bodyPageCount: 1, bodyPageIndex: 0 });
+  await vi.advanceTimersByTimeAsync(5_400);
+  expect(player.getState()).toMatchObject({ step: 0, bodyPageIndex: 0 });
   expect(navigate).toHaveBeenCalledTimes(1);
-  await vi.advanceTimersByTimeAsync(3_100);
+  await vi.advanceTimersByTimeAsync(200);
   expect(navigate).toHaveBeenCalledTimes(2);
   expect(player.getState()).toMatchObject({ step: 1, autoplay: true });
 });

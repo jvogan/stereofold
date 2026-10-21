@@ -1,6 +1,6 @@
 {
   "name": "stereo-structure",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "private": true,
   "type": "module",
   "description": "A stereoscopic Mol* viewer that runs inside Codex, Claude, and any MCP Apps host.",

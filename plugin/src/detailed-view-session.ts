@@ -346,6 +346,18 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
     normalized = normalized.replace(/(?:\s+(?:please|now|thanks|thank you))+$/, '');
     return RETURN_PHRASES.indexOf(normalized) !== -1;
   }
+  /** Resolve against the actual available return controls, without navigating yet. */
+  function resolveReturnRequest(text, options) {
+    if (!isReturnRequest(text)) return;
+    var home = options.returnButton, back = options.back;
+    var target = home && !home.hidden && !home.disabled ? home
+      : back && !back.hidden && !back.disabled ? back : undefined;
+    if (!target) return;
+    return function () {
+      if (options.say) options.say('Going back to the headset.');
+      target.click();
+    };
+  }
   /** The first recording type this browser admits, or an empty string. */
   function pickRecordingMime(Recorder, candidates) {
     if (!Recorder) return '';
@@ -372,6 +384,7 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
     var say = options.say || function () {};
     var maxMs = options.maxMs || 20000, timer;
     var onTranscript = options.onTranscript;
+    var resolveTranscript = options.resolveTranscript;
     /** One conversion/upload/finalize sequence for the recording now open. */
     function enqueue(work) {
       var run = writes.then(work, work);
@@ -390,10 +403,23 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
       // The closing call is the one that carries the
       // words back. The Mac transcribes on this machine and hands the record
       // to whoever asked; the page reads it only to hear "return".
-      if (!final || !onTranscript) return;
+      if (!final) return;
       var record = answer && answer.structuredContent && answer.structuredContent.transcript;
       var text = record && typeof record.text === 'string' ? record.text : '';
-      if (text) { try { onTranscript(text); } catch (error) { /* A misheard word is not a lost utterance. */ } }
+      if (!text) return;
+      if (record.pageDecision) {
+        // Resolve without effects; execute only after the host accepts local ownership.
+        var action;
+        try { action = resolveTranscript && resolveTranscript(text); } catch (error) {}
+        var decisionArgs = {utteranceId: record.utteranceId, seq: assigned,
+          mime: mime, final: true, pageDecision: {token: record.pageDecision, handled: typeof action === 'function'}};
+        var decision = await post('push_to_talk_audio', decisionArgs).catch(function () {
+          return post('push_to_talk_audio', decisionArgs);
+        });
+        if (decision && decision.structuredContent && decision.structuredContent.handled && action) action();
+      } else if (onTranscript) {
+        try { onTranscript(text); } catch (error) { /* Legacy host. */ }
+      }
     }
     function finalize(opened) {
       if (finalQueued) return writes;
@@ -496,5 +522,5 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
     clearPainted: clearPainted, createSelectionReporter: createSelectionReporter, selectionSignature: selectionSignature, captionAudioUrl: captionAudioUrl,
     captionSegments: captionSegments,
     pickRecordingMime: pickRecordingMime, createTalk: createTalk, readBeat: readBeat,
-    isReturnRequest: isReturnRequest};
+    isReturnRequest: isReturnRequest, resolveReturnRequest: resolveReturnRequest};
 })()`;

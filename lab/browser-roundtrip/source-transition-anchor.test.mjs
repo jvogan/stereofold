@@ -128,7 +128,8 @@ test('the grown tier opens its own lesson rather than keeping the anchor alone',
   const source = readFileSync(new URL('../../plugin/src/inspector.ts', import.meta.url), 'utf8');
   // The rule lives in tour-player.ts; this is the one place that carries it out.
   assert.match(source, /grownTierIntent\(\{presenting:/);
-  assert.match(source, /if\(swappedSource && !restoredLessonPlayback\)await openGrownTier\(/);
+  // Reference atoms cannot open the companion's density lesson.
+  assert.match(source, /if\(swappedSource && !restoredLessonPlayback && !densityReferenceOnly\)await openGrownTier\(/);
   // The lesson state has to be read BEFORE hydrate stops the tour, or a wearer
   // mid-lesson is indistinguishable from one who had put it away.
   const hydrate = source.slice(source.indexOf('async function hydrate('));

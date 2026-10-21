@@ -20,6 +20,7 @@ import { tangentRectsForPoints } from './journey-seat-record.mjs';
 import { resetViewPlacement } from './reset-view-placement.mjs';
 import { resetEntryGeometry } from './reset-entry-geometry.mjs';
 import { applyMatrix4, invertMatrix4 } from './room-lock.mjs';
+import { measureGlassClearance } from './fixtures/glass-clearance.mjs';
 
 const subject = { title: 'Human deoxyhaemoglobin', pdbId: '4HHB', chains: 4,
   representation: 'cartoon', color: 'chain-id' };
@@ -93,49 +94,47 @@ test('Entry and Reset previews still measure the panel the live state draws', as
     h.setState({ subject, tour: narratedChapter });
     await h.toolbar.update();
 
-    const chapterReadout = ['The haem pocket', 'Scene 2 / 20', 'Each subunit wraps one',
-      'haem group, and the iron', 'at its centre is where', 'oxygen binds.',
-      'Human deoxyhaemoglobin', '4HHB · 4 chains', 'cartoon by chain · 0', 'selected'];
+    // The chapter card is the chapter alone: the structure's own lines belong
+    // to the menu readout.
+    const chapterReadout = ['The haem pocket · 2/20', 'Each subunit wraps one haem group, and the',
+      'iron at its centre is where oxygen binds.'];
     for (const [name, preview] of [['entry', h.toolbar.placementPreview({ headInRoom })],
       ['reset', h.toolbar.placementPreview({ headInRoom, resetMenu: true })]]) {
       assert.deepEqual(preview.rows.map(row => row.id), h.toolbar.rows().map(row => row.id),
         `the ${name} preview reads the drawn rows`);
-      assert.equal(preview.rows.length, 27, `the ${name} preview keeps its 27 rows`);
+      assert.equal(preview.rows.length, 27, `the ${name} preview keeps its 27 rows; the caption fits one card page`);
       assert.deepEqual(preview.readout, chapterReadout, `the ${name} preview keeps the chapter caption`);
       assert.equal(preview.collapsed, false, `the ${name} preview keeps its drawn form`);
       // The 1.35 m design preserves angular dimensions; fixed eye spacing
       // changes their binocular projection slightly from the old .95 m seat.
-      assert.equal(top(preview.points).toFixed(4), '0.9075', `the ${name} preview keeps its ceiling`);
-      assert.equal(halfWidth(preview.points).toFixed(4), '0.3357', `the ${name} preview keeps its width`);
+      // The chapter card keeps a margin around its caption and one size while
+      // it pages, which raised its ceiling from 0.8140 and widened it from 0.7572.
+      assert.equal(top(preview.points).toFixed(4), '0.8856', `the ${name} preview keeps its ceiling`);
+      assert.equal(halfWidth(preview.points).toFixed(4), '0.7693', `the ${name} preview keeps its width`);
       assert.equal(halfWidth(preview.menuPoints()).toFixed(4), '0.2578', `the ${name} preview keeps its column`);
+      assert.equal(top(preview.points).toFixed(4), top(h.toolbar.platePoints()).toFixed(4), `the ${name} preview measures the drawn ceiling`);
+      assert.equal(halfWidth(preview.points).toFixed(4), halfWidth(h.toolbar.platePoints()).toFixed(4), `the ${name} preview measures the drawn width`);
+      assert.equal(halfWidth(preview.menuPoints()).toFixed(4), halfWidth(h.toolbar.drawnMenuPoints()).toFixed(4), `the ${name} preview measures the drawn column`);
     }
   } finally { await h.toolbar.dispose(); }
 });
 
 /**
- * The device shape, over the shipped `restoreJourneySeat` closure: a saved view
- * that clears the completed menu and overlaps the chapter caption above it.
- *
- * This is that defect with nothing else wrong. The molecule sits above the
- * completed panel and beside its caption block, so the panel Done draws leaves
- * it exactly where the wearer saved it — and the panel Done was measuring
- * covered it, which cost it 0.19 of lateral travel it never needed to spend.
- * The tour is still active when `restoreJourneySeat` runs, as it is on the
- * headset: the experience player publishes its completed state only after
- * `hydrate` returns, so `beforeMenuDraw` is where that state arrives.
+ * Done retains a saved view between the chapter card and the completed card.
+ * Both cards now face forward. A shallow box at their lower edge overlaps the
+ * taller chapter card but clears the shorter information card. The independent
+ * eye projection below proves both premises before exercising the viewer.
  */
-// Keep this measured overlap fixture at its historical forward menu seat.
 test('a view that clears the completed menu keeps its seat through Done', async () => {
   const { deviceDoneClearance, devicePlacement } = await import('./fixtures/device-done-clearance.mjs');
-  // Above the completed menu, overlapping the chapter caption beside it. Built
-  // from the fixture's own placement so the room pose and the head are its own.
-  const seat = { rotation: [0, 0, 0], scale: 1.5,
-    translation: [devicePlacement.translation[0] - 0.2, devicePlacement.translation[1] + 3.16,
+  const seat = { rotation: [0, 0, 0], scale: 1,
+    translation: [devicePlacement.translation[0] - .2, devicePlacement.translation[1] + 1.95,
       devicePlacement.translation[2]] };
   let placement = structuredClone(seat);
   const records = [];
   let h;
-  h = await deviceDoneClearance({ runtime: await toolbarFrameRuntime(undefined, { peripheralSeat: false }), placement: devicePlacement,
+  h = await deviceDoneClearance({ runtime: await toolbarFrameRuntime(), placement: devicePlacement, halfHeight: .1,
+    subject: { title: 'Hemoglobin', pdbId: '4HHB', chains: 4 },
     getPlacement: () => placement, setPlacement: next => { placement = next; },
     // The player's completed state, published where the headset publishes it:
     // after the solve, before the panel that stays is drawn.
@@ -154,10 +153,16 @@ test('a view that clears the completed menu keeps its seat through Done', async 
 
     // The panel Done will draw: the saved seat is already clear of it.
     const preview = menu.toolbarPlacementPreview({ ...pose, restoreTourSeat: true });
+    const witness = points => measureGlassClearance({ objects: geometry.objects, views: pose.labelViews,
+      cameraScale: 1, renderFromRoom: pose.renderFromRoom, menuPoints: points }).eyes;
+    assert.ok(witness(preview.points).every(eye => eye.clearance > 0),
+      'the saved mesh clears each completed plate in both eyes');
+    assert.ok(witness(menu.platePoints()).every(eye => eye.clearance < 0),
+      'the saved mesh overlaps the chapter card in both eyes');
     assert.equal(clear(preview.points), seat, 'the completed menu leaves the saved seat alone');
     // The panel Done is leaving: the same seat overlaps its caption block, so a
     // solve against that glass cannot return the seat.
-    assert.notEqual(clear([...menu.drawnMenuPoints(), ...menu.platePoints()]), seat,
+    assert.notEqual(clear(menu.platePoints()), seat,
       'the chapter caption does cover the saved seat');
 
     await h.restore({ camera: {}, inspection: { placement } });

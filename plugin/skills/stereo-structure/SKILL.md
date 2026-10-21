@@ -6,14 +6,75 @@ description: Inspect molecular structures, control Stereofold scenes in WebXR he
 # Stereofold
 
 Use Stereofold for focused molecular inspection, stereo viewing, and immersive
-scenes. Keep the user's chosen scientific workbench for measurements, maps,
-trajectories, multiple structures, and other analysis. The separate Molecular
+scenes, composites, live lessons and atom measurements. Keep the user's chosen
+scientific workbench for maps, trajectories and other analysis. The separate Molecular
 Structure Viewer has its own `structure.*` tools; Stereofold's bundled full
 Mol* viewer is another route. Choose the route the user requested.
 
 Tool names use the `stereo_structure.` namespace. Resolve their host-specific
 names from the available tool list. For installation or missing runtime files,
 read the installed `stereofold-setup` skill.
+
+Compare the first result with `toolSetVersion: "2026-10-14.demo.1"`; if it
+differs, a tool seems missing, or a tool rejects or ignores a documented field,
+re-list that tool's schema before working around it.
+Text results contain prose and fenced JSON: parse each block separately;
+requested fields precede catalogs and history in the bounded state block.
+Read those blocks when the host exposes only `content[].text`; fields mirror the structured result, with
+`targetPanel` and `placement` provided as convenient scene summaries. `get_inspection_state` includes `tours`,
+`lesson.parts` (IDs and labels), `targetPanel.tour`, `animation`, `placement`,
+and `panels`. With `commandId`, read `command` for that receipt, including its
+status, rendered revision, timestamps and failure detail. Mutation results
+include `commandId` and `command`, or source replacement's `sourceRenderStatus`
+and `sourceRenderReceipt`. `continue_session` includes `role`, `sessionId` and
+`scene`; `list_experiences` includes `experiences`; `get_state` includes viewer
+state; `get_readiness` includes `readiness`.
+
+The state block is capped at 6,000 characters including its fences. It has
+`textStateVersion: 1`, `maxChars: 6000`, `truncated`, and the deterministic
+`truncationMarker: "[truncated]"`. When `truncated` is true, trailing values were
+omitted; missing fields do not mean an empty catalog or a completed operation.
+Request `get_inspection_state({sessionId,includeLesson:true})` for the complete
+`lessonManifest` in its own fenced JSON block, edit that object, and reinstall
+it as `install_lesson`'s `lesson`, omitting `start` for later edits.
+The bounded state block never holds a partial manifest; request a specific
+receipt or smaller residue page for omitted summary fields.
+Molecular coordinates, pairing codes, connection credentials and private keys
+are excluded from this projection. Connection links remain in their original
+result or local dialog. Structured results are unchanged.
+Advisory sentences are omitted from the JSON; readiness flags and reason codes
+remain. Failed receipts retain their status, reason and detail. Tool errors
+retain the original prose and append JSON with `isError: true` and `error.message`.
+
+For “show me the ATP synthase demo on my headset”, keep the session returned
+by `continue_session` and make one call:
+`replace_inspection_source({sessionId,demo:"atp-synthase-rotor",stage:"motion",waitForRenderMs:40000})`.
+`demo` names an entry in the bundled `demos/index.json`; omit `stage` for its
+default or name a listed stage. This verifies cached coordinates, fetches missing
+coordinates under the existing policy, installs the complete bundled lesson and
+starts its opening chapter with `autoplay:false,narration:false`. Motion within
+a chapter still plays. The joined headset page and wearer placement rules stay
+in effect; no new session or launch is needed. Use the same route for
+`kinesin-walk`, `hemoglobin-switch`, single-source demos, or
+`demo:"microtubule-growth",stage:"monomer"` followed by `grow_structure`.
+Prepared density maps must already be cached; follow the returned preparation
+command on a cache miss. Confirm `sourceRenderStatus.rendered:true`, or poll
+`sourceRenderReceipt` for the current source and ready panel before reporting
+it shown. Later lesson edits can use
+`install_lesson({sessionId,lessonPath})` with the resolved absolute path of
+`demos/atp-synthase-rotor/motion.json` instead of inlining JSON. `lessonPath` is restricted to the plugin's bundled demos;
+supply exactly one of `lesson` or `lessonPath`, and omit `start` to retain intent.
+Routine `get_inspection_state` summarises styles, selection ownership and
+animation definitions; use `includeViewDetails:true` only for the exact saved
+view, and `includeLesson:true` only for the editable lesson manifest.
+
+Bundled demos default to a bounded 40-second render wait; use
+`waitForRenderMs:0` to return immediately. If that wait ends first, the result
+says "still drawing" with `sourceRenderStatus.status:"rendering"` and a pollable
+`commandId`. This is pending work: poll
+`get_inspection_state({sessionId,commandId})` for the current source receipt; do
+not report failure or resend the load. Only a current ready rendered receipt
+establishes that it is shown.
 
 ## Open or continue a scene
 
@@ -45,8 +106,8 @@ read the installed `stereofold-setup` skill.
    it reports a saved scene and a current ready panel. Keep the rendered tab
    open. Before reporting a visible structure, confirm `hasScene: true` and
    the intended panel's `current: true` and `availability: "ready"`.
-4. For a headset request, call `open_companion` directly after opening the
-   source. It opens a browser renderer when needed and waits for a saved scene.
+4. For a headset request with no shared headset session, call
+   `open_companion` directly after opening the source. It opens a browser renderer when needed and waits for a saved scene.
    Choose the launch route in the next section. If it returns `sharePending`,
    repeat the same arguments to continue that operation.
 
@@ -82,6 +143,66 @@ of the conversation. On `inspect` and `replace_inspection_source`, add
 top-level `modelNumber` or `assemblyId` when the user requests a particular
 deposited model or biological assembly; otherwise the first model and
 asymmetric unit are selected.
+
+## Build a scene or install a lesson
+
+Use `prepare_composite` to build deposited bodies without local scripts. Sources
+are RCSB IDs; optional source `sha256` pins exact bytes. Otherwise the tool reuses
+its verified cached revision or downloads one. `authChains` selects the first
+model, `residues` is an inclusive author-number range, and `ligands` retains
+listed components whole (water is excluded). `atoms:"backbone"` keeps N, CA, C,
+O and CB. Each `chain` is a unique output author chain. Matrices are row-major
+3×4 rigid transforms with translations in Å. Supply exactly one of `matrix` or
+`place` per body. `place.superpose.onto` names a body `id` (default: its output
+`chain`) or a zero-based index; references may form a tree, never a cycle.
+Optional `chains:{mobile:["B"],fixed:["A"]}` pairs retained author chains in
+array order (default: each body's `authChains`). Optional
+`residues:{mobile:{from:1,to:146},fixed:{from:1,to:141}}` restricts the fit;
+`atoms` defaults to `"CA"`, or `"backbone"` for N, CA, C, O. The fit uses global
+sequence alignment and equal-weight Kabsch with determinant +1. At least three
+atoms must pair. Coverage below 30% on either side requires
+`place.superpose.allowLowCoverage:true`. `place.then.translate` offsets the
+fitted body in Å along the final composite frame axes.
+
+For example, align a second deposited alpha-globin structure to the first:
+
+```json
+{"recipe":{"version":1,"id":"globin-fit","title":"Alpha globin comparison","sources":[{"id":"4HHB"},{"id":"1HHO"}],"bodies":[{"id":"reference","source":"4HHB","authChains":["A"],"atoms":"all","chain":"F","matrix":[[1,0,0,0],[0,1,0,0],[0,0,1,0]]},{"source":"1HHO","authChains":["A"],"atoms":"all","chain":"M","place":{"superpose":{"onto":"reference"}}}]}}
+```
+
+Read `bodies[1].matrix` and `bodies[1].superposition`: `rmsd` is in Å before
+any offset; `pairedAtomCount`, `sequenceIdentity` (fraction of aligned residue
+pairs identical), and `coverage:{mobile,fixed}` (fractions of selected observed
+protein residues contributing atom pairs) describe the fit. Check these values
+before using it; copy the returned matrix into another recipe to reuse it.
+Copy the returned `source` into `inspect({source})` or
+`replace_inspection_source({sessionId,source,waitForRenderMs:10000})` and check
+the usual rendering receipt. Matrices and fit statistics also appear in text.
+
+The result's `source` handle goes directly into `inspect`, `inspect_lesson` or
+`replace_inspection_source`. Retain `sha256`, per-body `labelChains` and
+`labelChainMapping`; visibility uses every returned label chain, including
+ligands. Handles survive restarts while the runtime host's cache remains.
+The 64 MiB policy applies to each input and output; `maximumAtomSites` adds an
+optional caller budget. Preparation alone establishes no rendered scene.
+
+For a new source requested with “put it in my headset” in an already shared
+headset session, use
+`prepare_composite` → `replace_inspection_source` in the joined session →
+`install_lesson({sessionId,lesson,start:{chapterId,autoplay:false,narration:false},
+waitForRenderMs:10000})`; the request authorizes delivery without a new session
+or connection question. With no headset session, use `inspect_lesson({source,lesson})`
+and the connection route below.
+
+The first start after authoring uses `autoplay:false,narration:false`; later
+`install_lesson` edits omit `start` and keep stable chapter IDs to retain the
+current chapter and intent, preserving source, selection, placement and viewer
+hold. Read `get_inspection_state` before navigating, and confirm rendered receipts.
+
+Read [molecular-presentation](../molecular-presentation/SKILL.md) for authoring
+limits and [the complete live example](../molecular-presentation/references/live-authoring.md)
+for two bodies, a residue-range track about a pivot, labels, a tether, a
+measurement and a same-session label and keyframe edit.
 
 ## Connect a headset
 
@@ -183,11 +304,12 @@ documented explicit bindings; read [Handoffs and lessons](references/handoffs.md
 Pass `waitForRenderMs: 10000` on supported edit calls. The render-receipt wait
 is capped at 40 seconds per call even when a larger value is accepted.
 A `rendered` receipt confirms a draw and save at its `renderedRevision`; compare
-that revision with the current scene before describing it. If the result is
-`queued` or `rendering`, read `get_inspection_state` with its `commandId` until
-the receipt settles. `saved` retains an edit for a
-paused page to draw later. `unconfirmed`, `conflict`, `rejected`, `unknown`,
-and expired receipts do not establish a completed render.
+that revision with the current scene before describing it. Poll
+`get_inspection_state({sessionId,commandId})` until the receipt's `terminal`
+is true; the text block's `terminalStatuses` lists every final status.
+Read its reason once and stop polling; unrelated log words such as a HUD
+`asleep` reason never establish render failure. `saved` retains an edit for a
+paused page to draw later; `unknown` does not confirm a render.
 
 Name parts with residue selectors from the actual source, such as
 `{"labelChain":"A"}`, `{"componentId":"HEM"}`, `{"classes":["ligand"]}`,
@@ -200,19 +322,33 @@ identify the original operation, then read current state before describing the
 view. If its receipt has expired from history, check the current scene and use
 a new command ID only for a new edit.
 
-| Request | Tool and action-specific arguments |
+### Edit what is on screen
+
+These are one-call edits once the session and targets are known. Add `sessionId`
+and `waitForRenderMs:10000` to supported mutations. Fetch
+`get_inspection_state({sessionId,includeLesson:true})` once if the current
+manifest is unknown, then retain it for subsequent edits. Poll pending receipts
+by `commandId`; do not resend an edit merely because its render wait ended.
+
+| Request | Fewest calls and fields |
 | --- | --- |
-| Color chain A orange | `update_inspection`: `{"change":{"kind":"appearance","residues":{"labelChain":"A"},"patch":{"color":"uniform","uniformColor":"#ff8800"}}}` |
-| Show hemes as sticks | `update_inspection`: `{"change":{"kind":"appearance","residues":{"componentId":"HEM"},"patch":{"representation":"ball-and-stick"}}}` |
-| Hide water | `update_inspection`: `{"change":{"kind":"visibility","patch":{"op":"hide","classes":["water"]}}}` |
-| Spin / stop spinning | `update_inspection`: `{"change":{"kind":"motion","patch":{"state":"spin"}}}` / `state: "stop"` |
-| Bring an out-of-view molecule back | `update_inspection`: `{"change":{"kind":"placement","patch":{"recenter":true}}}` |
-| Frame the selection | `focus_selection`: `{"framing":"context"}` |
-| Replace with 1CRN in the same connection | `replace_inspection_source`: `{"mode":"replace","pdbId":"1CRN","waitForRenderMs":40000}` |
-| Compare 2HHB beside the current structure | `replace_inspection_source`: `{"mode":"compare","source":{"kind":"pdb","id":"2HHB"},"commandId":"compare-2hhb"}` |
-| Next / back / pause a requested tour | `control_tour`: `{"action":"next"}` / `back` / `pause` |
-| Undo the last shared operation | `undo_last_change`: `{}` |
-| Reapply the last undone operation | `redo_last_change`: `{}` |
+| Speed up, pause or seek molecular motion | `update_inspection` with `change:{kind:"animation",patch:{speed:2}}`, `{state:"pause"}` or `{seekSeconds:1}`; tour pause uses `control_tour` with `action:"pause"`. |
+| Label residues or a ligand | One `update_inspection` compound with no state read first: a selection of `residues:{authorResidueRange:[248,248]}` or `{componentId:"HEM"}`, then appearance `labels:true`. The selection highlight can replace a color set on selected atoms, so call them highlighted and name no color for them. Read [labels](references/commands.md#label-residues-ligands-and-regions) for separate residues, ligand names and a text label on a region. |
+| Relabel | Edit `lesson.chapters[i].immersive.figure.labels[j].text`, then `install_lesson` with the complete lesson. |
+| Add a chapter | Append a chapter with a unique ID and explicit `immersive` intent, then `install_lesson`. |
+| Recolor | `update_inspection` with `change:{kind:"appearance",residues:{authorChain:"C"},patch:{color:"uniform",uniformColor:"#ff8800"}}`; for a persistent authored figure color, change its layer and `install_lesson`. |
+| Measure “the two heads” | Read `lesson.parts`, then `measure({sessionId,targets:[{part:"head-1"},{part:"head-2"}]})` with actual part IDs; verify both are visible in the current chapter at the sampled time before naming them, since animated variants may never appear together. Add `annotate:true` for a line; remove it with `remove_measurement` and its `measurementId`. |
+| Swap the source | `replace_inspection_source` with `source`; preserves the connection, resets scientific scene and lesson. Check `sourceRenderReceipt`. |
+| Make bigger or closer | `update_inspection` placement `patch:{scale:2}` or `patch:{translation:[x,y,z]}`. These are absolute values; derive them from current `placement`. Translation uses molecular radii, not metres; for “closer” use the current, non-stale `spatialContext` head direction in molecule-local axes. |
+
+For an animated chapter, use `update_inspection` with
+`change:{kind:"animation",patch:{state:"pause"}}` or `state:"play"` to pause or
+resume molecular motion. Use `speed:0.5` to slow it, `loop:true` to repeat,
+`seekSeconds` for an absolute clip time, or `restart:true,state:"play"` to play
+from zero. Speed accepts 0.1–4. Read `get_inspection_state.animation` for the
+owning panel's latest playback sample (null without animation), and confirm the
+rendered command receipt. These controls leave chapter advancement alone;
+pausing the tour also holds molecular motion.
 
 Add `sessionId` to each call and use a render wait only where supported. Read
 [Scene commands](references/commands.md) for compounds, focus, quality,
@@ -234,19 +370,46 @@ are per operation and do not guarantee that every overlapping request will be
 admitted: if the tool says the panel is busy, read current state before deciding
 whether to retry.
 
+## Measure atoms in the current scene
+
+Use `measure` with the joined `sessionId` and 2–4 `targets`: `{part:"..."}`
+selects the atom nearest a named part's CA or phosphorus centroid (all atoms
+if neither exists), not its geometric center. Exact targets name residues as in
+`update_inspection` plus `atomName` and must resolve one atom.
+Read the full manifest with `get_inspection_state({sessionId,includeLesson:true})`
+to check chapter visibility and animation events at the returned measurement
+time before interpreting endpoints as visible bodies.
+The result includes exact atom identities, distance in Å, an angle for three
+targets, and a signed dihedral for four. Resolve field errors using the
+returned candidates, including alternate sites, assembly copies and lesson-part
+names; ambiguous selectors return at most eight candidates per end and a
+`cursor` to repeat on the same target for the next page.
+Reads leave the scene and revisions unchanged. Animated results identify
+moving bodies and the latest panel time (or saved time without a panel sample);
+they do not extrapolate playback.
+
+For example, after `continue_session` returns `sessionId`, call
+`measure({sessionId,targets:[{authorChain:"A",authorResidue:56,atomName:"CA"},
+{authorChain:"A",authorResidue:169,atomName:"CA"}],annotate:true,
+measurementId:"glu56-arg169",waitForRenderMs:10000})` using identities checked
+against the actual source. Report `measurement.distanceAngstrom`. Only
+`command.status:"rendered"` confirms the distance line was drawn and saved;
+poll `get_inspection_state({sessionId,commandId})` for a pending receipt.
+Remove it with `remove_measurement({sessionId,measurementId:"glu56-arg169",
+waitForRenderMs:10000})` and check that receipt too. Omit `annotate` for a
+numeric answer alone. A line follows its two endpoints during motion.
+
 ## Voice and shared assistants
 
-Typed, host-dictated, and host live-voice requests use this conversation's
-ordinary tools. If live voice already reaches this task, use its speech and
-turn-taking; do not start a second headset listener or duplicate spoken replies.
-Headset microphone requests need a configured recognizer, microphone consent,
-and an active conversation consumer. A plugin installation alone keeps no
-assistant listening.
-Read [Voice and assistant handover](references/voice.md) before starting that
-route. Preserve the user's configured voice provider and verify playback
-acknowledgements before claiming a spoken reply played.
+Host dictation and live voice uses ordinary tools and that host's speech. For a
+requested headset conversation, use Claude Code channels or the `listen_voice`
+fallback for other hosts. Read [Voice and assistant handover](references/voice.md)
+for launch, readiness and recovery. Both routes use the same loop: carry
+`utteranceId` on supported actions, confirm the rendered receipt, then
+`say_to_headset` with that ID. Preserve the configured voice provider.
 
-`continue_session` shares selection, placement, lesson, chapter, and emphasis
-across hosts. Its assistant label identifies the caller for voice ownership.
-Only the active assistant receives wearer requests; `switch_assistant` or the
-wearer's handover phrase changes ownership. Quiet time does not change it.
+`continue_session` shares selection, placement, lesson, chapter and emphasis.
+Use `assistant:"Claude"` or `"Codex"` for the actual caller. Only the active
+assistant owns voice; `switch_assistant` or the wearer's handover phrase changes
+ownership. Quiet time leaves ownership unchanged. Installation alone starts no
+conversation consumer.

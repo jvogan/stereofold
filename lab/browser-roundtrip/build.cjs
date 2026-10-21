@@ -91,7 +91,10 @@ async function main() {
     const fontFiles = inspection ? (await fs.readdir(path.join(entryDir, 'fonts'))).sort()
       .map(name => path.join(entryDir, 'fonts', name)) : [];
     const identityPath = path.resolve(__dirname, '../identity/identity.cjs');
-    const allowed = new Set(await Promise.all([...localRuntime, identityPath, ...fixtureFiles, ...fontFiles].map(f => fs.realpath(f))));
+    // Shared playback math and the menu reset policy are runtime inputs.
+    const allowed = new Set(await Promise.all([...localRuntime, identityPath,
+      path.join(repo, 'packages/motion/src/keyframes.mjs'),
+      path.join(plugin, 'src/quest-menu-depth-reset.ts'), ...fixtureFiles, ...fontFiles].map(f => fs.realpath(f))));
     for (const file of localRuntime) {
       const source = await fs.readFile(file, 'utf8');
       for (const marker of forbidden) if (source.includes(marker)) report.violations.push(`${relative(file)} contains ${marker}`);

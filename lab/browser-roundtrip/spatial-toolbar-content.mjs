@@ -241,7 +241,7 @@ export function spatialToolbarRows({ tour, voice, collapsed = true, mode = 'move
   ] : [];
   // The final dwell keeps the Next-sized seat, now an actionable Done.
   const chapterAdvance = tour?.canNext
-    ? ['Next', { kind: 'tour-next' }]
+    ? ['Next', { kind: 'tour-next' }, Boolean(tour?.navigating)]
     : ['Done', { kind: 'tour-done' }, Boolean(tour?.navigating)];
   // Early Done lives under Menu, in the chooser's seat during a chapter.
   // Finishing restores the chooser. Appending another row would overflow the
@@ -249,6 +249,7 @@ export function spatialToolbarRows({ tour, voice, collapsed = true, mode = 'move
   const expandedChooser = tour?.active && tour.canNext
     ? ['Done', { kind: 'tour-done' }, Boolean(tour.navigating)] : chooserRow;
   const tourPaged = tour?.bodyPageCount > 1 && tour?.selectedId && tour?.captionCard !== 'hidden';
+  const chapterCard = tour?.active === true && tour?.selectedId && tour?.captionCard !== 'hidden' && tour?.menuOpen !== true;
   const tourControls = [
     [tour?.navigating ? 'Loading…' : tour?.autoplay ? 'Pause' : tour?.active ? 'Play' : 'Tour', { kind: 'tour-play', ...(tour?.menuOpen ? { chooser: true } : {}) }, Boolean(tour?.navigating), true],
     ...(collapsed ? [resetRow] : []),
@@ -278,9 +279,15 @@ export function spatialToolbarRows({ tour, voice, collapsed = true, mode = 'move
     // structure's menu is the length it always was.
     //
     // Only ever one page row. When a lesson caption is paging, that is what
-    // the wearer is reading and the row stays its. The description waits for
-    // the plate to come back to rest, which is the only state it is drawn in.
-    ...(!tourPaged && readout?.descriptionPageCount > 1 ? [
+    // the wearer is reading and the row stays its. A chapter card never draws
+    // the description at all, so while one stands there is nothing for the row
+    // to page. The description waits for the plate to come back to rest.
+    //
+    // A card the glass draws in pages (`readoutPage`) gets the same row, and
+    // it counts the card's own pages: those are what the wearer is reading.
+    ...(!tourPaged && readout?.cardPageCount > 1 ? [
+      [`Pg ${(readout.cardPageIndex ?? 0) + 1}/${readout.cardPageCount}`, { kind: 'readout-page' }],
+    ] : !tourPaged && !chapterCard && readout?.descriptionPageCount > 1 ? [
       [`Pg ${(readout.descriptionPageIndex ?? 0) + 1}/${readout.descriptionPageCount}`, { kind: 'readout-page' }],
     ] : []),
   ];
@@ -309,6 +316,7 @@ export function spatialToolbarRows({ tour, voice, collapsed = true, mode = 'move
     ...(compactWithoutWorkbench + compactAppearance.length < COMPACT_ROW_BUDGET - 1 ? [workbenchRow] : []),
     ['Menu', { kind: 'collapse', value: false }, false, true]] : [
     ['Close', { kind: 'collapse', value: true }, false, true], ...appearanceRows, ...historyRows,
+    ...(typeof passthrough === 'boolean' ? [passthroughRow] : []),
     workbenchRow, [mode === 'move' ? 'Rotate' : 'Slide', { kind: 'mode' }],
     ['Above us', { kind: 'room-placement', target: 'overhead' }], ['In reach', { kind: 'room-placement', target: 'front' }],
     [paused ? 'Spin' : 'Stop', { kind: 'toggle-motion', paused: !paused }], ['Fit', { kind: 'fit' }], ['Reset', { kind: 'reset' }],
@@ -338,8 +346,9 @@ export function spatialToolbarRows({ tour, voice, collapsed = true, mode = 'move
   // the wearer's other route and this row is its only state light. Nothing is
   // removed that cannot be reached again in one press, and any press at all
   // brings the whole menu back — `spatial-toolbar.mjs` owns that timer.
-  const quietRows = [...voiceControls,
-    [tour?.navigating ? 'Loading…' : tour?.autoplay ? 'Pause' : 'Play', { kind: 'tour-play', ...(tour?.menuOpen ? { chooser: true } : {}) }, Boolean(tour?.navigating), true],
+  const quietVoice = voiceControls.map(([label, ...rest]) => [{ 'Mic on…': 'Mic on', 'Hearing…': 'Hear…', 'No voice': 'No mic', 'No link': 'Link?' }[label] ?? label, ...rest]);
+  const quietRows = [...quietVoice,
+    [tour?.navigating ? 'Wait' : tour?.autoplay ? 'Pause' : 'Play', { kind: 'tour-play', ...(tour?.menuOpen ? { chooser: true } : {}) }, Boolean(tour?.navigating), true],
     ...(tour ? [chapterAdvance] : []),
     ['Menu', { kind: 'collapse', value: false }, false, true]];
   return (quiet ? quietRows : [...mainVoiceControls, ...tourControls, ...controls, ...(!collapsed ? [['Re-seat', { kind: 'recenter-menu' }]] : [])])

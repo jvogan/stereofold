@@ -17,6 +17,9 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { stampedBuildId } from '../src/build-identity.js';
+import { compositeRecipePath, readCompositeRecipe, readModelledCompositeSource } from '../src/demo-composite-files.js';
+import { readBundledDemoCoordinates } from '../src/bundled-demo-coordinates.js';
+import { isModelledCompositeSource } from '../src/demo-rigid-composite.js';
 import { demoLessonPaths, type DemoIndexLike } from './demo-lesson-paths.js';
 
 const execFileAsync = promisify(execFile);
@@ -46,6 +49,8 @@ const REQUIRED_FILES = [
   'dist/inspector.html',
   'dist/inspector.css',
   'dist/inspector-host.js',
+  'dist/inspector-script-1.js',
+  'dist/inspector-script-2.js',
   'dist/server.mjs',
   'dist/headset-host.mjs',
   'dist/serve-inspection.mjs',
@@ -65,6 +70,7 @@ const REQUIRED_FILES = [
   'skills/stereo-structure/SKILL.md',
   'skills/molecular-presentation/SKILL.md',
   'skills/molecular-presentation/scripts/lesson.mjs',
+  'skills/molecular-presentation/references/live-authoring.md',
   // A share is handed to someone whose machine has never run this. The setup
   // skill and its bare-`node` check are what they read first, so a share
   // without them is a share that assumes the recipient already knows.
@@ -72,9 +78,313 @@ const REQUIRED_FILES = [
   'skills/stereofold-setup/scripts/setup-check.mjs',
 ] as const;
 
+// Exact published gallery assets, including originals and their provenance.
+// Neither an added file in this directory nor a manifest path can expand the
+// share boundary. New datasets require their own explicit audited list.
+const BINDER_GALLERY_FILES = [
+  'demos/binder-gallery/CREDITS.md',
+  'demos/binder-gallery/PROVENANCE.md',
+  'demos/binder-gallery/README.md',
+  'demos/binder-gallery/gallery.cif',
+  'demos/binder-gallery/lesson.json',
+  'demos/binder-gallery/manifest.json',
+  'demos/binder-gallery/original-pairs.json',
+  'demos/binder-gallery/structures/Binder01.cif',
+  'demos/binder-gallery/structures/Binder02.cif',
+  'demos/binder-gallery/structures/Binder03.cif',
+  'demos/binder-gallery/structures/Binder04.cif',
+  'demos/binder-gallery/structures/Binder05.cif',
+  'demos/binder-gallery/structures/Binder06.cif',
+  'demos/binder-gallery/structures/Binder07.cif',
+  'demos/binder-gallery/structures/Binder08.cif',
+  'demos/binder-gallery/structures/Binder09.cif',
+  'demos/binder-gallery/structures/Binder10.cif',
+  'demos/binder-gallery/structures/Binder11.cif',
+  'demos/binder-gallery/structures/Binder12.cif',
+  'demos/binder-gallery/structures/Binder13.cif',
+  'demos/binder-gallery/structures/Binder14.cif',
+  'demos/binder-gallery/structures/Binder15.cif',
+  'demos/binder-gallery/structures/Binder16.cif',
+  'demos/binder-gallery/structures/Binder17.cif',
+  'demos/binder-gallery/upstream/COLUMNS.md',
+  'demos/binder-gallery/upstream/LICENSE.md',
+  'demos/binder-gallery/upstream/README.md',
+  'demos/binder-gallery/upstream/design.csv',
+  'demos/binder-gallery/upstream/structures/02090d8c/02090d8c_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/03131527/03131527_esmfold2-aah1.pdb',
+  'demos/binder-gallery/upstream/structures/30fc4a66/30fc4a66_esmfold2-aah1.pdb',
+  'demos/binder-gallery/upstream/structures/5f5b71ad/5f5b71ad_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/66c2cc29/66c2cc29_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/888c8f04/888c8f04_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/8ac202c8/8ac202c8_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/8ebe5db2/8ebe5db2_esmfold2-aah1.pdb',
+  'demos/binder-gallery/upstream/structures/8f156315/8f156315_esmfold2-aah2.pdb',
+  'demos/binder-gallery/upstream/structures/96ee6417/96ee6417_esmfold2-aah2.pdb',
+  'demos/binder-gallery/upstream/structures/9cad7527/9cad7527_esmfold2-aah1.pdb',
+  'demos/binder-gallery/upstream/structures/9d008884/9d008884_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/INDEX.csv',
+  'demos/binder-gallery/upstream/structures/a199ee01/a199ee01_esmfold2-aah2.pdb',
+  'demos/binder-gallery/upstream/structures/b6d46ba0/b6d46ba0_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/structures/d2a254ba/d2a254ba_esmfold2-aah2.pdb',
+  'demos/binder-gallery/upstream/structures/dbb87a88/dbb87a88_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/upstream/structures/dceea244/dceea244_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/upstream/toxins.csv',
+  'skills/molecular-presentation/references/binder-gallery.md',
+] as const;
+// Frozen extended-gallery assets: all ten batches, their source originals and
+// provenance. This list is audited source, never expanded from an artifact's
+// manifest or directory contents at packaging time.
+const BINDER_EXTENDED_FILES = [
+  'demos/binder-gallery/catalog.json',
+  'demos/binder-gallery/upstream/in_silico_scores.csv',
+  'demos/binder-gallery/extended/README.md',
+  'demos/binder-gallery/extended/batch-01/gallery.cif',
+  'demos/binder-gallery/extended/batch-01/lesson.json',
+  'demos/binder-gallery/extended/batch-01/manifest.json',
+  'demos/binder-gallery/extended/batch-02/gallery.cif',
+  'demos/binder-gallery/extended/batch-02/lesson.json',
+  'demos/binder-gallery/extended/batch-02/manifest.json',
+  'demos/binder-gallery/extended/batch-03/gallery.cif',
+  'demos/binder-gallery/extended/batch-03/lesson.json',
+  'demos/binder-gallery/extended/batch-03/manifest.json',
+  'demos/binder-gallery/extended/batch-04/gallery.cif',
+  'demos/binder-gallery/extended/batch-04/lesson.json',
+  'demos/binder-gallery/extended/batch-04/manifest.json',
+  'demos/binder-gallery/extended/batch-05/gallery.cif',
+  'demos/binder-gallery/extended/batch-05/lesson.json',
+  'demos/binder-gallery/extended/batch-05/manifest.json',
+  'demos/binder-gallery/extended/batch-06/gallery.cif',
+  'demos/binder-gallery/extended/batch-06/lesson.json',
+  'demos/binder-gallery/extended/batch-06/manifest.json',
+  'demos/binder-gallery/extended/batch-07/gallery.cif',
+  'demos/binder-gallery/extended/batch-07/lesson.json',
+  'demos/binder-gallery/extended/batch-07/manifest.json',
+  'demos/binder-gallery/extended/batch-08/gallery.cif',
+  'demos/binder-gallery/extended/batch-08/lesson.json',
+  'demos/binder-gallery/extended/batch-08/manifest.json',
+  'demos/binder-gallery/extended/batch-09/gallery.cif',
+  'demos/binder-gallery/extended/batch-09/lesson.json',
+  'demos/binder-gallery/extended/batch-09/manifest.json',
+  'demos/binder-gallery/extended/batch-10/gallery.cif',
+  'demos/binder-gallery/extended/batch-10/lesson.json',
+  'demos/binder-gallery/extended/batch-10/manifest.json',
+  'demos/binder-gallery/extended/demo-index-entry.json',
+  'demos/binder-gallery/extended/manifest.json',
+  'demos/binder-gallery/extended/selected17/lesson.json',
+  'demos/binder-gallery/extended/source-lock.json',
+  'demos/binder-gallery/extended/upstream/structures/005ebdae/005ebdae_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/01f0df6e/01f0df6e_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/0510b42f/0510b42f_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/05efdf6e/05efdf6e_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/062f6e47/062f6e47_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/099c0240/099c0240_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/0af4b327/0af4b327_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/0bf88e5c/0bf88e5c_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/0c86c52b/0c86c52b_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/0f463bed/0f463bed_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/110493ed/110493ed_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/1296b21d/1296b21d_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/138181a8/138181a8_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/142cb24a/142cb24a_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/1578f84e/1578f84e_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/16974899/16974899_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/173c84c2/173c84c2_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/1a602e62/1a602e62_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/1ffc4a0a/1ffc4a0a_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/20511619/20511619_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/21286dd8/21286dd8_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/21c4722c/21c4722c_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/22359df4/22359df4_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/2375ac8e/2375ac8e_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/23bf54fe/23bf54fe_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/246a108f/246a108f_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/24baf4bf/24baf4bf_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/268861a2/268861a2_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/27764014/27764014_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/28491140/28491140_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/290c0215/290c0215_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/2a608b59/2a608b59_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/2afea962/2afea962_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/2b620ceb/2b620ceb_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/2c5aeaaf/2c5aeaaf_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/31723df8/31723df8_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/3369ca93/3369ca93_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/33b2180d/33b2180d_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/346a7f1f/346a7f1f_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/367f7a60/367f7a60_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/37b43daf/37b43daf_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/39f80384/39f80384_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/3a62f8c7/3a62f8c7_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/3d3dff1a/3d3dff1a_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/3f096f6b/3f096f6b_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/3f0f990a/3f0f990a_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/3f1c47f1/3f1c47f1_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/40090fca/40090fca_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/41a3e304/41a3e304_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4412a3c3/4412a3c3_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/443207a9/443207a9_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/44bc002a/44bc002a_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/457acf43/457acf43_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/46735fe6/46735fe6_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/47d04ba8/47d04ba8_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/47dd0a8a/47dd0a8a_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4aadd0af/4aadd0af_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4cc8857b/4cc8857b_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4d787f86/4d787f86_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4dc34f91/4dc34f91_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4eae42fc/4eae42fc_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4efbc623/4efbc623_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/4fcc0f88/4fcc0f88_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/50967325/50967325_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/50c76cf5/50c76cf5_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/52a91175/52a91175_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/5545ab00/5545ab00_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/562dbd2b/562dbd2b_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/569171b8/569171b8_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/569c6be9/569c6be9_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/56dd795b/56dd795b_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/5b454168/5b454168_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/5d9c83b5/5d9c83b5_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/5e6f7ee4/5e6f7ee4_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6278a864/6278a864_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6522cb3b/6522cb3b_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6a7a1c19/6a7a1c19_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6a9bcd5b/6a9bcd5b_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6b131882/6b131882_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6bdf371c/6bdf371c_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6d0b4f3f/6d0b4f3f_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6da28c32/6da28c32_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6db2c0fc/6db2c0fc_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6e170f78/6e170f78_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/6fbd27ee/6fbd27ee_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/700d103b/700d103b_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/70e95c3a/70e95c3a_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/7491eb22/7491eb22_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/76ba446b/76ba446b_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/7773743e/7773743e_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/79a1814e/79a1814e_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/80a0ae6b/80a0ae6b_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/829eb8ff/829eb8ff_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/82abc3c1/82abc3c1_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/82c02c9d/82c02c9d_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8382cd8f/8382cd8f_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/85342f05/85342f05_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/88ef5fe9/88ef5fe9_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/895f0136/895f0136_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8995a1e3/8995a1e3_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8ac1c76b/8ac1c76b_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8ba23b79/8ba23b79_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8c613690/8c613690_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8d8d0a11/8d8d0a11_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8f127bdf/8f127bdf_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/8ffee11e/8ffee11e_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/90ba09fa/90ba09fa_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/917b6d05/917b6d05_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/925ee271/925ee271_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/946282e8/946282e8_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/9525432f/9525432f_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/97559b03/97559b03_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/98052822/98052822_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/987f7834/987f7834_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/99e5450e/99e5450e_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/9a8cdc7a/9a8cdc7a_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/9d46e87b/9d46e87b_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a01ae210/a01ae210_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a1f798ca/a1f798ca_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a214e675/a214e675_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a31d8156/a31d8156_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a43e7072/a43e7072_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a4692b5f/a4692b5f_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a5ed7742/a5ed7742_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a6a68a39/a6a68a39_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a6efe904/a6efe904_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a8411894/a8411894_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a8a3f1f9/a8a3f1f9_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a981802c/a981802c_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/a9ff4905/a9ff4905_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/aa310a28/aa310a28_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/aaf31f4b/aaf31f4b_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/aaf88b56/aaf88b56_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/abcdee20/abcdee20_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ac4dc12a/ac4dc12a_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ae04db8a/ae04db8a_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/aecee075/aecee075_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/b033f20c/b033f20c_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/b39bbbd3/b39bbbd3_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/b46280d0/b46280d0_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/b6e5be90/b6e5be90_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/b7640b51/b7640b51_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/bb35ab17/bb35ab17_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/bbe37cf8/bbe37cf8_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/bc1b4f00/bc1b4f00_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/bdeffba4/bdeffba4_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/bdfd04c0/bdfd04c0_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/bf9f87d6/bf9f87d6_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/c23660b4/c23660b4_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/c259cc8f/c259cc8f_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/c29a9b88/c29a9b88_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/c4bf2b3e/c4bf2b3e_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/c816725c/c816725c_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/c96ce7e1/c96ce7e1_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ca06e722/ca06e722_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/cac1ca4c/cac1ca4c_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/cc1c8edb/cc1c8edb_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ccfd801c/ccfd801c_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/cdc4f510/cdc4f510_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/cea7b270/cea7b270_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/cec3d0b0/cec3d0b0_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/cf8652bc/cf8652bc_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d15c8ece/d15c8ece_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d1ce49a2/d1ce49a2_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d248dd44/d248dd44_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d3c5127a/d3c5127a_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d5c50c2b/d5c50c2b_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d62f6cc0/d62f6cc0_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d6cc3356/d6cc3356_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/d9a83a6c/d9a83a6c_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/da1fb341/da1fb341_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/dd557447/dd557447_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e1d7f65f/e1d7f65f_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e32555c5/e32555c5_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e711b957/e711b957_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e752eb69/e752eb69_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e80c46be/e80c46be_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e9a01963/e9a01963_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e9aa252c/e9aa252c_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/e9b98778/e9b98778_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ea109fea/ea109fea_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/eade0bd3/eade0bd3_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ec765866/ec765866_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/eeaf0e49/eeaf0e49_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/f5d78037/f5d78037_esmfold2-aah2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/f7afd975/f7afd975_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/f8242edc/f8242edc_esmfold2-lqh3.pdb',
+  'demos/binder-gallery/extended/upstream/structures/f8eb661d/f8eb661d_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/fb23e376/fb23e376_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/fb81748a/fb81748a_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/fc655cd5/fc655cd5_esmfold2-ts1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/fe18e4b2/fe18e4b2_esmfold2-aah1.pdb',
+  'demos/binder-gallery/extended/upstream/structures/fe345fb0/fe345fb0_esmfold2-cn2.pdb',
+  'demos/binder-gallery/extended/upstream/structures/ff7c1df6/ff7c1df6_esmfold2-cn2.pdb',
+] as const;
+const BUNDLED_DEMO_FILES = new Map<string, readonly string[]>([
+  ['binder-gallery/gallery.cif', BINDER_GALLERY_FILES],
+  ['binder-gallery/extended/batch-01/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-02/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-03/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-04/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-05/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-06/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-07/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-08/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-09/gallery.cif', BINDER_EXTENDED_FILES],
+  ['binder-gallery/extended/batch-10/gallery.cif', BINDER_EXTENDED_FILES],
+
+]);
+
 // Exact recipient paths from the audited share tree. Extensions alone are not
 // sufficient: lesson JSON must not admit unrelated credential JSON. New shipped
-// files require an explicit addition here and coverage in the packaging fixture.
+// files require an explicit addition here or an indexed composite reference.
 const ALLOWED_ARTIFACT_FILES = new Set<string>([
   // The build stamp lets setup-doctor answer fresh/stale by content on an
   // installed copy; older builds have none, so it is allowed, not required.
@@ -88,12 +398,34 @@ const ALLOWED_ARTIFACT_FILES = new Set<string>([
   'skills/stereofold-setup/references/voice.md',
 
   ...REQUIRED_FILES,
+  ...BINDER_GALLERY_FILES,
+  ...BINDER_EXTENDED_FILES,
   'demos/README.md',
+  'demos/atp-synthase-rotor/figure-recipe.json',
+  'demos/atp-synthase-rotor/figure.json',
+  'demos/atp-synthase-rotor/flipbook-recipe.json',
+  'demos/atp-synthase-rotor/flipbook.json',
+  'demos/atp-synthase-rotor/motion-recipe.json',
+  'demos/atp-synthase-rotor/motion.json',
   'demos/atp-synthase.json',
   'demos/crispr-cas9.json',
   'demos/daraxonrasib.json',
   'demos/glucose-transporter.json',
+  'demos/hemoglobin-switch/figure-recipe.json',
+  'demos/hemoglobin-switch/figure.json',
+  'demos/hemoglobin-switch/flipbook-recipe.json',
+  'demos/hemoglobin-switch/flipbook.json',
+  'demos/hemoglobin-switch/motion-recipe.json',
+  'demos/hemoglobin-switch/motion.json',
   'demos/hemoglobin.json',
+  'demos/kinesin-walk/cycle-model.cif',
+  'demos/kinesin-walk/cycle-recipe.json',
+  'demos/kinesin-walk/cycle.json',
+  'demos/kinesin-walk/flipbook-recipe.json',
+  'demos/kinesin-walk/flipbook.json',
+  'demos/kinesin-walk/motion-model.cif',
+  'demos/kinesin-walk/motion-recipe.json',
+  'demos/kinesin-walk/motion.json',
   'demos/microtubule-arrival/build.json',
   'demos/microtubule-arrival/density.json',
   'demos/microtubule-growth/dimer.json',
@@ -297,7 +629,7 @@ async function walkRegularFiles(
   return files.sort();
 }
 
-async function validateArtifact(artifactRoot: string): Promise<PluginManifest> {
+export async function validateArtifact(artifactRoot: string): Promise<PluginManifest> {
   const details = await lstat(artifactRoot).catch(() => undefined);
   if (details == null) throw new Error(`Release artifact does not exist: ${artifactRoot}`);
   if (details.isSymbolicLink()) throw new Error('Release artifact root must not be a symlink.');
@@ -324,7 +656,47 @@ async function validateArtifact(artifactRoot: string): Promise<PluginManifest> {
     await requireRegularFile(artifactRoot, `demos/${lesson}`);
   }
 
-  const files = await walkRegularFiles(artifactRoot, ALLOWED_ARTIFACT_FILES);
+  const allowedFiles = new Set(ALLOWED_ARTIFACT_FILES);
+  const demosRoot = resolve(artifactRoot, 'demos');
+  const recipes = new Set<string>();
+  for (const demo of demoIndex.demos ?? []) {
+    for (const entry of [demo, ...(demo.stages ?? [])]) {
+      const coordinates = entry.coordinates as { sha256?: unknown;
+        derivation?: { kind?: unknown; recipe?: unknown; path?: unknown } } | undefined;
+      const derivation = coordinates?.derivation;
+      if (derivation?.kind === 'bundled-file') {
+        const path = derivation.path;
+        if (typeof path !== 'string' || !BUNDLED_DEMO_FILES.has(path))
+          throw Error('Bundled coordinates must name an explicitly approved share file.');
+        if (typeof coordinates?.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(coordinates.sha256))
+          throw Error('Bundled coordinates must declare a sha256 digest.');
+        for (const file of BUNDLED_DEMO_FILES.get(path)!) await requireRegularFile(artifactRoot, file);
+        await readBundledDemoCoordinates(path, coordinates.sha256, demosRoot);
+        continue;
+      }
+      if (derivation?.kind !== 'prepared-rigid-composite') continue;
+      if (typeof derivation.recipe !== 'string') throw Error('Composite recipe must name a path relative to demos/');
+      recipes.add(derivation.recipe);
+    }
+  }
+  // A shipped recipe needs its local ingredients even when no index tier uses it.
+  for (const file of allowedFiles) {
+    if (file.startsWith('demos/') && file.endsWith('-recipe.json') && await lstat(resolve(artifactRoot, file)).catch(() => undefined))
+      recipes.add(file.slice('demos/'.length));
+  }
+  for (const recipeFile of recipes) {
+    const recipePath = compositeRecipePath(recipeFile, demosRoot);
+    const recipe = await readCompositeRecipe(recipePath, demosRoot);
+    allowedFiles.add(`demos/${recipeFile}`);
+    for (const source of recipe.sources) {
+      if (!isModelledCompositeSource(source)) continue;
+      const file = relative(artifactRoot, resolve(dirname(recipePath), source.file)).split(sep).join('/');
+      await readModelledCompositeSource(dirname(recipePath), source, demosRoot);
+      await requireRegularFile(artifactRoot, file);
+      allowedFiles.add(file);
+    }
+  }
+  const files = await walkRegularFiles(artifactRoot, allowedFiles);
   if (files.some((file) => file === 'package.json' || file.startsWith('node_modules/'))) {
     throw new Error('Release artifact must not contain package.json or node_modules.');
   }

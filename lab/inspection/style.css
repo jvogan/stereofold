@@ -741,6 +741,18 @@ i{
   scrollbar-color:var(--scrollbar) transparent;
   padding:9px 1px 7px;
   min-height:61px}
+.sequence-items{
+  display:flex;
+  flex:1 0 0;
+  min-width:0;
+  flex-wrap:inherit;
+  gap:inherit}
+/* A busy sequence can contain tens of thousands of native disabled buttons.
+   One opacity group preserves their dimming without one group per residue. */
+.sequence-items[data-disabled=true]{
+  opacity:.38}
+.sequence-items[data-disabled=true] button:disabled{
+  opacity:1}
 .sequence button{
   width:34px;
   min-width:34px;

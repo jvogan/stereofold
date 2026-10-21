@@ -7,6 +7,7 @@ import { describePageAddressSource, pageKeySource, settleAddressBarSource } from
 import { DETAILED_VIEW_RETURN_SOURCE } from './detailed-view-return.js';
 import { DETAILED_VIEW_SESSION_SOURCE } from './detailed-view-session.js';
 import { PRIVATE_INSPECTION_META_KEY } from './inspection-contract.js';
+import { COMPATIBLE_MMCIF_TRAJECTORY_SOURCE } from './compatible-mmcif-trajectory.js';
 
 /**
  * The detailed view is the stock Mol* viewer application, served from
@@ -192,6 +193,7 @@ export const DETAILED_VIEW_EMPHASIS_SOURCE = String.raw`(() => {
    */
   async function paintParts(options) {
     var parts = options.parts || [], focus = options.focus || [], lib = options.structureLib;
+    var alsoLit = focus.length ? options.alsoLit || [] : [];
     var painted = [], unresolved = [];
     if (!lib || !parts.length) return {painted: painted, unresolved: parts.map(function (part) { return part.label; })};
     // The base has usually resolved these already; one pass over an assembly
@@ -202,7 +204,8 @@ export const DETAILED_VIEW_EMPHASIS_SOURCE = String.raw`(() => {
       if (!positions || !positions.length) { unresolved.push(part.label); continue; }
       var loci = options.lociFor([positions]);
       // An empty focus is the whole key at full strength; see emphasisSchema.
-      var lit = focus.length === 0 || focus.indexOf(part.id) >= 0;
+      // A part lit beside the focus is drawn at full strength too.
+      var lit = focus.length === 0 || focus.indexOf(part.id) >= 0 || alsoLit.indexOf(part.id) >= 0;
       var component;
       try {
         component = await plugin_tryCreateComponent(options.plugin, options.structure, part, loci, lib);
@@ -507,7 +510,8 @@ const BOOTSTRAP = String.raw`
     // Read DETAILED_VIEW_ESCAPE_SOURCE for why Mol* never sees a '<' from the file.
     const escapeMarkup = ${DETAILED_VIEW_ESCAPE_SOURCE};
     const data = await plugin.builders.data.rawData({data: escapeMarkup(handoff.structureText), label: handoff.pdbId || 'Stereofold structure'});
-    const trajectory = await plugin.builders.structure.parseTrajectory(data, 'mmcif');
+    const parseTrajectory = ${COMPATIBLE_MMCIF_TRAJECTORY_SOURCE};
+    const trajectory = await parseTrajectory(plugin, data, molstar.lib.plugin.StateTransforms);
     let model;
     const frames = trajectory.obj.data.frameCount;
     for (let index = 0; index < frames; index += 1) {
@@ -692,7 +696,7 @@ const BOOTSTRAP = String.raw`
         try {
           rebuilt = await emphasisHelpers.paintParts({
             plugin: painter, structure, loaded, lociFor, structureLib, colorNumber,
-            parts: emphasis.parts, focus: emphasis.focus, representation, groups: drawnBase.groups,
+            parts: emphasis.parts, focus: emphasis.focus, alsoLit: emphasis.alsoLit, representation, groups: drawnBase.groups,
             opacity: look.opacity, contextOpacity: emphasis.contextOpacity,
           });
         } catch (error) { /* A key that will not paint still leaves the wearer the sentence. */ }
@@ -856,7 +860,7 @@ const BOOTSTRAP = String.raw`
         private: body && body._meta ? body._meta['${PRIVATE_INSPECTION_META_KEY}'] : undefined};
     };
     const captionLine = document.getElementById('caption');
-    let captionTimer, replyAudio, captionRun = 0, finishSegment;
+    let captionTimer, replyAudio, captionRun = 0, finishSegment, finishCaptionHold;
     const drawCaption = (line, holdSeconds) => {
       if (!captionLine) return;
       captionLine.textContent = line;
@@ -906,12 +910,9 @@ const BOOTSTRAP = String.raw`
      * dropped rather than queued behind it, which is the same rule the
      * immersive page follows.
      */
-    const showCaption = async entry => {
-      if (!entry || !captionLine) return;
-      const segments = session.captionSegments(entry);
-      if (!segments.length) return;
-      const run = ++captionRun;
-      if (finishSegment) { try { finishSegment(); } catch (error) { /* The waiter is gone. */ } }
+    let captionPlaying = false, captionQueue = [], captionRoot, nextVoiceOffset = 0;
+    const captionSeen = new Set();
+    const playCaption = async (entry, segments, run) => {
       const hold = Math.max(2, entry.holdSeconds || 6);
       for (let index = 0; index < segments.length; index++) {
         if (run !== captionRun) return;
@@ -919,12 +920,46 @@ const BOOTSTRAP = String.raw`
         if (entry.speak === false) return;
         const played = await playSegment(segments[index].url);
         if (run !== captionRun) return;
-        if (!played && index < segments.length - 1) {
+        const moreComing = (entry.voiceOffset || 0) + index + 1 < entry.speechTotal;
+        if (!played && (index < segments.length - 1 || moreComing)) {
           const seconds = Math.min(20, segments[index].seconds || 4);
-          await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+          await new Promise(resolve => {
+            const done = () => { finishCaptionHold = undefined; resolve(); };
+            const timer = setTimeout(done, seconds * 1000);
+            finishCaptionHold = () => { clearTimeout(timer); done(); };
+          });
           if (run !== captionRun) return;
         }
       }
+    };
+    const showCaption = async entry => {
+      if (!entry || !captionLine) return;
+      const segments = session.captionSegments(entry);
+      if (!segments.length || captionSeen.has(entry.id)) return;
+      if (entry.id) {
+        captionSeen.add(entry.id);
+        if (captionSeen.size > 64) captionSeen.delete(captionSeen.values().next().value);
+      }
+      if (Number.isSafeInteger(entry.voiceOffset) && entry.voiceOffset > 0) {
+        if (entry.voiceFor !== captionRoot || entry.voiceOffset !== nextVoiceOffset) return;
+        nextVoiceOffset += segments.length;
+      } else {
+        ++captionRun;
+        captionQueue = [];
+        if (finishCaptionHold) finishCaptionHold();
+        captionRoot = entry.voiceFor || entry.id;
+        nextVoiceOffset = entry.speak !== false && segments.some(segment => segment.url) ? segments.length : 0;
+        if (finishSegment) { try { finishSegment(); } catch (error) { /* Already settled. */ } }
+      }
+      captionQueue.push({entry, segments, run: captionRun});
+      if (captionPlaying) return;
+      captionPlaying = true;
+      try {
+        while (captionQueue.length) {
+          const next = captionQueue.shift();
+          await playCaption(next.entry, next.segments, next.run);
+        }
+      } finally { captionPlaying = false; }
     };
     let panelId, binding, rendering = false, beating = false, attaching = false, beatTimer;
     const detachNow = () => {
@@ -1071,14 +1106,10 @@ const BOOTSTRAP = String.raw`
       // that said nothing else runs the Return control the wearer would
       // otherwise have to find with a controller ray. Everything that is not a
       // going-home phrase is left to the assistant exactly as before.
-      onTranscript: text => {
-        if (!session.isReturnRequest(text)) return;
-        showCaption({text: 'Going back to the headset.', holdSeconds: 4, speak: false});
-        if (returnButton && !returnButton.hidden && !returnButton.disabled) { returnButton.click(); return; }
-        // No Return press means nothing to carry home, but the way back is
-        // still the way back.
-        if (back && !back.hidden) back.click();
-      },
+      resolveTranscript: text => session.resolveReturnRequest(text, {
+        returnButton, back,
+        say: text => showCaption({text, holdSeconds: 4, speak: false}),
+      }),
     });
     if (talkButton) {
       talkButton.addEventListener('pointerdown', event => {

@@ -20,6 +20,7 @@ import { Plane3D } from 'molstar/lib/mol-math/geometry/primitives/plane3d.js';
 import { syntheticViews } from './fixtures/component-label-diagnostics.mjs';
 import { entryGeometry } from './fixtures/entry-standoff.mjs';
 import { resetEntryGeometry, fitEntryGeometry, resetEntryLateralBreakdown } from './reset-entry-geometry.mjs';
+import { relativeHeadContext } from './inspection-spatial-context.mjs';
 
 const viewer = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
 const runtime = await toolbarFrameRuntime(new URL('./', import.meta.url));
@@ -180,8 +181,13 @@ test('Fit captions the rendered receipt, stays silent while drawing, and preserv
     await flush();
     assert.equal(h.placementNote, null, 'no sentence before the render receipt');
     finish(); await fitted;
-    assert.equal(h.placementNote.text, 'Fitted to the right of the menu');
+    // The plain card now spans the gaze above the structure. Fit returns this
+    // fixture to its entry point, not to the right of all the drawn glass.
+    assert.equal(h.placementNote.text, 'Back at the start');
     assert.equal(h.placementNote.reading.atStart, true, 'the fitted entry is also measured as the start');
+    assert.equal(h.placementNote.reading.clearsMenuRight, false, 'the overhead card is not beside the structure');
+    assert.deepEqual(Array.from(h.placementNote.reading.roomPoint), Array.from(h.entryRoomPoint));
+    view.assertClear({ anySide: true });
     const note = h.placementNote, before = view.snapshot().placement;
     h.mutate = async () => { throw Error('fixture render failed'); };
     await assert.rejects(h.onSpatialAction({ kind: 'fit' }), /fixture render failed/u);
@@ -290,8 +296,8 @@ async function resetHarness({ collapsed, active, fresh = false, reachable = fals
   Object.assign(h.inspectionState, { recordPayload() {}, setPayload() {} });
   const place = h.inspectionState.place;
   h.inspectionState.place = (patch, action) => place(normalizePlacement(patch, view.snapshot().placement), action);
-  for (const name of ['roomAnchorPlacement', 'seatStructureForEntry', 'settleInRoom', 'runFaceAction',
-    'releaseWearerPlacement', 'resetOrientation', 'notePlacement']) vm.runInContext(pageFunction(viewer, name), h);
+  for (const name of ['applySeatMenuRecovery', 'roomAnchorPlacement', 'seatStructureForEntry', 'settleInRoom', 'runFaceAction',
+    'releaseWearerPlacement', 'resetOrientation', 'notePlacement', 'sampleHeadFrame']) vm.runInContext(pageFunction(viewer, name), h);
   const begin = viewer.indexOf('      onSpatialAction: async action => {');
   const end = viewer.indexOf('      onHeadFrame:', begin);
   h.onSpatialAction = vm.runInContext('"use strict";\n({' + viewer.slice(begin, end) + '}).onSpatialAction', h);
@@ -306,6 +312,7 @@ async function resetHarness({ collapsed, active, fresh = false, reachable = fals
     matrix: head, position: { x: head[12], y: head[13], z: head[14] },
   }, views: [] });
   Object.assign(h.immersiveSession, {
+    refreshToolbar: options => menu.toolbar.update(options),
     toolbarRows: options => menu.toolbar.rows(options), toolbarAction: action => menu.toolbar.runAction(action),
     toolbarPlacementPoints: options => menu.toolbar.placementPoints(options),
     toolbarRelocationCandidates: options => menu.toolbar.prepareRelocation(options),
@@ -349,7 +356,14 @@ async function resetHarness({ collapsed, active, fresh = false, reachable = fals
       h.latestRoomPlacementPose.headInRoom = head;
       h.latestRoomPlacementPose.labelViews = eyeViews();
     },
-    async pressReset({ unreachable = false, refit = false } = {}) {
+    async pressReset({ refit = false } = {}) {
+      // Lessons retain their quiet controls until the wearer explicitly opens Menu.
+      if (!menu.toolbar.rows().some(row => row.label === 'Reset')) {
+        const open = menu.toolbar.rows().find(row => row.id === 'menu');
+        assert.ok(open, 'the lesson exposes Menu to reach Reset');
+        menu.toolbar.runAction(open.action);
+        await flush();
+      }
       const row = menu.toolbar.rows().find(row => row.label === 'Reset');
       assert.ok(row, 'exercise the shipped Reset row');
       const before = structuredClone(view.snapshot().placement);
@@ -358,15 +372,6 @@ async function resetHarness({ collapsed, active, fresh = false, reachable = fals
       // Reset enqueues the menu re-seat on the same chain. Drain that action
       // as well; runAction intentionally does not return the chain to callers.
       await flush();
-      if (unreachable) {
-        assert.equal(errors.length, 1);
-        assert.match(errors[0].message, /entry size cannot fit inside both eyes and clear the menu within 4 m/u);
-        assert.deepEqual(view.snapshot().placement, before, 'a refused Reset preserves every transform component');
-        assert.equal(cameraWrites.length, 0, 'a refusal cannot write the XR camera');
-        assert.ok(view.records.some(record => record.kind === 'outcome' && record.status === 'refused'));
-        assert.ok(talkLines.some(line => line.complete && line.holdMs === 6000 && /Could not reset/u.test(line.outcome)));
-        return;
-      }
       assert.deepEqual(errors, []);
       assert.ok(view.snapshot().placement.scale <= h.roomEntry.seat.scale, 'Reset restores entry size or reduces it to fit');
       assert.ok(view.records.slice(recordStart).some(r => r.kind === 'xr-button' && r.action === 'recenter-structure'),
@@ -406,12 +411,11 @@ async function resetHarness({ collapsed, active, fresh = false, reachable = fals
         const centre = x * z / (z * z - radius * radius);
         assert.ok(Math.abs(centre) <= .1351, `eye ${side}: centred silhouette ${centre}`);
       }
-      if (!centered && !anySide) assert.ok(left > right, `eye ${side}: sphere left ${left}, menu right ${right}`);
-        else {
+      for (const plate of points.plates ?? [points]) {
           // Independent exact hull-edge witness: two corner rays define a
           // plane bounding the entire glass cone. Its distance to the sphere
           // must exceed the radius. No direction sampling or production solver.
-          const rays = points.map(relative);
+          const rays = plate.map(relative);
           let separate = false;
           for (let i = 0; i < rays.length && !separate; i++) for (let j = i + 1; j < rays.length && !separate; j++) {
             const normal = Vec3.normalize(Vec3(), Vec3.cross(Vec3(), rays[i], rays[j]));
@@ -419,7 +423,7 @@ async function resetHarness({ collapsed, active, fresh = false, reachable = fals
               if (sign * dot(v, normal) > radius && rays.every(ray => sign * dot(ray, normal) <= 1e-10)) separate = true;
             }
           }
-          assert.ok(separate, `eye ${side}: the sphere must clear the entire projected glass cone`);
+          assert.ok(separate, `eye ${side}: the sphere must clear each entire projected glass cone`);
         }
       }
       assert.equal(cameraWrites.length, 0, 'an immersive reset must not rotate the room camera');
@@ -539,49 +543,62 @@ test('Reset brings a budgeted overhead scene forward without violating minimum s
 
 for (const collapsed of [true, false]) {
   test(`caption clearance is the minimum rightward translation at unchanged scale/depth: ${collapsed ? 'compact' : 'expanded'}`, () => {
-    const headInRoom = Array.from(Mat4.fromRotation(Mat4(), .6, Vec3.create(0, 1, 0)));
-    headInRoom[12] = .3; headInRoom[13] = 1.6; headInRoom[14] = .7;
-    const head = { matrix: headInRoom, position: { x: .3, y: 1.6, z: .7 } };
-    const basis = toolbarSeatBasis(head);
-    const tour = { selectedId: 'journey', menuOpen: false, active: false,
-      title: '', progress: '' };
-    // This regression deliberately exercises the older forward-seat caption overlap.
-    const panel = createToolbarPanel({ head, constants: { ...SPATIAL_TOOLBAR_LAYOUT, peripheralSeat: false }, rows: spatialToolbarRows({ tour, collapsed }),
-      readout: runtime.tourReadout(tour, { title: 'Hemoglobin tetramer', pdbId: '4HHB', chains: 4, assembly: 'asymmetric_unit', selectionCount: 0, representation: 'cartoon', color: 'chain-id' }) });
-    // A nonidentity room/render transform and a nonzero molecular centre
-    // exercise the scale path's conversion from saved translation to metres.
-    const renderFromRoom = Array.from(Mat4.fromRotation(Mat4(), -.4, Vec3.create(0, 1, 0)));
-    renderFromRoom[12] = .4; renderFromRoom[13] = -.5; renderFromRoom[14] = .2;
-    const center = [12, -7, 20], radius = 100, cameraScale = .01;
-    const roomPoint = basis.origin.map((value, axis) => value + 3.8 * basis.forward[axis]);
-    const seat = { scale: 1.7, translation: applyMatrix4(roomPoint, renderFromRoom)
-      .map((value, axis) => (value / cameraScale - center[axis]) / radius) };
-    const input = { seat, headInRoom, renderFromRoom, center, radius, cameraScale };
-    const column = resetViewPlacement({ ...input, points: [...toolbarDrawnMenuPoints(panel),
-      ...toolbarBackingOutline(panel), ...toolbarBackingOutline(panel, { depth: panel.backingDepthMeters })] });
-    const points = toolbarPlatePoints(panel), placed = resetViewPlacement({ ...input, points });
-    const delta = placed.roomPoint.map((value, axis) => value - roomPoint[axis]);
-    assert.equal(placed.scale, seat.scale);
-    assert.ok(Math.abs(dot(delta, basis.forward)) < 1e-12, 'retain depth');
-    assert.ok(Math.abs(dot(delta, basis.up)) < 1e-12, 'retain height');
-    assert.ok(dot(placed.roomPoint.map((value, axis) => value - column.roomPoint[axis]), basis.right) > .01,
-      'the old column-only solve leaves the caption overlapping');
-    const gapsFor = point => [-1, 1].map(side => {
-      const eye = basis.origin.map((value, axis) => value + side * HALF_IPD_METERS * basis.right[axis]);
-      const relative = point => point.map((value, axis) => value - eye[axis]);
-      const v = relative(point), x = dot(v, basis.right), z = dot(v, basis.forward);
-      const r = radius * cameraScale * placed.scale;
-      const left = (x * z - r * Math.sqrt(x * x + z * z - r * r)) / (z * z - r * r);
-      const right = Math.max(...points.map(point => dot(relative(point), basis.right) / dot(relative(point), basis.forward)));
-      return left - right;
-    });
-    assert.ok(gapsFor(column.roomPoint).some(gap => gap < 0), 'column-only clearance reproduces caption overlap');
-    const gaps = gapsFor(placed.roomPoint);
-    assert.ok(gaps.every(gap => gap > 0), 'both projected discs clear the full glass');
-    assert.ok(Math.abs(Math.min(...gaps) - Math.tan(Math.PI / 180)) < 1e-12,
-      'the limiting eye uses exactly the existing air margin, with no extra nudge');
-    const clearSeat = { ...placed, roomPoint: placed.roomPoint.map((value, axis) => value + .1 * basis.right[axis]) };
-    assert.equal(resetViewPlacement({ ...input, seat: clearSeat, points }), clearSeat, 'a clear seat does not move');
+    for (const card of ['above', 'column']) {
+      const headInRoom = Array.from(Mat4.fromRotation(Mat4(), .6, Vec3.create(0, 1, 0)));
+      headInRoom[12] = .3; headInRoom[13] = 1.6; headInRoom[14] = .7;
+      const head = { matrix: headInRoom, position: { x: .3, y: 1.6, z: .7 } };
+      const basis = toolbarSeatBasis(head);
+      const tour = { selectedId: 'journey', menuOpen: false, active: false,
+        title: '', progress: '' };
+      // Exercise today's overhead plain card and retain the old column-card
+      // overlap as an explicit geometry fixture. Column cards still exist in
+      // the chooser; a change to the resting readout must not erase that guard.
+      const readout = runtime.tourReadout(tour, { title: 'Hemoglobin tetramer', pdbId: '4HHB', chains: 4, assembly: 'asymmetric_unit', selectionCount: 0, representation: 'cartoon', color: 'chain-id' });
+      const panel = createToolbarPanel({ head, constants: { ...SPATIAL_TOOLBAR_LAYOUT, peripheralSeat: false }, rows: spatialToolbarRows({ tour, collapsed }),
+        readout: card === 'above' ? readout : readout.map(line => ({ ...line, forwardViewCap: false })) });
+      // A nonidentity room/render transform and a nonzero molecular centre
+      // exercise the scale path's conversion from saved translation to metres.
+      const renderFromRoom = Array.from(Mat4.fromRotation(Mat4(), -.4, Vec3.create(0, 1, 0)));
+      renderFromRoom[12] = .4; renderFromRoom[13] = -.5; renderFromRoom[14] = .2;
+      const center = [12, -7, 20], radius = 100, cameraScale = .01;
+      const roomPoint = basis.origin.map((value, axis) => value + 3.8 * basis.forward[axis]);
+      const seat = { scale: 1.7, translation: applyMatrix4(roomPoint, renderFromRoom)
+        .map((value, axis) => (value / cameraScale - center[axis]) / radius) };
+      const input = { seat, headInRoom, renderFromRoom, center, radius, cameraScale };
+      const column = resetViewPlacement({ ...input, points: [...toolbarDrawnMenuPoints(panel),
+        ...toolbarBackingOutline(panel), ...toolbarBackingOutline(panel, { depth: panel.backingDepthMeters })] });
+      const points = toolbarPlatePoints(panel), placed = resetViewPlacement({ ...input, points });
+      const delta = placed.roomPoint.map((value, axis) => value - roomPoint[axis]);
+      assert.equal(placed.scale, seat.scale);
+      assert.ok(Math.abs(dot(delta, basis.forward)) < 1e-12, 'retain depth');
+      assert.ok(Math.abs(dot(delta, basis.up)) < 1e-12, 'retain height');
+      if (card === 'column') assert.ok(dot(placed.roomPoint.map((value, axis) => value - column.roomPoint[axis]), basis.right) > .01,
+        'the column-only solve leaves a column caption overlapping');
+      else assert.deepEqual(placed, column, 'an overhead card needs no extra lateral travel beyond the controls');
+      const gapsFor = point => [-1, 1].flatMap(side => {
+        const eye = basis.origin.map((value, axis) => value + side * HALF_IPD_METERS * basis.right[axis]);
+        const relative = point => point.map((value, axis) => value - eye[axis]);
+        const v = relative(point), x = dot(v, basis.right), z = dot(v, basis.forward);
+        const r = radius * cameraScale * placed.scale;
+        const left = (x * z - r * Math.sqrt(x * x + z * z - r * r)) / (z * z - r * r);
+        const y = dot(v, basis.up);
+        const top = (y * z + r * Math.sqrt(y * y + z * z - r * r)) / (z * z - r * r);
+        return points.plates.filter(plate => plate.length).map(plate => {
+          const right = Math.max(...plate.map(point => dot(relative(point), basis.right) / dot(relative(point), basis.forward)));
+          const bottom = Math.min(...plate.map(point => dot(relative(point), basis.up) / dot(relative(point), basis.forward)));
+          // Independent exact sphere tangents prove the whole plate is either
+          // left of or above the disc, rather than treating all glass as one box.
+          return Math.max(left - right, bottom - top);
+        });
+      });
+      if (card === 'column') assert.ok(gapsFor(column.roomPoint).some(gap => gap < 0), 'column-only clearance reproduces caption overlap');
+      const gaps = gapsFor(placed.roomPoint);
+      assert.ok(gaps.every(gap => gap > 0), 'both projected discs clear the full glass');
+      assert.ok(Math.abs(Math.min(...gaps) - Math.tan(Math.PI / 180)) < 1e-12,
+        'the limiting eye uses exactly the existing air margin, with no extra nudge');
+      const clearSeat = { ...placed, roomPoint: placed.roomPoint.map((value, axis) => value + .1 * basis.right[axis]) };
+      assert.equal(resetViewPlacement({ ...input, seat: clearSeat, points }), clearSeat, 'a clear seat does not move');
+    }
   });
 
   test(`fresh entry clears caption and controls in both eyes: ${collapsed ? 'compact' : 'expanded'}`, async () => {
@@ -662,7 +679,8 @@ for (const active of [false, true]) for (const collapsed of [true, false]) {
         if (scenario === 'wearer turned toward menu') h.turn(.6);
         await h.pressReset();
         h.assertClear({ centered: true });
-        assert.equal(h.menu.toolbar.isCollapsed(), collapsed, 'preserve the chosen menu form');
+        assert.equal(h.menu.toolbar.isCollapsed(), collapsed && !active,
+          'preserve the chosen menu form, including Menu opened to reach Reset during a lesson');
         assert.equal(h.h.wearerPlacement.holdsPlacement(), false, 'reset returns the authored seat');
       } finally { await h.menu.toolbar.dispose(); }
     });
@@ -689,22 +707,34 @@ test('Reset after Fit refits the committed entry and reports its rendered positi
   await h.onSpatialAction({ kind: 'fit' });
   const fitted = h.placementNote;
   assert.equal(typeof fitted?.text, 'string', 'Fit says where it put the structure');
-  // Fit keeps the size and slides the structure sideways until it clears the
-  // glass, and the menu is seated on the wearer's left, so the measured side is
-  // the right one. Nothing in this assertion comes from the row's name.
-  assert.ok(fitted.reading.clearsMenuRight, `bearing ${fitted.reading.bearingDegrees}, menu ${fitted.reading.menuSpanDegrees}`);
+  // The overhead plain card leaves room for a larger Fit with a small lateral
+  // offset. Measure that offset from the committed pose, not the action name.
+  view.assertClear({ anySide: true });
+  const sphere = h.loadedSphere();
+  const renderedPoint = applyMatrix4(sphere.center.map((value, axis) =>
+    (value + view.snapshot().placement.translation[axis] * sphere.radius) * h.canvas.camera.scale),
+  Mat4.invert(Mat4(), h.latestRoomPlacementPose.renderFromRoom));
+  assert.deepEqual(Array.from(fitted.reading.roomPoint), renderedPoint, 'the receipt describes the drawn pose');
+  const relative = renderedPoint.map((value, axis) => value - h.latestRoomPlacementPose.headInRoom[12 + axis]);
+  assert.ok(Math.abs(fitted.reading.bearingDegrees - Math.atan2(relative[0], -relative[2]) * 180 / Math.PI) < 1e-10);
+  assert.ok(Math.abs(fitted.reading.bearingDegrees) <= 8, 'Fit keeps the plain structure in the central view');
   assert.equal(fitted.text, 'In front of you, a step away');
   assert.notEqual(view.snapshot().placement.scale, entry.scale, 'exercise Reset after a Fit that actually changed the size');
+  assert.deepEqual(h.roomEntry.seat, entry, 'Fit must not replace the committed entry');
   await h.placeInspection({ rotation: [12, 32, -9], translation: [-.5, 1, -3], scale: .7 }, 'journey-end');
   await view.pressReset();
   const reset = h.placementNote;
   assert.equal(typeof reset?.text, 'string', 'Reset says where it put the structure');
-  // Reset owns size as well as position and fits the sphere along the gaze, so
-  // it comes back in front rather than beside the menu.
+  // Reset owns size and position and returns to the committed entry, which
+  // still clears the overhead card and controls after this Fit.
   assert.ok(Math.abs(reset.reading.bearingDegrees) < 30, `bearing ${reset.reading.bearingDegrees}`);
   assert.ok(reset.text.length > 0);
   assert.ok(view.snapshot().placement.scale <= entry.scale);
   assert.deepEqual(view.snapshot().placement.rotation, entry.rotation);
+  assert.deepEqual(view.snapshot().placement, entry, 'the still-clear committed entry is restored exactly');
+  assert.equal(reset.text, 'Back at the start');
+  assert.equal(reset.reading.atStart, true);
+  assert.deepEqual(Array.from(reset.reading.roomPoint), Array.from(h.entryRoomPoint));
   view.assertClear({ centered: true });
   await view.menu.toolbar.dispose();
 });
@@ -768,11 +798,46 @@ test('a moved menu that covers every forward reset position refuses at the entry
   assert.deepEqual(seat, before);
 });
 
-test('Reset refuses only when the full glass leaves no fit and preserves the pose and refusal receipt', async () => {
+test('Reset brings back a molecule more than 100 radii away while the room pose is tracked', async () => {
+  const view = await resetHarness({ collapsed: false, active: false });
+  const { h } = view;
+  try {
+    Object.assign(h, { relativeHeadContext, latestHeadContext: null });
+    // An agent placement 500 radii out: past the molecule-relative reading.
+    h.inspectionState.place({ translation: [300, 1.9, -400], scale: 1.7 }, 'far agent placement');
+    h.applyInspectionTransform();
+    const head = h.latestRoomPlacementPose.headInRoom, frame = { pose: { transform: { matrix: head } },
+      roomPose: { transform: { matrix: head } }, mode: 'immersive-ar', sphere: h.loadedSphere() };
+    // Lost tracking is never stamped, so Reset still waits for it.
+    h.latestHeadSample = -1e6;
+    h.sampleHeadFrame({ ...frame, pose: null, roomPose: null });
+    await assert.rejects(h.seatStructureForEntry({ resetMenu: true }), /wait for tracking/u);
+    h.sampleHeadFrame(frame);
+    assert.equal(h.latestHeadContext, null, 'no molecule-relative reading this far out');
+    assert.equal(h.latestHeadSample, h.performance.now(), 'the tracked room pose is fresh');
+    await view.pressReset();
+    const placement = view.snapshot().placement;
+    assert.ok(Math.hypot(...placement.translation) < 10, `Reset seats it in the room (${placement.translation})`);
+    h.sampleHeadFrame(frame);
+    assert.ok(h.latestHeadContext?.distance < 100, 'the molecule-relative reading returns');
+  } finally { await view.menu.toolbar.dispose(); }
+});
+
+test('Reset seats a visible structure and hides glass when the full menu leaves no fit', async () => {
   const view = await resetHarness({ collapsed: false, active: false });
   try {
     view.h.immersiveSession.toolbarPlacementPoints = () => [-5, 5].flatMap(x => [-5, 5].map(y => [x, y, -1]));
-    await view.pressReset({ unreachable: true });
+    view.h.immersiveSession.toolbarRelocationCandidates = () => [];
+    let receipt;
+    const run = view.h.runFaceAction;
+    view.h.runFaceAction = async (...args) => receipt = await run(...args);
+    await view.pressReset();
+    assert.equal(receipt.structureReset, true);
+    assert.equal(receipt.menuReseated, false);
+    assert.equal(view.menu.toolbar.isHidden(), true);
+    assert.ok(view.snapshot().placement.translation[2] < 0);
+    assert.equal(view.cameraWrites.length, 0);
+    assert.ok(view.records.some(record => record.kind === 'outcome' && record.status === 'adjusted'));
   } finally { await view.menu.toolbar.dispose(); }
 });
 
@@ -796,6 +861,28 @@ test('a shrinking Reset publishes its recenter diagnostic only after rendering a
     await assert.rejects(h.seatStructureForEntry({ resetMenu: true }), /shrinking Reset render failed/u);
     assert.deepEqual(view.snapshot().placement, before);
     assert.equal(view.records.slice(offset).some(r => r.kind === 'xr-button'), false);
+  } finally { await view.menu.toolbar.dispose(); }
+});
+
+for (const failure of ['motion', 'new grip']) test(`Reset rolls back its checked menu recovery on pre-placement refusal: ${failure}`, async () => {
+  const view = await resetHarness({ collapsed: false, active: false });
+  const { h } = view;
+  try {
+    let recovered = false, rolledBack = false, holding = false, placed = false;
+    h.applySeatMenuRecovery = async () => { recovered = true; return { rollback: async () => { rolledBack = true; } }; };
+    h.xrManipulation = { phase: () => holding ? 'grabbing' : 'idle' };
+    h.setInspectionMotion = async () => {
+      if (failure === 'motion') throw Error('Motion pause failed');
+      holding = true;
+    };
+    h.mutate = async () => { placed = true; };
+    const before = structuredClone(view.snapshot().placement);
+    await assert.rejects(h.seatStructureForEntry({ resetMenu: true }),
+      failure === 'motion' ? /Motion pause failed/ : /Let go of it first/);
+    assert.equal(recovered, true, 'exercise a menu proposal already applied');
+    assert.equal(rolledBack, true, 'the menu cannot remain at a proposed Reset seat');
+    assert.equal(placed, false);
+    assert.deepEqual(view.snapshot().placement, before);
   } finally { await view.menu.toolbar.dispose(); }
 });
 
@@ -992,4 +1079,25 @@ test('fit rechecks movement started while pausing presentation before saving the
   await assert.rejects(h.onSpatialAction({ kind: 'fit' }), /Let go of it first/);
   assert.equal(JSON.stringify(v.snapshot()), before);
   assert.equal(v.writes.length, writes); assert.equal(h.grabScale, 1.3);
+});
+
+test('Reset clears a cutaway beyond the room before fitting a visible structure', async () => {
+  const view = await resetHarness({ collapsed: true, active: true });
+  const { h } = view;
+  try {
+    view.measureGrabGeometry();
+    let clipping = 25;
+    const snapshot = h.inspectionSnapshot;
+    h.inspectionSnapshot = () => ({ ...snapshot(), appearance: { clipping } });
+    const open = structuredClone(h.latestRoomPlacementPose.labelViews);
+    for (const v of h.latestRoomPlacementPose.labelViews) {
+      const n = 5, f = 50;
+      v.projectionMatrix[10] = -(f+n)/(f-n); v.projectionMatrix[14] = -2*f*n/(f-n);
+    }
+    h.configureInspection = async patch => { clipping = patch.clipping; h.latestRoomPlacementPose.labelViews = open; };
+    await view.pressReset();
+    assert.equal(clipping, 0);
+    assert.ok(view.snapshot().placement.scale >= .01);
+    assert.equal(view.cameraWrites.length, 0);
+  } finally { await view.menu.toolbar.dispose(); }
 });

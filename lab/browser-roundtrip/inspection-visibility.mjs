@@ -29,8 +29,16 @@
 
 /** The four classes a wearer has a word for. `polymer` is protein/nucleic. */
 export const VISIBILITY_COMPONENT_CLASSES = Object.freeze(['water', 'ligand', 'ion', 'polymer']);
-/** A bound, not a target: an assembly with more hidden chains than this is a filter, not a request. */
+/** A bound, not a target: a request naming more chains than this is a filter, not a request. */
 export const MAX_HIDDEN_CHAINS = 64;
+/**
+ * How many chains a saved scene may hide. `only` saves the rest of the
+ * structure, so this bounds the structure rather than what anyone named: the
+ * kinesin flipbook loads all seven poses as 95 chains and each page keeps 8 to
+ * 24 of them. Capped at MAX_HIDDEN_CHAINS, every page was refused and the
+ * lesson never finished loading.
+ */
+export const MAX_SCENE_HIDDEN_CHAINS = 512;
 export const VISIBILITY_OPS = Object.freeze(['hide', 'show', 'only', 'reset']);
 /** Copy ids are structured JSON strings, so they are longer than a chain letter. */
 export const MAX_VISIBILITY_IDENTIFIER = 256;
@@ -185,7 +193,7 @@ export function normalizeVisibility(value) {
   const rawChains = value.hiddenChains ?? [];
   const rawClasses = value.hiddenClasses ?? [];
   if (!Array.isArray(rawChains) || !Array.isArray(rawClasses)) throw Error('Hidden chains and classes are lists.');
-  if (rawChains.length > MAX_HIDDEN_CHAINS) throw Error(`At most ${MAX_HIDDEN_CHAINS} chains can be hidden at once.`);
+  if (rawChains.length > MAX_SCENE_HIDDEN_CHAINS) throw Error(`At most ${MAX_SCENE_HIDDEN_CHAINS} chains can be hidden at once.`);
   const seen = new Set(); const hiddenChains = [];
   for (const raw of rawChains) {
     const chain = normalizeChain(raw); const key = chainIdentityKey(chain);

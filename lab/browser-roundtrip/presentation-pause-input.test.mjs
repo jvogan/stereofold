@@ -23,7 +23,7 @@ function harness() {
     cancelAnimationFrame(id) { nativeFrames.delete(id); } };
   const state = { sourceSha256: 'custom-source-digest', generation: 4, revision: 21, status: 'ready', mutationCounts: { inspection: 0 } };
   const h = vm.createContext({ Mat4, Vec3, Euler, inspectionState, pointerManipulates, pivotPreservingTranslation,
-    state, representation: { obj: {} }, canvas: { webgl: { xr: { session }, isContextLost: false }, xr: { isPresenting: { value: true } }, commit() {} },
+    hostLoadDepth: 0, state, representation: { obj: {} }, canvas: { webgl: { xr: { session }, isContextLost: false }, xr: { isPresenting: { value: true } }, commit() {} },
     motionAngle: 23, motionFrame: undefined, motionFrameScheduler: undefined, motionLastFrame: undefined,
     motionUserPaused: false, motionToolPaused: false, motionMutationPaused: false, motionContextPaused: false,
     motionDocumentPaused: false, motionXrExplicit: true, reducedMotionQuery: undefined, lastMotionNotification: undefined,

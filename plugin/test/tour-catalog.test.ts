@@ -15,7 +15,7 @@ describe('bundled educational tours',()=>{
       expect(tour.steps.length).toBeGreaterThanOrEqual(20);
       for(const step of tour.steps) {
         expect(step.body!.length).toBeGreaterThan(100);
-        expect(step.sources!.every(s=>new URL(s.url).protocol==='https:')).toBe(true);
+        expect(step.sources!.every(s=>s.url !== undefined && new URL(s.url).protocol==='https:')).toBe(true);
         if(step.appearance) expect(sceneSchema.shape.inspection.shape.appearance.partial().safeParse(step.appearance).success).toBe(true);
         if(step.placement) expect(sceneSchema.shape.inspection.shape.placement.partial().safeParse(step.placement).success).toBe(true);
       }

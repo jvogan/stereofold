@@ -168,7 +168,9 @@ test('a subject too big to sit beside the glass shrinks, but never under the flo
   assert.ok(moved.shrink < 1, 'it had to give up some size');
   assert.ok(moved.rect.halfWidth >= SUBJECT_LENS_FLOOR - 1e-9,
     `the subject was shrunk to ${moved.rect.halfWidth.toFixed(3)} of the lens`);
-  assert.ok(moved.axis === 'down' || moved.axis === 'right');
+  // With no seat that clears, it gives up size where it stands rather than
+  // sliding toward the rim under a plate that covers it anyway.
+  assert.ok(moved.axis === 'down' || moved.axis === 'right' || (moved.move === 'held' && moved.y === subject.y));
   // No plate at all, or a subject that never touched one, is left alone.
   const clear = plateAvoidance({ subject, plate: undefined });
   assert.equal(clear.axis, 'none');

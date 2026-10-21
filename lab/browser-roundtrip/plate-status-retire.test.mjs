@@ -30,12 +30,28 @@ function plate() {
   const records = [], previous = globalThis.__stereofoldDiagnostics;
   globalThis.__stereofoldDiagnostics = { record: (kind, detail) => records.push({ kind, detail }) };
   let now = 0;
-  const harness = toolbarFrameHarness(runtime, { state: {}, now: () => now });
+  const live = new Set();
+  const harness = toolbarFrameHarness(runtime, { state: {}, now: () => now,
+    presentation: { add: repr => live.add(repr), remove: repr => live.delete(repr) } });
+  const lines = () => {
+    const text = harness.toolbar.readoutText();
+    const glyphs = [...live].find(repr => repr.shape?.name === 'Stereofold toolbar readout')?.shape.geometry.lines ?? [];
+    const paging = harness.toolbar.readout();
+    const cue = paging.cardPageCount > 1 ? `${paging.cardPageIndex + 1}/${paging.cardPageCount}` : '';
+    assert.equal(glyphs.join(''), text.join('').replaceAll(' ', '') + cue,
+      'every reported readout character is submitted to the live text representation');
+    return text;
+  };
   return {
     ...harness, records,
-    lines: () => harness.toolbar.readoutText(),
+    lines,
     /** The title sentence, rejoined from however many lines it wrapped to. */
-    title: resting => harness.toolbar.readoutText().slice(0, -resting.length || undefined).join(' '),
+    title: resting => {
+      const drawn = lines(), structureStart = drawn.indexOf(resting[0]);
+      // The forward card pages overflow. Its first page need not contain all
+      // the resting facts; read the actual leading sentence before the title.
+      return drawn.slice(0, structureStart < 0 ? undefined : structureStart).join(' ');
+    },
     /** The lines this plate draws with nothing in the title slot. */
     async resting() {
       harness.setState({ tour: { active: false, menuOpen: false }, subject });

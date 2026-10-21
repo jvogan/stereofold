@@ -1,3 +1,6 @@
+import vm from 'node:vm';
+import { pageFunction } from './fixtures/label-action-harness.mjs';
+import { planLessonEmphasis } from './lesson-emphasis.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -457,7 +460,7 @@ async function lessonPlates(install = true) {
   };
 }
 
-test('lesson command focus keeps ten plates, with TCAB1 full and nine dimmed', async () => {
+test('the component key retains TCAB1 full and nine context entries for desktop fading', async () => {
   const h = await lessonPlates();
   assert.equal(h.cells.size, 10);
   assert.ok([...h.cells.values()].every(opacity => opacity === 1));
@@ -493,7 +496,15 @@ test('an unresolved focus leaves the remaining plates at full strength', () => {
   assert.deepEqual(plan.colours.map(part => [part.id, part.opacity]), [['a', 1]]);
 });
 
-test('a faded label keeps its dark backing at the readable floor', () => {
+test('a part lit beside the focus keeps its plate at the strength of its paint', () => {
+  const emphasis = { parts: [
+    { id: 'a', chain: 'A', color: '#ffffff' }, { id: 'b', chain: 'B', color: '#ffffff' }, { id: 'c', chain: 'C', color: '#ffffff' },
+  ], focus: ['b'], alsoLit: ['c'], contextOpacity: 0.35 };
+  const plan = planComponentLabels(emphasis, ({ chain }) => [`${chain}:1`]);
+  assert.deepEqual(plan.colours.map(part => [part.id, part.opacity]), [['a', 0.35], ['b', 1], ['c', 1]]);
+});
+
+test('a faded desktop label keeps its backing at the existing floor', () => {
   assert.deepEqual(componentLabelAlpha({ placeAlpha: 1, contextAlpha: 0.18 }),
     { textAlpha: 0.18, backingAlpha: COMPONENT_LABEL_BACKING_ALPHA_FLOOR });
   assert.deepEqual(componentLabelAlpha({ placeAlpha: 0.35, contextAlpha: 0.9 }),
@@ -518,7 +529,9 @@ const contrast = (a, b) => {
 
 test('one primitive owns the plate ink and white backing at the same depth', () => {
   const paint = componentLabelPaint({ color: 0xea580c, offsetZ: 50 });
-  assert.deepEqual(Object.keys(paint), ['backing']);
+  // Beside its part, the plate's colour key is built but never drawn.
+  assert.deepEqual(Object.keys(paint), ['backing', 'key']);
+  assert.equal(paint.key.alpha, 0);
   assert.equal(paint.backing.textColor, COMPONENT_LABEL_INK);
   assert.equal(paint.backing.backgroundColor, 0xffffff);
   assert.equal(paint.backing.backgroundOpacity, COMPONENT_LABEL_GLASS_OPACITY);
@@ -529,7 +542,54 @@ test('one primitive owns the plate ink and white backing at the same depth', () 
   assert.ok(contrast(COMPONENT_LABEL_INK, COMPONENT_LABEL_GLASS) > 7);
 });
 
-test('a single label retains the readability floor when its context fades', () => {
+test('a plate placed away from its part carries the part colour as an edge, so a band reads as a legend', () => {
+  const part = 0x7c3aed;
+  for (const presenting of [true, false]) {
+    const beside = componentLabelPaint({ color: part, offsetZ: 50, presenting });
+    // A plate beside its part is unchanged: one translucent white primitive.
+    // Its key is built, at alpha zero, which Mol* never draws.
+    assert.deepEqual(componentLabelPaint({ color: part, offsetZ: 50, presenting, detached: false }), beside);
+    assert.equal(beside.key.alpha, 0);
+    assert.equal(beside.backing.backgroundMargin, presenting ? 0.5 : 0.25);
+    assert.equal(beside.backing.backgroundOpacity, COMPONENT_LABEL_GLASS_OPACITY);
+
+    const away = componentLabelPaint({ color: part, offsetZ: 50, presenting, detached: true });
+    assert.deepEqual(Object.keys(away), ['backing', 'key']);
+    // The key's glass is the part's own colour, opaque. Its copy of the name
+    // is white, so where text.frag pulls those glyphs in front of the white
+    // plate they land white on white: no shadow of the name shows.
+    assert.equal(away.key.backgroundColor, part);
+    assert.equal(away.key.textColor, COMPONENT_LABEL_GLASS);
+    assert.equal(away.key.borderColor, part);
+    assert.equal(away.key.backgroundOpacity, 1);
+    assert.equal(away.key.background, true);
+    assert.equal(away.key.tether, false);
+    assert.equal(away.key.alpha, away.backing.alpha);
+    // It fills the plate's own footprint, so the layout's rectangle is still
+    // the drawn one; the white glass inside it shrinks to leave the edge.
+    assert.equal(away.key.backgroundMargin, beside.backing.backgroundMargin);
+    const edgeEm = (away.key.backgroundMargin - away.backing.backgroundMargin) / 2.5 / 0.8;
+    assert.ok(edgeEm >= (presenting ? 0.17 : 0.08), `edge ${edgeEm} em`);
+    assert.ok(away.backing.backgroundMargin > 0, 'the name keeps some white around it');
+    // The name stays dark ink on white, now opaque so the key never tints it.
+    assert.equal(away.backing.textColor, COMPONENT_LABEL_INK);
+    assert.equal(away.backing.backgroundColor, COMPONENT_LABEL_GLASS);
+    assert.equal(away.backing.backgroundOpacity, 1);
+    // Just behind the plate: no depth buffer calls them equal, and no eye
+    // sees a gap between them.
+    assert.ok(away.key.offsetZ < away.backing.offsetZ && away.key.offsetZ >= 0.99 * away.backing.offsetZ);
+    assert.equal(away.backing.offsetZ, 50);
+  }
+  // Dimmed on the desktop, the key fades with its plate.
+  const dimmed = componentLabelPaint({ color: part, contextAlpha: 0.25, detached: true });
+  assert.equal(dimmed.key.alpha, COMPONENT_LABEL_BACKING_ALPHA_FLOOR);
+  // A part with no colour has no key to show.
+  const plain = componentLabelPaint({ detached: true, offsetZ: 50, presenting: true });
+  assert.deepEqual(Object.keys(plain), ['backing']);
+  assert.equal(plain.backing.backgroundMargin, 0.5);
+});
+
+test('a desktop label retains the existing alpha floor when its context fades', () => {
   assert.equal(componentLabelPaint({ placeAlpha: 1, contextAlpha: 1 }).backing.alpha, 1);
   assert.equal(componentLabelPaint({ placeAlpha: 1, contextAlpha: 0.25 }).backing.alpha,
     COMPONENT_LABEL_BACKING_ALPHA_FLOOR);
@@ -650,4 +710,34 @@ test('cancelled in-flight update cannot adopt or repair the old source after sou
   const next = session.rebuild('source'); gate.resolve(); await pending; await next;
   assert.equal(activeGuard.isCurrent(), false); assert.equal(updates, 1);
   assert.deepEqual(session.refs(), ['new']); assert.deepEqual(built, ['old', 'new']); assert.deepEqual(deleted, []);
+});
+
+
+test('XR telomerase chapters 1 and 4 draw only full-contrast emphasis plates; desktop keeps context', () => {
+  const demo = JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url), 'utf8'));
+  const viewer = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
+  for (const index of [0, 3]) {
+    const emphasis = { ...demo.chapters[index].immersive.emphasis, parts: demo.chapters[0].immersive.emphasis.parts };
+    const resolve = ({ chain }) => [chain];
+    const key = planComponentLabels(emphasis, resolve), plan = planLessonEmphasis(emphasis, resolve);
+    const h = vm.createContext({ canvas: { xr: { isPresenting: { value: true } } },
+      componentLabelKeyPlan: () => key, hiddenSceneKeySet: () => new Set() });
+    vm.runInContext(pageFunction(viewer, 'componentLabelPlateParts'), h);
+    const parts = h.componentLabelPlateParts(plan);
+    assert.equal(parts.length, 10, 'keep context geometry available for emphasis-only repaint');
+    const visible = [];
+    for (const part of parts) {
+      const contextAlpha = key.colours.find(entry => entry.id === part.id)?.opacity ?? 1;
+      if (contextAlpha >= 1) visible.push(part.id);
+      for (const placeAlpha of [0.25, 0.6, 1])
+        assert.equal(componentLabelPaint({ presenting: true, placeAlpha, contextAlpha }).backing.alpha, contextAlpha >= 1 ? 1 : 0);
+    }
+    assert.equal(visible.length, index === 0 ? 10 : 2);
+    assert.deepEqual(visible.sort(), key.colours.filter(part => part.opacity >= 1).map(part => part.id).sort());
+    h.canvas.xr.isPresenting.value = false;
+    assert.equal(h.componentLabelPlateParts(plan).length, 10);
+  }
+  assert.equal(componentLabelPaint({ presenting: true, contextAlpha: .12 }).backing.alpha, 0);
+  assert.equal(componentLabelPaint({ presenting: true, placeAlpha: 0 }).backing.alpha, 0);
+  assert.equal(componentLabelPaint({ contextAlpha: .12 }).backing.alpha, .6);
 });

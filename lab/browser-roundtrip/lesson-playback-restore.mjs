@@ -1,6 +1,7 @@
 // Peer lesson status is persisted with the scene, but stopped/narration flags
-// do not change its molecule, plates or placement. Keep every visual field and
-// the lesson's chapter/baseline strict before skipping a render transaction.
+// do not change its molecule, plates or placement. Animation clock changes use
+// the same fast path, but still reconcile playback and wait for a draw. Keep
+// every visual field and the lesson's chapter/baseline strict.
 function sameValue(a, b) {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) return false;
@@ -18,15 +19,19 @@ export function canRestoreLessonPlaybackMetadata(current, incoming, options = {}
     && typeof value.chapterId === 'string' && value.chapterId.length > 0
     && typeof value.stopped === 'boolean' && (value.narration === undefined || typeof value.narration === 'boolean')
     && value.startingScene?.inspection;
-  if (!valid(before) || !valid(after) || sameValue(before, after)) return false;
+  if (!valid(before) || !valid(after)) return false;
   const statusless = value => {
     const { stopped, narration, ...identity } = value;
     return identity;
   };
   if (!sameValue(statusless(before), statusless(after))) return false;
+  const a = current.inspection.animation, b = incoming.inspection.animation;
+  if (sameValue(before, after) && sameValue(a, b)) return false;
+  if (Boolean(a) !== Boolean(b) || a && (a.playback.id !== b.playback.id
+    || a.playback.chapterId !== b.playback.chapterId || !sameValue(a.definition, b.definition))) return false;
   const visual = scene => {
     // Workspace transport captures omit these two local history fields.
-    const { lessonPlayback, history, savedViews, ...inspection } = scene.inspection;
+    const { lessonPlayback, animation, history, savedViews, ...inspection } = scene.inspection;
     return { ...scene, inspection };
   };
   return sameValue(visual(current), visual(incoming));

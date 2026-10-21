@@ -20,9 +20,11 @@
  * tier that is not in the cache is refused with the command that prepares it.
  */
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
 import { subsetAssemblyOperators, subsetDepositedEntities } from './demo-cif-subset.js';
+import { compositeRecipePath, resolveCompositeText } from './demo-composite-cache.js';
+import { readBundledDemoCoordinates } from './bundled-demo-coordinates.js';
+import { writeVerifiedCacheFile } from './verified-cache-write.js';
+import { addressedDemoPath, readAddressedDemoFile } from './addressed-demo-cache.js';
 import { demoCoordinatePath } from './molecular-growth.js';
 import { GROWTH_FETCH_TIMEOUT_MS } from './inspection-limits.js';
 // Types only: the demo index shapes live with the launcher that writes them.
@@ -41,7 +43,7 @@ export type GrowthCoordinateRequest = {
   stageId: string;
   file: string;
   sha256: string;
-  download: string;
+  download?: string;
   derivation?: DemoDerivation;
   /**
    * True for a density map, which the launcher prepares and this session will
@@ -57,6 +59,8 @@ export type GrowthCoordinateHooks = {
   fetchText?: (url: string) => Promise<string>;
   /** Called once, before the download starts. Speaks and prints. */
   announce?: (notice: { spoken: string; printed: string }) => void;
+  /** Test seam; production recipes are always resolved beneath demos/. */
+  demosRoot?: string;
 };
 
 export type GrowthCoordinateResult = { path: string; text: string; fetched: boolean; fetchedAt: number | null };
@@ -68,8 +72,14 @@ export function growthRecoveryCommand(demo: string, stageId: string): string {
 
 /** One sentence, then the command that fixes it. */
 export function growthFetchFailure(request: GrowthCoordinateRequest, detail: string): Error {
-  return Error(`The ${request.stageId} coordinates could not be fetched from ${request.download}: ${detail} `
+  return Error(`The ${request.stageId} coordinates could not be ${request.derivation?.kind === 'bundled-file' ? 'loaded' : 'fetched'} from ${coordinateOrigin(request)}: ${detail} `
     + `Run ${growthRecoveryCommand(request.demo, request.stageId)} on this Mac, then grow.`);
+}
+
+function coordinateOrigin(request: GrowthCoordinateRequest): string | undefined {
+  const derivation = request.derivation;
+  return derivation?.kind === 'bundled-file' ? derivation.path
+    : derivation?.kind === 'prepared-rigid-composite' ? derivation.recipe : request.download;
 }
 
 async function boundedFetchText(url: string): Promise<string> {
@@ -88,7 +98,7 @@ export function applyGrowthDerivation(text: string, derivation?: DemoDerivation)
   if (!derivation) return text;
   if (derivation.kind === 'assembly-operator-subset') return subsetAssemblyOperators(text, derivation.operators);
   if (derivation.kind === 'deposited-chain-subset') return subsetDepositedEntities(text, derivation.entityIds);
-  return text;
+  throw Error('A prepared rigid composite requires its recipe and verified source texts.');
 }
 
 /**
@@ -102,41 +112,49 @@ export async function ensureGrowthCoordinates(
   request: GrowthCoordinateRequest,
   hooks: GrowthCoordinateHooks = {},
 ): Promise<GrowthCoordinateResult> {
-  const path = (hooks.cachePath ?? demoCoordinatePath)(request.file);
-  const cached = await stat(path).then(entry => entry.isFile(), () => false);
+  const origin = coordinateOrigin(request);
+  const cachePath = hooks.cachePath ?? demoCoordinatePath;
+  const path = addressedDemoPath(cachePath, request.file, request.sha256);
+  const cached = await readAddressedDemoFile(cachePath, request.file, request.sha256);
   if (cached) {
-    const text = await readFile(path, 'utf8').catch(() => undefined);
-    if (text !== undefined && digestOf(text) === request.sha256) return { path, text, fetched: false, fetchedAt: null };
+    return { path, text: cached.bytes.toString('utf8'), fetched: false, fetchedAt: null };
   }
   if (request.prepared) {
     throw Error(`The ${request.stageId} density map is not in the demo cache, and preparing it is too big a job for a live session. `
       + `Run ${growthRecoveryCommand(request.demo, request.stageId)} on this Mac, then grow.`);
   }
-  (hooks.announce ?? announceToStderr)({
+  const bundled = request.derivation?.kind === 'bundled-file';
+  if (!bundled) (hooks.announce ?? announceToStderr)({
     spoken: GROWTH_FETCH_SPOKEN,
-    printed: `Fetching the ${request.stageId} coordinates from ${request.download}. The grow continues when they land.`,
+    printed: `Fetching the ${request.stageId} coordinates from ${origin}. The grow continues when they land.`,
   });
   let text: string;
-  let fetchedAt: number;
+  let fetchedAt: number | null;
   try {
-    const downloaded = await (hooks.fetchText ?? boundedFetchText)(request.download);
-    fetchedAt = Date.now();
-    text = applyGrowthDerivation(downloaded, request.derivation);
+    if (request.derivation?.kind === 'bundled-file') {
+      text = await readBundledDemoCoordinates(request.derivation.path, request.sha256, hooks.demosRoot);
+    } else if (request.derivation?.kind === 'prepared-rigid-composite') {
+      text = await resolveCompositeText(compositeRecipePath(request.derivation.recipe, hooks.demosRoot), {
+        demosRoot: hooks.demosRoot, cachePath: hooks.cachePath ?? demoCoordinatePath, fetchText: hooks.fetchText ?? boundedFetchText,
+      });
+    } else {
+      if (!request.download) throw Error('No coordinate download recorded.');
+      const downloaded = await (hooks.fetchText ?? boundedFetchText)(request.download);
+      text = applyGrowthDerivation(downloaded, request.derivation);
+    }
+    fetchedAt = bundled ? null : Date.now();
   } catch (error) {
     throw growthFetchFailure(request, error instanceof Error ? error.message : 'the download failed.');
   }
   const sha256 = digestOf(text);
   if (sha256 !== request.sha256) {
-    throw Error(`${request.download} no longer serves the ${request.stageId} coordinates this demo records (${sha256}). `
+    throw Error(`${origin} no longer serves the ${request.stageId} coordinates this demo records (${sha256}). `
       + `Update the plugin, or run ${growthRecoveryCommand(request.demo, request.stageId)} to see the same mismatch from a terminal.`);
   }
   // Write beside the target and rename, so an interrupted download never
   // leaves a half file that matches nothing and is fetched again every time.
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  const staging = resolve(`${path}.partial`);
-  await writeFile(staging, text, { mode: 0o600 });
-  await rename(staging, path);
-  return { path, text, fetched: true, fetchedAt };
+  await writeVerifiedCacheFile(path, text, request.sha256);
+  return { path, text, fetched: !bundled, fetchedAt };
 }
 
 /** stdout is the MCP transport, so a progress line goes to stderr. */

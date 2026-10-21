@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { gzipSync } from 'node:zlib';
+vi.mock('node:zlib',async original=>{const actual=await original<typeof import('node:zlib')>();return {...actual,gzipSync:vi.fn(actual.gzipSync)};});
 import { decodeInspectionCatalog, verifyInspectionCatalogSource } from '../src/inspection-catalog-codec.js';
 import { inspectionCatalogTransport } from '../src/inspection-catalog-codec-server.js';
 
@@ -92,4 +94,52 @@ it('refuses a factored wire whose declared atom-site count cannot fit its canoni
     .rejects.toThrow(/invalid sequence catalog/i);
   await expect(decodeInspectionCatalog({ ...wire, atomSites: wire.atomSites! + 1 }))
     .rejects.toThrow(/invalid sequence catalog/i);
+});
+
+
+it('compresses one lossless catalog instead of also compressing a discarded alternative',async()=>{
+  vi.mocked(gzipSync).mockClear();
+  const value=factoredAssemblyCatalog(), transport=inspectionCatalogTransport(value);
+  expect(gzipSync).toHaveBeenCalledTimes(1);
+  if(!('catalogWire' in transport))throw Error('expected wire');
+  expect(transport.catalogWire.encoding).toBe('gzip+base64+factored-v1');
+  expect(await decodeInspectionCatalog(transport.catalogWire)).toEqual(value);
+  vi.mocked(gzipSync).mockClear();
+  const legacy=inspectionCatalogTransport(catalog());
+  expect(gzipSync).toHaveBeenCalledTimes(1);
+  if(!('catalogWire' in legacy))throw Error('expected wire');
+  expect(legacy.catalogWire.encoding).toBe('gzip+base64');
+  expect(await decodeInspectionCatalog(legacy.catalogWire)).toEqual(catalog());
+});
+
+it('yields while reconstructing and sealing exact canonical identities, then reuses their immutable snapshot',async()=>{
+  const value=factoredAssemblyCatalog(),transport=inspectionCatalogTransport(value);
+  if(!('catalogWire' in transport))throw Error('expected wire');
+  let yields=0;
+  const decoded=await decodeInspectionCatalog(transport.catalogWire,{budgetMs:0,yieldTask:async()=>{yields++;}});
+  expect(yields).toBeGreaterThan(10);expect(decoded).toEqual(value);
+  // @ts-ignore Shared import-free browser ownership helper.
+  const {snapshotSelectionCatalog}=await import('../../lab/browser-roundtrip/catalog-snapshot.mjs');
+  expect(snapshotSelectionCatalog(decoded)).toBe(decoded);
+  expect(Object.isFrozen(decoded.rows[0].atomSites[0].identity)).toBe(true);
+  expect(()=>{decoded.rows[0].atomSites[0].identity.atomName='tampered';}).toThrow();
+});
+
+it.each(['abort','superseded'] as const)('cancels cooperative catalog decode after %s without publishing a partial catalog',async kind=>{
+  const transport=inspectionCatalogTransport(factoredAssemblyCatalog());
+  if(!('catalogWire' in transport))throw Error('expected wire');
+  const controller=new AbortController();let current=true,yields=0;
+  await expect(decodeInspectionCatalog(transport.catalogWire,{signal:controller.signal,isCurrent:()=>current,budgetMs:0,
+    yieldTask:async()=>{yields++;if(kind==='abort')controller.abort();else current=false;}})).rejects.toMatchObject({name:'AbortError',code:'catalog_decode_cancelled'});
+  expect(yields).toBe(1);
+});
+
+it('batches legacy canonical encoding into reusable byte chunks without per-field encoded allocations',async()=>{
+  const value=catalog();value.rows[0].identity.componentId='Café 🧬 \\ "';
+  const transport=inspectionCatalogTransport(value);if(!('catalogWire' in transport))throw Error('expected wire');
+  expect(transport.catalogWire.encoding).toBe('gzip+base64');
+  const encode=vi.spyOn(TextEncoder.prototype,'encode');
+  try{expect(await decodeInspectionCatalog(transport.catalogWire,{budgetMs:0,yieldTask:async()=>{}})).toEqual(value);
+    expect(encode).not.toHaveBeenCalled();
+  }finally{encode.mockRestore();}
 });

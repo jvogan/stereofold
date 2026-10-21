@@ -50,6 +50,33 @@ test('a chapter with a focus paints its key colours on that part alone', () => {
   assert.deepEqual(plan.colours.map(part => part.id), ['rna']);
 });
 
+// "The magenta target strand ... on the blue non-target strand": a caption may
+// name a part beside its subject, and that part has to be findable in its
+// colour. It is lit, not explained: the framing and the explained plate stay
+// the focus's own, so the camera and the subject do not move.
+test('a part lit beside the focus wears its key colour and does not fade', () => {
+  const plan = planLessonEmphasis({ parts: KEY, focus: 'site', alsoLit: ['rna'] }, resolve, ROW_KEYS);
+  assert.deepEqual(plan.colours.map(part => part.id), ['site', 'rna']);
+  assert.deepEqual(plan.faded.sort(), ['A:1', 'A:4', 'A:5', 'A:6']);
+  assert.deepEqual(plan.lit.sort(), ['A:2', 'A:3']);
+  assert.deepEqual(plan.explained.map(part => part.id), ['site']);
+});
+
+test('parts lit beside the focus keep the key order, so a sub-range still paints over its chain', () => {
+  // The closing recap recites the whole key while the nucleases stay the subject.
+  const plan = planLessonEmphasis({ parts: KEY, focus: 'rna', alsoLit: ['site', 'protein'] }, resolve, ROW_KEYS);
+  assert.deepEqual(plan.colours.map(part => part.id), ['protein', 'site', 'rna']);
+  const layers = mergeEmphasisColourLayers(plan.colours);
+  assert.equal(layers.find(layer => layer.keys.includes('A:2'))?.color, '#ff3b30');
+  assert.deepEqual(plan.faded, []);
+  assert.deepEqual(plan.explained.map(part => part.id), ['rna']);
+});
+
+test('lighting a part the colour key never listed is an authoring failure', () => {
+  assert.throws(() => planLessonEmphasis({ parts: KEY, focus: 'site', alsoLit: ['ribosome'] }, resolve, ROW_KEYS),
+    /ribosome/);
+});
+
 test('the opening chapter, which focuses nothing, still paints the whole key', () => {
   const plan = planLessonEmphasis({ parts: KEY }, resolve, ROW_KEYS);
   assert.deepEqual(plan.colours.map(part => part.id), ['protein', 'site', 'rna']);
@@ -204,6 +231,16 @@ test('a focus the colour key does not name is dropped rather than saved', () => 
   assert.deepEqual(normalizeEmphasisState().focus, []);
 });
 
+test('the saved emphasis keeps the parts lit beside its focus, and only real ones', () => {
+  assert.deepEqual(normalizeEmphasisState({ parts: KEY, focus: 'site', alsoLit: ['rna', 'ribosome', 'site'] }).alsoLit,
+    ['rna']);
+  // A chapter that lights nothing beside its focus saves exactly what it saved before.
+  assert.equal('alsoLit' in normalizeEmphasisState({ parts: KEY, focus: 'site' }), false);
+  assert.equal('alsoLit' in normalizeEmphasisState({ parts: KEY, focus: 'site', alsoLit: [] }), false);
+  // With no focus the whole key is lit already.
+  assert.equal('alsoLit' in normalizeEmphasisState({ parts: KEY, alsoLit: ['rna'] }), false);
+});
+
 test('a part with no label of its own is saved under its id', () => {
   const [part] = normalizeEmphasisState({ parts: [{ id: 'pam', color: '#ffffff', chain: 'B' }] }).parts;
   assert.equal(part.label, 'pam');
@@ -264,7 +301,7 @@ test('the viewer decides who owns the painted key in one place', () => {
   // A key an agent or the wearer asked for by name is theirs: a tour stopping
   // is not an answer to that request, so the clear refuses rather than obeys.
   assert.match(source, /async function clearLessonEmphasis\(\)\s*\{\s*return lessonResting\.clear\(\);/);
-  assert.match(source, /async function setLessonRestingState\(value\)[\s\S]{0,120}return lessonResting\.install\(value\);/);
+  assert.match(source, /async function setLessonRestingState\(value, options\)[\s\S]{0,120}return lessonResting\.install\(value, options\);/);
   // A restored key carries its provenance, or the next hydrate's baseline
   // paint takes the scene the wearer just asked for straight back off. The
   // capture's own origin is the second argument because a reload restores in
@@ -305,7 +342,8 @@ test('every name-plate rebuild in the viewer goes through the one session', () =
   assert.match(source, /if \(componentLabelsWanted\(\) \|\| componentLabels\.active\(\)\)/);
   // The session edge has ONE owner. The presentation hooks rebuild the
   // structure at the immersive quality and leave the plates to the subscriber.
-  assert.match(source, /async function onXrPresented\(\) \{[\s\S]{0,260}componentLabels: false/);
+  const onPresented = source.match(/async function onXrPresented\(\) \{([\s\S]*?)\n  \}/)?.[1] ?? '';
+  assert.match(onPresented, /await applyInspectionAppearance\(\{[^}]*componentLabels: false/);
   assert.match(source, /onLeavingPresentation: async \(\) => \{[\s\S]{0,160}componentLabels: false/);
   // Both offsets scale with the placement; a fixed desktop push buried plates
   // inside the cartoon at scale 2.4.
@@ -316,14 +354,15 @@ test('every name-plate rebuild in the viewer goes through the one session', () =
   // the one contract `component-labels.test.mjs` asserts, so the painter has no
   // second opinion about what a plate looks like. One backed primitive owns
   // both ink and contrast, rather than drawing two glyph copies.
-  assert.match(source, /componentLabelPaint\(\{ placeAlpha: place\.alpha,\n\s*contextAlpha: contextAlpha\.get\(entry\.id\) \?\? 1,/);
+  assert.match(source, /componentLabelPaint\(\{ presenting, placeAlpha: place\.alpha,\n\s*contextAlpha: contextAlpha\.get\(entry\.id\) \?\? 1,/);
   assert.doesNotMatch(source, /textColor: Color\(0x[0-9a-f]{6}\)/);
-  assert.match(source, /textColor: Color\(paint\.backing\.textColor\)/);
+  assert.match(source, /for \(const \[layer, params\] of Object\.entries\(paint\)\) \{[\s\S]{0,300}textColor: Color\(params\.textColor\)/);
   // And the plate is fanned in the eye's own plane, through the
   // same corner offset that makes it a billboard, so it stays square to the
   // wearer and stays right in both eyes.
   assert.match(source, /offsetX: place\.offsetX, offsetY: place\.offsetY \+ lineOffset/);
-  assert.match(source, /obstacles: toolbarRect \? \[toolbarRect\] : \[\]/);
+  // The menu column and the caption card are both glass the plates keep off.
+  assert.match(source, /obstacles: menuGlassObstacles\(\[toolbarRect, captionRect\]\)/);
   // And the structure's own silhouette reaches the solver,
   // which is the only thing that can keep a plate off the thing it names.
   assert.match(source, /subject: subject \?\? null/);
@@ -338,7 +377,7 @@ test('framing a part the fade is hiding lifts it, inside the key the wearer lear
   assert.match(source, /emphasisFocusForKeys\(emphasisState\.parts, spokenSelectionKeys, keys\)/);
   // The lift runs before the selection and long before the travel, so the
   // wearer never watches the fade come off a structure already in place.
-  assert.match(source, /if \(liftEmphasis\) await liftFocusOutOfFade\(chosen\);\n\s*if \(named\) await select\(chosen\);/);
+  assert.match(source, /if \(liftEmphasis\) await liftFocusOutOfFade\(chosen\);\n(?:\s*\/\/.*\n)*\s*if \(named && marksSelection\) await select\(chosen, 'selection', \{ lesson: lessonSelection \}\);/);
   // `emphasize` frames what it just lit, so its own framing call must opt out
   // or the lift would call back into it forever.
   assert.match(source, /selectionKeys: litKeys, framing, minTargetFraction: LESSON_MIN_TARGET_FRACTION,\n\s*elevationDegrees: LESSON_ELEVATION_DEGREES, liftEmphasis: false/);
@@ -456,7 +495,7 @@ test('the viewer applies the floor at paint time and keeps the authored value sa
   assert.match(source, /contextOpacity: paintedContextOpacity\(contextOpacity\)/);
   assert.match(source, /contextOpacity: paintedContextOpacity\(emphasisState\.contextOpacity\)/);
   // The saved emphasis stays the lesson's own number, never the floored one.
-  assert.match(source, /normalizeEmphasisState\(\{ parts, focus, contextOpacity, strandShades \}\)/);
+  assert.match(source, /normalizeEmphasisState\(\{ parts, focus, alsoLit, contextOpacity, strandShades \}\)/);
   // A key that went missing reaches the headset log before the paint.
   assert.match(source, /recordEmphasisResolution\(plan\)/);
   assert.match(source, /record\('lesson-emphasis-chain'/);

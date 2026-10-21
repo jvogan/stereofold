@@ -22,6 +22,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import {
   createPushToTalkTranscriber, pushToTalkAudioSchema, type PushToTalkAudioInput,
 } from '../src/push-to-talk-transcribe.js';
+import { voicedWav } from './helpers/voiced-wav.js';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';
 const FIRST = '22222222-2222-4222-8222-222222222222';
@@ -42,7 +43,7 @@ function fakeSpawner() {
     child.kill = () => true;
     void Promise.resolve().then(async () => {
       if (command.includes('ffmpeg')) {
-        await writeFile(args[args.length - 1]!, Buffer.from('RIFFfake'));
+        await writeFile(args[args.length - 1]!, voicedWav());
         child.emit('close', 0);
         return;
       }

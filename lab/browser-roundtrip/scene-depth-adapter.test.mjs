@@ -43,13 +43,15 @@ test('XR depth adapter retains the immersive near band when no cutaway is reques
   } finally { h.adapter.restore(); }
 });
 
-test('XR depth adapter preserves deliberate cutaway planes and restores the immersive band when cleared', () => {
+test('XR depth adapter keeps a cutaway outside the glass and restores the immersive band when cleared', () => {
   const h = harness();
   try {
     h.setClipped(true);
     const cutaway = { depthNear: 1.677, depthFar: 2.5 };
-    assert.deepEqual(h.frame(cutaway), cutaway, 'clamping this near plane would silently remove the requested cutaway');
-    assert.deepEqual(h.bands.at(-1), { near: 1.677, far: 2.5 });
+    // The glass reaches to 0.01 m here, so the cut stops there; its far plane
+    // is kept as asked, and the panel is never told to move past the cut.
+    assert.deepEqual(h.frame(cutaway), { depthNear: .01, depthFar: 2.5 });
+    assert.deepEqual(h.bands.at(-1), { near: 0, far: 2.5 });
     h.setClipped(false);
     assert.deepEqual(h.frame(cutaway), { depthNear: .01, depthFar: 60 });
     assert.deepEqual(h.bands.at(-1), { near: 0, far: Infinity });

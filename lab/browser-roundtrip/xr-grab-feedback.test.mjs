@@ -14,7 +14,7 @@ function harness(hand, synthetic = false) {
     : { targetRayMode: 'tracked-pointer', gamepad: { buttons: [{ value: 0 }, { value: 0 }] } };
   // Run the viewer's actual admission and callback wiring. Accessory scene,
   // caption and save operations are observed at their boundary here.
-  const h = vm.createContext({ appearanceWork: undefined, state, inspectionState: {}, GRABBABLE_STATUS: new Set(['ready', 'mutating']),
+  const h = vm.createContext({ appearanceWork: undefined, chapterInteractionDepth: 0, state, inspectionState: {}, GRABBABLE_STATUS: new Set(['ready', 'mutating']),
     canvas: { webgl: { get isContextLost() { return state.contextLost; } } },
     createXrGrabFeedback, speakOutcome: text => spoken.push(text),
     recordManipulation: (kind, detail) => records.push({ kind, detail }),

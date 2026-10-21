@@ -8,12 +8,10 @@ import {readFileSync} from 'node:fs';
 import {pageText} from '../src/tour-player.js';
 import {molecularLessonToTour} from '../src/molecular-lesson-tour.js';
 
-// @ts-ignore Shared JavaScript wearer-placement rules.
-import {CAPTION_FULL_MS} from '../../lab/browser-roundtrip/wearer-placement.mjs';
 // @ts-ignore Shared JavaScript grip binding, the same one the companion bundles.
 import {DEFAULT_LISTENING_TEXT,attachGripPushToTalk} from '../../lab/browser-roundtrip/push-to-talk-grip.mjs';
 // @ts-ignore Shared JavaScript agent-presence reading.
-import {AGENT_LISTENING_LINE,NOBODY_LISTENING_LINE,agentAttached,listeningStatusLine,noteAgentPresence,resetAgentPresence} from '../../lab/browser-roundtrip/agent-presence.mjs';
+import {listeningStatusLine,noteAgentPresence,resetAgentPresence} from '../../lab/browser-roundtrip/agent-presence.mjs';
 
 // Three rules, proven against the real module rather than its source text:
 //   the menu must not move while the wearer is moving -> the latched seat
@@ -26,7 +24,7 @@ import {AGENT_LISTENING_LINE,NOBODY_LISTENING_LINE,agentAttached,listeningStatus
 const MOLSTAR_STUB=`
 export const MeshBuilder={createState:()=>({currentGroup:-1}),addTriangleWithNormal:()=>{},getMesh:()=>({kind:'mesh'})};
 export const Mesh={Utils:{kind:'mesh'}};
-export const TextBuilder={create:()=>({add(){},getText(){return {kind:'text'};}})};
+export const TextBuilder={create:()=>({add(){},getText(){const cell=()=>({ref:{value:new Float32Array(0)}});return {kind:'text',charCount:0,centerBuffer:cell(),mappingBuffer:cell(),groupBuffer:cell()};}})};
 export const Text={Utils:{kind:'text'}};
 export const Shape={create:()=>({})};
 export const ShapeRepresentation=()=>({renderObjects:[],visible:true,createOrUpdate:()=>({async run(){}}),setState(){},destroy(){}});
@@ -45,7 +43,7 @@ async function labRuntime(module:string){
 const toolbarRuntime=()=>labRuntime('spatial-toolbar.mjs');
 
 const NARRATION='A guide RNA finds its twenty letters and the enzyme cuts both strands.';
-const chapter=(over:Record<string,unknown>={})=>({selectedId:'crispr',selectedTitle:'CRISPR',active:true,step:1,
+const chapter=(over:Record<string,unknown>={})=>({selectedId:'crispr',selectedTitle:'CRISPR',active:true,step:1,total:5,
   title:'The cut',progress:'Scene 2 / 5',body:NARRATION,bodyPage:NARRATION,bodyPageIndex:0,bodyPageCount:1,...over});
 
 const lines=(readout:{text:string}[])=>readout.map(line=>line.text);
@@ -94,34 +92,19 @@ it('keeps a twelve-word status beyond 140 characters in the live toolbar',async(
   } finally { await toolbar.dispose(); }
 });
 
-it('draws the whole spoken line for the reading window, then keeps the short plate',async()=>{
+it('keeps the whole spoken line on the chapter card for as long as the chapter shows',async()=>{
   const {tourReadout}=await toolbarRuntime() as any;
-  const tour=chapter({chapterStartedAt:1_000});
-  // Inside the window the wearer gets the sentence.
-  expect(lines(tourReadout(tour,false,1_000))).toContain(NARRATION);
-  expect(lines(tourReadout(tour,false,1_000+CAPTION_FULL_MS-1))).toContain(NARRATION);
-  // Past it the plate is the title and the page row: one short line of payload,
-  // which is what tells the wearer where the lesson is without covering it.
-  const collapsed=lines(tourReadout(tour,false,1_000+CAPTION_FULL_MS));
-  expect(collapsed).not.toContain(NARRATION);
-  expect(collapsed).toEqual(['The cut','Scene 2 / 5']);
-});
-
-it('brings the sentence back whenever the wearer is being read to',async()=>{
-  const {tourReadout}=await toolbarRuntime() as any;
-  const late=1_000+CAPTION_FULL_MS*10;
-  expect(lines(tourReadout(chapter({chapterStartedAt:1_000,talking:true}),false,late))).toContain(NARRATION);
-  expect(lines(tourReadout(chapter({chapterStartedAt:1_000,autoplay:true}),false,late))).toContain(NARRATION);
-  expect(lines(tourReadout(chapter({chapterStartedAt:1_000,playing:true}),false,late))).toContain(NARRATION);
-});
-
-it('never reads a wall-clock stamp as a reading window',async()=>{
-  const {tourReadout}=await toolbarRuntime() as any;
-  // The bug this guards: `Date.now()` in the tour player against
-  // `performance.now()` here. The stamp is then hours in the future, and the
-  // window must stay shut rather than stay open forever.
-  const epoch=Date.now();
-  expect(lines(tourReadout(chapter({chapterStartedAt:epoch}),false,12_345))).not.toContain(NARRATION);
+  const subject={title:'SpCas9 ternary complex, amino acids (1242-1263) replaced with Gly-Ser linker',pdbId:'9KJ6',
+    chains:4,assembly:'asymmetric_unit',selectionCount:0,representation:'cartoon',color:'chain-id'};
+  // The card used to hold the sentence for a four-second window and then settle
+  // on the structure's own lines: `SpCas9 ternary` over `complex,…`. Settled,
+  // stepped with Next or read to, under a page-load stamp, a wall-clock stamp
+  // or none, it is the chapter: title and counter on one line, the whole
+  // sentence, and none of the structure's description or identity.
+  for(const stamp of [{chapterStartedAt:1_000},{chapterStartedAt:Date.now()},{}])
+    for(const now of [1_000,5_000,60_000])
+      for(const over of [{},{autoplay:true},{talking:true}])
+        expect(lines(tourReadout(chapter({...stamp,...over}),subject,now))).toEqual(['The cut · 2/5',NARRATION]);
 });
 
 it('a growth answer leaves the chapter readout unchanged',async()=>{
@@ -137,7 +120,7 @@ it('a growth answer leaves the chapter readout unchanged',async()=>{
 it('a lesson that hides its caption card draws no tour chrome',async()=>{
   const {tourReadout}=await toolbarRuntime() as any;
   expect(lines(tourReadout(chapter({captionCard:'hidden',chapterStartedAt:1_000}),false,1_000))).toEqual([]);
-  expect(lines(tourReadout(chapter({captionCard:'hidden',chapterStartedAt:1_000}),false,1_000+CAPTION_FULL_MS*10))).toEqual([]);
+  expect(lines(tourReadout(chapter({captionCard:'hidden',chapterStartedAt:1_000}),false,41_000))).toEqual([]);
   // Growth replies use the talk card, never hidden chapter glass.
   const spoken='Grown to a dimer.';
   expect(lines(tourReadout(chapter({captionCard:'hidden',growth:{spoken,atMs:9_000}}),false,9_100)))
@@ -201,20 +184,14 @@ it('the menu seat is measured once and then latched, whatever the structure does
   } finally { delete (globalThis as any).__stereofoldDiagnostics; }
 });
 
-it('names Claude on the status row only while a press is open',async()=>{
-  // The row is drawn by `push-to-talk-grip.mjs` while push-to-talk is held or
-  // the press is being transcribed, and by nothing else. An attached follower
-  // on its own buys no line at all.
-  expect(NOBODY_LISTENING_LINE).toBe(DEFAULT_LISTENING_TEXT);
-  expect(listeningStatusLine(()=>true)).toBe(AGENT_LISTENING_LINE);
-  expect(listeningStatusLine(()=>false)).toBe(DEFAULT_LISTENING_TEXT);
-  expect(listeningStatusLine(()=>{throw Error('presence unreadable');})).toBe(DEFAULT_LISTENING_TEXT);
-  // And the real reading behind it: a heartbeat that has gone quiet stops
-  // naming Claude rather than leaving the claim up.
-  try{
-    noteAgentPresence(true,1_000);
-    expect(listeningStatusLine(()=>agentAttached(1_500))).toBe(AGENT_LISTENING_LINE);
-    expect(listeningStatusLine(()=>agentAttached(1_000_000))).toBe(DEFAULT_LISTENING_TEXT);
+it('the press caption uses the menu voice-delivery model',()=>{
+  try {
+    resetAgentPresence();
+    expect(listeningStatusLine()).toBe(DEFAULT_LISTENING_TEXT);
+    noteAgentPresence(true,Date.now(),{mode:'none',assistant:'Codex'});
+    expect(listeningStatusLine()).toBe(DEFAULT_LISTENING_TEXT);
+    noteAgentPresence(false,Date.now(),{mode:'polling',assistant:'Codex'});
+    expect(listeningStatusLine()).toBe('Codex is listening');
   } finally { resetAgentPresence(); }
 });
 
@@ -224,7 +201,7 @@ it('says nothing about Claude merely because an agent is attached',async()=>{
   // Entry used to speak the line whenever `agentAttached()` was true. It now
   // says nothing, and the only route to the line is the
   // `listeningText` reader the press calls.
-  expect(source).not.toMatch(/voiceCommandSpeaker\(\)\?\.\(AGENT_LISTENING_LINE\)/u);
+  expect(source).not.toMatch(/voiceCommandSpeaker\(\)\?\.\(.*is listening/u);
   expect(source).toContain('const listeningText = () => listeningStatusLine();');
 });
 
@@ -234,7 +211,7 @@ it('the held press asks for its line at each press, not at bind time',async()=>{
   const session={inputSources:[],addEventListener(){},removeEventListener(){}};
   const talk=attachGripPushToTalk({session,send:async()=>({}),audio:null,
     status:(text:string)=>{shown.push(text);},
-    listeningText:()=>(attached?AGENT_LISTENING_LINE:DEFAULT_LISTENING_TEXT)});
+    listeningText:()=>(attached?'Codex is listening':DEFAULT_LISTENING_TEXT)});
   // An agent that attaches between two presses changes the second line and
   // not the first: a binding that read the line once would show the stale one.
   await talk.start();
@@ -242,7 +219,7 @@ it('the held press asks for its line at each press, not at bind time',async()=>{
   await talk.stop();
   attached=true;
   await talk.start();
-  expect(shown.at(-1)).toBe(AGENT_LISTENING_LINE);
+  expect(shown.at(-1)).toBe('Codex is listening');
   await talk.stop();
   await talk.dispose();
 });

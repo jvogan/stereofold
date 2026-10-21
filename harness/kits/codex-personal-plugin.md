@@ -142,6 +142,8 @@ dist/server.mjs
 dist/viewer.html
 dist/inspector.html
 dist/inspector.css
+dist/inspector-script-1.js
+dist/inspector-script-2.js
 dist/inspector-host.js
 ```
 
@@ -156,7 +158,7 @@ older cached panel.
 
 ## Verify the mounted viewer
 
-The full plugin registers 64 `stereo_structure.*` tools, 37 model-visible and
+The full plugin registers 68 `stereo_structure.*` tools, 41 model-visible and
 27 app-only, counted from the lists `plugin/scripts/smoke.ts` asserts;
 [plugin/README.md](../../plugin/README.md) has the canonical list. In the
 intended Codex task, confirm the legacy stereo viewer's five model-facing

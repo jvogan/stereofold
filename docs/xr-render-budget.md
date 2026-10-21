@@ -52,6 +52,165 @@ picking casts one ray against the scene. Automatic hover picking is off to
 avoid rendering the full scene into that buffer every frame; menu hit testing
 and explicit trigger picks continue to work.
 
+## Lesson figure plates
+
+Molecular animation partitions residue selections only when installing a chapter
+or changing its appearance. Each selector track may add at most one active
+molecular representation; a selection that would split multiple overlapping
+display layers beyond this limit is refused before installation. Whole-body
+layers can reuse their existing representations. Hidden original templates are
+retained for chapter exit, so allocated representations differ from active draws.
+The saved animation sample and `animation-representations` diagnostic report
+`representationCounts`: `molecular` (active molecular partitions), `moving`
+(moving partitions), `added` (net increase over their templates), `annotations`
+(attached or partitioned labels/measurements), and `tethers`
+(line/text representations, counted separately). These are representation counts,
+not GL draw counts: one Mol* representation can submit multiple render objects.
+`animation-cost.geometryRebuilds` stays zero during uninterrupted playback;
+appearance changes may rebuild at their transaction boundary. Pivot rotation,
+attached labels and tethers reuse the same per-frame transform path. Software
+tests do not establish a Quest frame rate.
+
+Lesson figure labels, moving tether labels and figure distance readouts use a
+label-only draw after molecular color/marking and before the headset menu and
+other Mol* helpers. Their existing positions, glyph sizes, offsets and per-eye
+projection remain unchanged. Exposed fragments draw normally; fragments behind
+opaque molecular depth draw at 65% of their authored opacity, including both
+glyphs and backing. This is a see-through annotation, so a rear plate does not
+claim to be an opaque foreground surface. Transparent molecular layers do not
+supply opaque depth for the fade.
+
+The pass uses the existing depth attachment, with GREATER then LEQUAL and depth
+writes disabled. It neither clears molecular depth nor redraws the molecule.
+Each active plate has two submissions per eye, matching the ordinary opaque
+glyph/transparent-backing path for full-opacity labels. Ordinary renderer passes
+request `color`, which is excluded for tagged plates before the render item
+selects its blended shader. The explicit `colorLabelExposed` submission belongs only
+to the label pass, so exposed pixels are not blended twice. Blended, WBOIT and
+DPOIT scenes use explicit blended label shaders; offscreen antialiasing uses
+the same color target as the final composition. Mol*'s menu/UI rendering and
+the menu's subsequent depth reset are unchanged. Untagged text and tether or
+measurement strokes retain their ordinary depth behavior.
+
+The label pass traverses the existing scene array twice: all hidden fragments
+first, then all exposed fragments. Scene order is retained within each phase;
+where plates overlap, exposed ink composites over hidden ink. Compatible text
+shaders now need two program switches per eye instead of two per plate. Different
+shader definitions can still require additional switches. Distinct authored
+materials retain their normal uploads, with the optional uniform cache skipping
+equal values; geometry and pick identities are not merged.
+
+Material identity is invalidated once at each phase boundary because it is not
+keyed by program. The existing internal update invalidates render-item identity
+once per eye when installing group/eye globals and the shared depth texture.
+Item and program identity checks handle subsequent object uniforms and VAOs,
+including the single-plate case. Successful exit retains valid cache identities
+and restores LEQUAL. On a failed submission, program, material and item identities
+are invalidated because GL setup may be incomplete; LEQUAL is still restored.
+
+A counting-GL comparison executes installed Mol* renderer, program and render-item
+code with 11 synthetic plates, distinct material IDs, two eyes, moving uniforms,
+changed colors, reversed scene order and an intervening pick pass. Label-only
+calls per stereo frame are:
+
+| Calls | Per-plate pass | Grouped phases |
+| --- | ---: | ---: |
+| Program switches | 44 | 4 |
+| Uniform uploads, cache off | 2,728 | 568 |
+| Uniform uploads, cache on, frames 1 / 2 / 3 | 1,014 / 938 / 932 | 214 / 138 / 132 |
+| Draws | 44 | 44 |
+| Forced material / item invalidations | 46 / 48 | 4 / 2 |
+
+Draw-state snapshots agree after matching eye, plate and phase, with caching
+both on and off; picking is unchanged. These counts use a synthetic uniform
+schema and are submission evidence, not Quest 2 CPU timing or GPU measurements.
+The grouped pass still needs the opt-in pixel probe and physical requalification.
+
+The added frame traversal uses existing renderable arrays and scratch matrices;
+renderer-private uniform boxes are updated in place with version increments.
+Node tests execute the installed Mol* renderer and real text representations,
+check buried-label submission and per-eye pass ordering, and prohibit new
+ValueCells through 1,000 repeated frames. They do not measure GPU time or worn
+comfort. Translucency reduces conflicting occlusion cues but cannot guarantee
+comfortable stereo for labels far behind foreground geometry, or resolve
+label-to-label crowding. Physical Quest 2 requalification remains necessary.
+
+An opt-in Chromium/WebGL2 pixel probe is available from `plugin/`:
+
+```sh
+STEREOFOLD_LABEL_PIXELS=1 node node_modules/vitest/vitest.mjs run test/molstar-lesson-label-pixels.test.ts
+```
+
+The Chromium WebGL2 probe covers blended, WBOIT and DPOIT with and without
+SSAO/FXAA. It checks buried visibility, duplicate-blend sensitivity and unchanged
+exposed interiors away from glyph edges. A separate black-on-white probe checks
+fractional edge coverage at three text sizes without postprocessing. These
+updated pixel checks require an unrestricted browser run; they have not been
+executed for the sharpness change. Earlier pixel counts predate SDF coverage
+and must not be treated as measurements of this version.
+
+### Label sharpness and cost
+
+The installed Mol* text fragment shader used a binary SDF threshold, not a
+screen-space smoothing width. Native eye crops show stepped strokes, disappearing
+small characters and lower contrast where plates cross molecular geometry.
+Lesson glyphs already use quality 3: a 256 px font, 32 px buffer on each side,
+85.3 px SDF radius and 405 px line height. The alpha atlas uses linear filtering
+without mipmaps. More atlas detail would not recover missing framebuffer pixels;
+a quality-3 atlas already allocates about 43 MB per text render item. Atlas size,
+padding, filtering and the existing shared CPU cache/upload optimizations stay
+unchanged. Padding reserves distance-field and border space rather than shrinking
+the smoothing width. Immersive component labels use quality 1 (128 px).
+
+Both explicit lesson variants now define `dStereofoldLabelSdf` and map to blended
+rendering. Coverage uses `smoothstep` across `fwidth(SDF)`, approximately one
+framebuffer pixel, with a one-byte minimum width for quantized/flat samples.
+Derivatives run before any discard. Borders use the same transition; backgrounds
+retain their own opacity. Ordinary text, picking and depth retain the original
+threshold. Expected effect: more stable thin strokes and diagonals without a
+fixed blur radius. Cost: derivative/smoothstep arithmetic and one atlas sample
+per fragment (including backing fragments); no extra draws, geometry, CPU frame
+allocations or atlas storage. The two label phases and program-switch counts
+are unchanged. The exposed SDF program is compiled at setup, alongside the
+hidden variant. This is an expected small GPU cost, not measured Quest timing.
+
+Figure and moving-tether white backings now use opacity 1 instead of 0.9.
+Bright ink is scaled to a maximum sRGB channel of 112, preserving its channel
+ratios; dark ink remains exact. Exposed ink has at least 4.5:1 contrast on white.
+Color mapping happens only at creation/update; it adds no rendering work. Hidden
+ink and backing still fade together to 65%, so that contrast guarantee does not
+apply behind geometry or to additional authored alpha. The fade remains a depth
+cue, and overlapping labels can still interfere.
+
+Balanced Quest 2 resolution remains 0.8/0.6/0.5 and requested fixed foveation 1.
+Foveation read-back and effective peripheral quality must be captured: the
+optional menu-depth-reset candidate can change effective foveation. SDF coverage
+cannot restore subpixel letters or peripheral shading samples. The existing
+scale-compensated world size remains unchanged (the annotation regression's
+0.6-size plate spans about 1.7 degrees at 2.35 m); distance and authored size still
+control the number of eye pixels per glyph. Increasing all plates risks crowding.
+
+Full-resolution plates cannot be drawn into the current smaller XR layer.
+They would require a full-size layer plus separate molecular color/depth targets
+and compositing, or a separate XR layer with different occlusion handling. That
+would change passes and bandwidth. This change therefore keeps the existing
+framebuffer, foveation and draw budget. No device sharpness or frame-time claim
+follows from the CPU checks.
+
+For the device comparison, use the same lesson, pose, chapter time and balanced
+settings before and after. Save unresized native left/right eye PNGs at 2.35 m
+and 4 m, centered and with a 25-degree head turn. Include hemoglobin R-state
+(exposed Beta 2 and hidden Alpha 2), kinesin ATP-docks (head/ADP plates), an ATP
+rotor moving tether, overlapping plates and the smallest distance readout. Take
+paused captures and a 10-second slow head-turn video during playback to expose
+stroke shimmer and disappearing letters. Record the build hash, framebuffer and
+eye viewport dimensions, render-budget/governor state, requested/read-back
+foveation, menu-depth-reset setting, and reported refresh rate. Collect matched
+30-second frame-cost logs and draw/program-switch counts; compare callback p50/
+p95, missed frames and GPU time if available. Repeat the edge/contrast and buried
+plate pixel probes on an unrestricted host. Keep device performance and visual
+acceptance pending until these comparisons are complete.
+
 ## Frame diagnostics and adaptive resolution
 
 `read_headset_log` can return three useful diagnostic records:
@@ -203,3 +362,58 @@ materials or GPUs. Physical Vision Pro performance and broad headset
 compatibility are not established by these Quest 2 measurements; use
 [host verification](host-verification.md) for the scope of software and device
 checks.
+
+## CPU submission and snapshot costs
+
+The browser bundles apply a default-on per-program uniform cache at build time.
+`STEREOFOLD_UNIFORM_CACHE_PATCH=0` disables it for an A/B rebuild; `1` enables it.
+Other values fail the build. Scratch `render-settings.json` records the choice.
+Both the desktop viewer and the inspector (desktop panel and headset page) use
+it. No GL APIs are monkey-patched. Each program/location retains a copy of its
+last uploaded scalar or array; equal values skip uploads even across different
+material cells. Array comparisons detect in-place edits without relying on cell
+versions. Raw `program.uniform`, batched setters and sampler uploads share the
+cache, while texture binding still runs. Finalization after context restoration
+creates empty caches. Camera, view and projection uniforms bypass the cache.
+
+The snapshot path reads live trackball/stereo fields through a narrow Canvas3D
+accessor. When `camera.forceFull` disables clipping, diagnostics report effective
+clipping as zero without asking for aggregate bounds. With clipping active,
+the original derived percentage still reads scene bounds; no stale geometry or
+camera values are substituted. Other `Canvas3D.props` reads defer the derived
+clipping radius until that group is requested, then cache it on that returned
+object. Camera values are captured on the property read; scene bounds are
+resolved on first clipping access. Rendering, culling and camera fitting retain
+Mol*'s existing scene invalidation. Independent stock-Mol* builds retain a public
+API fallback and do not receive these optimizations.
+
+The source audit covered `lab/browser-roundtrip` and `plugin/src`. Snapshot
+reads are in `viewer.mjs`; `plugin/src/viewer.ts` reads stereo, antialiasing and
+multisampling for layout/diagnostics. Remaining reads are appearance/quality
+transactions, XR-budget entry/restore, camera helpers and desktop-preview
+entry/exit. `presentation-scene.mjs` already caches DOF at setup and setter
+changes. These unrelated settings no longer calculate bounds. Public Canvas3D
+`boundingSphere`/`boundingSphereVisible` properties hold existing sphere objects;
+Mol* Scene getters do the actual dirty-bound calculation. Molecular bounds
+queries for placement, source adoption and framing remain necessary. Structure
+boundary and render-object ValueCell reads do not rebuild aggregate scene bounds.
+
+A Node counting-GL fixture runs installed Mol* program/render-item code with
+40 synthetic objects, two eyes, picking, both lesson-label variants, moving
+transforms, mixed materials and reversed draw order. Uniform calls per frame
+were 1,760 before and 613, 579, 581, 579, 581 after (65–67% fewer), with all
+176 draw-state snapshots per frame equal and all texture bindings retained.
+The snapshot-settings micro-benchmark uses 100 spheres, 2,000 dirty frames and
+four snapshots/frame: 32,000 full property reads and 2,000 bounds calculations
+became zero, and total time was 59.32 ms versus 1.06 ms on the test host. These
+are synthetic CPU evidence, not whole-snapshot timing or Quest frame timings.
+
+The cache adds comparisons and one retained copy per cached uniform/location;
+scenes whose uniforms always differ can trade fewer GL calls for extra CPU work.
+Plate geometry remains separate: merging it could reduce draws but would couple
+plate updates, picking and transparency order. The post-geometry label pass
+groups variant submissions as described above and retains its pixel assertions.
+Its opt-in Chromium probe now
+includes the uniform cache, and accepts the same flag for an uncached control.
+Recheck both eyes, picking, clipping, source replacement, context recovery and
+label depth/opacity on a physical device; no 72 fps claim follows from this test.

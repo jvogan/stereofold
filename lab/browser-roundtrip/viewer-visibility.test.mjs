@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
+import { createDrawnSubsetCache } from './visible-stage-bounds.mjs';
 import { createInspectionState } from './inspection-state.mjs';
 import { pageFunction } from './fixtures/label-action-harness.mjs';
 import { composeOverpaintLayers, selectionOverpaintLayer } from './selection-paint.mjs';
@@ -308,4 +310,57 @@ test('hide and later selection or emphasis repaint keep hidden copies fully tran
   await h.context.paintSelectionOverlay();
   assert.equal(h.drawn.get('stereofold-transition-next').at(-1).value, 1,
     'new geometry receives the same final hidden mask');
+});
+
+function pivotHarness() {
+  const h = harness(), c = h.context;
+  h.rows.forEach((row, i) => { row.atomSites = [{ assemblyCoordinatesAngstrom: [i * 10, 0, 0] }]; });
+  Object.assign(c, { Vec3, cachedDrawnSubset: createDrawnSubsetCache(), visibleStage: undefined,
+    staticMaskKeys: () => [], molecularAnimation: { snapshot: () => null }, pivotCenter: () => [20, 0, 0],
+    VISIBILITY_LAYER_REF: { water: 'stereofold-hidden-water', ligand: 'stereofold-hidden-ligand' },
+    removeLigandOverlay: async () => {},
+  });
+  c.representation.obj = { data: { repr: { props: { alpha: 1 } } } };
+  for (const name of ['setGroupVisible', 'visibilityGroupOf', 'drawnCenter'])
+    vm.runInContext(pageFunction(viewer, name), c);
+  return h;
+}
+
+test('voice group hiding updates saved visibility and the lesson pivot', async () => {
+  const h = pivotHarness(), c = h.context;
+  assert.deepEqual(plain(c.drawnCenter()), [20, 0, 0]);
+  await c.setGroupVisible('water', false);
+  assert.deepEqual(plain(c.drawnCenter()), [15, 0, 0]);
+  assert.deepEqual(saved(h).visibility.hiddenClasses, ['water']);
+  await c.setGroupVisible('ligand', false);
+  assert.deepEqual(plain(c.drawnCenter()), [10, 0, 0]);
+  await assert.rejects(c.setGroupVisible('ligand', false), /already hidden/);
+  await c.setGroupVisible('water', true);
+  assert.deepEqual(plain(c.drawnCenter()), [20, 0, 0]);
+  await c.setGroupVisible('ligand', true);
+  assert.deepEqual(saved(h), {});
+});
+
+test('zero opacity styles and base opacity invalidate the pivot without rebuilding during ticks', () => {
+  const h = pivotHarness(), c = h.context;
+  let reads = 0;
+  h.rows.forEach((row, i) => { row.atomSites = [{ get assemblyCoordinatesAngstrom() { reads++; return [i * 10, 0, 0]; } }]; });
+  const keys = h.rows.slice(3).map(row => row.key);
+  c.stylesState = [{ selectionKeys: keys, opacity: 0 }];
+  assert.deepEqual(plain(c.drawnCenter()), [10, 0, 0]);
+  const measured = reads;
+  for (let tick = 0; tick < 360; tick++) c.drawnCenter();
+  assert.equal(reads, measured, 'steady turns reuse measured coordinates');
+  assert.equal(h.applied.length, 0, 'turning never rebuilds geometry or paints layers');
+  c.stylesState = [{ selectionKeys: keys, opacity: .2 }];
+  assert.deepEqual(plain(c.drawnCenter()), [20, 0, 0]);
+  c.representation.obj.data.repr.props.alpha = 0;
+  assert.deepEqual(plain(c.drawnCenter()), [35, 0, 0], 'explicit style opacity survives a transparent base');
+  c.stylesState = [{ selectionKeys: keys, color: 'chain-id' }];
+  assert.deepEqual(plain(c.drawnCenter()), [20, 0, 0], 'fully invisible scenes use the finite fallback');
+  c.stylesState = [{ selectionKeys: keys, opacity: 0 }, { selectionKeys: [keys[1]], opacity: .5 }];
+  assert.deepEqual(plain(c.drawnCenter()), [40, 0, 0], 'any visible overlapping layer counts');
+  c.stylesState = [];
+  c.representation.obj.data.repr.props.alpha = 1;
+  assert.deepEqual(plain(c.drawnCenter()), [20, 0, 0]);
 });

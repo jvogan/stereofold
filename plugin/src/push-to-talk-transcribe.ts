@@ -34,12 +34,17 @@ import { z } from 'zod';
 import type { RequestReferent } from './inspection-contract.js';
 import { writeBridgeVoice } from './headset-bridge.js';
 import { sessionIdSchema } from './schemas.js';
-import { buildSpeechVocabulary, normalizeSpeechText, type SpeechSceneContext, type SpeechNormalizationRule } from './speech-vocabulary.js';
+import { buildSpeechVocabulary, isSpeechVocabularyEcho, normalizeSpeechText, WHISPER_DOMAIN_HINT, type SpeechSceneContext, type SpeechNormalizationRule } from './speech-vocabulary.js';
 
 export const PUSH_TO_TALK_AUDIO_TOOL = 'push_to_talk_audio';
 export const PUSH_TO_TALK_TRANSCRIBE_ENV = 'STEREOFOLD_PTT_TRANSCRIBE';
 export const WHISPER_BIN_ENV = 'STEREOFOLD_WHISPER_BIN';
 export const WHISPER_MODEL_ENV = 'STEREOFOLD_WHISPER_MODEL';
+/**
+ * `1` runs whisper on the GPU. The default is the CPU: under heavy Metal load
+ * on this host, whisper's GPU path set off a kernel panic in the GPU driver.
+ */
+export const WHISPER_GPU_ENV = 'STEREOFOLD_WHISPER_GPU';
 export const FFMPEG_BIN_ENV = 'STEREOFOLD_FFMPEG_BIN';
 /** `whisper` (the default) or `apple`. See `transcriberKind`. */
 export const TRANSCRIBER_ENV = 'STEREOFOLD_PTT_TRANSCRIBER';
@@ -77,28 +82,10 @@ const FILE_MODE = 0o600;
 const SHELL = '/bin/sh';
 const WHISPER_SAMPLE_RATE = 16_000;
 /**
- * Whisper's initial prompt: text it decodes as if it had just heard it, which
- * pulls short clips toward this vocabulary. Without it, on a Quest 2 the
- * wearer's "spinning it" came back as "spitting it" and a spin request went to
- * the agent instead of the renderer. Every phrase the headset grammar answers
- * is here, plus the molecular words a tour is narrated with. Punctuated
- * sentences, because whisper mimics the prompt's style.
- *
- * The legacy prompt's order was deliberately measured; do not move the
- * vocabulary to the front. A prompt is prior context, so the tokens nearest
- * its end steer the first tokens whisper generates, and on a silent press it
- * generates a continuation of the prompt and nothing else. Ten quiet clips
- * through small.en:
- *
- *   no prompt at all                 0/10 leaked, 0 fired a command
- *   legacy imperatives first        2/10 leaked, 1 fired (`Start the tour.`)
- *   vocabulary first, commands last  7/10 leaked, 1 fired (`Go back.` on five)
- *
- * Moving the commands to the end nearly quadrupled the leak. `--no-speech-thold`
- * at 0.3 and at 0.2 changed nothing, so it is not set. What actually fixes this
- * is the energy gate in `isSilentRecording`, which runs before whisper ever
- * sees the clip. The expanded vocabulary preserves imperative-first ordering,
- * but its recognition accuracy still needs a fresh device measurement.
+ * Legacy prompt, retained for diagnostics and echo tests only. The live Whisper
+ * route must not use it: a complete audible "pause the animation" clip
+ * returned the live vocabulary's tail instead. Apple's contextual hints are a
+ * separate recognizer API and still use the bounded phrase list.
  */
 export const WHISPER_INITIAL_PROMPT = buildSpeechVocabulary().whisperPrompt;
 
@@ -311,6 +298,7 @@ export const pushToTalkAudioSchema = z.object({
   mime: z.string().min(5).max(80).regex(/^audio\/[a-z0-9.+-]+(?:\s*;\s*[a-z0-9]+=[a-z0-9.+-]+)*$/i, 'Expected an audio MIME type.'),
   data: z.string().min(4).max(PTT_MAX_CHUNK_BASE64).regex(/^[A-Za-z0-9+/]*={0,2}$/, 'Expected base64.').optional(),
   final: z.boolean(),
+  pageDecision: z.object({ token: z.string().uuid(), handled: z.boolean() }).strict().optional(),
 }).strict();
 export type PushToTalkAudioInput = z.output<typeof pushToTalkAudioSchema>;
 
@@ -348,6 +336,8 @@ export const listenVoiceSchema = z.object({
 export type ListenVoiceInput = z.output<typeof listenVoiceSchema>;
 
 export type TranscriptRecord = {
+  sessionId?: string;
+  panelId?: string;
   utteranceId: string;
   text: string;
   /** Scene-checked proposal; raw recognizer text above is never replaced. */
@@ -402,6 +392,13 @@ export type TranscriptRecord = {
    * "this" and "that" take it back unchanged.
    */
   referent?: RequestReferent;
+  /**
+   * The headset page's own grammar acts on these words, so the page does it
+   * and no assistant is handed them. Absent on everything else.
+   */
+  headsetAction?: true;
+  /** Opaque offer answered only by the recording page before local execution. */
+  pageDecision?: string;
 };
 
 export type PushToTalkAudioOutcome = {
@@ -446,6 +443,7 @@ export type PushToTalkTranscribeOptions = {
 
 type Utterance = {
   sessionId: string;
+  panelId?: string;
   mime: string;
   directory?: string;
   chunks: Map<number, Buffer>;
@@ -578,8 +576,9 @@ export function parseWhisperText(raw: unknown): string {
  * worse; see the comment on `WHISPER_INITIAL_PROMPT`. The fix has to be
  * upstream of the recognizer, which is what this is.
  *
- * `STEREOFOLD_PTT_SILENCE_RMS` overrides the threshold, and `0` turns the gate
- * off. It is tunable because it was set on synthesized speech, not on a Quest 2
+ * `STEREOFOLD_PTT_SILENCE_RMS` overrides the threshold; the live route keeps
+ * the default for `0` so a command cannot bypass the gate. It is tunable
+ * because it was set on synthesized speech, not on a Quest 2
  * microphone in a real room.
  */
 export const SILENCE_RMS_ENV = 'STEREOFOLD_PTT_SILENCE_RMS';
@@ -801,6 +800,7 @@ function runProcess(spawn: Spawn, command: string, args: readonly string[], opti
 export function createTranscriptQueue({ history = PTT_TRANSCRIPT_HISTORY } = {}) {
   const entries: (TranscriptRecord & { cursor: number })[] = [];
   const waiters = new Set<() => void>();
+  const subscribers = new Set<(entry: TranscriptRecord & { cursor: number }) => void>();
   // Cursors restart at zero with the process, so a cursor means something only
   // beside the queue that issued it.
   const epoch = randomUUID();
@@ -809,10 +809,15 @@ export function createTranscriptQueue({ history = PTT_TRANSCRIPT_HISTORY } = {})
     get epoch() { return epoch; },
     get cursor() { return cursor; },
     all() { return entries.map(entry => ({ ...entry })); },
+    subscribe(listener: (entry: TranscriptRecord & { cursor: number }) => void) {
+      subscribers.add(listener);
+      return () => { subscribers.delete(listener); };
+    },
     publish(record: TranscriptRecord) {
       const entry = { ...record, cursor: ++cursor };
       entries.push(entry);
       while (entries.length > history) entries.shift();
+      for (const listener of subscribers) listener(entry);
       for (const wake of [...waiters]) { waiters.delete(wake); wake(); }
       return entry;
     },
@@ -823,7 +828,7 @@ export function createTranscriptQueue({ history = PTT_TRANSCRIPT_HISTORY } = {})
       let ready = take();
       if (!ready.length && bounded > 0 && !signal?.aborted) {
         await new Promise<void>(resolve => {
-          const wake = () => { clearTimeout(timer); signal?.removeEventListener('abort', wake); resolve(); };
+          const wake = () => { waiters.delete(wake); clearTimeout(timer); signal?.removeEventListener('abort', wake); resolve(); };
           const timer = setTimeout(wake, bounded);
           waiters.add(wake);
           signal?.addEventListener('abort', wake, { once: true });
@@ -862,6 +867,12 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
   let root: Promise<string> | undefined;
   let disposed = false;
   const capturedSessions = new Set<string>();
+  let pageDecisions = false;
+  const decisions = new Map<string, { record: TranscriptRecord; deadline: number;
+    timer: ReturnType<typeof setTimeout>; finish: (handled: boolean) => void }>();
+  // Ownership is independent of the bounded transcript log, for this host's lifetime.
+  const recordedOwners = new Map<string, string>();
+  const decisionResults = new Map<string, { token: string; sessionId?: string; panelId?: string; handled: boolean }>();
 
   // Apple needs no model file, but headset readiness includes decoding the
   // WebM/Opus recorded by Quest. Direct Apple-supported recordings remain
@@ -931,22 +942,30 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
     if (utterance.directory) await rm(utterance.directory, { recursive: true, force: true }).catch(() => {});
   }
 
-  /**
-   * Every delivery is independent: one throwing must not cost the others.
-   *
-   * The queue is published first, before any of them runs. A
-   * transcript is finished the moment this record exists — there is no
-   * time-based debounce anywhere in this pipeline, only the `final` marker and
-   * the recognizer's own exit — and the agent waiting on `listen_voice` is
-   * the reader the wearer is actually watching for. Publishing last put a log
-   * append, a bridge write and a spawned shell command in front of the words:
-   * `STEREOFOLD_PTT_TEXT_COMMAND` alone is allowed ten seconds, and every
-   * millisecond any of them spends was added to the wearer's wait. The
-   * deliveries are still awaited below, so `push_to_talk_audio` answers only
-   * once the log and the bridge hold the utterance. Only the listener stops
-   * paying for them.
-   */
+  /** The recording page gets 300 ms to claim local execution. Timeout releases to the assistant. */
   async function fanOut(record: TranscriptRecord, sessionId: string) {
+    record.sessionId = sessionId;
+    record.panelId = live.get(record.utteranceId)?.panelId;
+    if (pageDecisions && record.text) {
+      record.pageDecision = randomUUID();
+      const finish = (handled: boolean) => {
+        const pending = decisions.get(record.utteranceId);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        decisions.delete(record.utteranceId);
+        decisionResults.set(record.utteranceId, { token: record.pageDecision!, sessionId: record.sessionId,
+          panelId: record.panelId, handled });
+        if (handled) record.headsetAction = true;
+        void publish(record, sessionId);
+      };
+      decisions.set(record.utteranceId, { record, deadline: Date.now() + 300,
+        timer: setTimeout(() => finish(false), 300), finish });
+      return;
+    }
+    await publish(record, sessionId);
+  }
+
+  async function publish(record: TranscriptRecord, sessionId: string) {
     // Marked before the publish that wakes the listener, so a reader woken by
     // the queue can never see a session that has spoken reported as silent.
     if (record.text && !disposed) {
@@ -961,8 +980,8 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
         await chmod(transcriptLog, FILE_MODE).catch(() => {});
       } });
     }
-    if (options.bridge) targets.push({ name: 'headset bridge', run: async () => { await options.bridge!.voice(record); } });
-    if (textCommand) {
+    if (record.text && !record.headsetAction && options.bridge) targets.push({ name: 'headset bridge', run: async () => { await options.bridge!.voice(record); } });
+    if (record.text && !record.headsetAction && textCommand) {
       targets.push({ name: TEXT_COMMAND_ENV, run: async () => {
         // The transcript reaches the command on stdin, never inside the command
         // string, so no spoken word can become shell syntax.
@@ -970,7 +989,7 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
         if (result.timedOut || result.code !== 0) throw Error(result.stderr.trim() || `exited with ${result.code}`);
       } });
     }
-    for (const [index, extra] of (options.deliver ?? []).entries()) {
+    for (const [index, extra] of (record.text && !record.headsetAction ? options.deliver ?? [] : []).entries()) {
       targets.push({ name: `delivery ${index + 1}`, run: async () => { await extra(record); } });
     }
     await Promise.allSettled(targets.map(async target => {
@@ -1016,10 +1035,8 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
       const wav = join(directory, 'decoded.16k.wav');
       await writeFile(encoded, audio, { mode: FILE_MODE });
 
-      // Apple's recognizer opens whatever AVFoundation opens, so a Mac with no
-      // ffmpeg hands it the recording as it arrived and lets `applespeech`
-      // decide. Quest Browser records WebM/Opus, which AVFoundation does not
-      // read, so in practice ffmpeg still runs here whenever it exists.
+      // Native PCM can be checked directly. Other containers need ffmpeg:
+      // no recognizer may bypass the speech-energy gate.
       let recognizable = encoded;
       if (ffmpegReady) {
         const decoded = await runProcess(spawn, ffmpegBin!, ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
@@ -1029,24 +1046,28 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
           return outcome(input, 'failed', 'The recording could not be decoded on this Mac.');
         }
         recognizable = wav;
+      }
 
-        // Gate before the recognizer, not after. A press with nothing spoken in
-        // it makes whisper continue its own prompt; see `isSilentRecording`.
-        const quiet = isSilentRecording(await readFile(wav).catch(() => Buffer.alloc(0)), silenceThresholdValue);
-        if (quiet.silent) {
-          const silentRecord: TranscriptRecord = {
-            utteranceId: input.utteranceId, text: '', ...normalizeSpeechText('', speechScene), durationMs, receivedAt,
-            ...heardNow(),
-            model: transcriber === 'apple' ? APPLESPEECH_MODEL_NAME : whisperModel!,
-            ...referentField,
-          };
-          await fanOut(silentRecord, utterance.sessionId);
-          log(`push-to-talk audio: that press was silent (loudest 100 ms ${quiet.rms.toFixed(4)} < ${silenceThresholdValue}), so nothing was transcribed.`);
-          return {
-            ...outcome(input, 'transcribed', 'No speech was recognized.'),
-            accepted: true, transcript: silentRecord,
-          };
-        }
+      // Gate before the recognizer, not after. A press with nothing spoken in
+      // it makes whisper continue its own prompt; see `isSilentRecording`.
+      const decodedAudio = await readFile(recognizable);
+      if (!readPcm16Wav(decodedAudio)?.samples.length)
+        return outcome(input, 'failed', "Didn't catch that. Please speak again.");
+      const speechThreshold = silenceThresholdValue || PTT_SILENCE_RMS;
+      const quiet = isSilentRecording(decodedAudio, speechThreshold);
+      if (quiet.silent) {
+        const silentRecord: TranscriptRecord = {
+          utteranceId: input.utteranceId, text: '', ...normalizeSpeechText('', speechScene), durationMs, receivedAt,
+          ...heardNow(),
+          model: transcriber === 'apple' ? APPLESPEECH_MODEL_NAME : whisperModel!,
+          ...referentField,
+        };
+        await fanOut(silentRecord, utterance.sessionId);
+        log(`push-to-talk audio: that press was silent (loudest 100 ms ${quiet.rms.toFixed(4)} < ${speechThreshold}), so nothing was transcribed.`);
+        return {
+          ...outcome(input, 'transcribed', "Didn't catch that. Please speak again."),
+          accepted: true, transcript: silentRecord,
+        };
       }
 
       /**
@@ -1083,6 +1104,8 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
             log(`push-to-talk audio: applespeech failed, ${fallbackFrom}. ${heard.stderr.trim().slice(0, 400)}`);
           } else {
             const appleText = parseAppleSpeechText(heard.stdout);
+            if (isSpeechVocabularyEcho(appleText, speechScene))
+              return outcome(input, 'failed', "Didn't catch that. Please speak again.");
             const appleRecord: TranscriptRecord = {
               utteranceId: input.utteranceId, text: appleText, ...normalizeSpeechText(appleText, speechScene),
               durationMs, receivedAt, ...heardNow(), model: APPLESPEECH_MODEL_NAME,
@@ -1110,8 +1133,13 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
       // A fallback keeps the Apple attempt's start: both runs are time the
       // wearer waited for these words.
       recognizerStartedAt ??= now();
+      // A live scene's hint list can override even clearly audible speech:
+      // "pause the animation" became its tail, "Residue 15. Hide chain NC2T."
+      // Three domain nouns retain short-word accuracy without seeding requests
+      // or identifiers. The echo guard below rejects even that small hint list.
       const spoken = await runProcess(spawn, whisperBin!, ['-m', whisperModel!, '-f', wav,
-        '-nt', '-np', '-sns', '--prompt', vocabulary.whisperPrompt, '-otxt', '-of', prefix], { timeoutMs: PTT_TRANSCRIBE_TIMEOUT_MS });
+        ...(env[WHISPER_GPU_ENV] === '1' ? [] : ['-ng']),
+        '-nt', '-np', '-sns', '--prompt', WHISPER_DOMAIN_HINT, '-otxt', '-of', prefix], { timeoutMs: PTT_TRANSCRIBE_TIMEOUT_MS });
       if (spoken.timedOut || spoken.code !== 0) {
         log(`push-to-talk audio: whisper failed. ${spoken.stderr.trim().slice(0, 400)}`);
         return outcome(input, 'failed', 'Local transcription failed on this Mac.');
@@ -1120,6 +1148,8 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
       // build honours `-np`, and a useful fallback when it does not.
       const written = await readFile(`${prefix}.txt`, 'utf8').catch(() => undefined);
       const text = parseWhisperText(written ?? spoken.stdout) || parseWhisperText(spoken.stdout);
+      if (isSpeechVocabularyEcho(text, speechScene))
+        return outcome(input, 'failed', "Didn't catch that. Please speak again.");
       const record: TranscriptRecord = {
         utteranceId: input.utteranceId, text, ...normalizeSpeechText(text, speechScene), durationMs, receivedAt,
         ...heardNow(), model: whisperModel!,
@@ -1235,6 +1265,18 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
      * referent from. The host owns that store, and it is created after the
      * transcriber, so it is handed over rather than passed in.
      */
+    usePageDecisions() { pageDecisions = true; },
+    decide(input: PushToTalkAudioInput) {
+      const pending = decisions.get(input.utteranceId), decision = input.pageDecision;
+      const previous = decisionResults.get(input.utteranceId);
+      if (previous) return previous.token === decision?.token && previous.sessionId === input.sessionId
+        && previous.panelId === input.panelId && decision?.handled === true && previous.handled;
+      if (!pending || !decision || pending.record.pageDecision !== decision.token
+        || pending.record.sessionId !== input.sessionId || pending.record.panelId !== input.panelId) return false;
+      const handled = decision.handled && Date.now() < pending.deadline;
+      pending.finish(handled);
+      return handled;
+    },
     useReferents(read: (sessionId: string) => RequestReferent | undefined) { readReferent = read; },
 
     /**
@@ -1243,6 +1285,8 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
      */
     async accept(input: PushToTalkAudioInput, speechScene?: SpeechSceneContext | Promise<SpeechSceneContext>): Promise<PushToTalkAudioOutcome> {
       if (disposed || !enabled) return outcome(input, 'disabled', `Headset voice is off on this Mac (${PUSH_TO_TALK_TRANSCRIBE_ENV}=0). Set ${PUSH_TO_TALK_TRANSCRIBE_ENV}=1 in the MCP server environment, or start the standalone launcher with --ptt.`);
+      const owner = recordedOwners.get(input.utteranceId);
+      if (owner !== undefined && owner !== input.sessionId) return outcome(input, 'unknown_utterance', 'That utterance belongs to another session.');
       const extension = containerExtension(live.get(input.utteranceId)?.mime ?? input.mime);
       const nativeAppleInput = transcriber === 'apple' && appleReady && extension !== 'webm' && extension !== 'ogg';
       if (!ready && !nativeAppleInput) {
@@ -1255,14 +1299,18 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
       }
       sweep();
       const existing = live.get(input.utteranceId);
-      if (existing && existing.sessionId !== input.sessionId) return outcome(input, 'unknown_utterance', 'That utterance belongs to another session.');
+      if ((existing && existing.sessionId !== input.sessionId)
+        || queue.all().some(entry => entry.utteranceId === input.utteranceId && entry.sessionId !== undefined && entry.sessionId !== input.sessionId))
+        return outcome(input, 'unknown_utterance', 'That utterance belongs to another session.');
+      if (owner && !existing) return outcome(input, 'duplicate', 'That utterance has already finished. Use a new recording ID.');
       if (existing?.finishing) return outcome(input, 'duplicate', 'That utterance is already being transcribed.');
       if (!existing && input.final && !input.data) return outcome(input, 'unknown_utterance', 'That utterance was never started or has already ended.');
       if (!withinRate(input.sessionId, !existing)) return outcome(input, 'rate_limited', 'Too much audio arrived from this session. Wait a moment and speak again.');
       if (!existing && live.size >= PTT_MAX_ACTIVE_UTTERANCES) return outcome(input, 'too_many', 'Too many recordings are still being assembled.');
 
+      recordedOwners.set(input.utteranceId, input.sessionId);
       const at = now();
-      const utterance: Utterance = existing ?? { sessionId: input.sessionId, mime: input.mime, chunks: new Map(), bytes: 0, startedAt: at, lastAt: at };
+      const utterance: Utterance = existing ?? { sessionId: input.sessionId, panelId: input.panelId, mime: input.mime, chunks: new Map(), bytes: 0, startedAt: at, lastAt: at };
       // The request starts with its first chunk, so this is the
       // moment the referent is true. A later chunk never re-reads it.
       if (!existing) {
@@ -1311,6 +1359,9 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
 
     async dispose() {
       disposed = true;
+      for (const pending of decisions.values()) pending.finish(false);
+      recordedOwners.clear();
+      decisionResults.clear();
       capturedSessions.clear();
       const pending = [...live.values()];
       live.clear();

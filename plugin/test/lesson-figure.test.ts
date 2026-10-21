@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { parseMolecularLesson } from '../src/molecular-lesson.js';
 import { lessonFigureSchema } from '../src/lesson-figure.js';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { applyTourStep, xrStepChanges, type Workspace } from '../src/tour-player.js';
@@ -22,6 +23,61 @@ const lesson = JSON.parse(readFileSync(new URL('../examples/lessons/9ax6-daraxon
 const tour = molecularLessonToTour(lesson);
 
 describe('source-backed immersive molecular figures', () => {
+  it('preserves opt-in exterior placement while leaving attached labels as the default', () => {
+    const figure=structuredClone(tour.steps[0].figure!);
+    expect(lessonFigureSchema.parse(figure).labels[0].placement).toBeUndefined();
+    for (const placement of ['attached','outside-figure'] as const) {
+      const authored={...figure,labels:[{...figure.labels[0],placement}]};
+      const manifest=structuredClone(lesson);manifest.chapters[0].immersive.figure=authored;
+      const parsed=parseMolecularLesson(manifest);
+      expect(molecularLessonToTour(parsed).steps[0].figure?.labels[0].placement).toBe(placement);
+      const scene=sceneSchema.parse({sourceSha256:'a'.repeat(64),modelNumber:1,assemblyId:'1',selectionKeys:[],
+        camera:{mode:'perspective',fov:Math.PI/4,position:[0,0,80],target:[0,0,0],up:[0,1,0],radius:20,radiusMax:20,fog:0,clipFar:true,minNear:1,minFar:0},
+        inspection:{...structuredClone(DEFAULT_INSPECTION),lessonFigure:authored}});
+      expect(scene.inspection.lessonFigure?.labels[0].placement).toBe(placement);
+    }
+    expect(lessonFigureSchema.safeParse({...figure,labels:[{...figure.labels[0],placement:'outside-everything'}]}).success).toBe(false);
+  });
+
+  it('accepts maxOffsetEm from 2 to 5, defaults to 2, and preserves it through lesson and scene contracts', () => {
+    const figure = structuredClone(tour.steps[0].figure!);
+    for (const maxOffsetEm of [2, 3.5, 4, 5]) {
+      const authored = { ...figure, labels: [{ ...figure.labels[0], maxOffsetEm }] };
+      expect(lessonFigureSchema.parse(authored).labels[0]).toMatchObject({ maxOffsetEm });
+      const manifest = structuredClone(lesson);
+      manifest.chapters[0].immersive.figure = authored;
+      const parsed = parseMolecularLesson(manifest);
+      expect(parsed.chapters[0].immersive?.figure?.labels[0]).toMatchObject({ maxOffsetEm });
+      expect(molecularLessonToTour(parsed).steps[0].figure?.labels[0]).toMatchObject({ maxOffsetEm });
+      const scene = sceneSchema.parse({ sourceSha256: 'a'.repeat(64), modelNumber: 1, assemblyId: '1',
+        selectionKeys: [], camera: { mode: 'perspective', fov: Math.PI / 4, position: [0, 0, 80], target: [0, 0, 0], up: [0, 1, 0],
+          radius: 20, radiusMax: 20, fog: 0, clipFar: true, minNear: 1, minFar: 0 },
+        inspection: { ...structuredClone(DEFAULT_INSPECTION), lessonFigure: authored } });
+      expect(scene.inspection.lessonFigure?.labels[0]).toMatchObject({ maxOffsetEm });
+    }
+    const { maxOffsetEm: _cap, ...defaultLabel } = figure.labels[0];
+    expect(lessonFigureSchema.parse({ ...figure, labels: [defaultLabel] }).labels[0]).toMatchObject({ maxOffsetEm: 2 });
+    for (const maxOffsetEm of [-1, 0, 1.99, 5.01, Infinity, NaN, '4', null])
+      expect(lessonFigureSchema.safeParse({ ...figure, labels: [{ ...defaultLabel, maxOffsetEm }] }).success).toBe(false);
+  });
+  it('preserves optional desktop label pixels through lesson and scene contracts within 14–48', () => {
+    const figure = structuredClone(tour.steps[0].figure!);
+    expect(lessonFigureSchema.parse(figure).labels[0].desktopSizePx).toBeUndefined();
+    for (const desktopSizePx of [14, 26, 32, 48]) {
+      const authored = { ...figure, labels: [{ ...figure.labels[0], desktopSizePx }] };
+      const manifest = structuredClone(lesson);
+      manifest.chapters[0].immersive.figure = authored;
+      const parsed = parseMolecularLesson(manifest);
+      expect(molecularLessonToTour(parsed).steps[0].figure?.labels[0].desktopSizePx).toBe(desktopSizePx);
+      const scene = sceneSchema.parse({ sourceSha256: 'a'.repeat(64), modelNumber: 1, assemblyId: '1',
+        selectionKeys: [], camera: { mode: 'perspective', fov: Math.PI / 4, position: [0, 0, 80], target: [0, 0, 0], up: [0, 1, 0],
+          radius: 20, radiusMax: 20, fog: 0, clipFar: true, minNear: 1, minFar: 0 },
+        inspection: { ...structuredClone(DEFAULT_INSPECTION), lessonFigure: authored } });
+      expect(scene.inspection.lessonFigure?.labels[0].desktopSizePx).toBe(desktopSizePx);
+    }
+    for (const desktopSizePx of [13.99, 48.01, Infinity, NaN, '32', null])
+      expect(lessonFigureSchema.safeParse({ ...figure, labels: [{ ...figure.labels[0], desktopSizePx }] }).success).toBe(false);
+  });
   it('saves the explicit global choice without rewriting authored styles or scientific annotations', () => {
     const original = tour.steps[0].figure!;
     for (const representation of ['cartoon', 'ball-and-stick', 'spacefill', 'molecular-surface']) {

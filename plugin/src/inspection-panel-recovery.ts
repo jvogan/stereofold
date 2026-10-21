@@ -44,13 +44,26 @@ export function panelAvailability(input: {
    * `enqueue` admits the command and `poll` holds it until the panel answers
    * `ready`, inside the server's own 15 s delivery deadline.
    *
-   * Only while a lesson is actually autoplaying. A paused lesson, or a wearer
-   * who grabbed the structure, is real unsaved work again.
+   * Only while a lesson is actually autoplaying. A paused lesson is real
+   * unsaved work again.
    */
   presenting?: boolean;
+  /**
+   * The unsaved work only moved the structure or the camera.
+   *
+   * The wearer grabbed it, nudged it with a stick, or the page seated it on
+   * VR entry. That save commits within a beat, even while a command waits
+   * (`canSettleLocalSave`), and the waiting command follows it. Reported as
+   * `unsaved`, it turned Claude's queued `control_tour start` into
+   * "The target panel has newer or unsaved local work." every time the wearer
+   * touched the molecule. `busy` holds the command for the save instead.
+   * The caller decides this with `sameEntryScene`; a blocked panel is still
+   * `unsaved`, whatever moved.
+   */
+  placementOnly?: boolean;
 }): PanelAvailability {
   if (input.blocked) return 'unsaved';
-  if (input.dirty) return input.presenting ? 'busy' : 'unsaved';
+  if (input.dirty) return input.presenting || input.placementOnly ? 'busy' : 'unsaved';
   if (!input.ready || input.interactionActive || input.navigating || input.blind) return 'busy';
   return 'ready';
 }
@@ -76,17 +89,17 @@ export function panelAvailability(input: {
  * `dirty`, and the wearer was left inside the old tier with every post
  * refused 409 until the host was restarted.
  *
- * A grab still holds: `interactionActive` is a hand on the molecule, and the
- * transition waits a beat for it. `blocked` still holds too, because a
- * blocked panel is showing a problem the surface has to resolve.
+ * An authorized source replacement also retires the outgoing interaction and
+ * any failure notice. Hydration cancels input before touching the menu or scene.
+ * Same-source experience updates still preserve local work and interaction.
  */
 export function followsSourceTransition(input: {
   sourceChanged: boolean; experienceChanged: boolean;
   dirty: boolean; blocked: boolean; interactionActive: boolean;
 }): boolean {
   if (!input.sourceChanged && !input.experienceChanged) return false;
-  if (input.blocked || input.interactionActive) return false;
-  return input.sourceChanged || !input.dirty;
+  if (input.sourceChanged) return true;
+  return !input.blocked && !input.interactionActive && !input.dirty;
 }
 
 export type SaveRecovery = { action: 'retry'; delayMs: number } | { action: 'reload' } | { action: 'block' };

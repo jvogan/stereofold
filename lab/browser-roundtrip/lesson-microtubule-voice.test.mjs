@@ -147,6 +147,10 @@ test('every chapter in the microtubule tiers declares an authored cinematic moti
     for (const chapter of manifest.chapters) {
       const motion = chapter.immersive?.motion;
       assert.ok(motion, `${id}/${chapter.id} has motion`);
+      if (['monomer', 'dimer'].includes(id) && chapter.id === 'highlight') {
+        assert.equal(motion, 'hold', `${id} contact faces stay still for inspection`);
+        continue;
+      }
       assert.equal(typeof motion, 'object', `${id}/${chapter.id} motion is object`);
       assert.ok(allowedKinds.has(motion.kind), `${id}/${chapter.id} motion kind ${motion.kind}`);
       if (motion.kind === 'turntable') {

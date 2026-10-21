@@ -58,6 +58,45 @@ test('an orbit tick turns the eye about the target and never moves the target', 
   close(tick.target[0] + tick.target[1] + tick.target[2], 0, 'Target still at the origin');
 });
 
+test('an orbit with a pivot turns the whole camera rigidly about that point', () => {
+  // A headset turn pivots on the molecule's presented centre, which the seat
+  // put 40 units right of the target. A half turn about up carries the eye and
+  // the target to the mirror side of the pivot and keeps their separation.
+  const pivot = [40, 0, 0];
+  const next = lessonCameraMove({ position: [0, 0, 10], target: [0, 0, 0], up: [0, 1, 0] },
+    { kind: 'orbit', axis: 'y', degrees: 180 }, { pivot });
+  closeVec(next.position, [80, 0, -10], 'The eye turns about the pivot');
+  closeVec(next.target, [80, 0, 0], 'The target turns with it');
+  closeVec(next.up, [0, 1, 0], 'Up turns as it does without a pivot');
+
+  // The pivot's offset from the eye, in the eye's own frame, is what a wearer
+  // sees. It is the same before and after any turn.
+  const eyeFrame = (camera, point) => {
+    const forward = [camera.target[0] - camera.position[0], camera.target[1] - camera.position[1], camera.target[2] - camera.position[2]];
+    const f = forward.map(v => v / Math.hypot(...forward));
+    const r = [f[1] * camera.up[2] - f[2] * camera.up[1], f[2] * camera.up[0] - f[0] * camera.up[2], f[0] * camera.up[1] - f[1] * camera.up[0]];
+    const rn = r.map(v => v / Math.hypot(...r));
+    const u = [rn[1] * f[2] - rn[2] * f[1], rn[2] * f[0] - rn[0] * f[2], rn[0] * f[1] - rn[1] * f[0]];
+    const d = point.map((v, i) => v - camera.position[i]);
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    return [dot(d, rn), dot(d, u), dot(d, f)];
+  };
+  let camera = framed;
+  for (let i = 0; i < 40; i += 1) camera = lessonCameraMove(camera, { kind: 'orbit', axis: i % 2 ? 'x' : 'y', degrees: 3.5 }, { pivot });
+  closeVec(eyeFrame(camera, pivot).map(v => Math.round(v * 1e9) / 1e9), eyeFrame(framed, pivot).map(v => Math.round(v * 1e9) / 1e9),
+    'The pivot keeps its place in view through a mixed turn');
+  close(Math.hypot(...camera.position.map((v, i) => v - camera.target[i])), Math.hypot(...framed.position), 'The eye distance is kept');
+
+  // No usable pivot is the desktop turn, unchanged.
+  for (const missing of [undefined, [1, 2], [0, Number.NaN, 0]]) {
+    assert.deepEqual(lessonCameraMove(framed, { kind: 'orbit', axis: 'y', degrees: 5 }, { pivot: missing }),
+      lessonCameraMove(framed, { kind: 'orbit', axis: 'y', degrees: 5 }));
+  }
+  // A dolly ignores the pivot: it still scales the eye vector about the target.
+  assert.deepEqual(lessonCameraMove(framed, { kind: 'dolly', factor: 0.9 }, { pivot }),
+    lessonCameraMove(framed, { kind: 'dolly', factor: 0.9 }));
+});
+
 test('a dolly tick scales the eye distance and refuses to enter the target', () => {
   const closer = lessonCameraMove({ position: [0, 0, 10], target: [0, 0, 0], up: [0, 1, 0] }, { kind: 'dolly', factor: 0.5 });
   closeVec(closer.position, [0, 0, 5], 'Half the distance, same direction');

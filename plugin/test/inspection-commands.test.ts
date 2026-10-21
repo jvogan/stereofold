@@ -2,6 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { inspectionFailureReceipt, rendererContextReport } from '../src/inspection-failure-receipt.js';
 import { MAX_INSPECTION_VIEWS } from '../src/inspection-views.js';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { hydrateComparisonSource } from '../src/inspection-chunk-client.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error Shared browser fixture has no TypeScript declaration.
@@ -18,8 +20,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it, vi } from 'vitest';
 import { createStereoStructureServer } from '../src/server.js';
 import { createPushToTalkTranscriber } from '../src/push-to-talk-transcribe.js';
-import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
-import { availabilityCauseSchema, PRIVATE_INSPECTION_META_KEY as PRIVATE_KEY } from '../src/inspection-contract.js';
+import { decodeInspectionCatalog, verifyInspectionCatalogSource } from '../src/inspection-catalog-codec.js';
+import { expectedInspection, availabilityCauseSchema, completeInspectionSchema, PRIVATE_INSPECTION_META_KEY as PRIVATE_KEY } from '../src/inspection-contract.js';
 import { choosePanel, COMPANION_LOADING_MESSAGE } from '../scripts/agent-arguments.js';
 import { sendAgentCall, type AgentCall } from '../scripts/inspection-agent.js';
 import { converse } from '../scripts/converse.js';
@@ -34,7 +36,7 @@ type Binding = {
   baseInspectionRevision: number;
 };
 
-async function setup(structureText = cif, options: Parameters<typeof createStereoStructureServer>[1] = {}, placement = { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 }) {
+async function setup(structureText = cif, options: Parameters<typeof createStereoStructureServer>[1] = {}, placement = { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 }, surface: 'desktop' | 'companion' = 'desktop') {
   const clock = { now: 0 };
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const server = createStereoStructureServer(undefined, { ...options, now: () => clock.now });
@@ -79,7 +81,7 @@ async function setup(structureText = cif, options: Parameters<typeof createStere
     baseStateRevision: saved.structuredContent.stateRevision,
     baseInspectionRevision: saved.structuredContent.inspectionRevision,
   };
-  const attached = await call('attach_inspection', binding);
+  const attached = await call('attach_inspection', { ...binding, surface });
   const panelId = attached.structuredContent.panelId as string;
   const current = async (commandId?: string) => call('get_inspection_state', {
     sessionId,
@@ -96,6 +98,163 @@ async function setup(structureText = cif, options: Parameters<typeof createStere
 function update(binding: Binding, panelId: string, commandId: string, change: Record<string, unknown>) {
   return { ...binding, panelId, commandId, change };
 }
+
+describe('shared history admission preserves the acting panel viewpoint', () => {
+  async function historyClaim(change: any = { kind: 'appearance', patch: { background: '#445566' } }) {
+    const t = await setup();
+    try {
+      await t.call('update_inspection', update(t.binding, t.panelId, 'original-edit', change));
+      const original = (await t.poll()).delivery;
+      const shared = expectedInspection(t.scene as any, change);
+      const completed = await t.call('complete_inspection', { ...t.binding, panelId: t.panelId,
+        commandId: original.commandId, claimToken: original.claimToken, scene: shared });
+      expect(completed.structuredContent.command.status).toBe('rendered');
+      const binding = { ...t.binding, baseInspectionRevision: completed.structuredContent.inspectionRevision };
+      const panelId = (await t.call('attach_inspection', { ...binding, surface: 'desktop' })).structuredContent.panelId;
+      await t.call('undo_last_change', { ...binding, panelId, commandId: 'peer-undo' });
+      const delivery = (await t.poll('ready', binding, panelId)).delivery;
+      expect(delivery.historyAction).toBe('undo');
+      const claim = { ...binding, panelId, commandId: delivery.commandId, claimToken: delivery.claimToken };
+      // Following a shared edit retains this peer's own already-clean view.
+      const local = structuredClone(shared);
+      local.camera.position = [7, 3, 75];
+      local.camera.radius = 17;
+      local.inspection.placement = { translation: [1, 2, -3], rotation: [0, 35, 0], scale: 1.25 };
+      return { t, binding, panelId, shared, delivery, claim, local };
+    } catch (error) { await t.close(); throw error; }
+  }
+
+  it('binds each peer pose before Undo and Redo and consumes exactly one history entry per completion', async () => {
+    const h = await historyClaim(), { t } = h;
+    try {
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+      const admitted = await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: h.local });
+      expect(admitted.structuredContent.admitted).toBe(true);
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+      const undone = expectedInspection(h.local, h.delivery.change);
+      expect(undone.inspection.appearance).toEqual(t.scene.inspection.appearance);
+      const receipt = { ...h.claim, scene: undone };
+      const completed = await t.call('complete_inspection', receipt);
+      expect(completed.structuredContent.command.status).toBe('rendered');
+      expect((await t.call('get_inspection', { sessionId: t.sessionId }))._meta[PRIVATE_KEY].scene).toEqual(undone);
+      await t.call('complete_inspection', receipt);
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 0, redoCount: 1 });
+
+      const fresh = { ...h.binding, baseInspectionRevision: completed.structuredContent.inspectionRevision };
+      await t.call('redo_last_change', { ...fresh, panelId: h.panelId, commandId: 'peer-redo' });
+      const redo = (await t.poll('ready', fresh, h.panelId)).delivery;
+      expect(redo.historyAction).toBe('redo');
+      const redoClaim = { ...fresh, panelId: h.panelId, commandId: redo.commandId, claimToken: redo.claimToken };
+      const nextLocal = structuredClone(undone);
+      nextLocal.camera.position = [-4, 1, 60];
+      nextLocal.inspection.placement.rotation = [5, -40, 0];
+      expect((await t.call('complete_inspection', { ...redoClaim, phase: 'admit', historyScene: nextLocal })).structuredContent.admitted).toBe(true);
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 0, redoCount: 1 });
+      const redone = expectedInspection(nextLocal, redo.change);
+      const redoneReceipt = { ...redoClaim, scene: redone };
+      expect((await t.call('complete_inspection', redoneReceipt)).structuredContent.command.status).toBe('rendered');
+      await t.call('complete_inspection', redoneReceipt);
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+      expect((await t.call('get_inspection', { sessionId: t.sessionId }))._meta[PRIVATE_KEY].scene).toEqual(redone);
+      expect(redone.inspection.appearance).toEqual(h.shared.inspection.appearance);
+      expect(redone.camera).toEqual(nextLocal.camera);
+      expect(redone.inspection.placement).toEqual(nextLocal.inspection.placement);
+    } finally { await t.close(); }
+  });
+
+  it.each(['placement', 'compound'] as const)('an Undo owning %s overrides the admitted local placement exactly', async kind => {
+    const placement = { kind: 'placement', patch: { scale: 2, rotation: [0, 60, 0], translation: [3, 0, -2] } };
+    const change = kind === 'placement' ? placement : { kind: 'compound', patch: { ops: [placement,
+      { kind: 'appearance', patch: { background: '#445566' } }] } };
+    const h = await historyClaim(change), { t } = h;
+    try {
+      expect((await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: h.local })).structuredContent.admitted).toBe(true);
+      const wrong = expectedInspection(h.local, h.delivery.change);
+      wrong.inspection.placement = structuredClone(h.local.inspection.placement);
+      expect((await t.call('complete_inspection', { ...h.claim, scene: wrong })).structuredContent.command.status).toBe('unconfirmed');
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+      await t.call('undo_last_change', { ...h.binding, panelId: h.panelId, commandId: 'retry-placement-undo' });
+      const retry = (await t.poll('ready', h.binding, h.panelId)).delivery;
+      const claim = { ...h.binding, panelId: h.panelId, commandId: retry.commandId, claimToken: retry.claimToken };
+      expect((await t.call('complete_inspection', { ...claim, phase: 'admit', historyScene: h.local })).structuredContent.admitted).toBe(true);
+      const restored = expectedInspection(h.local, retry.change);
+      expect(restored.inspection.placement).toEqual(t.scene.inspection.placement);
+      expect(restored.camera).toEqual(h.local.camera);
+      expect((await t.call('complete_inspection', { ...claim, scene: restored })).structuredContent.command.status).toBe('rendered');
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 0, redoCount: 1 });
+    } finally { await t.close(); }
+  });
+
+  it.each(['appearance', 'selection', 'source'] as const)('refuses changed %s at admission without consuming history or admitting the command', async field => {
+    const h = await historyClaim(), { t } = h;
+    try {
+      const changed = structuredClone(h.local);
+      if (field === 'appearance') changed.inspection.appearance.opacity = .5;
+      else if (field === 'selection') changed.selectionKeys = [];
+      else changed.sourceSha256 = '0'.repeat(64);
+      const refused = await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: changed });
+      expect(refused.structuredContent?.admitted).not.toBe(true);
+      expect(refused.isError === true || refused.structuredContent?.admitted === false).toBe(true);
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+      expect((await t.call('get_inspection', { sessionId: t.sessionId }))._meta[PRIVATE_KEY].scene).toEqual(h.shared);
+      expect((await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: h.local })).structuredContent.admitted).toBe(true);
+    } finally { await t.close(); }
+  });
+
+  it.each(['revision', 'claim'] as const)('refuses a stale %s before binding a local viewpoint', async invalid => {
+    const h = await historyClaim(), { t } = h;
+    try {
+      const claim = { ...h.claim, ...(invalid === 'revision'
+        ? { baseInspectionRevision: h.claim.baseInspectionRevision - 1 } : { claimToken: randomUUID() }) };
+      expect((await t.call('complete_inspection', { ...claim, phase: 'admit', historyScene: h.local })).isError).toBe(true);
+      expect((await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: h.local })).structuredContent.admitted).toBe(true);
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+    } finally { await t.close(); }
+  });
+
+  it.each(['placement', 'camera'] as const)('refuses %s movement after admission, including a second admission attempt', async field => {
+    const h = await historyClaim(), { t } = h;
+    try {
+      expect((await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: h.local })).structuredContent.admitted).toBe(true);
+      const moved = structuredClone(h.local);
+      if (field === 'placement') moved.inspection.placement.rotation[1] += 10;
+      else moved.camera.position[0] += 10;
+      expect((await t.call('complete_inspection', { ...h.claim, phase: 'admit', historyScene: moved })).structuredContent.admitted).toBe(false);
+      const scene = expectedInspection(moved, h.delivery.change);
+      expect((await t.call('complete_inspection', { ...h.claim, scene })).structuredContent.command.status).toBe('unconfirmed');
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 1, redoCount: 0 });
+      expect((await t.call('get_inspection', { sessionId: t.sessionId }))._meta[PRIVATE_KEY].scene).toEqual(h.shared);
+    } finally { await t.close(); }
+  });
+
+  it('does not let an ordinary command opt into history viewpoint admission', async () => {
+    const t = await setup();
+    try {
+      const change = { kind: 'appearance', patch: { background: '#445566' } };
+      await t.call('update_inspection', update(t.binding, t.panelId, 'ordinary-edit', change));
+      const { delivery } = await t.poll();
+      const claim = { ...t.binding, panelId: t.panelId, commandId: delivery.commandId, claimToken: delivery.claimToken };
+      const local = structuredClone(t.scene); local.inspection.placement.rotation[1] = 35;
+      const refused = await t.call('complete_inspection', { ...claim, phase: 'admit', historyScene: local });
+      expect(refused.isError).toBe(true);
+      expect(refused.content[0].text).toMatch(/Only a shared Undo or Redo/);
+      expect((await t.call('complete_inspection', { ...claim, phase: 'admit' })).structuredContent.admitted).toBe(true);
+      expect((await t.call('complete_inspection', { ...claim, scene: expectedInspection(local as any, change as any) })).structuredContent.command.status).toBe('unconfirmed');
+      expect((await t.current()).structuredContent.history).toMatchObject({ undoCount: 0, redoCount: 0 });
+    } finally { await t.close(); }
+  });
+
+  it('accepts historyScene only during admission while keeping legacy admission valid', async () => {
+    const t = await setup();
+    try {
+      const base = { ...t.binding, panelId: t.panelId, commandId: 'schema-history', claimToken: randomUUID() };
+      expect(completeInspectionSchema.safeParse({ ...base, phase: 'admit' }).success).toBe(true);
+      expect(completeInspectionSchema.safeParse({ ...base, phase: 'admit', historyScene: t.scene }).success).toBe(true);
+      for (const lifecycle of [{ phase: 'settled' }, { phase: 'defer-local-save' }, { scene: t.scene }, { failure: 'render_failed' }])
+        expect(completeInspectionSchema.safeParse({ ...base, ...lifecycle, historyScene: t.scene }).success).toBe(false);
+    } finally { await t.close(); }
+  });
+});
 
 // Exercise the shipped remote dispatcher and XR placement closures together.
 // The tour fixture substitutes only drawing, tracking and scientific bounds.
@@ -2141,5 +2300,496 @@ it('keeps an active context-loss refusal explicit and admits a smaller pose only
     const completed=await t.call('complete_inspection',{...t.binding,panelId:t.panelId,commandId:next.commandId,claimToken:next.claimToken,scene:safe});
     expect(completed.structuredContent.command.status).toBe('rendered');
     expect((await t.current()).structuredContent.sourceToken).toBe(t.binding.sourceToken);
+  }finally{await t.close();}
+});
+
+const animationSample={id:'clip-digest',chapterId:'walk',state:'playing',timeSeconds:1,durationSeconds:10,loop:true,speed:1};
+it('animation routes to the headset, commits a rendered sample and replays once',async()=>{
+  const t=await setup();
+  try {
+    const attached=await t.call('attach_inspection',{...t.binding,surface:'companion'}),headset=attached.structuredContent.panelId;
+    await t.call('poll_inspection',{...t.binding,panelId:t.panelId,availability:'ready',animation:{...animationSample,id:'desktop'}});
+    await t.call('poll_inspection',{...t.binding,panelId:headset,availability:'ready',animation:animationSample});
+    expect((await t.current()).structuredContent.animation).toEqual(animationSample);
+    const request={sessionId:t.sessionId,commandId:'pause-walk',change:{kind:'animation',patch:{state:'pause',speed:0.5,seekSeconds:3,loop:false}}};
+    const queued=await t.call('update_inspection',request);
+    expect(queued.isError).not.toBe(true);
+    expect(queued.structuredContent.command).toMatchObject({panelId:headset,status:'queued',operation:{effects:['animation']}});
+    expect((await t.poll()).delivery).toBeUndefined();
+    const {delivery}=await t.poll('ready',t.binding,headset);
+    expect(delivery.change).toEqual({...request.change,target:{id:animationSample.id,chapterId:'walk'}});
+    const applied={...animationSample,state:'paused',speed:0.5,timeSeconds:3,loop:false};
+    const completed=await t.call('complete_inspection',{...t.binding,panelId:headset,commandId:delivery.commandId,claimToken:delivery.claimToken,scene:t.scene,animation:applied});
+    expect(completed.structuredContent.command).toMatchObject({status:'rendered',animation:applied,renderedRevision:t.binding.baseInspectionRevision+1});
+    expect((await t.current()).structuredContent.animation).toEqual(applied);
+    expect((await t.call('update_inspection',request)).structuredContent.command).toMatchObject({commandId:'pause-walk',status:'rendered'});
+    expect((await t.current()).structuredContent.commands).toHaveLength(1);
+  }finally{await t.close();}
+});
+it('animation reports desktop playback, clears on a static chapter and refuses controls',async()=>{
+  const t=await setup();
+  try {
+    expect((await t.current()).structuredContent.animation).toBeNull();
+    await t.call('poll_inspection',{...t.binding,panelId:t.panelId,availability:'ready',animation:animationSample});
+    expect((await t.current()).structuredContent.animation).toEqual(animationSample);
+    await t.call('poll_inspection',{...t.binding,panelId:t.panelId,availability:'ready',animation:null});
+    expect((await t.current()).structuredContent.animation).toBeNull();
+    const refused=await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'animation',patch:{state:'pause'}}});
+    expect(refused.isError).toBe(true);expect(JSON.stringify(refused.content)).toContain('This chapter has no animation.');
+    expect((await t.current()).structuredContent.commands).toHaveLength(0);
+  }finally{await t.close();}
+});
+for(const invalid of ['missing','wrong-chapter','wrong-state','wrong-time'] as const)
+it(`animation receipt refuses ${invalid} playback evidence`,async()=>{
+  const t=await setup();
+  try {
+    await t.call('poll_inspection',{...t.binding,panelId:t.panelId,availability:'ready',animation:animationSample});
+    expect((await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'animation',patch:{state:'pause',restart:true}}})).isError).not.toBe(true);
+    const {delivery}=await t.poll();
+    const animation={...animationSample,state:'paused',timeSeconds:0,...(invalid==='wrong-chapter'?{chapterId:'other'}:invalid==='wrong-state'?{state:'playing'}:invalid==='wrong-time'?{timeSeconds:1}:{})};
+    const result=await t.call('complete_inspection',{...t.binding,panelId:t.panelId,commandId:delivery.commandId,claimToken:delivery.claimToken,scene:t.scene,...(invalid==='missing'?{}:{animation})});
+    expect(result.structuredContent.command.status).toBe('unconfirmed');
+    expect(result.structuredContent.inspectionRevision).toBe(t.binding.baseInspectionRevision);
+  }finally{await t.close();}
+});
+it('animation rejects stale revisions and seeks beyond the clip',async()=>{
+  const t=await setup();
+  try {
+    await t.call('poll_inspection',{...t.binding,panelId:t.panelId,availability:'ready',animation:animationSample});
+    const beyond=await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'animation',patch:{seekSeconds:11}}});
+    expect(beyond.isError).toBe(true);expect(JSON.stringify(beyond.content)).toContain('Choose a time within this animation.');
+    const stale=await t.call('update_inspection',update({...t.binding,baseInspectionRevision:0},t.panelId,'stale-animation',{kind:'animation',patch:{state:'pause'}}));
+    expect(stale.isError).toBe(true);
+  }finally{await t.close();}
+});
+
+it('animation completion publishes its playback with the shared scene revision and accepts elapsed render time',async()=>{
+  const t=await setup();
+  try {
+    const definition={version:1,durationSeconds:10,tracks:[{id:'body',chains:['A'],keyframes:[{t:0,rotation:[0,0,0,1],translation:[0,0,0]}]}]};
+    const scene={...t.scene,inspection:{...t.scene.inspection,animation:{definition,playback:animationSample}}};
+    const saved=await t.call('sync_inspection',{...t.binding,scene});
+    expect(saved.structuredContent.saved).toBe(true);
+    const binding={...t.binding,baseInspectionRevision:saved.structuredContent.inspectionRevision};
+    await t.call('poll_inspection',{...binding,panelId:t.panelId,availability:'ready',animation:animationSample});
+    const request=await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'animation',patch:{state:'play',seekSeconds:3,speed:2,loop:false}}});
+    expect(request.isError).not.toBe(true);
+    const {delivery}=await t.poll('ready',binding);
+    t.clock.now+=100;
+    const rendered={...animationSample,timeSeconds:3.2,speed:2,loop:false};
+    scene.inspection.animation.playback=rendered;
+    const result=await t.call('complete_inspection',{...binding,panelId:t.panelId,commandId:delivery.commandId,claimToken:delivery.claimToken,scene,animation:rendered});
+    expect(result.structuredContent.command).toMatchObject({status:'rendered',animation:rendered,renderedRevision:binding.baseInspectionRevision+1});
+    const shared=await t.call('get_inspection',{sessionId:t.sessionId});
+    expect(shared._meta[PRIVATE_KEY].scene.inspection.animation.playback).toEqual(rendered);
+    expect((await t.current()).structuredContent.animation).toEqual(rendered);
+  }finally{await t.close();}
+});
+
+// @ts-ignore Executes the production inspector receive/confirmation closures.
+import { journeyNavigationHarness } from '../../lab/browser-roundtrip/fixtures/journey-navigation-harness.mjs';
+import { TOURS } from '../src/tour-catalog.js';
+import { readinessStripView } from '../src/inspection-readiness-strip.js';
+
+async function tourReceiptFixture(editAfterReceipt=false, surface: 'desktop' | 'companion' = 'desktop') {
+  const t = await setup(cif, {}, undefined, surface);
+  let animation: any = null, localScene=t.scene;
+  const receipts: any[] = [], readinessUpdates: any[] = [], boundaries: any[] = [];
+  const page = journeyNavigationHarness({
+    PRIVATE_KEY, panelId: t.panelId, savedScene: t.scene,
+    binding: { ...t.binding, stateRevision: t.binding.baseStateRevision, inspectionRevision: t.binding.baseInspectionRevision },
+    workspace: { capture: () => localScene, snapshot: () => ({ ready: true, animation }),
+      applyRemote: async (change:any,admit:()=>Promise<void>,confirm:(scene:any,applied:any)=>Promise<void>)=>{
+        await admit();
+        await page.busyBeat(page.generation,true);
+        const p=change.patch;
+        animation={...animation,...(p.state?{state:p.state==='pause'?'paused':'playing'}:{}),
+          ...(p.speed?{speed:p.speed}:{}),...(p.seekSeconds!==undefined?{timeSeconds:p.seekSeconds}:{}),
+          ...(p.restart?{timeSeconds:0}:{})};
+        await confirm(localScene,{animation});
+      } },
+    applyTourCommand: async (_player: any, patch: any) => {
+      // Installation resolves before the production inspector captures its receipt.
+      await t.call('poll_inspection', {...page.expected(), panelId:t.panelId, availability:'busy'});
+      animation = patch.action === 'start' ? { ...animationSample } : null;
+    },
+    call: async (name: string, args: any) => {
+      const result = await t.call(name, args);
+      expect(result.isError).not.toBe(true);
+      if (name === 'complete_inspection' && !args.phase) {
+        boundaries.push({state:(await t.current(args.commandId)).structuredContent,readiness:readinessUpdates.at(-1)});
+        receipts.push(result.structuredContent);
+        if(editAfterReceipt) localScene={...t.scene,localEdit:true} as any;
+      }
+      if(result.structuredContent?.readiness) readinessUpdates.push(result.structuredContent.readiness);
+      return result;
+    },
+    recoverConfirmation: async (error: Error) => { throw error; },
+  });
+  const chapter = async (action: string) => {
+    const queued = await t.call('control_tour', { ...page.expected(), panelId: t.panelId,
+      commandId: `receipt-${action}`, action, ...(action === 'start' ? { tourId: TOURS[0].id } : {}) });
+    expect(queued.isError).not.toBe(true);
+    const sent = { ...page.expected(), panelId: t.panelId, availability: 'ready' };
+    const poll = await t.call('poll_inspection', sent);
+    await page.receive(poll._meta[PRIVATE_KEY].delivery, sent, page.generation);
+    expect(receipts.at(-1).command.status).toBe('rendered');
+  };
+  const control=async(patch:any)=>{
+    const queued=await t.call('update_inspection',{...page.expected(),panelId:t.panelId,
+      change:{kind:'animation',patch}});
+    expect(queued.isError).not.toBe(true);
+    const sent={...page.expected(),panelId:t.panelId,availability:'ready'};
+    const poll=await t.call('poll_inspection',sent);
+    await page.receive(poll._meta[PRIVATE_KEY].delivery,sent,page.generation);
+  };
+  return { t, page, receipts, readinessUpdates, boundaries, chapter, control };
+}
+
+const enteringStartup = { phase: 'preparing-menu', pending: true, presenting: true, reloadRequired: false,
+  mode: 'immersive-vr', gestureActive: null, visible: true, sessionVisibility: 'visible', errorName: null };
+const activeStartup = { ...enteringStartup, phase: 'active', pending: false };
+
+it.each([
+  { entryMs: 17000, activeBeforeReady: false }, { entryMs: 30000, activeBeforeReady: false },
+  { entryMs: 17000, activeBeforeReady: true }, { entryMs: 30000, activeBeforeReady: true },
+])('one start at 1552 ms renders after $entryMs ms entry (early active: $activeBeforeReady)', async ({ entryMs, activeBeforeReady }) => {
+  const { t, page, receipts } = await tourReceiptFixture(false, 'companion');
+  const beat = (availability: string, xrStartup: any) => t.call('poll_inspection',
+    { ...page.expected(), panelId: t.panelId, availability, xrStartup });
+  try {
+    t.clock.now = 1552;
+    await beat('busy', enteringStartup);
+    const queued = await t.call('control_tour', { ...page.expected(), panelId: t.panelId,
+      commandId: 'entry-start', action: 'start', tourId: TOURS[0].id });
+    expect(queued.structuredContent.command).toMatchObject({ status: 'queued', heldForPanel: true });
+    // Neither early readiness during entry nor active XR with a busy scene is enough.
+    expect((await beat('ready', enteringStartup))._meta?.[PRIVATE_KEY]?.delivery).toBeUndefined();
+    for (t.clock.now = 2000; t.clock.now < entryMs; t.clock.now += 1000) {
+      expect((await beat('busy', activeBeforeReady ? activeStartup : enteringStartup))._meta?.[PRIVATE_KEY]?.delivery).toBeUndefined();
+      expect((await t.current('entry-start')).structuredContent.command.status).toBe('queued');
+    }
+    t.clock.now = entryMs;
+    const delivered = await beat('ready', activeStartup);
+    const delivery = delivered._meta[PRIVATE_KEY].delivery;
+    expect(delivery).toMatchObject({ commandId: 'entry-start', settleBudgetMs: 15000 });
+    expect((await t.current('entry-start')).structuredContent.command.status).toBe('rendering');
+    await page.receive(delivery, { ...page.expected(), panelId: t.panelId, availability: 'ready' }, page.generation);
+    expect(receipts.at(-1).command).toMatchObject({ status: 'rendered', heldForPanel: true,
+      acceptedAt: 1552, renderedAt: entryMs, renderedRevision: t.binding.baseInspectionRevision + 1 });
+    expect((await t.current()).structuredContent.inspectionRevision).toBe(t.binding.baseInspectionRevision + 1);
+  } finally { await t.close(); }
+});
+
+it.each(['failed', 'cancelled', 'closed', 'timeout', 'silent', 'ordinary'])(
+  'entry delivery ends promptly for %s without a false render receipt', async outcome => {
+    const t = await setup(cif, {}, undefined, 'companion');
+    const beat = (xrStartup: any) => t.call('poll_inspection', { ...t.binding, panelId: t.panelId, availability: 'busy', xrStartup });
+    try {
+      await beat(outcome === 'ordinary' ? activeStartup : enteringStartup);
+      const queued = await t.call('control_tour', { ...t.binding, panelId: t.panelId,
+        commandId: 'entry-end', action: 'start', tourId: TOURS[0].id });
+      expect(queued.structuredContent.command.status).toBe('queued');
+      if (outcome === 'failed' || outcome === 'cancelled') {
+        t.clock.now = 2000;
+        await beat({ ...activeStartup, phase: 'idle', presenting: false,
+          errorName: outcome === 'failed' ? 'NotAllowedError' : null });
+      } else if (outcome === 'closed') {
+        t.clock.now = 2000;
+        await t.call('detach_inspection', { ...t.binding, panelId: t.panelId });
+      } else {
+        const limit = outcome === 'ordinary' ? 15000 : 45000;
+        for (t.clock.now = 1000; t.clock.now < limit; t.clock.now += 1000) {
+          if (outcome !== 'silent') await beat(outcome === 'ordinary' ? activeStartup : enteringStartup);
+          expect((await t.current('entry-end')).structuredContent.command.status).toBe('queued');
+        }
+      }
+      const receipt = (await t.current('entry-end')).structuredContent.command;
+      expect(receipt).toMatchObject(outcome === 'closed' ? { status: 'conflict', reason: 'The targeted panel detached.' }
+        : outcome === 'ordinary' ? { status: 'expired', reason: 'panel_hold_expired' }
+        : outcome === 'failed' || outcome === 'cancelled' ? { status: 'rejected', reason: 'panel_entry_failed' }
+        : { status: 'expired', reason: 'panel_entry_timeout' });
+      expect(receipt.renderedAt).toBeUndefined();
+      expect((await t.current()).structuredContent.inspectionRevision).toBe(t.binding.baseInspectionRevision);
+      expect((await beat(activeStartup))._meta?.[PRIVATE_KEY]?.delivery).toBeUndefined();
+    } finally { await t.close(); }
+  });
+
+it('tour receipt publishes installed animation before an immediate control and clears it on the static chapter', async () => {
+  const { t, page, chapter } = await tourReceiptFixture();
+  try {
+    await chapter('start');
+    expect((await t.current()).structuredContent.animation).toEqual(animationSample);
+    const control = await t.call('update_inspection', { ...page.expected(), panelId: t.panelId,
+      commandId: 'immediate-pause', change: { kind: 'animation', patch: { state: 'pause' } } });
+    expect(control.isError).not.toBe(true);
+    const sent = { ...page.expected(), panelId: t.panelId, availability: 'ready' };
+    const poll = await t.call('poll_inspection', sent), delivery = poll._meta[PRIVATE_KEY].delivery;
+    const completed = await t.call('complete_inspection', { ...page.expected(), panelId: t.panelId,
+      commandId: delivery.commandId, claimToken: delivery.claimToken, scene: t.scene,
+      animation: { ...animationSample, state: 'paused' } });
+    expect(completed.structuredContent.command.status).toBe('rendered');
+    page.binding = { ...page.binding, ...completed.structuredContent };
+    await chapter('next');
+    expect((await t.current()).structuredContent.animation).toBeNull();
+    const refused = await t.call('update_inspection', { sessionId: t.sessionId, change: { kind: 'animation', patch: { state: 'play' } } });
+    expect(refused.isError).toBe(true);
+    expect(JSON.stringify(refused.content)).toContain('This chapter has no animation.');
+  } finally { await t.close(); }
+});
+
+it.each(['start','next','back'])('desktop %s receipt is ready at publication, before receive returns', async action => {
+  const { t, receipts, boundaries, chapter } = await tourReceiptFixture();
+  try {
+    await chapter(action);
+    const {state,readiness}=boundaries.at(-1);
+    expect(state.command).toMatchObject({status:'rendered',renderedRevision:state.inspectionRevision});
+    expect(state.panels.find((panel:any)=>panel.panelId===state.command.panelId)).toMatchObject({availability:'ready',current:true});
+    expect(state.modelContext.readiness.blocking).not.toContain('structure');
+    expect(receipts.at(-1).readiness.items.find((item:any)=>item.capability==='structure').state).toBe('ok');
+    expect(readinessStripView(readiness).rows.find(row=>row.id==='lesson')?.headline).toBe('Structure ready');
+  } finally { await t.close(); }
+});
+
+
+it('the post-command heartbeat preserves unsaved local work instead of forcing the strip ready', async()=>{
+  const {t,page,readinessUpdates,chapter}=await tourReceiptFixture(true);
+  try {
+    await chapter('next');
+    expect(page.dirty).toBe(true);
+    expect(readinessUpdates.at(-1).items.find((item:any)=>item.capability==='structure').state).toBe('missing');
+  } finally {await t.close();}
+});
+
+
+it.each([{state:'pause'},{state:'play'},{speed:0.5},{seekSeconds:3},{restart:true}])(
+  'desktop animation %j publishes ready state and strip before its rendered receipt',async patch=>{
+    const {t,chapter,control,boundaries}=await tourReceiptFixture();
+    try {
+      await chapter('start');await control(patch);
+      const {state,readiness}=boundaries.at(-1);
+      expect(state.command).toMatchObject({status:'rendered',renderedRevision:state.inspectionRevision});
+      expect(state.panels.find((p:any)=>p.panelId===state.command.panelId)).toMatchObject({availability:'ready',current:true});
+      expect(state.modelContext.readiness.blocking).not.toContain('structure');
+      expect(readinessStripView(readiness).rows.find(row=>row.id==='lesson')?.headline).toBe('Structure ready');
+    } finally {await t.close();}
+  });
+
+it('desktop completion drains a delayed busy beat and keeps only ready beats until the receipt returns',async()=>{
+  const {t,page,chapter,receipts,boundaries}=await tourReceiptFixture();
+  const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done;});return {promise,resolve};};
+  const busyStarted=deferred(),releaseBusy=deferred(),completionStarted=deferred(),releaseCompletion=deferred();
+  const calls:string[]=[],call=page.call;
+  page.call=async(name:string,args:any)=>{
+    calls.push(`${name}:${args.phase??args.availability??'complete'}`);
+    if(name==='poll_inspection' && args.availability==='busy') {busyStarted.resolve();await releaseBusy.promise;}
+    const result=await call(name,args);
+    if(name==='complete_inspection' && !args.phase) {completionStarted.resolve();await releaseCompletion.promise;}
+    return result;
+  };
+  page.applyTourCommand=async()=>{void page.busyBeat(page.generation,true);};
+  const running=chapter('next');
+  try {
+    await busyStarted.promise;
+    expect(receipts).toHaveLength(0);
+    expect(calls).not.toContain('poll_inspection:ready');
+    releaseBusy.resolve();await completionStarted.promise;
+    const count=calls.length;
+    await page.busyBeat(page.generation,true);
+    expect(calls.slice(count)).toEqual(['get_inspection_state:complete','poll_inspection:ready']);
+    expect(boundaries.at(-1).state.modelContext.readiness.blocking).not.toContain('structure');
+    expect(readinessStripView(boundaries.at(-1).readiness).summary).not.toContain('Structure not ready');
+    releaseCompletion.resolve();await running;
+  } finally {releaseBusy.resolve();releaseCompletion.resolve();await running;await t.close();}
+});
+
+
+it('desktop readiness failure keeps the command unrendered and releases the heartbeat hold',async()=>{
+  const {t,page,chapter,receipts}=await tourReceiptFixture();
+  const call=page.call;
+  page.call=async(name:string,args:any)=>{
+    if(name==='poll_inspection' && args.availability==='ready') throw Error('Readiness transport failed');
+    return call(name,args);
+  };
+  try {
+    await expect(chapter('next')).rejects.toThrow('Readiness transport failed');
+    expect(receipts).toHaveLength(0);
+    expect(page.desktopReceiptInFlight).toBe(false);
+    expect(page.pendingReceipt.commandId).toBe('receipt-next');
+    expect((await t.current('receipt-next')).structuredContent.command.status).toBe('rendering');
+  } finally {await t.close();}
+});
+
+it('leaves companion completion and its post-command availability report unchanged',async()=>{
+  const {t,page,chapter,boundaries}=await tourReceiptFixture();
+  page.isCompanion=true;
+  page.workspace.viewer={};
+  page.xrStartupReport=()=>({phase:'idle',pending:false,reloadRequired:false,mode:null,gestureActive:null,presenting:false});
+  try {
+    await chapter('next');
+    expect(boundaries.at(-1).state.command.status).toBe('rendered');
+    expect(boundaries.at(-1).state.panels[0].availability).toBe('busy');
+    expect((await t.current()).structuredContent.panels[0].availability).toBe('ready');
+  } finally {await t.close();}
+});
+
+
+it('keeps a desktop live and claims the next command through a 20-second receipt response delay',async()=>{
+  const {t,page,chapter,boundaries}=await tourReceiptFixture();
+  let release!:()=>void, started!:()=>void;
+  const held=new Promise<void>(resolve=>{release=resolve;}), committed=new Promise<void>(resolve=>{started=resolve;});
+  const call=page.call, beats:any[]=[];
+  page.call=async(name:string,args:any)=>{
+    if(name==='poll_inspection') beats.push(args);
+    const result=await call(name,args);
+    if(name==='complete_inspection' && !args.phase && args.commandId==='receipt-next') {started();await held;}
+    return result;
+  };
+  const running=chapter('next');page.rendering=running;
+  try {
+    await committed;
+    const state=boundaries.at(-1).state;
+    expect(state.panels.find((p:any)=>p.panelId===t.panelId)).toMatchObject({availability:'ready',current:true});
+    expect(state.modelContext.readiness.blocking).not.toContain('structure');
+    const queued=await t.call('control_tour',{...page.expected(),baseInspectionRevision:state.inspectionRevision,
+      panelId:t.panelId,commandId:'after-delayed-receipt',action:'next'});
+    expect(queued.isError).not.toBe(true);
+    const observations:any[]=[];
+    for(t.clock.now=1000;t.clock.now<=20000;t.clock.now+=1000) {
+      // Even forced busy and changed local flags must not overwrite the receipt.
+      page.dirty=true;page.blocked=true;
+      await page.busyBeat(page.generation,true);
+      observations.push((await t.current('after-delayed-receipt')).structuredContent);
+    }
+    expect(observations.at(-1).command.status).toBe('rendering');
+    for(const live of observations)
+      expect(live.panels.find((p:any)=>p.panelId===t.panelId)).toMatchObject({availability:'ready',current:true});
+    expect(beats.at(-1)).toMatchObject({availability:'ready',baseInspectionRevision:state.inspectionRevision});
+    page.dirty=false;page.blocked=false;
+    release();await running;await page.rendering;
+    expect((await t.current('after-delayed-receipt')).structuredContent.command.status).toBe('rendered');
+  } finally {release();await running;await page.rendering;await t.close();}
+});
+
+it('registers comparison bytes claimed by a named capture retry before receiving the delivery',async()=>{
+  const t=await setup(cif,{fetchPdbText:async()=>cif});
+  let scene:any=structuredClone(t.scene), loseResponse=true;
+  const namedViews:any[]=[], failures:string[]=[];
+  // Execute the viewer's comparison lookup; substitute only its GPU operations.
+  const viewerSource=readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs',import.meta.url),'utf8');
+  const start=viewerSource.indexOf('  async function restoreCompanion(');
+  const renderer:any=vm.createContext({Error,comparisonSources:new Map(),companionRecord:undefined,candidateRecords:new Set(),
+    retiredComparisons:new Set(),detached:structuredClone,comparisonGeometry:()=>{},paintCompanion:async()=>{},
+    applyInspectionTransform:()=>{},canvas:{xr:{isPresenting:{value:false}}},
+    plugin:{state:{data:{updateCellState:()=>{}}}},
+    checkedFixture:async(source:any)=>{expect(source.cif).toBeTruthy();return {source,settings:{}};},
+    buildCandidate:async()=>({representation:{ref:'comparison'}}),deleteRecord:async()=>{},
+    inspectionState:{checkpoint:()=>scene}});
+  vm.runInContext(viewerSource.slice(start,viewerSource.indexOf('\n  }',start)+4),renderer);
+  const registerStart=viewerSource.indexOf('    registerComparisonSources: sources => {');
+  vm.runInContext('globalThis.register = '+viewerSource.slice(registerStart+'    registerComparisonSources: '.length,
+    viewerSource.indexOf('\n    },',registerStart)+6),renderer);
+  const page=journeyNavigationHarness({PRIVATE_KEY,panelId:t.panelId,savedScene:scene,
+    binding:{...t.binding,stateRevision:t.binding.baseStateRevision,inspectionRevision:t.binding.baseInspectionRevision},
+    hydrateComparisonSource,decodeInspectionCatalog,verifyInspectionCatalogSource,
+    noteNamedViews:(views:any)=>namedViews.push(views),
+    workspace:{capture:()=>scene,snapshot:()=>({ready:true}),registerComparisonSources:renderer.register,
+      captureNamedView:async(admit:any,confirm:any)=>{await admit();await confirm(scene);},
+      applyRemote:async(change:any,admit:any,confirm:any)=>{
+        await admit();const next=expectedInspection(scene,change);
+        try {await renderer.restoreCompanion(next.inspection.companionStructure);}
+        catch(error) {failures.push((error as Error).message);throw error;}
+        scene=next;await confirm(scene);
+      }},
+    call:async(name:string,args:any)=>{
+      const result=await t.call(name,args);expect(result.isError).not.toBe(true);
+      if(name==='complete_inspection'&&!args.phase&&args.commandId==='capture-retry'&&loseResponse) {
+        loseResponse=false;throw Error('Capture response lost');
+      }
+      return result;
+    },
+    recoverConfirmation:async()=>{},showProblem:(message:string)=>failures.push(message),
+  });
+  try {
+    await t.call('manage_inspection_view',{...t.binding,panelId:t.panelId,action:'save',name:'Comparison baseline',commandId:'capture-retry'});
+    const sent={...page.expected(),panelId:t.panelId,availability:'ready'};
+    page.rendering=page.receive((await t.poll()).delivery,sent,page.generation);await page.rendering;
+    expect(page.pendingReceipt.commandId).toBe('capture-retry');
+    expect((await t.current('capture-retry')).structuredContent.command.status).toBe('rendered');
+    const queued=await t.call('replace_inspection_source',{...t.binding,panelId:t.panelId,mode:'compare',pdbId:'2HHB',commandId:'comparison-after-capture'});
+    expect(queued.isError).not.toBe(true);
+    page.rendering=page.rendering.then(()=>page.confirmReceipt(page.pendingReceipt));
+    await page.rendering;await page.rendering;
+    expect(failures).toEqual([]);
+    const result=(await t.current('comparison-after-capture')).structuredContent.command;
+    expect(result.status,JSON.stringify(result)).toBe('rendered');
+    expect(renderer.comparisonSources.size).toBe(1);
+    expect(namedViews.at(-1).entries).toContainEqual(expect.objectContaining({name:'Comparison baseline'}));
+  } finally {await t.close();}
+});
+
+
+it('drains a delayed ready heartbeat before reporting an edit after confirmation',async()=>{
+  const {t,page,chapter}=await tourReceiptFixture(true);
+  const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done;});return {promise,resolve};};
+  const committed=deferred(),releaseReceipt=deferred(),beatStarted=deferred(),releaseBeat=deferred();
+  const call=page.call, availability:string[]=[];
+  let delayBeat=false;
+  page.call=async(name:string,args:any)=>{
+    if(name==='poll_inspection') {
+      if(delayBeat && args.availability==='ready') {beatStarted.resolve();await releaseBeat.promise;}
+      availability.push(args.availability);
+    }
+    const result=await call(name,args);
+    if(name==='complete_inspection'&&!args.phase) {committed.resolve();await releaseReceipt.promise;}
+    return result;
+  };
+  const running=chapter('next');
+  let heartbeat=Promise.resolve();
+  try {
+    await committed.promise;delayBeat=true;
+    heartbeat=page.busyBeat(page.generation,true);await beatStarted.promise;
+    releaseReceipt.resolve();
+    // Let the receipt continuation reach its drain without releasing the beat.
+    await new Promise(resolve=>setImmediate(resolve));
+    expect(page.desktopReceiptInFlight).toBe(true);
+    expect(page.pendingReceipt).toBeDefined();
+    expect(availability).not.toContain('unsaved');
+    releaseBeat.resolve();await heartbeat;await running;
+    expect(availability.slice(-2)).toEqual(['ready','unsaved']);
+    expect((await t.current()).structuredContent.panels[0].availability).toBe('unsaved');
+  } finally {releaseReceipt.resolve();releaseBeat.resolve();await heartbeat;await running;await t.close();}
+});
+
+it.each(['animation','placement'])('%s receipt owns its controls, not a re-derived lesson emphasis', async kind => {
+  const t=await setup();
+  try {
+    const scene:any=structuredClone(t.scene);
+    scene.inspection.emphasis={parts:[{id:'body',chain:'A',label:'Body',color:'#ff0000'}],focus:['body'],contextOpacity:.1,origin:'lesson'};
+    const saved=await t.call('sync_inspection',{...t.binding,scene});
+    const binding={...t.binding,baseInspectionRevision:saved.structuredContent.inspectionRevision};
+    await t.call('poll_inspection',{...binding,panelId:t.panelId,availability:'ready',animation:animationSample});
+    const change=kind==='animation'?{kind,patch:{state:'play'}}:{kind,patch:{scale:2}};
+    await t.call('update_inspection',{sessionId:t.sessionId,change});
+    const {delivery}=await t.poll('ready',binding);
+    scene.inspection.emphasis={...scene.inspection.emphasis,focus:[],origin:'resting'};
+    if(kind==='placement') scene.inspection.placement.scale=2;
+    const result=await t.call('complete_inspection',{...binding,panelId:t.panelId,commandId:delivery.commandId,claimToken:delivery.claimToken,scene,animation:animationSample});
+    expect(result.structuredContent.command.status).toBe('rendered');
+    const shared=(await t.call('get_inspection',{sessionId:t.sessionId}))._meta[PRIVATE_KEY];
+    expect(shared.scene.inspection.emphasis).toEqual(scene.inspection.emphasis);
+  }finally{await t.close();}
+});
+
+it.each(['animation','placement'])('%s still rejects missing requested effect even if the lesson key changed',async kind=>{
+  const t=await setup();
+  try {
+    await t.call('poll_inspection',{...t.binding,panelId:t.panelId,availability:'ready',animation:animationSample});
+    await t.call('update_inspection',{sessionId:t.sessionId,change:kind==='animation'?{kind,patch:{state:'pause'}}:{kind,patch:{scale:2}}});
+    const {delivery}=await t.poll();
+    const scene:any=structuredClone(t.scene);
+    scene.inspection.emphasis={parts:[],focus:[],contextOpacity:.1,origin:'resting'};
+    const result=await t.call('complete_inspection',{...t.binding,panelId:t.panelId,commandId:delivery.commandId,claimToken:delivery.claimToken,scene,animation:animationSample});
+    expect(result.structuredContent.command.status).toBe('unconfirmed');
   }finally{await t.close();}
 });

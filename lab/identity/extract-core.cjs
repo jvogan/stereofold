@@ -1,5 +1,7 @@
 'use strict';
 
+const { applyCifFieldCaseCompatibility } = require('./cif-field-compat.cjs');
+
 const { deepFreeze, copyKey, residueKey, atomKey } = require('./identity.cjs');
 const { IDENTITY_4, applyOperator } = require('./geometry.cjs');
 
@@ -276,6 +278,7 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
     if (typeof assemblyId !== 'string' || !assemblyId) throw new TypeError('An assembly identifier is required.');
     const parsed = await CIF.parse(bytes.toString('utf8')).run();
     if (parsed.isError) throw new Error(`CIF parsing failed: ${parsed.message}`);
+    applyCifFieldCaseCompatibility(parsed.result);
     if (parsed.result.blocks.length !== 1) throw new Error('This draft requires one mmCIF data block.');
     const frame = parsed.result.blocks[0];
     const sourceRows = sourceAtomRows(frame);

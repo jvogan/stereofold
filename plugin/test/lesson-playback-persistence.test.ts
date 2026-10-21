@@ -1,9 +1,20 @@
+// @ts-ignore Shared closure fixture for a chapter without molecular motion.
+import { emptyMolecularAnimationBinding } from '../../lab/browser-roundtrip/fixtures/empty-lesson-figure.mjs';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { sceneSchema, validateScene } from '../src/inspection-contract.js';
-import { mountTourPlayer, savedLessonPlayback, type Tour } from '../src/tour-player.js';
+import { savedLessonPlayback, lessonRestingState, mountTourPlayer, stopUnanimatedLessonPlayback, type Tour } from '../src/tour-player.js';
+import { applyTourCommand, createPanelTourController, tourHeartbeat } from '../src/inspection-tour-client.js';
+import { inspectionFailureReceipt } from '../src/inspection-failure-receipt.js';
+import { waitForPanelRender, panelEntering, sameEntryScene, withWearerEdits } from '../src/inspection-render-settle.js';
+import { CIF } from 'molstar/lib/mol-io/reader/cif.js';
+import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif.js';
+import { Structure } from 'molstar/lib/mol-model/structure.js';
+import { Mat4 } from 'molstar/lib/mol-math/linear-algebra.js';
+// @ts-ignore Real playback registry; only the GPU adapter is empty.
+import { createMolecularAnimation } from '../../lab/browser-roundtrip/molecular-animation.mjs';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -45,14 +56,15 @@ const initial = () => ({ sourceSha256: catalog.source.sha256, modelNumber: 1, as
 });
 const noop = () => {};
 /** Execute the production viewer capture/validation/restore closures; adapt GPU work only. */
-function panel() {
-  const dom = tourEndHarness({ xr: false });
+function panel(xr = false, molecularAnimation?: any) {
+  const dom = tourEndHarness({ xr });
   const original = initial(), state = createInspectionState();
   state.replace(original.inspection);
   let graph: any, camera = original.camera;
   const calls: string[] = [], spoken: string[] = [];
   let publish = noop;
-  const c: any = vm.createContext({ structuredClone, Map, Set, Object,
+  const c: any = vm.createContext({ ...emptyMolecularAnimationBinding(), structuredClone, Map, Set, Object,
+    ...(molecularAnimation ? { molecularAnimation } : {}), waitForFrame: async () => {},
     detached: structuredClone, assertReady: noop, liveScene: () => ({ ...original, camera }), canRestoreLessonPlaybackMetadata,
     snapshot: () => state.snapshot(),
     selectedKeys: (v: any) => v, cameraSnapshot, normalizeStyles, normalizeVisibility,
@@ -88,7 +100,7 @@ function panel() {
     vm.runInContext(helper!.getText(viewerAst),c);
   }
   for (const [start, end] of [
-    ['  function completeInspectionCapture()', '\n  /**'],
+    ['  function completeInspectionCapture(', '\n  /**'],
     ['  function savedEmphasis()', '\n  /**'],
     ['  function validInspectionCapture(', '\n  async function configureInspection'],
     ['  async function restoreInspection(value', '\n  async function restoreTourSeat'],
@@ -98,6 +110,8 @@ function panel() {
   }
   const capture = () => c.completeInspectionCapture();
   const inspection = {
+    runChapter: async (operation: () => Promise<unknown>) => operation(),
+    ...(molecularAnimation ? { setMolecularAnimation: molecularAnimation.install, controlMolecularAnimation: molecularAnimation.control } : {}),
     configure: async ({componentLabels: _plates, ...patch}: any) => state.configure(patch), place: async (patch: any) => state.place(patch),
     fit: async () => {}, resetOrientation: async () => {}, orbit: async () => {}, dolly: async () => {},
     setMotion: async () => {}, emphasize: async () => {}, clearLessonEmphasis: async () => {},
@@ -105,7 +119,7 @@ function panel() {
     setLessonPlayback: (value: any) => { c.lessonPlayback = structuredClone(value); },
     restore: async (value: any, options?: any) => c.restoreInspection(value, options),
   };
-  const workspace: any = { snapshot: () => ({ ready: true, sourceSha256: catalog.source.sha256, xrPresenting: false }),
+  const workspace: any = { snapshot: () => ({ ready: true, sourceSha256: catalog.source.sha256, xrPresenting: xr }),
     capture, rows: () => [], runTour: async (fn: any) => fn(), setStatus: noop,
     viewer: { select: async () => {}, focus: async () => {}, inspection },
   };
@@ -115,9 +129,25 @@ function panel() {
     hydrate: async (scene: any, player: ReturnType<typeof mountTourPlayer>, tour: Tour = lesson) => {
       const checked = validateScene(scene, catalog);
       savedLessonPlayback(checked, [tour]);
-      await inspection.restore(checked);
-      await player.replaceTours([tour]); await player.select(tour.id);
-      player.restorePlayback(checked);
+      player.stop('Restoring the inspection.',{restoreResting:false});
+      const callbackStart=inspectorSource.indexOf('    onMutation:(snapshot:any)=>{');
+      const callbackEnd=inspectorSource.indexOf('experiencePlayer?.notifyMutation();',callbackStart)+'experiencePlayer?.notifyMutation();'.length;
+      expect(callbackStart).toBeGreaterThan(0); expect(callbackEnd).toBeGreaterThan(callbackStart);
+      const callbackContext=vm.createContext({loading:true,remote:false,scheduleSave:noop,tourPlayer:player,experiencePlayer:undefined});
+      const callback=vm.runInContext(ts.transpileModule(`(snapshot:any)=>{${inspectorSource.slice(callbackStart+'    onMutation:(snapshot:any)=>{'.length,callbackEnd)}}`,
+        {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,callbackContext);
+      publish=()=>callback(workspace.snapshot());
+      try{await inspection.restore(checked);}finally{publish=noop;}
+      // Execute the production reconnect reconciliation, including catalog
+      // replacement and the choice between selecting and restoring a lesson.
+      const start = inspectorSource.indexOf('      const hasSavedPlayback=');
+      const end = inspectorSource.indexOf('      installedLesson=panelCustomTour;', start);
+      expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
+      const c = vm.createContext({ data:{scene:checked,customTour:tour},tourPlayer:player,TOURS:[],isCompanion:xr,
+        densityReferencePreview:false,panelCustomTour:tour,options:{},
+        closed:false,generation:1,ownGeneration:1,restoredLessonPlayback:false });
+      await vm.runInContext(ts.transpileModule(`(async()=>{${inspectorSource.slice(start,end)}})()`,
+        {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
     },
   };
 }
@@ -130,15 +160,19 @@ describe('saved lesson handoff and reconnect', () => {
     const publication = createNamedPublication(() => { publications.push(h.capture()); player.notifyMutation(undefined,{agent:true}); });
     h.onMutation(() => publication.mutation(h.capture()));
     const queue: any = vm.createContext({ queue:Promise.resolve(), closing:false,busy:false,
-      moleculeCanvas:{style:{}}, $$:()=>[],setStatus:noop,sync:noop,options:{onSettled:noop},
+      moleculeCanvas:{style:{}}, $$:()=>[],
+      // This peer fixture has no sequence rows, so renderSequence owns no group.
+      $:(selector:string)=>{expect(selector).toBe('.sequence-items');return null;},
+      setStatus:noop,sync:noop,options:{onSettled:noop},
       viewer:h.workspace.viewer,captureScene:h.capture,namedPublication:publication });
     h.workspace.viewer.snapshot=h.workspace.snapshot;
     const run=workspaceSource.slice(workspaceSource.indexOf('function run('),workspaceSource.indexOf('\nfunction ui('));
     const restore=workspaceSource.slice(workspaceSource.indexOf('  restoreShared:')+'  restoreShared:'.length,workspaceSource.indexOf('\n  captureNamedView:')).trim().replace(/,$/,'');
     vm.runInContext(`${run}\nglobalThis.restoreShared=(${restore});`,queue);
     h.workspace.restoreShared=queue.restoreShared;
-    const page:any=vm.createContext({workspace:h.workspace,tourPlayer:player,followable:true,privateState:{},data:{},
-      generation:1,ownGeneration:1,edits:0,dirty:false,blocked:false,loading:false,remote:false,
+    const page:any=vm.createContext({workspace:h.workspace,tourPlayer:player,installedLesson:lesson,savedLessonPlayback,lessonRestingState,TOURS,isCompanion:h.workspace.snapshot().xrPresenting,paused:false,privateState:{},data:{},
+      generation:1,ownGeneration:1,edits:0,dirty:false,blocked:false,loading:false,remote:false,waitForPanelRender,withWearerEdits,
+      performance, localInteractionSerial:0, panelEntering, sameEntryScene, recordHeadsetEvent:noop,
       binding:{serverEpoch:'epoch',sourceToken:'source',stateRevision:1,inspectionRevision:1},savedScene:h.capture(),
       outcome:{textContent:''},showOutcome:noop });
     // Keep the real admission condition as it evolves. A missing string marker
@@ -151,10 +185,335 @@ describe('saved lesson handoff and reconnect', () => {
     };
     visit(inspectorAst);
     expect(candidates,'one production shared-scene restore branch must be extracted').toHaveLength(1);
-    const follow=candidates[0]!.getText(inspectorAst);
+    const followable = inspectorSource.slice(inspectorSource.indexOf('    const followable='), inspectorSource.indexOf(';', inspectorSource.indexOf('    const followable=')) + 1);
+    const follow=followable+candidates[0]!.getText(inspectorAst);
     vm.runInContext(ts.transpileModule(`globalThis.follow=async()=>{${follow}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,page);
-    return { page,queue,publications,follow:async(scene:any)=>{page.privateState={scene};page.data={...page.binding,inspectionRevision:page.binding.inspectionRevision+1};await page.follow();} };
+    return { page,queue,publications,follow:async(scene:any,customTour?:Tour)=>{page.privateState={scene,...(customTour?{customTour}:{})};page.data={...page.binding,shared:true,inspectionRevision:page.binding.inspectionRevision+1};await page.follow();} };
   }
+
+  it('adopts a replaced lesson catalog before restoring its saved chapter on a peer', async () => {
+    const h=panel(), player=mountTourPlayer({...h,tours:[lesson]});
+    try {
+      await player.select(lesson.id); await player.start(false,0);
+      const next=structuredClone(lesson), saved=h.capture();
+      next.title='Live replacement';
+      next.steps=[{...next.steps[0],id:'new-opening'},...next.steps];
+      const p=peer(h,player), chapterId=saved.inspection.lessonPlayback.chapterId;
+      await p.follow(saved,next);
+      expect(player.getState()).toMatchObject({selectedTitle:'Live replacement',step:1,active:true});
+      expect(h.capture().inspection.lessonPlayback.chapterId).toBe(chapterId);
+      expect(p.page.installedLesson).toEqual(next);
+      expect(p.page.binding.inspectionRevision).toBe(2);
+    } finally { player.pause(); h.cleanup(); }
+  });
+
+  it('the production command receiver installs, draws, and sends the lesson receipt', async () => {
+    const h=panel(), player=mountTourPlayer({...h,tours:[lesson]});
+    try {
+      await player.select(lesson.id); await player.start(false,0);
+      const p=peer(h,player), controller=createPanelTourController(player,player), receipts:any[]=[];
+      const edited=JSON.parse(readFileSync(new URL('../demos/daraxonrasib.json', import.meta.url), 'utf8')); edited.title='Edited from a tool';
+      let frames=0;
+      Object.assign(p.page,{panelTour:controller,panelId:'panel',closed:false,narrationGeneration:0,
+        call:async()=>({structuredContent:{admitted:true}}),pendingReceipt:undefined,pendingReceiptFields:undefined,busyBeat:async()=>{},
+        tourCommandContext:undefined,tourCommandReceipt:undefined,tourHeartbeat,inspectionFailureReceipt,molecularLessonToTour,
+        requestAnimationFrame:(callback:()=>void)=>{frames++;callback();},
+        confirmReceipt:async(value:any)=>{receipts.push(value);return {status:value.failure?'rejected':'rendered'};},speakRemoteConfirmation:noop});
+      const receive=inspectorAst.statements.find((node):node is ts.FunctionDeclaration=>ts.isFunctionDeclaration(node)&&node.name?.text==='receive')!;
+      vm.runInContext(ts.transpileModule(receive.getText(inspectorAst),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,p.page);
+      await p.page.receive({panelId:'panel',commandId:'lesson',claimToken:'claim',change:{kind:'lesson',patch:{lesson:edited}}},
+        {...p.page.binding,baseStateRevision:1,baseInspectionRevision:1},1);
+      expect(receipts).toHaveLength(1); expect(receipts[0].failure).toBeUndefined(); expect(frames).toBe(2);
+      expect(receipts[0].scene.inspection.lessonPlayback.chapterId).toBe(lesson.steps[0].id);
+      expect(p.page.installedLesson.title).toBe('Edited from a tool');
+      expect(p.page.remote).toBe(false);
+    } finally {player.pause();h.cleanup();}
+  });
+
+  it('a headset page confirms a lesson by drawn XR frames, not window animation frames', async () => {
+    const h=panel(), player=mountTourPlayer({...h,tours:[lesson]});
+    try {
+      await player.select(lesson.id); await player.start(false,0);
+      const p=peer(h,player), controller=createPanelTourController(player,player), receipts:any[]=[];
+      const edited=JSON.parse(readFileSync(new URL('../demos/daraxonrasib.json', import.meta.url), 'utf8')); edited.title='Edited from a tool';
+      let frames=0, draws=0;
+      const headset=Object.create(h.workspace);
+      headset.snapshot=()=>({...h.workspace.snapshot(),xrPresenting:true,drawCount:draws++});
+      Object.assign(p.page,{panelTour:controller,panelId:'panel',closed:false,narrationGeneration:0,
+        call:async()=>({structuredContent:{admitted:true}}),pendingReceipt:undefined,pendingReceiptFields:undefined,busyBeat:async()=>{},
+        tourCommandContext:undefined,tourCommandReceipt:undefined,tourHeartbeat,inspectionFailureReceipt,molecularLessonToTour,
+        requestAnimationFrame:()=>{frames++;},setTimeout,workspace:headset,
+        confirmReceipt:async(value:any)=>{receipts.push(value);return {status:value.failure?'rejected':'rendered'};},speakRemoteConfirmation:noop});
+      const receive=inspectorAst.statements.find((node):node is ts.FunctionDeclaration=>ts.isFunctionDeclaration(node)&&node.name?.text==='receive')!;
+      vm.runInContext(ts.transpileModule(receive.getText(inspectorAst),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,p.page);
+      await p.page.receive({panelId:'panel',commandId:'lesson',claimToken:'claim',change:{kind:'lesson',patch:{lesson:edited}}},
+        {...p.page.binding,baseStateRevision:1,baseInspectionRevision:1},1);
+      expect(receipts).toHaveLength(1); expect(receipts[0].failure).toBeUndefined(); expect(frames).toBe(0); expect(draws).toBeGreaterThanOrEqual(3);
+      expect(receipts[0].scene.inspection.lessonPlayback.chapterId).toBe(lesson.steps[0].id);
+      expect(p.page.installedLesson.title).toBe('Edited from a tool');
+      expect(p.page.remote).toBe(false);
+    } finally {player.pause();h.cleanup();}
+  });
+
+  for (const xr of [true, false]) for (const held of [false, true])
+    it(`peer heme framing settles before capture without importing the peer view (XR=${xr}, held=${held})`, async () => {
+      const hemoglobin = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/hemoglobin-switch/flipbook.json', import.meta.url), 'utf8')));
+      const h = panel(xr), inspection = h.workspace.viewer.inspection;
+      h.workspace.rows = () => ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map(chain => ({ key: chain,
+        entityType: 'polymer', identity: { labelChain: chain, authorChain: chain, copyId: '1', modelNumber: 1 } }));
+      let holding = held;
+      Object.assign(inspection, { setVisibility: async () => {}, holdsWearerPlacement: () => holding,
+        beginChapterFraming: () => { holding = false; } });
+      const player = mountTourPlayer({ ...h, tours: [hemoglobin] });
+      try {
+        await player.select(hemoglobin.id); await player.start(false, 0);
+        const p = peer(h, player), before = h.capture(), next = h.capture();
+        // The peer stepped to heme; it did not start the lesson there.
+        next.inspection.lessonPlayback.chapterId = 'heme'; delete next.inspection.lessonPlayback.entry;
+        next.inspection.placement = { scale: 9, translation: [8, 0, 8], rotation: [0, 0, 0] };
+        next.camera.position = [99, 99, 99];
+        next.inspection.lessonPlayback.startingScene.camera.position = [88, 88, 88];
+        const install = inspection.setLessonFigure;
+        const framed: any[] = [];
+        inspection.setLessonFigure = async (figure: any, options: any) => {
+          await install(figure);
+          if (options?.frame) {
+            framed.push(figure.focus);
+            await Promise.resolve();
+            await inspection.place({ scale: 2.2 });
+          }
+        };
+        await p.follow(next);
+        expect(framed).toEqual([hemoglobin.steps.find(step => step.id === 'heme')!.figure!.focus]);
+        expect(h.capture().inspection.placement.scale).toBe(2.2);
+        expect(h.capture().inspection.placement.translation).toEqual(before.inspection.placement.translation);
+        expect(h.capture().camera).toEqual(before.camera);
+        expect(h.capture().inspection.lessonPlayback.startingScene.camera).toEqual(before.inspection.lessonPlayback.startingScene.camera);
+        expect(p.page.savedScene).toEqual(h.capture());
+        expect(p.publications).toEqual([]);
+        await p.follow(next);
+        expect(framed).toHaveLength(1);
+      } finally { player.pause(); h.cleanup(); }
+    });
+
+  it('a lost install acknowledgement retains the lesson actually drawn for receipt retry', async()=>{
+    const h=panel(),player=mountTourPlayer({...h,tours:[lesson]});
+    try {
+      await player.select(lesson.id); await player.start(false,0);
+      const p=peer(h,player), receipts:any[]=[];
+      const edited=JSON.parse(readFileSync(new URL('../demos/daraxonrasib.json',import.meta.url),'utf8'));
+      edited.title='Drawn but response lost';
+      Object.assign(p.page,{panelTour:createPanelTourController(player,player),panelId:'panel',closed:false,narrationGeneration:0,
+        call:async()=>({structuredContent:{admitted:true}}),pendingReceipt:undefined,pendingReceiptFields:undefined,busyBeat:async()=>{},
+        tourCommandContext:undefined,tourCommandReceipt:undefined,tourHeartbeat,inspectionFailureReceipt,molecularLessonToTour,
+        requestAnimationFrame:(callback:()=>void)=>callback(),
+        confirmReceipt:async(value:any)=>{receipts.push(value);p.page.pendingReceipt=value;throw Error('Acknowledgement lost');},
+        recoverConfirmation:async()=>{},speakRemoteConfirmation:noop});
+      const receive=inspectorAst.statements.find((node):node is ts.FunctionDeclaration=>ts.isFunctionDeclaration(node)&&node.name?.text==='receive')!;
+      vm.runInContext(ts.transpileModule(receive.getText(inspectorAst),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,p.page);
+      await p.page.receive({panelId:'panel',commandId:'lesson',claimToken:'claim',change:{kind:'lesson',patch:{lesson:edited,start:{autoplay:false,narration:false}}}},
+        {...p.page.binding,baseStateRevision:1,baseInspectionRevision:1},1);
+      expect(receipts).toHaveLength(1); expect(receipts[0].failure).toBeUndefined();
+      expect(p.page.installedLesson.title).toBe(edited.title);
+      expect(h.capture()).toEqual(receipts[0].scene);
+      expect(p.page.pendingReceipt).toEqual(receipts[0]);
+      expect(p.page.remote).toBe(false); expect(player.getState().navigating).toBe(false);
+    }finally{player.pause();h.cleanup();}
+  });
+
+  const animatedLesson: Tour = { id:'shared-animation',title:'Shared animation',summary:'',steps:[{
+    id:'moving',title:'Moving',durationMs:20_000,animation:{version:1,durationSeconds:10,playback:{autoplay:true,loop:true},
+      tracks:[{id:'a',chains:['A'],keyframes:[{t:0,translation:[0,0,0],rotation:[0,0,0,1]}]}]}},
+    {id:'held',title:'Held',durationMs:20_000}] };
+  async function animatedPanel(xr: boolean) {
+    const parsed=await CIF.parse(readFileSync(new URL('../../fixtures/1CRN.cif',import.meta.url),'utf8')).run();
+    if(parsed.isError) throw Error(parsed.message);
+    const structure=Structure.ofModel((await trajectoryFromMmCIF(parsed.result.blocks[0]!).run()).representative);
+    const registry=createMolecularAnimation({plugin:{state:{data:{cells:new Map()}},build:()=>({})},
+      canvas:{syncVisibility:noop},getStructure:()=>({obj:{data:structure}}),getRepresentations:()=>[],getTransform:()=>Mat4.identity()});
+    const h=panel(xr,registry), player=mountTourPlayer({...h,tours:[animatedLesson]});
+    await player.select(animatedLesson.id);await player.start(true,0);
+    registry.tick(0);registry.tick(500);
+    return {...h,registry,player};
+  }
+
+  for(const xr of [false,true]) it(`reconnect preserves the playing molecular clock on ${xr?'headset':'desktop'}`,async()=>{
+    const h=await animatedPanel(xr);
+    try {
+      const saved=h.capture();
+      expect(saved.inspection.animation.playback.state).toBe('playing');
+      await h.hydrate(saved,h.player,animatedLesson);
+      expect(h.registry.snapshot().state).toBe('playing');
+      expect(h.capture().inspection.animation).toEqual(saved.inspection.animation);
+      expect(h.capture().inspection.lessonPlayback.chapterId).toBe('moving');
+    }finally{h.player.pause();h.cleanup();}
+  });
+
+  // A playing chapter that moves is saved whole with its clock, or not at all.
+  const unanimated = 'The saved lesson is playing "Moving" without its animation. Restart the chapter to draw it again.';
+
+  it('refuses a playing animated chapter whose animation is missing or another chapter\'s, before hydration changes anything',async()=>{
+    const h=await animatedPanel(false);
+    try {
+      const whole=h.capture();
+      expect(savedLessonPlayback(whole,[animatedLesson])).toMatchObject({chapterId:'moving',stopped:false});
+      const missing=structuredClone(whole);delete missing.inspection.animation;
+      const other=structuredClone(whole);other.inspection.animation.playback.chapterId='held';
+      for(const broken of [missing,other]) {
+        expect(()=>savedLessonPlayback(broken,[animatedLesson])).toThrow(unanimated);
+        const before=h.capture(),calls=h.calls.length;
+        await expect(h.hydrate(broken,h.player,animatedLesson)).rejects.toThrow(unanimated);
+        expect(h.capture()).toEqual(before);expect(h.calls).toHaveLength(calls);
+        expect(h.player.getState()).toMatchObject({step:0,active:true});
+        expect(h.registry.snapshot().state).toBe('playing');
+      }
+    }finally{h.player.pause();h.cleanup();}
+  });
+
+  it('accepts a stopped lesson without its clock, a paused clock, a chapter without animation, and Done',async()=>{
+    const h=await animatedPanel(false);
+    try {
+      const stopped=h.capture();stopped.inspection.lessonPlayback.stopped=true;delete stopped.inspection.animation;
+      expect(savedLessonPlayback(stopped,[animatedLesson])).toMatchObject({chapterId:'moving',stopped:true});
+      h.player.pause();
+      const paused=h.capture();
+      expect(paused.inspection.animation.playback).toMatchObject({chapterId:'moving',state:'paused'});
+      expect(savedLessonPlayback(paused,[animatedLesson])).toMatchObject({chapterId:'moving',stopped:false});
+      await h.hydrate(paused,h.player,animatedLesson);
+      expect(h.registry.snapshot().state).toBe('paused');
+      expect(h.player.getState()).toMatchObject({step:0,active:true,autoplay:false});
+      await h.player.next();
+      const held=h.capture();
+      expect(held.inspection.lessonPlayback).toMatchObject({chapterId:'held',stopped:false});
+      expect(held.inspection.animation?.playback?.chapterId).not.toBe('moving');
+      expect(savedLessonPlayback(held,[animatedLesson])).toMatchObject({chapterId:'held',stopped:false});
+      await h.player.finish();
+      const done=h.capture();
+      expect(done.inspection.lessonPlayback).toBeUndefined();
+      expect(savedLessonPlayback(done,[animatedLesson])).toBeUndefined();
+    }finally{h.player.pause();h.cleanup();}
+  });
+
+  it('saves a capture taken while the next chapter draws as stopped, which a playing cursor would not be',async()=>{
+    const h=await animatedPanel(false);
+    try {
+      const figure=h.workspace.viewer.inspection.setLessonFigure;
+      let entered!:()=>void,release!:()=>void;
+      const drawing=new Promise<void>(resolve=>{entered=resolve;});
+      h.workspace.viewer.inspection.setLessonFigure=async(value:any,options:any)=>{
+        entered();await new Promise<void>(resolve=>{release=resolve;});return figure(value,options);
+      };
+      const next=h.player.next();
+      await drawing;
+      const mid=h.capture();
+      expect(mid.inspection.lessonPlayback).toMatchObject({chapterId:'moving',stopped:true});
+      expect(mid.inspection.animation?.playback?.chapterId).not.toBe('moving');
+      expect(savedLessonPlayback(mid,[animatedLesson])).toMatchObject({chapterId:'moving',stopped:true});
+      mid.inspection.lessonPlayback.stopped=false;
+      expect(()=>savedLessonPlayback(mid,[animatedLesson])).toThrow(unanimated);
+      release();await next;
+      expect(h.capture().inspection.lessonPlayback).toMatchObject({chapterId:'held',stopped:false});
+    }finally{h.player.pause();h.cleanup();}
+  });
+
+  it('opens a scene saved playing without its animation as stopped, and Rejoin draws the chapter whole',async()=>{
+    const h=await animatedPanel(false);
+    try {
+      const legacy=h.capture();delete legacy.inspection.animation;
+      expect(()=>savedLessonPlayback(legacy,[animatedLesson])).toThrow(unanimated);
+      const opened=stopUnanimatedLessonPlayback(legacy,[animatedLesson]);
+      expect(legacy.inspection.lessonPlayback.stopped).toBe(false);
+      expect(opened).toEqual({...legacy,inspection:{...legacy.inspection,lessonPlayback:{...legacy.inspection.lessonPlayback,stopped:true}}});
+      await h.hydrate(opened,h.player,animatedLesson);
+      expect(h.player.getState()).toMatchObject({step:0,stopped:true,active:false});
+      expect(savedLessonPlayback(h.capture(),[animatedLesson])).toMatchObject({chapterId:'moving',stopped:true});
+      await h.player.rejoin();
+      expect(h.player.getState()).toMatchObject({step:0,stopped:false,active:true});
+      expect(h.capture().inspection.animation.playback).toMatchObject({chapterId:'moving'});
+      expect(savedLessonPlayback(h.capture(),[animatedLesson])).toMatchObject({chapterId:'moving',stopped:false});
+      // A whole scene, and one refused for another reason, come back as they were.
+      const whole=h.capture();
+      expect(stopUnanimatedLessonPlayback(whole,[animatedLesson])).toBe(whole);
+      const foreign=structuredClone(legacy);foreign.inspection.lessonPlayback.chapterId='missing';
+      expect(stopUnanimatedLessonPlayback(foreign,[animatedLesson])).toBe(foreign);
+      expect(()=>savedLessonPlayback(foreign,[animatedLesson])).toThrow('chapter is unavailable');
+      const plain=h.capture();delete plain.inspection.lessonPlayback;
+      expect(stopUnanimatedLessonPlayback(plain,[animatedLesson])).toBe(plain);
+    }finally{h.player.pause();h.cleanup();}
+  });
+
+  for(const xr of [false,true]) for(const patch of [{seekSeconds:3},{speed:0.5},{state:'pause'},{state:'play',restart:true,loop:false}])
+    it(`${xr?'headset follows desktop':'desktop follows headset'}: admits and restores ${JSON.stringify(patch)} while animation plays`,async()=>{
+      vi.useFakeTimers();const h=await animatedPanel(xr);
+      try {
+        const p=peer(h,h.player), original=h.registry.checkpoint();
+        h.registry.control(patch);const incoming=h.capture();await h.registry.restore(original,true);
+        expect(h.capture()).toEqual(p.page.savedScene);
+        expect(h.registry.snapshot().state).toBe('playing');
+        await p.follow(incoming);
+        expect(p.page.binding.inspectionRevision).toBe(2);
+        expect(p.page.savedScene).toEqual(h.capture());
+        expect(h.capture().inspection.animation).toEqual(incoming.inspection.animation);
+        expect(h.registry.snapshot()).toEqual(incoming.inspection.animation.playback);
+        expect(p.publications).toEqual([]);expect(p.page.remote).toBe(false);
+        await vi.advanceTimersByTimeAsync(25_000);
+        expect(h.player.getState()).toMatchObject({step:0,autoplay:false});
+      } finally {h.player.pause();h.cleanup();vi.useRealTimers();}
+    });
+
+  for(const xr of [false,true]) it(`${xr?'headset':'desktop'} preserves a local animation edit made while a follow waits for admission`,async()=>{
+    vi.useFakeTimers();const h=await animatedPanel(xr);
+    try {
+      const p=peer(h,h.player),incoming=h.capture();
+      incoming.inspection.animation.playback.timeSeconds=3;
+      let release!:()=>void;p.queue.queue=new Promise<void>(resolve=>{release=resolve;});
+      const pending=p.follow(incoming);
+      h.registry.control({speed:2});const local=h.capture();
+      release();await expect(pending).rejects.toThrow('Local work changed');
+      expect(h.capture()).toEqual(local);expect(h.registry.snapshot().state).toBe('playing');
+      expect(p.page.binding.inspectionRevision).toBe(1);expect(p.page.remote).toBe(false);
+    } finally {h.player.pause();h.cleanup();vi.useRealTimers();}
+  });
+
+  for(const rejection of ['none','local','host','during-admission'] as const)
+    it(`remote tour pause during molecular playback: ${rejection} admission rejection`,async()=>{
+      vi.useFakeTimers();const h=await animatedPanel(true), controller=createPanelTourController(h.player,h.player);
+      try {
+        const p=peer(h,h.player), receipts:any[]=[], controls:any[]=[];
+        const control=h.workspace.viewer.inspection.controlMolecularAnimation;
+        let admitted=false;
+        h.workspace.viewer.inspection.controlMolecularAnimation=(patch:any)=>{
+          expect(admitted,'molecular controls must wait for both admission checks').toBe(true);
+          controls.push(patch);return control(patch);
+        };
+        const call=vi.fn(async()=>{
+          expect(h.registry.snapshot().state).toBe('playing');expect(controls).toEqual([]);
+          if(rejection==='during-admission') p.page.dirty=true;
+          return {structuredContent:{admitted:rejection!=='host'}};
+        });
+        Object.assign(p.page,{panelTour:controller,panelId:'panel',closed:false,call,narrationGeneration:0,
+          pendingReceipt:undefined,pendingReceiptFields:undefined,busyBeat:async()=>{},
+          tourCommandContext:undefined,tourCommandReceipt:undefined,tourHeartbeat,inspectionFailureReceipt,
+          applyTourCommand:async(...args:Parameters<typeof applyTourCommand>)=>{admitted=true;return applyTourCommand(...args);},
+          confirmReceipt:async(value:any)=>{receipts.push(value);return {status:value.failure?'rejected':'rendered'};},
+          speakRemoteConfirmation:noop,dirty:rejection==='local'});
+        const receive=inspectorAst.statements.find((node):node is ts.FunctionDeclaration=>ts.isFunctionDeclaration(node)&&node.name?.text==='receive');
+        expect(receive).toBeDefined();
+        vm.runInContext(ts.transpileModule(receive!.getText(inspectorAst),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,p.page);
+        await p.page.receive({panelId:'panel',commandId:'pause',claimToken:'claim',change:{kind:'tour',patch:{action:'pause'}}},
+          {...p.page.binding,baseStateRevision:1,baseInspectionRevision:1},1);
+        expect(receipts).toHaveLength(1);expect(p.page.remote).toBe(false);
+        if(rejection==='none') {
+          expect(receipts[0].failure).toBeUndefined();expect(controls).toEqual([{state:'pause'}]);
+          expect(receipts[0].scene.inspection.animation.playback.state).toBe('paused');
+          expect(h.registry.snapshot().state).toBe('paused');
+        } else {
+          expect(receipts[0].failure).toBe('local_changed');expect(controls).toEqual([]);
+          expect(h.capture()).toEqual(p.page.savedScene);expect(h.registry.snapshot().state).toBe('playing');
+        }
+        expect(call).toHaveBeenCalledTimes(rejection==='local'?0:1);
+      } finally {controller.dispose();h.cleanup();vi.useRealTimers();}
+    });
 
   for(const change of ['metadata','chapter','done'] as const) it(`reconciles a live peer ${change} before capture, and does not republish the previous cursor`,async()=>{
     const h=panel(),player=mountTourPlayer({...h,tours:[lesson]});
@@ -221,8 +580,10 @@ describe('saved lesson handoff and reconnect', () => {
       next.inspection.lessonPlayback.chapterId='missing';
       await expect(p.follow(next)).rejects.toThrow();
       expect(h.capture()).toEqual(before);expect(h.calls).toEqual([]);
-      next.inspection.lessonPlayback.chapterId=lesson.steps[1].id;p.page.dirty=true;
-      await expect(p.follow(next)).rejects.toThrow('Local work changed');
+      next.inspection.lessonPlayback.chapterId=lesson.steps[1].id;
+      let release!:()=>void;p.queue.queue=new Promise<void>(resolve=>{release=resolve;});
+      const pending=p.follow(next);p.page.dirty=true;release();
+      await expect(pending).rejects.toThrow('Local work changed');
       expect(h.capture()).toEqual(before);expect(player.getState().step).toBe(0);expect(p.page.remote).toBe(false);
     } finally {player.pause();h.cleanup();}
   });
@@ -308,6 +669,7 @@ describe('saved lesson handoff and reconnect', () => {
     try {
       await player.select(lesson.id); await player.start(false, 0);
       const c: any = vm.createContext({ workspace:h.workspace, savedScene:h.capture(),
+        entryScene:undefined,failedSourceLoad:undefined,
         loading:false,remote:false,closed:false,reloading:false,dirty:false,blocked:false,edits:0,timer:undefined,
         binding:{serverEpoch:'epoch',sourceToken:'source',stateRevision:1,inspectionRevision:1},
         sent:{serverEpoch:'epoch',sourceToken:'source',baseStateRevision:1,baseInspectionRevision:1},
@@ -317,6 +679,9 @@ describe('saved lesson handoff and reconnect', () => {
       const start=inspectorSource.indexOf('function scheduleSave()');
       vm.runInContext(inspectorSource.slice(start,inspectorSource.indexOf('\nlet saveAttempts',start)),c);
       const admission=inspectorSource.indexOf('    const localAdmission=()=>{');
+      const capture=inspectorSource.indexOf('  let ownPause:');
+      vm.runInContext(ts.transpileModule(inspectorSource.slice(capture,inspectorSource.indexOf('  // Work that',capture)),
+        {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
       vm.runInContext(inspectorSource.slice(admission,inspectorSource.indexOf('    const admit=async()=>{',admission))+'\nglobalThis.checkAdmission=localAdmission;',c);
       player.subscribe(()=>c.scheduleLessonSave());
       // This is receive()'s production pause before it checks the local view.

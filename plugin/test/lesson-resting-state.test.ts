@@ -61,6 +61,7 @@ describe('what a hydrate puts on the structure', () => {
       { key: 'a', entityType: 'polymer', identity: { labelChain: 'A', copyId: '1', modelNumber: 1 } },
       { key: 'b', entityType: 'polymer', identity: { labelChain: 'B', copyId: '1', modelNumber: 1 } },
     ];
+    workspace.identityRows = workspace.rows;
     const masks: unknown[] = [];
     workspace.viewer.inspection.setVisibility = async value => { masks.push(value); };
     await placeLessonScene(workspace, { tour, applyInitialVisibility: true });
@@ -168,7 +169,10 @@ describe('the panel sends this on every hydrate', () => {
     // One call, with the lesson when there is one. No `|| data.customTour`
     // condition guarding the phase: that guard is what skipped a plain hydrate.
     expect(placed.match(/placeLessonScene\(/gu)).toHaveLength(1);
-    expect(placed).toContain('...(data.customTour?{tour:data.customTour}:{})');
+    expect(placed).toContain('...(panelCustomTour?{tour:panelCustomTour}:{})');
+    // A map's reference-atoms panel sends the same clearing call, without
+    // applying the unrenderable map lesson's resting key to those atoms.
+    expect(inspector).toContain('const panelCustomTour=densityReferencePreview ? undefined : data.customTour;');
     // A failed map draw leaves the loaded lesson exactly as it was, so it is
     // the one hydrate that sends nothing rather than sending `undefined`.
     expect(placed).toContain("if(mapDrawFailure) await trace.phase('placed');");
@@ -182,19 +186,20 @@ describe('lesson plate viewer wiring', () => {
     const predicate = viewer.slice(viewer.indexOf('function componentLabelsWanted()'), viewer.indexOf('async function deleteComponentLabelCells'));
     expect(predicate).toContain('platesWanted(installed, lessonResting.labelsEnabled(), emphasisOrigin)');
   });
-  it('builds the full plate plan with the painted context opacity and applies each alpha', () => {
+  it('passes XR mode and context opacity to the plate painter', () => {
     const build = viewer.slice(viewer.indexOf('async function buildComponentLabelPlates('), viewer.indexOf('function ligandRows()'));
-    // The whole key gets a plate under a focus, from the key plan, not the paint list.
+    // The candidate key includes context; XR filters it by chapter emphasis.
     const parts = viewer.slice(viewer.indexOf('function componentLabelPlateParts('), viewer.indexOf('function componentLabelKeyPlan()'));
     expect(parts).toContain('...explained, ...(key?.colours ?? [])');
     expect(build).toContain('componentLabelKeyPlan()?.colours');
-    // The fan layout's own yield and the key's context opacity: the dimmer
-    // wins. Both now arrive through the one paint contract, which is also
-    // where the near-white ink and the glyph layer's depth lead are decided,
-    // so the painter has no colour of its own to get wrong.
-    expect(build).toContain('componentLabelPaint({ placeAlpha: place.alpha,');
+    // XR chooses readable or absent ink; desktop keeps its existing fades.
+    // Every build, repaint and relayout must pass the captured session mode.
+    expect(build.match(/componentLabelPaint\(\{ presenting,/gu)).toHaveLength(3);
+    expect(build).toContain('componentLabelPaint({ presenting, placeAlpha: place.alpha,');
     expect(build).toContain('contextAlpha: contextAlpha.get(entry.id) ?? 1,');
-    expect(build).toContain('...paint.backing');
+    // Each layer the painter returns, the backing and a detached plate's key.
+    expect(build).toContain('for (const [layer, params] of Object.entries(paint))');
+    expect(build).toContain('...common, ...params,');
     expect(build).not.toContain('...paint.text');
     expect(build).not.toContain('...paint.leader');
     // And the structure's own silhouette reaches the solver, so a plate is
@@ -211,7 +216,9 @@ describe('the menu column reaches the plate solver at runtime', () => {
     const layout = viewer.slice(viewer.indexOf('function componentLabelLayout('), viewer.indexOf('function ligandRows()'));
     expect(layout).toContain('immersiveSession?.menuPoints?.()');
     expect(layout).toContain('roomMatrix?.()');
-    expect(layout).toContain('obstacles: toolbarRect ? [toolbarRect] : []');
+    // The caption card is glass too, so the plates keep off both.
+    expect(layout).toContain('immersiveSession?.captionPoints?.()');
+    expect(layout).toContain('obstacles: menuGlassObstacles([toolbarRect, captionRect])');
   });
 
   it('re-solves the plates once the menu has drawn, because the first pass runs before it exists', () => {
@@ -251,7 +258,11 @@ describe('the plates are solved again when the menu column moves', () => {
     expect(commit).toContain("if (!firstDraw && (menuReseatRequested || seatSignature !== renderedSeat)) lastMenuMotion.push('reseat')");
     expect(commit).toContain('renderedSeat = seatSignature; renderedGrid = collapsed;\n      menuReseatRequested = false;');
     expect(commit).toContain("!sameLayout(physicalLayout, renderedLayout)) lastMenuMotion.push('follow')");
-    expect(toolbar).toContain('menuPoints, menuRows, menuMotion, setStatus');
+    // The session reads the column, its rows and the motion from the
+    // toolbar's public surface, whatever else that surface also carries.
+    const surface = toolbar.slice(toolbar.lastIndexOf('return Object.freeze({'));
+    const exported = surface.slice(0, surface.indexOf('\n')).split(/[\s,{}()]+/);
+    for (const name of ['menuPoints', 'menuRows', 'menuMotion', 'setStatus']) expect(exported).toContain(name);
   });
 
   it('coalesces a burst of redraws into one re-solve that names every cause', () => {
@@ -285,6 +296,14 @@ describe('plain lesson entry stays resting on the first hydrate', () => {
   it('marks the first successful hydrate so grown-tier continuation cannot autoplay it', () => {
     expect(inspector).toContain('const initialOpen=!completedHydration;');
     expect(inspector).toContain('completedHydration=true;');
-    expect(inspector).toContain('openGrownTier(grownLesson,priorLessonOnScreen,priorAutoplay,initialOpen)');
+    expect(inspector).toContain('openGrownTier(grownLesson,priorLessonOnScreen,\n      options.autoplayContinuation ? options.autoplayContinuation() : priorAutoplay,initialOpen,options.continuationNarration)');
   });
+});
+
+it('a saved chapter hydrate installs baseline metadata without repainting emphasis', async()=>{
+  const {workspace}=record(), calls:any[]=[];
+  workspace.viewer.inspection.setLessonRestingState=async (...args:any[])=>{calls.push(args);};
+  const tour=lessonTour();
+  await placeLessonScene(workspace,{tour,preserveEmphasis:true});
+  expect(calls).toEqual([[lessonRestingState(tour),{preserveEmphasis:true}]]);
 });

@@ -1,3 +1,4 @@
+import { assistantStatus } from './assistant-status.mjs';
 import { connectionStatus, markTalkLinkLost, TALK_LINK_LOST } from './connection-liveness.mjs';
 /**
  * Hold a Quest face button to signal push-to-talk to the Mac.
@@ -99,6 +100,7 @@ export function attachGripPushToTalk({ session, send, status, listeningText = DE
   if (!session || typeof session.addEventListener !== 'function') throw new TypeError('A talk binding needs a live XR session.');
   const call = typeof send === 'function' ? send : state => registeredSender?.(state);
   const show = typeof status === 'function' ? status : () => undefined;
+  let releaseWarning = '';
   let held, closed = false, chain = Promise.resolve(), voiceContext, voiceBusy = false, starting = false, pendingCapture;
   // Version 2 of push-to-talk streams the headset microphone to the Mac for
   // local transcription. It is present only when the companion page has
@@ -195,7 +197,7 @@ export function attachGripPushToTalk({ session, send, status, listeningText = DE
     reclaimStaleHold('press');
     if (held) { recordGripDiagnostic('voice-press', { ignored: 'held' }); return; }
     if (voiceBusy || (starting && pendingCapture?.failed)) { indicate('Voice request in progress', 'sending'); return; }
-    held = source;
+    held = source; releaseWarning = '';
     const captureAttempt = { failed: false };pendingCapture = captureAttempt;
     indicate(shared || capture ? 'Starting microphone…' : listeningLine(), 'listening');
     void post('down');
@@ -263,22 +265,26 @@ export function attachGripPushToTalk({ session, send, status, listeningText = DE
     if (!wasHeld && !force) return;
     if (wasHeld && source && source !== wasHeld && !force) return;
     held = undefined;
-    if (wasHeld) void post('up');
+    if (wasHeld) {
+      void post('up');
+      releaseWarning = assistantStatus.releaseLine();
+      if (releaseWarning) indicate(releaseWarning, 'idle');
+    }
     if (audioStream) {
-      if (wasHeld) indicate('Transcribing…', 'sending');
+      if (wasHeld && !releaseWarning) indicate('Transcribing…', 'sending');
       return Promise.resolve(audioStream.stop()).then(() => {});
     }
     if (!wasHeld) return;
     if (shared) {
-      indicate('Transcribing…', 'sending'); voiceBusy = true;
+      if (!releaseWarning) indicate('Transcribing…', 'sending'); voiceBusy = true;
       void Promise.resolve(shared.stop()).then(outcome => {
         if (!closed) indicate(typeof outcome?.message === 'string' ? outcome.message : '');
       }).catch(() => { if (!closed) indicate('Voice command failed'); }).finally(() => { voiceBusy = false; });
       return;
     }
-    if (!capture) { indicate('', 'idle'); return; }
+    if (!capture) { if (!releaseWarning) indicate('', 'idle'); return; }
     const context = voiceContext; voiceContext = undefined; voiceBusy = true;
-    indicate('Transcribing…', 'sending');
+    if (!releaseWarning) indicate('Transcribing…', 'sending');
     void Promise.resolve(capture.stop()).then(async audio => {
       if (!audio) { if (!closed) indicate('No speech captured'); return; }
       if (typeof voice?.send !== 'function') { if (!closed) indicate('Voice transport unavailable'); return; }
@@ -352,8 +358,8 @@ export function attachGripPushToTalk({ session, send, status, listeningText = DE
   const unsubscribeAudioState = audioStream
     ? pushToTalkAudioEvents().on(event => {
       if (UTTERANCE_OVER.includes(event?.state)) reclaimStaleHold(event.state);
-      if (event?.state === 'transcribing') indicate('Transcribing…', 'sending');
-      else if (event?.state === 'idle') indicate('', 'idle');
+      if (event?.state === 'transcribing' && !releaseWarning) indicate('Transcribing…', 'sending');
+      else if (event?.state === 'idle' && !releaseWarning) indicate('', 'idle');
       else if (event?.state === 'error') indicate('Voice command failed');
     })
     : undefined;

@@ -21,13 +21,15 @@ function fixture(failure) {
       hooks.onMutation(structuredClone(current));},
   }};
   const options={onMutation:s=>events.push(['mutation',s.inspection.placement.scale]),onSettled:()=>events.push(['settled'])};
-  hooks=new Function('viewer','options','createNamedPublication','captureNamedView','restoreNamedView',`
+  hooks=new Function('viewer','options','createNamedPublication','captureNamedView','restoreNamedView','assert',`
     let queue=Promise.resolve(),closing=false,busy=false;
+    // This transaction fixture has no sequence DOM; querySelector returns null.
+    const $=selector=>{assert.equal(selector,'.sequence-items');return null;};
     const $$=()=>[],moleculeCanvas={style:{}},setStatus=()=>{},sync=()=>{};
     const namedPublication=createNamedPublication(snapshot=>options.onMutation?.(snapshot));
     ${runSource}
     return {onMutation:snapshot=>${mutation},capture:${capture},restore:${restore},ordinary:()=>run('ordinary',()=>{})};
-  `)(viewer,options,createNamedPublication,captureNamedView,restoreNamedView);
+  `)(viewer,options,createNamedPublication,captureNamedView,restoreNamedView,assert);
   return {hooks,target,events};
 }
 for(const failure of ['mismatch','confirmation','rollback']) test(`production named transaction never publishes on ${failure} failure`,async()=>{

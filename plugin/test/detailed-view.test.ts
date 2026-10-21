@@ -742,6 +742,12 @@ describe('the lesson colour key, rebuilt in the detailed viewer', () => {
     expect(plugin.representations.map((r: any) => r.typeParams.alpha)).toEqual([1, 1]);
   });
 
+  it('draws a part the lesson lights beside its focus at full strength', async () => {
+    const plugin = fakePlugin();
+    await paint(plugin, [protein, guide, pam], ['pam'], {alsoLit: ['rna']});
+    expect(plugin.representations.map((r: any) => r.typeParams.alpha)).toEqual([0.18, 1, 1]);
+  });
+
   it('names a part it cannot resolve instead of painting a key it did not draw', async () => {
     const plugin = fakePlugin();
     const rebuilt = await paint(plugin, [{id: 'rna', label: 'Guide RNA', color: '#ff8800', chain: 'A'},

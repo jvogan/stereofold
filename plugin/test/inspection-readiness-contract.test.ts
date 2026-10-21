@@ -244,3 +244,19 @@ describe('observed speech and conversation readiness', () => {
     expect(agent().state).toBe('missing');
   });
 });
+
+it('distinguishes an active unacknowledged channel from a processed conversation',()=>{
+  const input=facts([{surface:'companion',availability:'ready',current:true}]);
+  input.agentAttached=false;
+  input.listenAgeMs=undefined;
+  input.voiceDelivery={mode:'channel',channelActive:true,acknowledgement:'unavailable',assistant:'Claude'};
+  const waiting=assembleReadiness(input);
+  expect(waiting.voiceDelivery).toEqual(input.voiceDelivery);
+  expect(waiting.items.find(i=>i.capability==='agent')).toMatchObject({state:'not-checked'});
+  expect(waiting.blocking).toContain('agent');
+  expect(formatReadiness(waiting)).toContain('Claude is listening (channel)');
+  input.actionAgeMs=0;
+  const answered=assembleReadiness(input);
+  expect(answered.items.find(i=>i.capability==='agent')).toMatchObject({state:'ok'});
+  expect(answered.blocking).not.toContain('agent');
+});

@@ -88,7 +88,7 @@ describe('an empty press', () => {
     recorder().emit(new Uint8Array([1, 2, 3]));
     clock += 5_000;
     await audio.stop();
-    expect(seen.at(-1)).toMatchObject({ state: 'heard', text: '', message: 'No speech was recognized.' });
+    expect(seen.at(-1)).toMatchObject({ state: 'heard', text: '', message: "Didn't catch that. Please speak again." });
   });
 });
 

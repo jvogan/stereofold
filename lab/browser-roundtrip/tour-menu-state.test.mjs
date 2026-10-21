@@ -32,7 +32,9 @@ test('model-started Fold Detective drives the drawn transport rows, chapter, nar
     assert.deepEqual(tourHeartbeat(panel),tourHeartbeat(lesson));
     let rows=spatialToolbarRows({tour:state,voice:{state:'idle'},collapsed:false});
     const kinds=rows.map(row=>row.action.kind);
-    assert.ok(kinds.includes('tour-next'));assert.ok(kinds.includes('tour-done'));assert.ok(kinds.includes('tour-page'));
+    assert.ok(kinds.includes('tour-next'));assert.ok(kinds.includes('tour-done'));
+    // The card wraps and pages the whole caption itself; the tour sends it in one piece.
+    assert.equal(state.bodyPageCount,1);assert.ok(!kinds.includes('tour-page'));
     assert.equal(rows.find(row=>row.action.kind==='tour-play').label,'Play');
     const readout=runtime.tourReadout(state,{},state.chapterStartedAt);
     assert.ok(readout.some(row=>row.text.includes(state.title)));

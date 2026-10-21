@@ -7,7 +7,7 @@ import { createReplyAudioSynthesizer } from '../src/headset-reply-audio.js';
 import { PRIVATE_INSPECTION_META_KEY as KEY } from '../src/inspection-contract.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 import { mountExperiencePlayer } from '../src/experience-player.js';
-import { applyTourCommand, tourHeartbeat } from '../src/inspection-tour-client.js';
+import { applyTourCommand, createPanelTourController, tourHeartbeat } from '../src/inspection-tour-client.js';
 // @ts-ignore Production inspector closures with page and HTTP adapters.
 import { journeyNavigationHarness } from '../../lab/browser-roundtrip/fixtures/journey-navigation-harness.mjs';
 // @ts-ignore Shared DOM/draw boundary.
@@ -66,7 +66,7 @@ async function setup(fetchPdbText: () => Promise<string> = async () => hhb) {
   });
   const player = mountExperiencePlayer({ after: h.after, settle: () => context.tourCommandContext ? Promise.resolve() : context.rendering, explore() {}, finish: async () => ({ status: 'rendered' }),
     navigate: async (id, step, loadedOnly) => { await context.navigateExperience(id, step, loadedOnly); } });
-  player.setCatalog([{ id: experienceId, title: 'Hemoglobin' }]); context.panelTour = player;
+  player.setCatalog([{ id: experienceId, title: 'Hemoglobin' }]); context.panelTour = createPanelTourController(player, player);
   const saved = await call('sync_inspection', { ...context.expected(), scene });
   context.binding = bound(saved.structuredContent);
   const attached = await call('attach_inspection', { ...context.expected(), surface: 'companion' });
@@ -75,6 +75,14 @@ async function setup(fetchPdbText: () => Promise<string> = async () => hhb) {
   const queue = async (action: string) => call('control_tour', { ...context.expected(), panelId: context.panelId, commandId: `d33-${action}`, action });
   return { context, player, call, raw, read, state, queue, close: async () => { player.dispose(); h.cleanup(); await client.close(); await server.close(); } };
 }
+
+it('desktop pause fixture exposes journey controller ownership', async () => {
+  const t = await setup();
+  try {
+    expect(t.context.panelTour.matchesLoadedSource).toBe(true);
+    expect(t.context.panelTour.current()).toBe(t.player);
+  } finally { await t.close(); }
+});
 
 for (const surface of ['menu', 'desktop']) it(`${surface} pause then Next survives a preparation heartbeat and reports the rendered host chapter`, async () => {
   const t = await setup();

@@ -8,7 +8,7 @@ export function withFigureRepresentation(figure, representation) {
 }
 
 const targetKey = target => JSON.stringify([target.chain, target.residues?.from, target.residues?.to,
-  target.componentId, target.atomName]);
+  target.residueNumbers ? [...target.residueNumbers].sort((a, b) => a - b) : undefined, target.componentId, target.atomName]);
 
 export function figureRepresentationLayers(figure) {
   if (!figure.representationOverride) return figure.layers;

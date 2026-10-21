@@ -77,7 +77,7 @@ export function sceneCallTimeoutMs(name:string,args:Record<string,unknown>):numb
   if(name==='grow_structure') return SCENE_GROWTH_PREPARATION_TIMEOUT_MS;
   const legacySource=(name==='open' && ['pdbId','structureText','fixture','source'].some(key=>args[key]!==undefined))
     || (name==='control' && args.action==='load_pdb');
-  const sourceCall=legacySource || ['inspect','inspect_file','inspect_scene','inspect_lesson','inspect_experience','replace_inspection_source','navigate_experience'].includes(name);
+  const sourceCall=legacySource || ['prepare_composite','inspect','inspect_file','inspect_scene','inspect_lesson','inspect_experience','replace_inspection_source','navigate_experience'].includes(name);
   if(!sourceCall) return SCENE_CALL_TIMEOUT_MS;
   if(legacySource) return SCENE_SOURCE_PREPARATION_TIMEOUT_MS;
   const wait=args.waitForRenderMs;
@@ -119,9 +119,12 @@ export type SceneShareResult = {
  * attached host must reach the owner's queue and the owner's companion instead
  * of its own empty ones.
  */
+/** Scene edits a voice request may send with its utteranceId in place of a sessionId. */
+export const UTTERANCE_BOUND_TOOLS: ReadonlySet<string> = new Set(['update_inspection', 'control_tour', 'focus_selection', 'emphasize']);
 const SHARED: ReadonlyMap<string, { remote: string; assistant: boolean; sessionless: boolean }> = new Map([
   ['listen_voice', { remote: 'scene.listen_voice', assistant: true, sessionless: true }],
   ['poll_voice_transcripts', { remote: 'scene.poll_voice_transcripts', assistant: true, sessionless: false }],
+  ['prepare_composite', { remote: 'prepare_composite', assistant: false, sessionless: true }],
   ['say_to_headset', { remote: 'say_to_headset', assistant: false, sessionless: true }],
 ]);
 
@@ -184,6 +187,7 @@ export function unixSocketFetch(socketPath: string): typeof globalThis.fetch {
     if (signal) {
       const abort = () => request.destroy(signal.reason instanceof Error ? signal.reason : Error('The request was aborted.'));
       if (signal.aborted) abort(); else signal.addEventListener('abort', abort, { once: true });
+      request.once('close', () => signal.removeEventListener('abort', abort));
     }
     request.end(typeof init?.body === 'string' ? init.body : undefined);
   });
@@ -230,7 +234,7 @@ export type LocalSceneServiceOptions = {
 
 export class LocalSceneService {
   readonly #options: LocalSceneServiceOptions;
-  readonly #tools = new Map<string, (input: any) => Promise<unknown>>();
+  readonly #tools = new Map<string, (input: any, signal?: AbortSignal) => Promise<unknown>>();
   readonly #proxied = new Set<string>();
   /** Sessions this host proxied until its attachment dropped, oldest first. */
   readonly #lost = new Set<string>();
@@ -268,7 +272,7 @@ export class LocalSceneService {
   set label(value: string | undefined) { this.#label = value; }
 
   /** Make one local tool reachable to an attached host. Raw handler, no proxy. */
-  register(name: string, handle: (input: any) => Promise<unknown>): void { this.#tools.set(name, handle); }
+  register(name: string, handle: (input: any, signal?: AbortSignal) => Promise<unknown>): void { this.#tools.set(name, handle); }
 
   /** Remember the newest session this process actually opened. */
   noteSession(sessionId: string): void {
@@ -305,7 +309,7 @@ export class LocalSceneService {
    * Only a session that is neither held here nor proxied reaches the owner
    * file, through `#rejoin`.
    */
-  async forward(name: string, input: unknown): Promise<{ value: unknown } | undefined> {
+  async forward(name: string, input: unknown, signal?: AbortSignal): Promise<{ value: unknown } | undefined> {
     const args = (input ?? {}) as Record<string, unknown>;
     const sessionId = typeof args.sessionId === 'string' ? args.sessionId : undefined;
     if (sessionId === undefined && this.#attached === undefined) return undefined;
@@ -313,9 +317,21 @@ export class LocalSceneService {
     let remote: string | undefined;
     if (sessionId !== undefined) { if (this.proxies(sessionId) || await this.#rejoin(sessionId)) remote = shared?.remote ?? name; }
     else if (shared?.sessionless) remote = shared.remote;
+    // A voice edit may name only its utterance. The owner recorded that
+    // utterance with its session, so the owner is where it can be read.
+    else if (this.#attached !== undefined && typeof args.utteranceId === 'string' && UTTERANCE_BOUND_TOOLS.has(name)) remote = name;
+    // Prepared handles are private to the owner cache, including new scene opens.
+    else if ((args.source as any)?.kind === 'composite' && ['inspect', 'inspect_lesson', 'open'].includes(name)) remote = name;
     if (remote === undefined) return undefined;
-    const payload = shared?.assistant && this.#label ? { ...args, assistant: this.#label } : args;
-    return { value: await this.call(remote, payload) };
+    const labelsAction = ['update_inspection','control_tour','focus_selection','emphasize','undo_last_change','redo_last_change'].includes(name);
+    const payload = (shared?.assistant || labelsAction) && this.#label ? { ...args, assistant: this.#label } : args;
+    const value:any = await this.call(remote, payload, signal);
+    if (!value?.isError && value?.structuredContent?.kind === 'inspect' && this.#attached
+      && typeof value.structuredContent.sessionId === 'string') {
+      this.#attached.sessionId = value.structuredContent.sessionId;
+      this.#proxied.add(value.structuredContent.sessionId);
+    }
+    return { value };
   }
 
   /**
@@ -430,17 +446,17 @@ export class LocalSceneService {
   }
 
   /** One call on the owner's loopback route, as this host's own result. */
-  async call(name: string, args: Record<string, unknown> = {}): Promise<unknown> {
+  async call(name: string, args: Record<string, unknown> = {}, signal?: AbortSignal): Promise<unknown> {
     const attached = this.#attached;
     if (!attached) throw Error('This host is not attached to a shared scene on this Mac.');
-    return await this.#post(attached, name, args);
+    return await this.#post(attached, name, args, signal);
   }
 
   /**
    * One POST to an owner. A failure drops the attachment only while it is the
    * one this call went out on, so a slow call cannot undo a later rejoin.
    */
-  async #post(target: { origin: string; token: string }, name: string, args: Record<string, unknown>): Promise<unknown> {
+  async #post(target: { origin: string; token: string }, name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const fetching = this.#fetch();
     let response: Response;
     try {
@@ -448,9 +464,13 @@ export class LocalSceneService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${target.token}` },
         body: JSON.stringify({ name, arguments: args }),
-        signal: AbortSignal.timeout(sceneCallTimeoutMs(name,args)),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(sceneCallTimeoutMs(name,args))])
+          : AbortSignal.timeout(sceneCallTimeoutMs(name,args)),
       });
     } catch (error) {
+      // Cancelling a listen is not losing the shared scene. Keep its attachment
+      // so the next deliberate listen resumes the same queue and assistant.
+      signal?.throwIfAborted();
       // The request may have reached the owner before the connection failed,
       // so it is not sent again. The next call rejoins before it sends.
       if (this.#attached === target) this.#drop();
@@ -458,6 +478,7 @@ export class LocalSceneService {
         + 'Call continue_session to rejoin it rather than opening a new structure.');
     }
     const body = await response.json().catch(() => undefined) as any;
+    signal?.throwIfAborted();
     if (!response.ok) {
       if (response.status === 403) {
         if (this.#attached === target) this.#drop();
@@ -661,12 +682,17 @@ export class LocalSceneService {
         throw Error(`Stereofold session ${args.sessionId} is no longer open in the shared scene on this Mac. `
           + 'Call continue_session to find the scene open now rather than opening a new structure.');
       }
-      this.#send(response, 200, { result: await this.dispatch(name, args) });
+      const controller = new AbortController();
+      const disconnected = () => { if (!response.writableEnded) controller.abort(Error('The shared caller disconnected.')); };
+      response.once('close', disconnected);
+      if (response.destroyed) disconnected();
+      try { this.#send(response, 200, { result: await this.dispatch(name, args, controller.signal) }); }
+      finally { response.off('close', disconnected); }
     } catch (error) { this.#send(response, 409, { error: (error as Error).message }); }
   }
 
   /** Run one shared call in this process. Used by the route, and by tests. */
-  async dispatch(name: string, args: Record<string, unknown>): Promise<unknown> {
+  async dispatch(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     if (name === 'scene.describe') {
       return {
         sessionId: this.#localSession(), sceneId: this.#owner?.sceneId,
@@ -675,6 +701,9 @@ export class LocalSceneService {
     }
     const handle = this.#tools.get(name);
     if (!handle) throw Error(`The shared scene does not offer ${name || 'that action'}.`);
-    return await handle(args);
+    const value:any = await handle(args, signal);
+    if (!value?.isError && value?.structuredContent?.kind === 'inspect'
+      && typeof value.structuredContent.sessionId === 'string') this.noteSession(value.structuredContent.sessionId);
+    return value;
   }
 }

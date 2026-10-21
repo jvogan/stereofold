@@ -1,3 +1,4 @@
+import { assistantStatus } from './assistant-status.mjs';
 import { geometryBudgetChanged } from './geometry-advisory.mjs';
 import { geometryBudgetConfirmation } from './representation-budget.mjs';
 import { recordLoopStage } from './loop-timing.mjs';
@@ -660,7 +661,8 @@ export function attachVoiceCommandRunner({ events, dispatch, caption, speak, spi
   const stream = events ?? pushToTalkAudioEvents();
   if (typeof stream?.on !== 'function') throw new TypeError('A voice command runner needs a push-to-talk event stream.');
 
-  let closed = false, priming = true, lastUtteranceId, captionTurn = 0, chain = Promise.resolve();
+  const seenUtterances = new Set();
+  let closed = false, priming = true, captionTurn = 0, chain = Promise.resolve();
   // The page's own reading of the spin, used when the caller offers none. Any
   // dispatched action that is not a spin start ends the turn on the viewer
   // side, because every one of them runs through a mutation that pauses
@@ -749,19 +751,46 @@ export function attachVoiceCommandRunner({ events, dispatch, caption, speak, spi
     return corrected;
   }
 
+  let deciding = Promise.resolve();
   function handle(event) {
     if (closed || event?.state !== 'heard') return;
     // `on` replays the emitter's latest event to a new subscriber. A transcript
     // from before this session started must not execute on attach.
-    if (priming) { lastUtteranceId = event.utteranceId; return; }
+    if (priming) { if (event.utteranceId) seenUtterances.add(event.utteranceId); return; }
     const text = typeof event.text === 'string' ? event.text.trim() : '';
     if (!text) return;
     // One utterance runs once. A re-emitted `heard` is the same sentence.
-    if (event.utteranceId && event.utteranceId === lastUtteranceId) return;
-    lastUtteranceId = event.utteranceId;
+    if (event.utteranceId && seenUtterances.has(event.utteranceId)) return;
+    if (event.utteranceId) seenUtterances.add(event.utteranceId);
     const turn = ++captionTurn;
 
+    const transcript = event.transcript && typeof event.transcript === 'object' ? event.transcript : undefined;
     const resolved = resolve(text, event);
+    if (typeof event.decide === 'function') {
+      // A grammar reply is not an action. Release it for the assistant, or
+      // keep the existing offline reply when nobody is connected.
+      const local = Boolean(resolved?.action);
+      const pending = event.decide(local).then(granted => {
+        if (closed) return;
+        if (local && granted) execute(event, text, resolved, turn);
+        else if (hasAgent()) forwarded();
+        else if (!local) execute(event, text, resolved, turn);
+      });
+      deciding = Promise.all([deciding, pending]).then(() => {});
+      return;
+    }
+    // Old hosts have already published this transcript. Never execute it twice.
+    if (transcript && hasAgent()) { forwarded(); return; }
+    execute(event, text, resolved, turn);
+
+    function forwarded() {
+      record('voice-command', { phrase: text.slice(0, VOICE_COMMAND_MAX_PHRASE_CHARS), action: null, outcome: 'forwarded' });
+      show(AGENT_FORWARD_CAPTION);
+      announce(AGENT_FORWARD_REPLY);
+    }
+  }
+
+  function execute(event, text, resolved, turn) {
     if (!resolved) {
       // An unrecognized sentence is spoken as well as captioned: a wearer has
       // to be looking at the menu to read a caption.
@@ -839,10 +868,11 @@ export function attachVoiceCommandRunner({ events, dispatch, caption, speak, spi
           record('voice-command', { phrase: resolved.phrase, action: resolved.action.kind, outcome: 'retrying' });
         }
         record('voice-command', { phrase: resolved.phrase, action: resolved.action.kind, outcome: 'applied' });
+        // Record the rendered action even if a newer utterance owns the caption.
+        const said = spokenConfirmation(resolved, outcome);
+        if(!closed && outcome?.retrying!==true)assistantStatus.update({action:{status:'rendered',source:'Headset',text:said}});
         if (closed || turn !== captionTurn) return;
         if (outcome?.announced === true && outcome?.applied?.geometryBudget) return;
-        // The render's own answer, not the grammar's guess.
-        const said = spokenConfirmation(resolved, outcome);
         // The scene clears its start receipt when emphasis lands. Do not revive it.
         show(said === SPATIAL_VOICE_ACTIONS['tour-play'].say ? '' : said);
         announce(said, timing);
@@ -850,8 +880,8 @@ export function attachVoiceCommandRunner({ events, dispatch, caption, speak, spi
         // A refusal is the answer to a spoken question and has to be spoken
         // back. "There is no chain B in this structure." is the
         // message a wearer needs most, and it was reaching the menu only.
-        // The Mac transcribed the sentence, so `listen_voice` already has it
-        // and the agent can still answer what the page could not do.
+        // This page owns the sentence; report failure here instead of
+        // handing an action that may already have started to a second executor.
         const reason = failureReason(error);
         if (resolved.action.kind === 'grow-structure' && error && typeof error === 'object' && error.retrying === true) {
           record('voice-command', { phrase: resolved.phrase, action: resolved.action.kind, outcome: 'retrying' });
@@ -901,6 +931,6 @@ export function attachVoiceCommandRunner({ events, dispatch, caption, speak, spi
       try { unsubscribe?.(); } catch { /* The emitter may already be gone. */ }
     },
     /** Resolves once every dispatched command has settled. A test seam. */
-    settled: () => chain.catch(() => {}),
+    settled: async () => { await deciding; await chain; },
   };
 }

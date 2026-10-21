@@ -3,10 +3,105 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker } from 'node:worker_threads';
-import { menuInvariantHarness, realAppearanceWorker } from './fixtures/menu-invariant-harness.mjs';
+import { menuInvariantHarness, realAppearanceWorker, viewerFunction } from './fixtures/menu-invariant-harness.mjs';
 import { compoundOps } from './compound-change.mjs';
 import { createInspectionState, normalizeAppearance, normalizePlacement, sameAppearance } from './inspection-state.mjs';
 import { placementFitWithinEnvelope } from './placement-fit-envelope.mjs';
+
+test('repeated visible molecular moves and large scales keep advisory clearance silent', async () => {
+  const t = menuInvariantHarness({ held: true, half: .7 });
+  Object.assign(t.h, { AbortController });
+  t.h.inspectionState.placement = () => t.placement();
+  vm.runInContext(viewerFunction('startXrPlacementFollowup'), t.h);
+  let labels = 0;
+  t.h.componentLabels = { active: () => true, relayout: async () => { labels++; } };
+  t.h.talkCaption.set({ outcome: 'The toxin binds its target.' });
+  const notices = t.events.length;
+  for (let move = 0; move < 5; move++) {
+    t.h.inspectionState.place({ translation: [move % 2 ? .1 : 0, 0, -1], scale: 1 + move * .5 });
+    t.h.applyInspectionTransform();
+    const committed = t.placement();
+    await t.h.startXrPlacementFollowup({ gesture: move ? 'scale' : 'grab' }, undefined, 1);
+    assert.deepEqual(t.placement(), committed, 'an advisory refusal cannot move the committed molecule');
+    assert.equal(t.h.retainedPoseHidden, false);
+    assert.ok(t.live.has(t.base.obj.data.repr), 'the visible structure stays rendered');
+    assert.equal(t.caption(), 'The toxin binds its target.', 'clearance does not replace the current reading with recovery instructions');
+  }
+  assert.equal(t.fits(), 5, 'the real geometry worker still measures each committed pose');
+  assert.equal(t.events.filter(event => event.event === 'menu-clearance-deferred').length, 5, 'refusals remain in diagnostics');
+  assert.equal(labels, 5, 'labels still update after advisory clearance refuses');
+  assert.deepEqual(t.events.slice(notices).filter(event => event && typeof event === 'object'
+    && (Object.hasOwn(event, 'outcome') && !event.kind || Object.hasOwn(event, 'progress'))), [], 'no progress or recovery popup is emitted');
+});
+
+test('a genuinely hidden retained entry publishes one recovery instruction', async () => {
+  const t = menuInvariantHarness({ held: true, half: .7 });
+  await t.h.checkRetainedEntryPose();
+  const notices = t.events.filter(event => typeof event?.outcome === 'string' && /Press Reset or Fit/.test(event.outcome));
+  assert.equal(notices.length, 1, 'the entry owner and geometry helper must not publish the same refusal twice');
+  assert.equal(t.h.retainedPoseHidden, true);
+  assert.equal(t.live.size, 0);
+  assert.match(t.caption(), /would cover the menu.*Press Reset or Fit/);
+});
+
+test('a new grab cancels silent clearance without clearing an explicit action caption', { timeout: 2000 }, async () => {
+  let posted = false;
+  const t = menuInvariantHarness({ held: true, half: .7, workerOptions: { makeWorker: () => ({
+    postMessage() { posted = true; }, terminate() {},
+  }) } });
+  Object.assign(t.h, { AbortController });
+  t.h.inspectionState.placement = () => t.placement();
+  vm.runInContext(viewerFunction('startXrPlacementFollowup'), t.h);
+  const pending = t.h.startXrPlacementFollowup({ gesture: 'scale' }, undefined, 1);
+  while (!posted) await new Promise(resolve => setImmediate(resolve));
+  t.h.talkCaption.set({ progress: 'Loading the next chapter…' });
+  t.h.cancelXrPlacementFollowup();
+  await pending;
+  assert.equal(t.caption(), 'Loading the next chapter…');
+  assert.ok(!t.events.some(event => /Press Reset or Fit/.test(event?.outcome ?? '')));
+  assert.equal(t.h.retainedPoseHidden, false);
+  assert.equal(t.h.placementViewWaiters.size, 0);
+});
+
+test('an explicit rejected placement still reports its actual error without claiming the visible structure is hidden', async () => {
+  const t = menuInvariantHarness({ held: true, half: .7 });
+  const before = t.placement();
+  await assert.rejects(t.h.clearHeldPlatePlacement(before, { keepWearer: true, kind: 'wearer-placement' }), /would cover the menu/);
+  assert.match(t.caption(), /would cover the menu/);
+  assert.doesNotMatch(t.caption(), /to show the structure/);
+  assert.equal(t.h.retainedPoseHidden, false);
+  assert.deepEqual(t.placement(), before);
+});
+
+test('an explicitly zero-alpha lesson baseline keeps its requested pose without a false geometry fit', async () => {
+  const t = menuInvariantHarness();
+  t.h.chapterInteractionDepth = 1;
+  t.base.obj.data.repr.renderObjects[0].values.alpha = { ref: { value: 0 } };
+  const requested = t.placement();
+  assert.deepEqual(await t.h.clearHeldPlatePlacement(requested), requested);
+  assert.equal(t.fits(), 0, 'an invisible template has no silhouette for the worker');
+  assert.equal(t.reads(), 0);
+  assert.equal(t.caption(), '');
+  assert.equal(t.h.placementViewWaiters.size, 0);
+});
+
+test('visible but unmeasurable geometry still refuses instead of taking the transparent-baseline path', async () => {
+  const t = menuInvariantHarness();
+  const object = t.base.obj.data.repr.renderObjects[0];
+  object.values.alpha = { ref: { value: 1 } };
+  delete object.values.aPosition;
+  delete object.values.aTransform;
+  await assert.rejects(t.h.clearHeldPlatePlacement(t.placement()), /measurable in both eyes/);
+  assert.equal(t.fits(), 1);
+});
+
+test('an invisible baseline does not bypass missing eye-view validation', () => {
+  const t = menuInvariantHarness();
+  t.base.obj.data.repr.renderObjects[0].values.alpha = { ref: { value: 0 } };
+  t.h.latestRoomPlacementPose.labelViews = [];
+  assert.throws(() => t.h.clearHeldPlatePlacement(t.placement()), /both eye views/);
+  assert.equal(t.fits(), 0);
+});
 
 function heldCompoundHarness() {
   const t = menuInvariantHarness({ held: true });

@@ -87,7 +87,8 @@ describe('bounded OAuth voice command contract', () => {
     });
     const response = await tools.get('stereo_structure.voice_command')!(input);
     expect(response.structuredContent).toEqual(expect.objectContaining({ message: 'Request queued for the connected task.' }));
-    expect(JSON.stringify(response)).not.toContain('microtubule do');
+    expect(response.structuredContent.heard).toBe('What does this microtubule do?');
+    expect(response.structuredContent.heard.length).toBeLessThanOrEqual(80);
     const claimed = registered.intents.claim({ sessionId: binding.sessionId, sourceToken: binding.sourceToken, desktopPanelId: 'desktop-panel' });
     expect(claimed?.intent.transcript).toBe('What does this microtubule do?');
     const speak = await tools.get('stereo_structure.speak_to_headset')!({ ...binding, message: 'The lattice is stable.' });

@@ -1,0 +1,582 @@
+{
+  "version": 1,
+  "id": "hemoglobin-deoxy-oxy",
+  "title": "Hemoglobin: deoxy to oxy",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/4HHB"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/1HHO"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/0022-2836(84)90472-8"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/S0022-2836(83)80313-1"
+      }
+    ],
+    "sourceSha256": "3b822c2485a933e67d35bd8c6eceb8fb087febf747966f85b86cf55d211c9cac",
+    "note": "Reduced chapter-return regression: CA atoms from the authored 4HHB/1HHO composite; original side-by-side offsets and beta-2 keyframes retained. Ligand layers, labels and visibility omitted."
+  },
+  "chapters": [
+    {
+      "id": "side-by-side",
+      "title": "Deoxy and oxy, side by side",
+      "caption": "Deoxy (4HHB, blue) and oxy (1HHO, red) human hemoglobin, each superposed on alpha chain A (141 CA atoms, RMSD 0.72 Angstrom) and then moved apart for viewing, same orientation. Gold: hemes. White: bound O2 in 1HHO. 1HHO deposits one alpha-beta pair; its second pair is the crystallographic 2-fold mate.",
+      "durationSeconds": 14.0,
+      "changes": [
+        {
+          "durationSeconds": 14.0,
+          "kind": "hold"
+        }
+      ],
+      "animation": {
+        "version": 1,
+        "durationSeconds": 14.0,
+        "tracks": [
+          {
+            "id": "deoxy-shift",
+            "chains": [
+              "DA",
+              "DB",
+              "DC",
+              "DD"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -43,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 14.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -43,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "oxy-shift",
+            "chains": [
+              "OA",
+              "OB",
+              "OC",
+              "OD"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  43,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 14.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  43,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": true,
+          "speed": 1
+        }
+      },
+      "immersive": {
+        "view": "fit",
+        "motion": "hold",
+        "narration": "Deoxy hemoglobin in blue, oxy in red, superposed on alpha chain A and moved apart. Gold marks the hemes; white is bound oxygen.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "da",
+              "label": "Deoxy alpha-1",
+              "color": "#3f86e0",
+              "chain": "DA"
+            },
+            {
+              "id": "db",
+              "label": "Deoxy beta-1",
+              "color": "#9cc8ff",
+              "chain": "DB"
+            },
+            {
+              "id": "dc",
+              "label": "Deoxy alpha-2",
+              "color": "#3f86e0",
+              "chain": "DC"
+            },
+            {
+              "id": "dd",
+              "label": "Deoxy beta-2",
+              "color": "#9cc8ff",
+              "chain": "DD"
+            },
+            {
+              "id": "oa",
+              "label": "Oxy alpha-1",
+              "color": "#e5533d",
+              "chain": "OA"
+            },
+            {
+              "id": "ob",
+              "label": "Oxy beta-1",
+              "color": "#ffa68f",
+              "chain": "OB"
+            },
+            {
+              "id": "oc",
+              "label": "Oxy alpha-2",
+              "color": "#e5533d",
+              "chain": "OC"
+            },
+            {
+              "id": "od",
+              "label": "Oxy beta-2",
+              "color": "#ffa68f",
+              "chain": "OD"
+            }
+          ],
+          "focus": [
+            "da",
+            "db",
+            "dc",
+            "dd",
+            "oa",
+            "ob",
+            "oc",
+            "od"
+          ],
+          "contextOpacity": 0.12,
+          "framing": "context"
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "deoxy",
+              "target": {
+                "chain": "DA"
+              },
+              "representation": "cartoon",
+              "color": "#3f86e0",
+              "opacity": 1,
+              "context": false
+            }
+          ],
+          "labels": [],
+          "distances": []
+        }
+      }
+    },
+    {
+      "id": "beta-turn",
+      "title": "Beta chain 2 turns toward oxy",
+      "caption": "Beta chain 2 (chain D of 4HHB, blue) turns about 12 degrees, sliding about 1 Angstrom along its axis, onto its position in oxyhemoglobin (faded red, 1HHO). Endpoints are deposited coordinates after a rigid fit (0.82 Angstrom residual); the path between them is a straight screw interpolation, illustrative. Alpha chain 2, which turns about 14 degrees as well, is hidden for clarity.",
+      "durationSeconds": 24.0,
+      "changes": [
+        {
+          "durationSeconds": 12.0,
+          "kind": "hold"
+        },
+        {
+          "durationSeconds": 12.0,
+          "kind": "hold"
+        }
+      ],
+      "animation": {
+        "version": 1,
+        "durationSeconds": 24.0,
+        "tracks": [
+          {
+            "id": "beta2-turn",
+            "chains": [
+              "DD"
+            ],
+            "pivot": [
+              -5.047,
+              26.364,
+              27.006
+            ],
+            "keyframes": [
+              {
+                "t": 0.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 3.0,
+                "rotation": [
+                  -0.001121,
+                  -6e-05,
+                  -0.00043,
+                  0.999999
+                ],
+                "translation": [
+                  0.0115,
+                  0.0006,
+                  0.0044
+                ]
+              },
+              {
+                "t": 4.0,
+                "rotation": [
+                  -0.004288,
+                  -0.000231,
+                  -0.001646,
+                  0.999989
+                ],
+                "translation": [
+                  0.044,
+                  0.0024,
+                  0.0169
+                ]
+              },
+              {
+                "t": 5.0,
+                "rotation": [
+                  -0.009209,
+                  -0.000497,
+                  -0.003536,
+                  0.999951
+                ],
+                "translation": [
+                  0.0946,
+                  0.0051,
+                  0.0363
+                ]
+              },
+              {
+                "t": 6.0,
+                "rotation": [
+                  -0.015591,
+                  -0.000842,
+                  -0.005986,
+                  0.99986
+                ],
+                "translation": [
+                  0.1602,
+                  0.0086,
+                  0.0615
+                ]
+              },
+              {
+                "t": 7.0,
+                "rotation": [
+                  -0.023142,
+                  -0.001249,
+                  -0.008886,
+                  0.999692
+                ],
+                "translation": [
+                  0.2378,
+                  0.0128,
+                  0.0913
+                ]
+              },
+              {
+                "t": 8.0,
+                "rotation": [
+                  -0.031568,
+                  -0.001704,
+                  -0.012121,
+                  0.999427
+                ],
+                "translation": [
+                  0.3243,
+                  0.0175,
+                  0.1245
+                ]
+              },
+              {
+                "t": 9.0,
+                "rotation": [
+                  -0.040575,
+                  -0.00219,
+                  -0.015579,
+                  0.999053
+                ],
+                "translation": [
+                  0.4169,
+                  0.0225,
+                  0.1601
+                ]
+              },
+              {
+                "t": 10.0,
+                "rotation": [
+                  -0.04987,
+                  -0.002692,
+                  -0.019148,
+                  0.998568
+                ],
+                "translation": [
+                  0.5125,
+                  0.0277,
+                  0.1968
+                ]
+              },
+              {
+                "t": 11.0,
+                "rotation": [
+                  -0.059161,
+                  -0.003193,
+                  -0.022715,
+                  0.997985
+                ],
+                "translation": [
+                  0.6081,
+                  0.0328,
+                  0.2335
+                ]
+              },
+              {
+                "t": 12.0,
+                "rotation": [
+                  -0.068154,
+                  -0.003679,
+                  -0.026168,
+                  0.997325
+                ],
+                "translation": [
+                  0.7007,
+                  0.0378,
+                  0.2691
+                ]
+              },
+              {
+                "t": 13.0,
+                "rotation": [
+                  -0.076558,
+                  -0.004132,
+                  -0.029395,
+                  0.996623
+                ],
+                "translation": [
+                  0.7873,
+                  0.0425,
+                  0.3023
+                ]
+              },
+              {
+                "t": 14.0,
+                "rotation": [
+                  -0.084082,
+                  -0.004538,
+                  -0.032284,
+                  0.995925
+                ],
+                "translation": [
+                  0.8649,
+                  0.0467,
+                  0.3321
+                ]
+              },
+              {
+                "t": 15.0,
+                "rotation": [
+                  -0.090437,
+                  -0.004881,
+                  -0.034724,
+                  0.995285
+                ],
+                "translation": [
+                  0.9305,
+                  0.0502,
+                  0.3573
+                ]
+              },
+              {
+                "t": 16.0,
+                "rotation": [
+                  -0.095334,
+                  -0.005146,
+                  -0.036604,
+                  0.994759
+                ],
+                "translation": [
+                  0.981,
+                  0.053,
+                  0.3767
+                ]
+              },
+              {
+                "t": 17.0,
+                "rotation": [
+                  -0.098484,
+                  -0.005316,
+                  -0.037814,
+                  0.994406
+                ],
+                "translation": [
+                  1.0136,
+                  0.0547,
+                  0.3892
+                ]
+              },
+              {
+                "t": 18.0,
+                "rotation": [
+                  -0.099598,
+                  -0.005376,
+                  -0.038242,
+                  0.994278
+                ],
+                "translation": [
+                  1.0251,
+                  0.0553,
+                  0.3936
+                ]
+              },
+              {
+                "t": 24.0,
+                "rotation": [
+                  -0.099598,
+                  -0.005376,
+                  -0.038242,
+                  0.994278
+                ],
+                "translation": [
+                  1.0251,
+                  0.0553,
+                  0.3936
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": true,
+          "speed": 1
+        }
+      },
+      "immersive": {
+        "view": "fit",
+        "motion": "hold",
+        "narration": "Beta chain 2 turns about twelve degrees from its deoxy position, blue, onto its oxy position, faded red. Alpha 1 and beta 1 stay put.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "da",
+              "label": "Deoxy alpha-1",
+              "color": "#3f86e0",
+              "chain": "DA"
+            },
+            {
+              "id": "db",
+              "label": "Deoxy beta-1",
+              "color": "#9cc8ff",
+              "chain": "DB"
+            },
+            {
+              "id": "dd",
+              "label": "Deoxy beta-2",
+              "color": "#9cc8ff",
+              "chain": "DD"
+            },
+            {
+              "id": "od",
+              "label": "Oxy beta-2",
+              "color": "#ffa68f",
+              "chain": "OD"
+            }
+          ],
+          "focus": [
+            "da",
+            "db",
+            "dd"
+          ],
+          "contextOpacity": 0.3,
+          "framing": "context"
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "deoxy",
+              "target": {
+                "chain": "DA"
+              },
+              "representation": "cartoon",
+              "color": "#3f86e0",
+              "opacity": 1,
+              "context": false
+            }
+          ],
+          "labels": [],
+          "distances": []
+        }
+      }
+    }
+  ],
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  }
+}

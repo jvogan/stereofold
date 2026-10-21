@@ -30,6 +30,7 @@ import { identity, syntheticViews } from './fixtures/component-label-diagnostics
 import { applyMatrix4, invertMatrix4 } from './room-lock.mjs';
 import { tangentRectsForPoints, journeySeatDetail } from './journey-seat-record.mjs';
 import { measureEntryStandoff } from './entry-standoff.mjs';
+import { measureGlassClearance } from './fixtures/glass-clearance.mjs';
 import { resetViewPlacement } from './reset-view-placement.mjs';
 import { resetEntryGeometry, resetEntryLateralTravel } from './reset-entry-geometry.mjs';
 
@@ -165,8 +166,10 @@ test('one panel measured twice gives one right edge, in the recording and in the
 
   const { h, drawnRows, drawnMenu } = await panels();
   try {
-    assert.equal(drawnRows.length, 31, 'the restoring draw has the 31 rows the recording lists');
-    assert.equal(drawnMenu.length, RECORDED.tourEndMenuRect.points, 'and the recorded number of drawn menu points');
+    assert.equal(drawnRows.filter(row => row.id !== 'motion').length, 31, 'the historical restoring controls retain their 31 rows');
+    assert.equal(drawnRows.filter(row => row.id === 'motion').length, 1, 'the current menu also exposes its motion control');
+    assert.equal(drawnRows.length, 32);
+    assert.equal(drawnMenu.length, RECORDED.tourEndMenuRect.points + 17, 'the added motion row contributes its 17 drawn outline points');
     // Feed the recorded P0, radius and camera scale, so the subject the
     // standoff measures against is the saved one rather than an invented one.
     const saved = savedSubject(worldBox(0.05, 0.3, 0.02, 0.18, 3.585));
@@ -180,7 +183,7 @@ test('one panel measured twice gives one right edge, in the recording and in the
 });
 
 test('the completed rows narrow the chapter menu on its held anchor', async () => {
-  const { h, entryAnchor, preview, drawnMenu, drawnPlate } = await panels();
+  const { h, entryAnchor, preview, drawnMenu } = await panels();
   try {
     assert.deepEqual(preview.rows.map(row => row.id).filter(id => ['done', 'page'].includes(id)), [],
       'the completed menu draws neither the chapter Done nor its page row');
@@ -194,22 +197,31 @@ test('the completed rows narrow the chapter menu on its held anchor', async () =
       `the completed rows narrow the held menu by ${(drawnRight - restingRight).toFixed(4)}`);
     assert.ok(drawnRight - restingRight < recorded,
       'the device narrowing included the implicit re-seat that Done no longer makes');
-    // The caption's inboard edge is fitted to the same central cone in both
-    // layouts. Narrowing need not move that edge: measure the complete span.
-    const chapterGlass = leftRect(drawnPlate), completedGlass = leftRect(preview.points);
-    assert.ok(chapterGlass.right - chapterGlass.left > completedGlass.right - completedGlass.left,
-      'and the complete glass span the solver is handed narrows with it');
-    assert.ok(chapterGlass.top > completedGlass.top, 'the completed caption also has a lower ceiling');
+    // The completed information card now faces forward above the molecule.
+    // The union of it and the column need not narrow or lower its ceiling:
+    // the gap between those separate plates is not glass. Done must measure
+    // exactly the plates it draws at the held anchor.
+    await h.toolbar.update({ restoreTourSeat: true });
+    assert.deepEqual(h.toolbar.platePoints().plates, preview.points.plates,
+      'Done draws every plate the solver measured, including the forward card');
   } finally { await h.toolbar.dispose(); }
 });
 
 test('Done refits a saved seat that overlaps completed glass at the held anchor', async () => {
   const { h, preview, drawnPlate } = await panels();
   try {
-    // The saved subject where the recording puts it: its left edge 0.0395
-    // tangent inside the restoring plate's right edge, 0.291 tangent wide.
-    const left = leftRect(drawnPlate).right - 0.0395;
-    const saved = savedSubject(worldBox(left, left + 0.291, 0.0153, 0.1781, 3.585));
+    // Overlap the completed column's actual inboard edge. The old fixture
+    // followed the wider restoring column, which retreats on completion and
+    // now leaves that saved box clear.
+    const column = leftRect(preview.points.plates[1]);
+    const left = column.right - .0395;
+    const saved = savedSubject(worldBox(left, left + .291, column.bottom + .01, column.top - .01, 3.585));
+    for (const points of [preview.points, drawnPlate]) {
+      const witness = measureGlassClearance({ objects: saved.objects, views,
+        cameraScale: CAMERA_SCALE, renderFromRoom: identity(), menuPoints: points });
+      assert.ok(witness.eyes.every(eye => eye.clearance < 0),
+        'the saved mesh actually overlaps glass in both eyes before Done');
+    }
     assert.equal(keepsSeat(saved, preview.points), false, 'the held completed panel still overlaps this saved seat');
     assert.equal(keepsSeat(saved, drawnPlate), false, 'the restoring panel refits it');
   } finally { await h.toolbar.dispose(); }
@@ -218,7 +230,10 @@ test('Done refits a saved seat that overlaps completed glass at the held anchor'
 test('the centre band is read from the head beside held completed glass', async () => {
   const { h, preview } = await panels();
   try {
-    const base = leftRect(preview.points).right + 0.01;
+    // A forward subject below the overhead card, beside the peripheral menu.
+    // The complete glass union's right edge belongs to that overhead card;
+    // putting a subject beside it would move the subject outside the band.
+    const base = -.05;
     const baselineEyes = eyeCentres(worldBox(base, base + 0.291, 0.0153, 0.1781, 3.585));
     const baselineCentre = (baselineEyes[0] + baselineEyes[1]) / 2;
     const cases = [

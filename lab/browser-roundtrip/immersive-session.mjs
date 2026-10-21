@@ -22,7 +22,7 @@ import { showTalkOutcome } from './talk-caption.mjs'; // The head-seated caption
 // that is sounding, not the whole paragraph.
 import { replyCaptionHoldMs, replySegmentsOf, REPLY_SEGMENT_EVENT } from './reply-segments.mjs';
 import { voiceCommandSpeaker } from './voice-command-speaker.mjs';
-import { agentAttached, listeningStatusLine } from './agent-presence.mjs'; // Is Claude listening?
+import { voiceListening, listeningStatusLine } from './agent-presence.mjs';
 import { createVoiceCapture } from './voice-capture.mjs';
 import { blindVisibility, createTourResumeIntent, watchSessionVisibility, XR_VISIBILITY_DIAGNOSTIC } from './xr-visibility.mjs'; // The headset stopped showing the session.
 import { trackXrFrames } from './xr-frame-lifetime.mjs';
@@ -42,7 +42,7 @@ const REPLY_CAPTION_EVENT = 'stereofold-headset-reply';
  * `agent-presence.mjs`, beside the reading they depend on. Re-exported here
  * because that is where callers have always found the line.
  */
-export { AGENT_LISTENING_LINE, listeningStatusLine } from './agent-presence.mjs';
+export { listeningStatusLine } from './agent-presence.mjs';
 
 const MODES = new Map([['vr', 'immersive-vr'], ['ar', 'immersive-ar'], ['immersive-vr', 'immersive-vr'], ['immersive-ar', 'immersive-ar']]);
 const PRESENTATION_TIMEOUT_MS = 10_000;
@@ -281,7 +281,11 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
   // The parts of the colour key the structure is wearing, so
   // "show me the guide RNA" is a command in this lesson and nowhere else.
   getLessonParts = () => [],
-  getSpatialState = () => ({}), getEntryGeometry = () => ({}), getMolecularBounds = () => canvas.boundingSphereVisible, onConsumeSpatialSelect = () => {}, onInputFrame = () => {}, onHeadFrame = () => {}, onInputVisibility = () => {},
+  // Glass outside the toolbar, in room metres, that the near plane must stay
+  // in front of: the talk caption's plate as points, and each drawn name
+  // plate as a sphere about its anchor as wide as its push toward the eye.
+  glassPoints = () => [], glassSpheres = () => [],
+  getSpatialState = () => ({}), beforeMenuDraw = async () => {}, getEntryGeometry = () => ({}), getMolecularBounds = () => canvas.boundingSphereVisible, onConsumeSpatialSelect = () => {}, onInputFrame = () => {}, onHeadFrame = () => {}, onInputVisibility = () => {},
   // Canvas3D's draw counter, so the head observer can tell the
   // callback that drew this frame from the ones that ran before it.
   getDrawCount = () => undefined,
@@ -364,6 +368,24 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         }
         if (Number.isFinite(near) && Number.isFinite(far)) ranges.push({ near, far });
       }
+    }
+    const glass = glassPoints() ?? [], plates = glassSpheres() ?? [];
+    if (glass.length || plates.length) {
+      const pose = frame.getViewerPose(record.space);
+      let near = Infinity, far = -Infinity;
+      for (const xrView of pose?.views ?? []) {
+        const m = xrView.transform.inverse.matrix;
+        for (const point of glass) {
+          const depth = -(m[2] * point[0] + m[6] * point[1] + m[10] * point[2] + m[14]);
+          if (Number.isFinite(depth) && depth > 0) { near = Math.min(near, depth); far = Math.max(far, depth); }
+        }
+        for (const { center: point, radius } of plates) {
+          const depth = -(m[2] * point[0] + m[6] * point[1] + m[10] * point[2] + m[14]);
+          if (Number.isFinite(depth) && depth - radius > 0) { near = Math.min(near, depth - radius); far = Math.max(far, depth + radius); }
+        }
+      }
+      // The same margin the toolbar keeps in front of its own glass.
+      if (Number.isFinite(near) && Number.isFinite(far)) ranges.push({ near: Math.max(0.01, near - 0.05), far: far + 0.05 });
     }
     let near = Infinity, far = -Infinity;
     for (const range of ranges) if (range && Number.isFinite(range.near) && Number.isFinite(range.far)) { near = Math.min(near, range.near); far = Math.max(far, range.far); }
@@ -954,7 +976,7 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         startupPhase = 'preparing-menu';
         record.toolbar = createSpatialToolbar({
           plugin, canvas, presentation: record.presentation, session, space, Mat4, onAction: onSpatialAction, onActionIntent: onSpatialActionIntent, getState: getSpatialState,
-          getMolecularBounds, getEntryGeometry, getDepthRange: () => record.molecularDepth,
+          getMolecularBounds, getEntryGeometry, beforeMenuDraw, getDepthRange: () => record.molecularDepth,
           onActionError: error => {
             globalThis.__stereofoldDiagnostics?.record?.('toolbar-action', { phase: 'failed', error: String(error?.message ?? error) });
           },
@@ -973,7 +995,7 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         // own status row, which is the only place the listening state and the
         // spoken reply are shown now that the floating orb is gone.
         //
-        // `listeningText` is the one line that names Claude, and
+        // `listeningText` reads the same assistant status as the menu, and
         // this is the only place it is drawn. It is a reader, not a string,
         // because an agent may attach or fall away between presses.
         try {
@@ -1004,7 +1026,7 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         try {
           record.voiceCommands = attachVoiceCommandRunner({
             events: record.pushToTalk?.audioEvents,
-            dispatch: action => onSpatialAction(action),
+            dispatch: action => { onSpatialActionIntent(action); return onSpatialAction(action); },
             // The menu's status row, and the head-seated caption
             // the wearer is actually looking at. The menu is about 47 degrees
             // off to one side of a Quest 2 field of view; a wearer facing the
@@ -1017,7 +1039,7 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
             // a sentence the page cannot act on died or was handed on.
             spinning: () => getSpatialState()?.motion?.paused === false,
             getGeometryBudget: () => getSpatialState()?.geometryBudget,
-            agentAttached: () => agentAttached(),
+            agentAttached: () => voiceListening(),
             // The lesson's own nouns. Without this the
             // wearer's only route back to a part the lesson named was to wait
             // for the chapter that named it to come round again.
@@ -1051,6 +1073,9 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
           // reply down at 3.08 s while its clip was still playing at 7.05 s.
           const onReply = event => {
             const caption = event?.detail;
+            // A later batch joins the audio queue; its words take the plate
+            // only when the segment event says playback has reached them.
+            if (caption?.voiceOffset > 0) return;
             const segments = replySegmentsOf(caption);
             const segment = segments.length ? segments[0] : undefined;
             const text = segment ? segment.text : caption?.text;
@@ -1127,7 +1152,13 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
       }
     })();
     try { await entering; }
-    finally { entering = undefined; }
+    finally {
+      entering = undefined;
+      // A rejected request owns no session or permission prompt. Retain its
+      // error/reload outcome, but do not leave tooling waiting for Allow on
+      // the stale requesting-headset phase. Cleanup still reports pending.
+      if (!active) startupPhase = 'idle';
+    }
   }
 
   async function endRecord(record) {
@@ -1295,6 +1326,10 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
   function platePoints() {
     try { return active?.toolbar?.platePoints?.() ?? []; } catch { return []; }
   }
+  /** The same drawn plates, one point set per plate. */
+  function glassPlates() {
+    try { return active?.toolbar?.glassPlates?.() ?? []; } catch { return []; }
+  }
 
   /**
    * The caption card alone, for the screen-space seat. The
@@ -1315,6 +1350,11 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
    */
   function drawnMenuPoints() {
     try { return active?.toolbar?.drawnMenuPoints?.() ?? []; } catch { return []; }
+  }
+
+  /** The lesson card's centred seats, for a chapter's framing to leave room for. */
+  function chapterCardSeats(pose) {
+    try { return active?.toolbar?.chapterCardSeats?.(pose) ?? []; } catch { return []; }
   }
 
   /** Reserved label obstacle, including the last seat during a grab. */
@@ -1384,14 +1424,19 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
     await removeOutcome();
   }
 
-  return Object.freeze({ capabilities, enter, end, outcome, syncBounds, refreshToolbar, clearStatus: () => active?.toolbar?.setStatus(''), platePoints, captionPoints, drawnMenuPoints, menuPoints, menuRows, dispose,
+  return Object.freeze({ capabilities, enter, end, outcome, syncBounds, refreshToolbar,
+    whenReady: async () => { await entering; },
+    clearStatus: () => active?.toolbar?.setStatus(''), platePoints, glassPlates, captionPoints, drawnMenuPoints, chapterCardSeats, menuPoints, captionColumn: () => active?.toolbar?.captionColumn?.() ?? null, menuRows, dispose,
     beginTransform: () => active?.frameCost?.beginTransform(),
     endTransform: started => active?.frameCost?.endTransform(started),
     switchMode, // Passthrough on and off are two sessions, not one setting.
     passthroughSupported: () => capabilitySnapshot?.ar, // The menu never offers a switch the runtime refused.
     pendingEntry: () => (pendingEntry ? { ...pendingEntry } : null), // The one press the 2D page owes the wearer.
     clearPendingEntry: () => { pendingEntry = null; }, // The wearer changed their mind, or the page took the press.
-    toolbarAction: action => active?.toolbar?.runAction(action),
+    // Programmatic seating/recentering is not a new wearer intent. Physical
+    // menu presses and face buttons report intent at their input boundary.
+    toolbarAction: action => active?.toolbar?.runAction(action, { origin: 'programmatic' }),
+    flushMenuLayout: () => active?.menuResolve?.flush(),
     toolbarRows: options => active?.toolbar?.rows?.(options) ?? [], // Live rows; reset measures the menu it wakes.
     // A simulated controller pose, aimed through the
     // toolbar's own hit test and select handlers. Not a hand, not a wearer.
@@ -1444,7 +1489,7 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
       let frameRates = { supportedFrameRates: [], reportedFrameRate: null };
       try { frameRates = active?.renderBudget?.frameRateState?.() ?? frameRates; }
       catch { /* The optional session properties may disappear during teardown. */ }
-      return { phase: startupPhase, pending: Boolean(entering), reloadRequired,
+      return { phase: startupPhase, pending: Boolean(entering || ending), reloadRequired,
         mode: active?.mode ?? requestedMode, gestureActive,
         frameCount, viewCount, blendMode: liveBlendMode(), errorName,
         presenting: Boolean(canvas.xr?.isPresenting?.value),

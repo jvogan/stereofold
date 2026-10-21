@@ -13,6 +13,14 @@ function player(){
   return {p,state};
 }
 describe('agent tour commands',()=>{
+  it('starts an untouched selected lesson without an intermediate reset, but resets a restart',async()=>{
+    const {p,state}=player(); state.selectedId=TOURS[0].id;
+    p.select=vi.fn(p.select);
+    await applyTourCommand(p,{action:'start',tourId:TOURS[0].id,narration:false});
+    expect(p.select).not.toHaveBeenCalled();
+    await applyTourCommand(p,{action:'start',tourId:TOURS[0].id,narration:false});
+    expect(p.select).toHaveBeenCalledOnce();
+  });
   it('admits bounded lesson IDs and action-specific arguments',()=>{
     expect(tourActionSchema.safeParse({action:'start',tourId:TOURS[0].id}).success).toBe(true);
     expect(tourActionSchema.parse({action:'start',tourId:TOURS[0].id,autoplay:false}).autoplay).toBe(false);

@@ -1,0 +1,19 @@
+{
+  "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "modelNumber": 1,
+  "assemblyId": "asymmetric_unit",
+  "selectionKeys": [],
+  "camera": {
+    "mode": "perspective", "fov": 0.7853981633974483,
+    "position": [0, 0, 10], "target": [0, 0, 0], "up": [0, 1, 0],
+    "radius": 5, "radiusMax": 10, "fog": 50, "clipFar": true, "minNear": 0.1, "minFar": 1
+  },
+  "inspection": {
+    "appearance": {
+      "representation": "cartoon", "color": "chain-id", "uniformColor": "#58dcc9",
+      "background": "#071015", "highlightColor": "#f2c47c", "opacity": 1,
+      "labels": false, "clipping": 0, "fog": 0
+    },
+    "placement": { "translation": [12, -20, 30], "rotation": [12, 24, -36], "scale": 0.005 }
+  }
+}

@@ -6,7 +6,7 @@ import { toolbarFrameHarness } from './toolbar-frame-runtime.mjs';
 import { pageFunction } from './label-action-harness.mjs';
 import { applyMatrix4 } from '../room-lock.mjs';
 import { resetViewPlacement } from '../reset-view-placement.mjs';
-import { measureEntryStandoff } from '../entry-standoff.mjs';
+import { measureGlassClearance } from './glass-clearance.mjs';
 import { journeySeatDetail } from '../journey-seat-record.mjs';
 
 // A device run's normalized placement, from retained captures and drive
@@ -20,7 +20,8 @@ const matrixFor = placement => {
   const m = identity(); m[0] = m[5] = m[10] = placement.scale;
   m.splice(12, 3, ...placement.translation); return m;
 };
-export async function deviceDoneClearance({ runtime, getPlacement, setPlacement, beforeMenuDraw = async () => {}, placement = devicePlacement }) {
+export async function deviceDoneClearance({ runtime, getPlacement, setPlacement, beforeMenuDraw = async () => {}, placement = devicePlacement, halfHeight = .3,
+  subject = { title: 'Hemoglobin tetramer', pdbId: '4HHB', chains: 4, representation: 'molecular-surface', color: 'chain-id' } }) {
   const renderFromRoom = identity();
   renderFromRoom.splice(12, 3, ...placement.translation.map((v, i) => v - [0, 1.6, -4][i]));
   const headInRoom = identity(); headInRoom[13] = 1.6;
@@ -33,19 +34,19 @@ export async function deviceDoneClearance({ runtime, getPlacement, setPlacement,
   });
   const objects = () => [{ type: 'mesh', state: { visible: true }, values: {
     drawCount: cell(36), instanceCount: cell(1), aTransform: cell(matrixFor(getPlacement())),
-    aPosition: cell([-.6, .6].flatMap(x => [-.3, .3].flatMap(y => [-.1, .1].flatMap(z => [x, y, z])))),
+    aPosition: cell([-.6, .6].flatMap(x => [-halfHeight, halfHeight].flatMap(y => [-.1, .1].flatMap(z => [x, y, z])))),
   } }];
   const geometry = () => ({ objects: objects(), views, cameraScale: 1, renderFromRoom });
-  const subject = { title: 'Hemoglobin tetramer', pdbId: '4HHB', chains: 4, representation: 'molecular-surface', color: 'chain-id' };
   const live = toolbarFrameHarness(runtime, { getEntryGeometry: geometry,
     bounds: { center: [0, 1.6, -4], radius: .65 }, state: { subject } });
   // The menu remains at its previously drawn seat while the current head is
   // 20cm to its right. Done measures its completed glass on the held anchor.
   live.moveHead(-.2); await live.toolbar.update();
-  const roomEntry = {}, moves = [];
+  const roomEntry = {}, moves = [], placementReleases = [];
   let frameTime = Date.now();
   const context = vm.createContext({ structuredClone, Mat4, applyMatrix4, resetViewPlacement,
     cameraSnapshot: value => value, roomEntry, entryRoomPoint: undefined,
+    releaseWearerPlacement: reason => { placementReleases.push(reason); },
     canvas: { xr: { isPresenting: { value: true } }, camera: { scale: 1 } },
     latestRoomPlacementPose: { headInRoom, renderFromRoom, labelViews: views },
     loadedSphere: () => ({ center: [0, 0, 0], radius: 1 }),
@@ -69,8 +70,8 @@ export async function deviceDoneClearance({ runtime, getPlacement, setPlacement,
   context.journeySeatDetail = journeySeatDetail;
   const viewerSource = readFileSync(new URL('../viewer.mjs', import.meta.url), 'utf8');
   for (const name of ['restoreJourneySeat', 'recordJourneySeat']) vm.runInContext(pageFunction(viewerSource, name), context);
-  return { context, moves, roomEntry,
-    measure: () => measureEntryStandoff({ ...geometry(), menuPoints: live.toolbar.platePoints() }),
+  return { context, moves, roomEntry, placementReleases,
+    measure: () => measureGlassClearance({ ...geometry(), menuPoints: live.toolbar.platePoints() }),
     seatAnchor: () => live.toolbar.seatAnchor(),
     moveChapterMenu: async offset => {
       live.moveHead(offset); await live.toolbar.update({ recenter: true, origin: 'wearer' }); live.moveHead(-.2);

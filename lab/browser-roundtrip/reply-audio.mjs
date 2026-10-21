@@ -180,6 +180,8 @@ export function installReplyAudio(options = {}) {
   let finishPlaying;
   let stopped = false;
   let generation = 0;
+  let replyRoot;
+  let nextOffset = 0;
 
   const ensureContext = () => {
     if (context) return context;
@@ -397,13 +399,23 @@ export function installReplyAudio(options = {}) {
       seen.add(id);
       if (seen.size > REPLY_AUDIO_SEEN_LIMIT) seen.delete(seen.values().next().value);
     }
+    const sounding = segments.some(segment => replyAudioClipFrom(segment));
+    if (Number.isSafeInteger(caption?.voiceOffset) && caption.voiceOffset > 0) {
+      // A continuation belongs to exactly the prefix already accepted. An old
+      // reply cannot resume after a newer caption, even when it has no sound.
+      if (caption.voiceFor !== replyRoot || caption.voiceOffset !== nextOffset) return;
+      nextOffset += segments.length;
+      segmentPlayer.enqueue(caption, segments, captureSpeech(undefined));
+      return;
+    }
+    replyRoot = caption?.voiceFor ?? id;
+    nextOffset = sounding ? segments.length : 0;
     // Every new reply replaces the old one, including a silent caption. Drop
     // the queue before settling its current clip, and invalidate any decode
     // or media play promise that could otherwise start the old answer late.
     ++generation;
     segmentPlayer.drop('replaced');
     stopPlaying();
-    const sounding = segments.some(segment => replyAudioClipFrom(segment));
     // A silent or single-segment reply with no clip needs no sequencer. Its
     // caption is drawn by the page's reply listener, and any browser speech
     // fallback for this new reply is left alone.
@@ -422,6 +434,8 @@ export function installReplyAudio(options = {}) {
   } catch { /* A page with no event target simply never plays a clip. */ }
 
   const release = async () => {
+    replyRoot = undefined;
+    nextOffset = 0;
     ++generation;
     segmentPlayer.drop('released');
     stopPlaying();

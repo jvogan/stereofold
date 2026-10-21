@@ -9,3 +9,4 @@
 export * from './rock.js';
 export * from './parallax.js';
 export * from './oneEuro.js';
+export * from './keyframes.mjs';

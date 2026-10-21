@@ -50,12 +50,13 @@ for (const immersive of [false, true]) {
     vm.runInContext(fn('invalidateGesturePivot') + '\n' + fn('restoreInspection'), context);
     await vm.runInContext('restoreInspection(scene, {preserveCamera: immersive})', context);
     assert.equal(placement, livePlacement, 'passive restore still respects held placement');
-    assert.equal(fitted, 1, 'passive restore retains automatic preview policy');
+    assert.equal(camera, liveCamera, 'passive restore respects the viewer’s held camera');
+    assert.equal(fitted, 0, 'passive restore cannot refit a held camera');
     camera = liveCamera;
     await vm.runInContext('restoreInspection(scene, {preserveCamera: immersive, restorePlacement: true, preservePreviewCamera: true})', context);
     assert.equal(placement, savedPlacement, 'explicit named restore restores its requested placement');
     assert.equal(camera, immersive ? liveCamera : savedCamera);
-    assert.equal(fitted, 1, 'named restore does not refit its intentional camera');
+    assert.equal(fitted, 0, 'named restore does not refit its intentional camera');
   });
 }
 
@@ -212,6 +213,7 @@ for (const path of ['exit', 'saved scene restore']) {
     // Exercise the production exit callback, not just camera arithmetic.
     context.canRebuildForXr = () => false;
     context.applyInspectionAppearance = async () => {};
+    context.releaseFigurePlates = () => {};
     vm.runInContext(`'use strict';${source.includes('function fitDesktopPreview(') ? fn('fitDesktopPreview') : ''}
       ${fn('releaseDesktopPreviewLimit')}
       ${source.includes('function restoreImmersiveCamera(') ? fn('restoreImmersiveCamera') : ''}`, context);
@@ -235,6 +237,7 @@ for (const path of ['exit', 'saved scene restore']) {
     assert.equal(JSON.stringify(placement), saved);
     canvas.xr.isPresenting.value = true;
     context.presenting = true;
+    context.molecularAnimation = { reanchor() {} };
     context.beginRoomEntry = () => assert.deepEqual(camera.getSnapshot(), roomCamera);
     const entry = source.slice(source.indexOf('canvas.xr.isPresenting.subscribe(presenting => {') + 'canvas.xr.isPresenting.subscribe(presenting => {'.length);
     vm.runInContext(entry.slice(0, entry.indexOf('beginRoomEntry(presenting);') + 'beginRoomEntry(presenting);'.length), context);

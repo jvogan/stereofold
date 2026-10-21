@@ -211,7 +211,12 @@ export function createPresentationScene(canvas) {
      */
     add(representation, { roomLocked: locked = false } = {}) {
       if (disposed) return;
-      for (const renderObject of representation.renderObjects) scene.add(renderObject);
+      for (const renderObject of representation.renderObjects) {
+        // Opt in room UI text only; ordinary molecular text keeps its shader.
+        if (locked && renderObject.type === 'text')
+          renderObject.values.dStereofoldUiSdf = ValueCell.create(true);
+        scene.add(renderObject);
+      }
       if (locked) { roomLocked.add(representation); appliedKey = undefined; }
       scene.commit();
       requestDraw();

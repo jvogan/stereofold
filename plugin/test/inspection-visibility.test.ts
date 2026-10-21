@@ -5,14 +5,14 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it } from 'vitest';
 import { createStereoStructureServer } from '../src/server.js';
-import { PRIVATE_INSPECTION_META_KEY as PRIVATE_KEY, COMPOUND_MAX_OPS, expectedInspection,
-  inspectionChangeSchema, matchesInspectionChange, sceneSchema, updateInspectionSchema,
+import { PRIVATE_INSPECTION_META_KEY as PRIVATE_KEY, COMPOUND_MAX_OPS, MAX_HIDDEN_CHAINS, MAX_SCENE_HIDDEN_CHAINS,
+  expectedInspection, inspectionChangeSchema, matchesInspectionChange, sceneSchema, updateInspectionSchema,
   validateScene } from '../src/inspection-contract.js';
 import { movedFields, undoChangeFor, bindVisibilitySelection, referentAppliedTo } from '../src/inspection-operation.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 // @ts-ignore The page's own hidden-set builder, so the shape the panel saves and
 // the schema that has to accept it are checked against each other.
-import { normalizeVisibility } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
+import { emptyVisibility, normalizeVisibility, resolveVisibility } from '../../lab/browser-roundtrip/inspection-visibility.mjs';
 
 const cif = await readFile(new URL('../../fixtures/1CRN.cif', import.meta.url), 'utf8');
 // Crambin is a polymer and nothing else, so it is the structure that
@@ -132,6 +132,24 @@ describe('the hidden set a scene carries', () => {
     // A duplicate is the same picture written twice and is refused too.
     expect(sceneSchema.safeParse(scene({ hiddenChains: [{ labelChain: 'A', copyId: 'one' },
       { labelChain: 'A', copyId: 'one' }], hiddenClasses: [], showOnlySelection: false })).success).toBe(false);
+  });
+
+  // A flipbook loads every page's pose at once and shows one page with `only`.
+  // The kinesin flipbook keeps 8 to 24 of its 95 chains, so each page hides the
+  // other 71 to 87: the rest of the structure, not a list anyone named. Capping
+  // that at what a request may name refused every page, and the lesson never
+  // finished loading.
+  it('holds the rest of a many-chain structure when a page shows only a few chains', () => {
+    const chains = Array.from({ length: 95 }, (_, i) => ({ labelChain: `C${String(i).padStart(2, '0')}`, copyId: '1' }));
+    const page = resolveVisibility(emptyVisibility(), { op: 'only', chains: chains.slice(0, 8) }, chains);
+    expect(page.hiddenChains).toHaveLength(87);
+    expect(sceneSchema.safeParse(scene(page)).success).toBe(true);
+    expect(inspectionChangeSchema.safeParse({ kind: 'visibility', patch: page }).success).toBe(true);
+    // The saved set is still bounded, and so is what one request may name.
+    const tooMany = Array.from({ length: MAX_SCENE_HIDDEN_CHAINS + 1 }, (_, i) => ({ labelChain: `X${String(i).padStart(4, '0')}`, copyId: '1' }));
+    expect(() => normalizeVisibility({ hiddenChains: tooMany })).toThrow(/At most/);
+    expect(updateInspectionSchema.shape.change.safeParse({ kind: 'visibility',
+      patch: { op: 'hide', chains: chains.slice(0, MAX_HIDDEN_CHAINS + 1) } }).success).toBe(false);
   });
 });
 

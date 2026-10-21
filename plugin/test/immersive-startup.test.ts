@@ -54,8 +54,9 @@ it('settles hung entry and refuses a second native request until reload',async()
   const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
   const entry=viewer.enter('immersive-ar');
   const rejected=expect(entry).rejects.toMatchObject({code:'xr_request_timeout'});
+  expect(viewer.startup()).toMatchObject({phase:'requesting-headset',pending:true,reloadRequired:false,gestureActive:true});
   await vi.advanceTimersByTimeAsync(20_000);await rejected;
-  expect(viewer.startup()).toMatchObject({phase:'requesting-headset',pending:false,reloadRequired:true,gestureActive:true});
+  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true,gestureActive:true});
   await expect(viewer.enter('immersive-vr')).rejects.toThrow('Reload');
   expect(requestSession).toHaveBeenCalledOnce();
   await viewer.end();
@@ -75,10 +76,12 @@ it('bounds a post-grant tracking-space stall and closes the accepted session',as
   const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
   const entry=viewer.enter('immersive-ar');
   const rejected=expect(entry).rejects.toMatchObject({code:'xr_startup_timeout'});
+  await vi.advanceTimersByTimeAsync(0);
+  expect(viewer.startup()).toMatchObject({phase:'locating-headset',pending:true,reloadRequired:false});
   await vi.advanceTimersByTimeAsync(10_000);
   await rejected;
   expect(session.end).toHaveBeenCalledOnce();
-  expect(viewer.startup()).toMatchObject({phase:'locating-headset',pending:false,reloadRequired:true});
+  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true});
   await viewer.dispose();
 });
 

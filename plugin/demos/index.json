@@ -699,6 +699,1278 @@
           ]
         }
       ]
+    },
+    {
+      "pdbId": "2DN2",
+      "lesson": "hemoglobin-switch/motion.json",
+      "coordinates": {
+        "file": "hemoglobin-tr-motion.cif",
+        "sha256": "e2136004fda282c399554481defd63f89a2275180a1e625095c88c6b9a232bea",
+        "bytes": 878459,
+        "atomSites": 10495,
+        "derivation": {
+          "kind": "prepared-rigid-composite",
+          "recipe": "hemoglobin-switch/motion-recipe.json"
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 2DN2",
+          "url": "https://www.rcsb.org/structure/2DN2"
+        },
+        {
+          "title": "RCSB PDB entry 2DN1",
+          "url": "https://www.rcsb.org/structure/2DN1"
+        },
+        {
+          "title": "1.25 A resolution crystal structures of human haemoglobin in the oxy, deoxy and carbonmonoxy forms. J Mol Biol, 2006.",
+          "doi": "10.1016/j.jmb.2006.05.036",
+          "url": "https://doi.org/10.1016/j.jmb.2006.05.036"
+        }
+      ],
+      "name": "hemoglobin-switch",
+      "title": "Hemoglobin switches from T to R",
+      "defaultStage": "motion",
+      "stages": [
+        {
+          "id": "motion",
+          "order": "A",
+          "title": "Hemoglobin switches from T to R",
+          "pdbId": "2DN2",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "hemoglobin-switch/motion.json",
+          "coordinates": {
+            "file": "hemoglobin-tr-motion.cif",
+            "sha256": "e2136004fda282c399554481defd63f89a2275180a1e625095c88c6b9a232bea",
+            "bytes": 878459,
+            "atomSites": 10495,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "hemoglobin-switch/motion-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 2DN2",
+              "url": "https://www.rcsb.org/structure/2DN2"
+            },
+            {
+              "title": "RCSB PDB entry 2DN1",
+              "url": "https://www.rcsb.org/structure/2DN1"
+            },
+            {
+              "title": "1.25 A resolution crystal structures of human haemoglobin in the oxy, deoxy and carbonmonoxy forms. J Mol Biol, 2006.",
+              "doi": "10.1016/j.jmb.2006.05.036",
+              "url": "https://doi.org/10.1016/j.jmb.2006.05.036"
+            }
+          ]
+        },
+        {
+          "id": "flipbook",
+          "order": "B",
+          "title": "T state to R state",
+          "pdbId": "2DN2",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "hemoglobin-switch/flipbook.json",
+          "coordinates": {
+            "file": "hemoglobin-tr-flipbook.cif",
+            "sha256": "e0d5bebbe4c27094560799e461f86203ebc464bcf625e6fd7741fdb248bb02ac",
+            "bytes": 1142835,
+            "atomSites": 13636,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "hemoglobin-switch/flipbook-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 2DN2",
+              "url": "https://www.rcsb.org/structure/2DN2"
+            },
+            {
+              "title": "RCSB PDB entry 2DN1",
+              "url": "https://www.rcsb.org/structure/2DN1"
+            },
+            {
+              "title": "1.25 A resolution crystal structures of human haemoglobin in the oxy, deoxy and carbonmonoxy forms. J Mol Biol, 2006.",
+              "doi": "10.1016/j.jmb.2006.05.036",
+              "url": "https://doi.org/10.1016/j.jmb.2006.05.036"
+            }
+          ]
+        },
+        {
+          "id": "figure",
+          "order": "C",
+          "title": "T and R side by side",
+          "pdbId": "2DN2",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "hemoglobin-switch/figure.json",
+          "coordinates": {
+            "file": "hemoglobin-tr-figure.cif",
+            "sha256": "4caa7620fc1e4151b28b0ad992d67539e2f1b77d6c47d85f3aab88b509aa4ecf",
+            "bytes": 951308,
+            "atomSites": 11272,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "hemoglobin-switch/figure-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 2DN2",
+              "url": "https://www.rcsb.org/structure/2DN2"
+            },
+            {
+              "title": "RCSB PDB entry 2DN1",
+              "url": "https://www.rcsb.org/structure/2DN1"
+            },
+            {
+              "title": "1.25 A resolution crystal structures of human haemoglobin in the oxy, deoxy and carbonmonoxy forms. J Mol Biol, 2006.",
+              "doi": "10.1016/j.jmb.2006.05.036",
+              "url": "https://doi.org/10.1016/j.jmb.2006.05.036"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pdbId": "6N2Y",
+      "lesson": "atp-synthase-rotor/motion.json",
+      "coordinates": {
+        "file": "atp-synthase-rotor-motion.cif",
+        "sha256": "059852b98b4b442183010af7c007680e90a3785871d862257eecc82048019f49",
+        "bytes": 2846111,
+        "atomSites": 34413,
+        "derivation": {
+          "kind": "prepared-rigid-composite",
+          "recipe": "atp-synthase-rotor/motion-recipe.json"
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 6N2Y",
+          "url": "https://www.rcsb.org/structure/6N2Y"
+        },
+        {
+          "title": "RCSB PDB entry 6N2Z",
+          "url": "https://www.rcsb.org/structure/6N2Z"
+        },
+        {
+          "title": "RCSB PDB entry 6N30",
+          "url": "https://www.rcsb.org/structure/6N30"
+        },
+        {
+          "title": "Structure of a bacterial ATP synthase. eLife, 2019.",
+          "doi": "10.7554/eLife.43128",
+          "url": "https://doi.org/10.7554/eLife.43128"
+        }
+      ],
+      "name": "atp-synthase-rotor",
+      "title": "ATP synthase: the rotor turns",
+      "defaultStage": "motion",
+      "stages": [
+        {
+          "id": "motion",
+          "order": "A",
+          "title": "the rotor turns",
+          "pdbId": "6N2Y",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "atp-synthase-rotor/motion.json",
+          "coordinates": {
+            "file": "atp-synthase-rotor-motion.cif",
+            "sha256": "059852b98b4b442183010af7c007680e90a3785871d862257eecc82048019f49",
+            "bytes": 2846111,
+            "atomSites": 34413,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "atp-synthase-rotor/motion-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 6N2Y",
+              "url": "https://www.rcsb.org/structure/6N2Y"
+            },
+            {
+              "title": "RCSB PDB entry 6N2Z",
+              "url": "https://www.rcsb.org/structure/6N2Z"
+            },
+            {
+              "title": "RCSB PDB entry 6N30",
+              "url": "https://www.rcsb.org/structure/6N30"
+            },
+            {
+              "title": "Structure of a bacterial ATP synthase. eLife, 2019.",
+              "doi": "10.7554/eLife.43128",
+              "url": "https://doi.org/10.7554/eLife.43128"
+            }
+          ]
+        },
+        {
+          "id": "flipbook",
+          "order": "B",
+          "title": "three rotor positions",
+          "pdbId": "6N2Y",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "atp-synthase-rotor/flipbook.json",
+          "coordinates": {
+            "file": "atp-synthase-rotor-flipbook.cif",
+            "sha256": "2369ffca9424149bf9bd6c769bcb5ca754ef20a55466cca2db98d0c75d85fe2a",
+            "bytes": 3649159,
+            "atomSites": 40933,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "atp-synthase-rotor/flipbook-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 6N2Y",
+              "url": "https://www.rcsb.org/structure/6N2Y"
+            },
+            {
+              "title": "RCSB PDB entry 6N2Z",
+              "url": "https://www.rcsb.org/structure/6N2Z"
+            },
+            {
+              "title": "RCSB PDB entry 6N30",
+              "url": "https://www.rcsb.org/structure/6N30"
+            },
+            {
+              "title": "Structure of a bacterial ATP synthase. eLife, 2019.",
+              "doi": "10.7554/eLife.43128",
+              "url": "https://doi.org/10.7554/eLife.43128"
+            }
+          ]
+        },
+        {
+          "id": "figure",
+          "order": "C",
+          "title": "three rotor states side by side",
+          "pdbId": "6N2Y",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "atp-synthase-rotor/figure.json",
+          "coordinates": {
+            "file": "atp-synthase-rotor-figure.cif",
+            "sha256": "4f76aac80a4260e1b4f867a508b774d04997aa3a47aa77fae0fa49c3d728669b",
+            "bytes": 2418860,
+            "atomSites": 26966,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "atp-synthase-rotor/figure-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 6N2Y",
+              "url": "https://www.rcsb.org/structure/6N2Y"
+            },
+            {
+              "title": "RCSB PDB entry 6N2Z",
+              "url": "https://www.rcsb.org/structure/6N2Z"
+            },
+            {
+              "title": "RCSB PDB entry 6N30",
+              "url": "https://www.rcsb.org/structure/6N30"
+            },
+            {
+              "title": "Structure of a bacterial ATP synthase. eLife, 2019.",
+              "doi": "10.7554/eLife.43128",
+              "url": "https://doi.org/10.7554/eLife.43128"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Kinesin walks hand over hand",
+      "pdbId": "5SYF",
+      "lesson": "kinesin-walk/motion.json",
+      "coordinates": {
+        "file": "kinesin-walk-motion.cif",
+        "sha256": "156d165def89f6966be7292f855b5996ae7e1da8f0dc3c8e2871e90886cfea75",
+        "bytes": 2841337,
+        "atomSites": 27232,
+        "derivation": {
+          "kind": "prepared-rigid-composite",
+          "recipe": "kinesin-walk/motion-recipe.json"
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 5SYF",
+          "url": "https://www.rcsb.org/structure/5SYF"
+        },
+        {
+          "title": "RCSB PDB entry 9L7M",
+          "url": "https://www.rcsb.org/structure/9L7M"
+        },
+        {
+          "title": "RCSB PDB entry 8RHB",
+          "url": "https://www.rcsb.org/structure/8RHB"
+        },
+        {
+          "title": "RCSB PDB entry 1BG2",
+          "url": "https://www.rcsb.org/structure/1BG2"
+        },
+        {
+          "title": "RCSB PDB entry 3KIN",
+          "url": "https://www.rcsb.org/structure/3KIN"
+        },
+        {
+          "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures",
+          "doi": "10.1016/j.jmb.2017.01.001",
+          "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+        },
+        {
+          "title": "Tension-induced suppression of allosteric conformational changes coordinates kinesin-1 stepping",
+          "doi": "10.1083/jcb.202501253",
+          "url": "https://doi.org/10.1083/jcb.202501253"
+        },
+        {
+          "title": "Microtubule association induces a Mg-free apo-like ADP pre-release conformation in kinesin-1 that is unaffected by its autoinhibitory tail",
+          "doi": "10.1038/s41467-025-61498-3",
+          "url": "https://doi.org/10.1038/s41467-025-61498-3"
+        },
+        {
+          "title": "Crystal structure of the kinesin motor domain reveals a structural similarity to myosin",
+          "doi": "10.1038/380550a0",
+          "url": "https://doi.org/10.1038/380550a0"
+        },
+        {
+          "title": "The crystal structure of dimeric kinesin and implications for microtubule-dependent motility",
+          "doi": "10.1016/S0092-8674(00)80489-4",
+          "url": "https://doi.org/10.1016/S0092-8674(00)80489-4"
+        },
+        {
+          "title": "Svoboda et al., Nature (1993)",
+          "doi": "10.1038/365721a0",
+          "url": "https://doi.org/10.1038/365721a0"
+        },
+        {
+          "title": "Rice et al., Nature (1999)",
+          "doi": "10.1038/45483",
+          "url": "https://doi.org/10.1038/45483"
+        },
+        {
+          "title": "Asbury, Fehr and Block, Science (2003)",
+          "doi": "10.1126/science.1092985",
+          "url": "https://doi.org/10.1126/science.1092985"
+        },
+        {
+          "title": "Yildiz et al., Science (2004)",
+          "doi": "10.1126/science.1093753",
+          "url": "https://doi.org/10.1126/science.1093753"
+        },
+        {
+          "title": "Mori, Vale and Tomishige, Nature (2007)",
+          "doi": "10.1038/nature06346",
+          "url": "https://doi.org/10.1038/nature06346"
+        },
+        {
+          "title": "Mickolajczyk et al., PNAS (2015)",
+          "doi": "10.1073/pnas.1517638112",
+          "url": "https://doi.org/10.1073/pnas.1517638112"
+        },
+        {
+          "title": "Isojima et al., Nat Chem Biol (2016)",
+          "doi": "10.1038/nchembio.2028",
+          "url": "https://doi.org/10.1038/nchembio.2028"
+        },
+        {
+          "title": "Hancock, Biophys J (2016)",
+          "doi": "10.1016/j.bpj.2016.02.025",
+          "url": "https://doi.org/10.1016/j.bpj.2016.02.025"
+        },
+        {
+          "title": "Liu et al., eLife (2017)",
+          "doi": "10.7554/eLife.24490",
+          "url": "https://doi.org/10.7554/eLife.24490"
+        }
+      ],
+      "name": "kinesin-walk",
+      "defaultStage": "motion",
+      "stages": [
+        {
+          "id": "motion",
+          "order": "A",
+          "title": "Kinesin walks hand over hand",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "kinesin-walk/motion.json",
+          "coordinates": {
+            "file": "kinesin-walk-motion.cif",
+            "sha256": "156d165def89f6966be7292f855b5996ae7e1da8f0dc3c8e2871e90886cfea75",
+            "bytes": 2841337,
+            "atomSites": 27232,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "kinesin-walk/motion-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "RCSB PDB entry 9L7M",
+              "url": "https://www.rcsb.org/structure/9L7M"
+            },
+            {
+              "title": "RCSB PDB entry 8RHB",
+              "url": "https://www.rcsb.org/structure/8RHB"
+            },
+            {
+              "title": "RCSB PDB entry 1BG2",
+              "url": "https://www.rcsb.org/structure/1BG2"
+            },
+            {
+              "title": "RCSB PDB entry 3KIN",
+              "url": "https://www.rcsb.org/structure/3KIN"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            },
+            {
+              "title": "Tension-induced suppression of allosteric conformational changes coordinates kinesin-1 stepping",
+              "doi": "10.1083/jcb.202501253",
+              "url": "https://doi.org/10.1083/jcb.202501253"
+            },
+            {
+              "title": "Microtubule association induces a Mg-free apo-like ADP pre-release conformation in kinesin-1 that is unaffected by its autoinhibitory tail",
+              "doi": "10.1038/s41467-025-61498-3",
+              "url": "https://doi.org/10.1038/s41467-025-61498-3"
+            },
+            {
+              "title": "Crystal structure of the kinesin motor domain reveals a structural similarity to myosin",
+              "doi": "10.1038/380550a0",
+              "url": "https://doi.org/10.1038/380550a0"
+            },
+            {
+              "title": "The crystal structure of dimeric kinesin and implications for microtubule-dependent motility",
+              "doi": "10.1016/S0092-8674(00)80489-4",
+              "url": "https://doi.org/10.1016/S0092-8674(00)80489-4"
+            },
+            {
+              "title": "Svoboda et al., Nature (1993)",
+              "doi": "10.1038/365721a0",
+              "url": "https://doi.org/10.1038/365721a0"
+            },
+            {
+              "title": "Rice et al., Nature (1999)",
+              "doi": "10.1038/45483",
+              "url": "https://doi.org/10.1038/45483"
+            },
+            {
+              "title": "Asbury, Fehr and Block, Science (2003)",
+              "doi": "10.1126/science.1092985",
+              "url": "https://doi.org/10.1126/science.1092985"
+            },
+            {
+              "title": "Yildiz et al., Science (2004)",
+              "doi": "10.1126/science.1093753",
+              "url": "https://doi.org/10.1126/science.1093753"
+            },
+            {
+              "title": "Mori, Vale and Tomishige, Nature (2007)",
+              "doi": "10.1038/nature06346",
+              "url": "https://doi.org/10.1038/nature06346"
+            },
+            {
+              "title": "Mickolajczyk et al., PNAS (2015)",
+              "doi": "10.1073/pnas.1517638112",
+              "url": "https://doi.org/10.1073/pnas.1517638112"
+            },
+            {
+              "title": "Isojima et al., Nat Chem Biol (2016)",
+              "doi": "10.1038/nchembio.2028",
+              "url": "https://doi.org/10.1038/nchembio.2028"
+            },
+            {
+              "title": "Hancock, Biophys J (2016)",
+              "doi": "10.1016/j.bpj.2016.02.025",
+              "url": "https://doi.org/10.1016/j.bpj.2016.02.025"
+            },
+            {
+              "title": "Liu et al., eLife (2017)",
+              "doi": "10.7554/eLife.24490",
+              "url": "https://doi.org/10.7554/eLife.24490"
+            }
+          ]
+        },
+        {
+          "id": "flipbook",
+          "order": "B",
+          "title": "Kinesin's steps, one at a time",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "kinesin-walk/flipbook.json",
+          "coordinates": {
+            "file": "kinesin-walk-flipbook.cif",
+            "sha256": "49703c8f862f27414d4016543c227d20193dbeac5ec8ac26ff358acb21bfdb0b",
+            "bytes": 3785974,
+            "atomSites": 36672,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "kinesin-walk/flipbook-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "RCSB PDB entry 9L7M",
+              "url": "https://www.rcsb.org/structure/9L7M"
+            },
+            {
+              "title": "RCSB PDB entry 8RHB",
+              "url": "https://www.rcsb.org/structure/8RHB"
+            },
+            {
+              "title": "RCSB PDB entry 1BG2",
+              "url": "https://www.rcsb.org/structure/1BG2"
+            },
+            {
+              "title": "RCSB PDB entry 3KIN",
+              "url": "https://www.rcsb.org/structure/3KIN"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            },
+            {
+              "title": "Tension-induced suppression of allosteric conformational changes coordinates kinesin-1 stepping",
+              "doi": "10.1083/jcb.202501253",
+              "url": "https://doi.org/10.1083/jcb.202501253"
+            },
+            {
+              "title": "Microtubule association induces a Mg-free apo-like ADP pre-release conformation in kinesin-1 that is unaffected by its autoinhibitory tail",
+              "doi": "10.1038/s41467-025-61498-3",
+              "url": "https://doi.org/10.1038/s41467-025-61498-3"
+            },
+            {
+              "title": "Crystal structure of the kinesin motor domain reveals a structural similarity to myosin",
+              "doi": "10.1038/380550a0",
+              "url": "https://doi.org/10.1038/380550a0"
+            },
+            {
+              "title": "The crystal structure of dimeric kinesin and implications for microtubule-dependent motility",
+              "doi": "10.1016/S0092-8674(00)80489-4",
+              "url": "https://doi.org/10.1016/S0092-8674(00)80489-4"
+            },
+            {
+              "title": "Svoboda et al., Nature (1993)",
+              "doi": "10.1038/365721a0",
+              "url": "https://doi.org/10.1038/365721a0"
+            },
+            {
+              "title": "Rice et al., Nature (1999)",
+              "doi": "10.1038/45483",
+              "url": "https://doi.org/10.1038/45483"
+            },
+            {
+              "title": "Asbury, Fehr and Block, Science (2003)",
+              "doi": "10.1126/science.1092985",
+              "url": "https://doi.org/10.1126/science.1092985"
+            },
+            {
+              "title": "Yildiz et al., Science (2004)",
+              "doi": "10.1126/science.1093753",
+              "url": "https://doi.org/10.1126/science.1093753"
+            },
+            {
+              "title": "Mori, Vale and Tomishige, Nature (2007)",
+              "doi": "10.1038/nature06346",
+              "url": "https://doi.org/10.1038/nature06346"
+            },
+            {
+              "title": "Mickolajczyk et al., PNAS (2015)",
+              "doi": "10.1073/pnas.1517638112",
+              "url": "https://doi.org/10.1073/pnas.1517638112"
+            },
+            {
+              "title": "Isojima et al., Nat Chem Biol (2016)",
+              "doi": "10.1038/nchembio.2028",
+              "url": "https://doi.org/10.1038/nchembio.2028"
+            },
+            {
+              "title": "Hancock, Biophys J (2016)",
+              "doi": "10.1016/j.bpj.2016.02.025",
+              "url": "https://doi.org/10.1016/j.bpj.2016.02.025"
+            },
+            {
+              "title": "Liu et al., eLife (2017)",
+              "doi": "10.7554/eLife.24490",
+              "url": "https://doi.org/10.7554/eLife.24490"
+            }
+          ]
+        },
+        {
+          "id": "cycle",
+          "order": "C",
+          "title": "One kinesin step, four states",
+          "pdbId": "5SYF",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "kinesin-walk/cycle.json",
+          "coordinates": {
+            "file": "kinesin-walk-cycle.cif",
+            "sha256": "fa54a3d4cab242abf3e4e0a5ceb4f12612c42b9d0b8bd24a0f6ee9699904e0e3",
+            "bytes": 5046025,
+            "atomSites": 48423,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "kinesin-walk/cycle-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 5SYF",
+              "url": "https://www.rcsb.org/structure/5SYF"
+            },
+            {
+              "title": "RCSB PDB entry 9L7M",
+              "url": "https://www.rcsb.org/structure/9L7M"
+            },
+            {
+              "title": "RCSB PDB entry 8RHB",
+              "url": "https://www.rcsb.org/structure/8RHB"
+            },
+            {
+              "title": "RCSB PDB entry 1BG2",
+              "url": "https://www.rcsb.org/structure/1BG2"
+            },
+            {
+              "title": "RCSB PDB entry 3KIN",
+              "url": "https://www.rcsb.org/structure/3KIN"
+            },
+            {
+              "title": "Insights into the Distinct Mechanisms of Action of Taxane and Non-Taxane Microtubule Stabilizers from Cryo-EM Structures",
+              "doi": "10.1016/j.jmb.2017.01.001",
+              "url": "https://doi.org/10.1016/j.jmb.2017.01.001"
+            },
+            {
+              "title": "Tension-induced suppression of allosteric conformational changes coordinates kinesin-1 stepping",
+              "doi": "10.1083/jcb.202501253",
+              "url": "https://doi.org/10.1083/jcb.202501253"
+            },
+            {
+              "title": "Microtubule association induces a Mg-free apo-like ADP pre-release conformation in kinesin-1 that is unaffected by its autoinhibitory tail",
+              "doi": "10.1038/s41467-025-61498-3",
+              "url": "https://doi.org/10.1038/s41467-025-61498-3"
+            },
+            {
+              "title": "Crystal structure of the kinesin motor domain reveals a structural similarity to myosin",
+              "doi": "10.1038/380550a0",
+              "url": "https://doi.org/10.1038/380550a0"
+            },
+            {
+              "title": "The crystal structure of dimeric kinesin and implications for microtubule-dependent motility",
+              "doi": "10.1016/S0092-8674(00)80489-4",
+              "url": "https://doi.org/10.1016/S0092-8674(00)80489-4"
+            },
+            {
+              "title": "Svoboda et al., Nature (1993)",
+              "doi": "10.1038/365721a0",
+              "url": "https://doi.org/10.1038/365721a0"
+            },
+            {
+              "title": "Rice et al., Nature (1999)",
+              "doi": "10.1038/45483",
+              "url": "https://doi.org/10.1038/45483"
+            },
+            {
+              "title": "Asbury, Fehr and Block, Science (2003)",
+              "doi": "10.1126/science.1092985",
+              "url": "https://doi.org/10.1126/science.1092985"
+            },
+            {
+              "title": "Yildiz et al., Science (2004)",
+              "doi": "10.1126/science.1093753",
+              "url": "https://doi.org/10.1126/science.1093753"
+            },
+            {
+              "title": "Mori, Vale and Tomishige, Nature (2007)",
+              "doi": "10.1038/nature06346",
+              "url": "https://doi.org/10.1038/nature06346"
+            },
+            {
+              "title": "Mickolajczyk et al., PNAS (2015)",
+              "doi": "10.1073/pnas.1517638112",
+              "url": "https://doi.org/10.1073/pnas.1517638112"
+            },
+            {
+              "title": "Isojima et al., Nat Chem Biol (2016)",
+              "doi": "10.1038/nchembio.2028",
+              "url": "https://doi.org/10.1038/nchembio.2028"
+            },
+            {
+              "title": "Hancock, Biophys J (2016)",
+              "doi": "10.1016/j.bpj.2016.02.025",
+              "url": "https://doi.org/10.1016/j.bpj.2016.02.025"
+            },
+            {
+              "title": "Liu et al., eLife (2017)",
+              "doi": "10.7554/eLife.24490",
+              "url": "https://doi.org/10.7554/eLife.24490"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "binder-gallery",
+      "title": "Binding proteins \u00b7 17 examples",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "lesson": "binder-gallery/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery.cif",
+        "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+        "bytes": 2384344,
+        "atomSites": 22272,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ],
+      "defaultStage": "steady-target",
+      "stages": [
+        {
+          "id": "steady-target",
+          "order": "A",
+          "title": "Steady target \u00b7 three-second slideshow",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery.cif",
+            "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+            "bytes": 2384344,
+            "atomSites": 22272,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "original-pairs",
+          "order": "B",
+          "title": "Original published pairs",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/original-pairs.json",
+          "coordinates": {
+            "file": "binder-gallery.cif",
+            "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+            "bytes": 2384344,
+            "atomSites": 22272,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "binder-gallery-extended",
+      "title": "Published 17 binders, then all other tested designs",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "lesson": "binder-gallery/extended/selected17/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery.cif",
+        "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+        "bytes": 2384344,
+        "atomSites": 22272,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ],
+      "stageMode": "sequence",
+      "defaultStage": "selected17",
+      "stages": [
+        {
+          "id": "selected17",
+          "order": "0",
+          "title": "17 qualified binders \u00b7 published results",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/selected17/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery.cif",
+            "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+            "bytes": 2384344,
+            "atomSites": 22272,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-01",
+          "order": "1",
+          "title": "Other tested designs \u00b7 batch 1/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-01/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-01.cif",
+            "sha256": "988f562970e1ca3fc38335ffb723d51a807f80447d16ecabddafc2b81def8c84",
+            "bytes": 3151994,
+            "atomSites": 28823,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-01/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-02",
+          "order": "2",
+          "title": "Other tested designs \u00b7 batch 2/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-02/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-02.cif",
+            "sha256": "c2fbb04f03a2b287c8cbf8dfaef7981b6077b5e66e2cc3192dee9aa35811c240",
+            "bytes": 3157949,
+            "atomSites": 28762,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-02/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-03",
+          "order": "3",
+          "title": "Other tested designs \u00b7 batch 3/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-03/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-03.cif",
+            "sha256": "f1478ee9f6b054b5d6033a2574aac6d30089073cf862d2e5fba77ccf3e87f365",
+            "bytes": 3208010,
+            "atomSites": 29167,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-03/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-04",
+          "order": "4",
+          "title": "Other tested designs \u00b7 batch 4/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-04/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-04.cif",
+            "sha256": "bb8cf6bfebf123512bb8c9f5beedacc8b8d978f5632d090160c319fd44942f96",
+            "bytes": 3165637,
+            "atomSites": 28993,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-04/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-05",
+          "order": "5",
+          "title": "Other tested designs \u00b7 batch 5/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-05/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-05.cif",
+            "sha256": "62078e89ce9bd851ee8aeed0126e73abf8b0ff65f3044acfc306afe9070bfcc3",
+            "bytes": 3236431,
+            "atomSites": 29653,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-05/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-06",
+          "order": "6",
+          "title": "Other tested designs \u00b7 batch 6/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-06/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-06.cif",
+            "sha256": "12e906805b98f0789f9d601dddafbc19c47230f36def3d3e5d2bec4d009db970",
+            "bytes": 3101291,
+            "atomSites": 28298,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-06/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-07",
+          "order": "7",
+          "title": "Other tested designs \u00b7 batch 7/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-07/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-07.cif",
+            "sha256": "82f89241db9e35669236509602a7fa70701cc0e9845b5c2da6aa3c093d50ac57",
+            "bytes": 3207428,
+            "atomSites": 29067,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-07/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-08",
+          "order": "8",
+          "title": "Other tested designs \u00b7 batch 8/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-08/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-08.cif",
+            "sha256": "e2c9a8673f9ff0c1e54f06098202289ca5df9b8f307b50705be5e5f199aadb88",
+            "bytes": 3167893,
+            "atomSites": 28867,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-08/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-09",
+          "order": "9",
+          "title": "Other tested designs \u00b7 batch 9/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-09/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-09.cif",
+            "sha256": "4a7b089e0ffb2ef0d469c14e61e50f37c168aa951835f5b9c8ae7a3eb48b3002",
+            "bytes": 3223853,
+            "atomSites": 29465,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-09/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        },
+        {
+          "id": "batch-10",
+          "order": "10",
+          "title": "Other tested designs \u00b7 batch 10/10",
+          "sourceId": "Anthropic/scorpion-toxin-binder-design",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "binder-gallery/extended/batch-10/lesson.json",
+          "coordinates": {
+            "file": "binder-gallery-extended-batch-10.cif",
+            "sha256": "dd031fdbd4eb175bb6d259515364fdec0d2fb4ed5ef043e3d54223c587818e14",
+            "bytes": 2773081,
+            "atomSites": 25272,
+            "derivation": {
+              "kind": "bundled-file",
+              "path": "binder-gallery/extended/batch-10/gallery.cif"
+            }
+          },
+          "sources": [
+            {
+              "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+            },
+            {
+              "title": "Source identities, methods and data",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+            },
+            {
+              "title": "Attribution and license",
+              "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

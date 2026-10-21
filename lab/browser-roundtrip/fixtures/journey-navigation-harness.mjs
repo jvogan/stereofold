@@ -1,3 +1,4 @@
+import { assistantStatus } from '../assistant-status.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
@@ -19,6 +20,8 @@ vm.runInNewContext(transpileModule(readFileSync(new URL('../../../plugin/src/ins
     if (name !== './tool-result.js') throw Error(`Unexpected receipt dependency ${name}`);
     return errorModule.exports;
   }, Error });
+const settleModule = {exports:{}};
+vm.runInNewContext(transpileModule(readFileSync(new URL('../../../plugin/src/inspection-render-settle.ts',import.meta.url),'utf8'), {compilerOptions:{target:ScriptTarget.ES2022,module:ModuleKind.CommonJS}}).outputText,{exports:settleModule.exports,Date,Error,Promise,setTimeout});
 const backoffModule = { exports: {} };
 vm.runInNewContext(transpileModule(readFileSync(new URL('../../../plugin/src/inspection-poll-backoff.ts', import.meta.url), 'utf8'),
   { compilerOptions: { target: ScriptTarget.ES2022, module: ModuleKind.CommonJS } }).outputText,
@@ -26,18 +29,19 @@ vm.runInNewContext(transpileModule(readFileSync(new URL('../../../plugin/src/ins
 
 /** Execute the production navigation and heartbeat closures; adapt only page/HTTP I/O. */
 export function journeyNavigationHarness(overrides = {}) {
-  const context = vm.createContext({ Promise, Error, Date,
+  const context = vm.createContext({ Promise, Error, Date, performance, localInteractionSerial:0, recordHeadsetEvent() {},
+    panelEntering:settleModule.exports.panelEntering, sameEntryScene:settleModule.exports.sameEntryScene,
     inspectionFailureReceipt: receiptModule.exports.inspectionFailureReceipt,
     pollBackoff: backoffModule.exports.createPollBackoff(() => (overrides.Date ?? Date).now()),
     binding: { sessionId: 'session', serverEpoch: 'epoch', sourceToken: 'source', stateRevision: 1, inspectionRevision: 1 },
     panelId: 'panel', dirty: false, blocked: false, loading: false, remote: false, generation: 0, closed: false,
     experiencePreparing: false, experienceSourceChanged: false, tourCommandContext: undefined, experienceView: undefined,
-    beatInFlight: false, isCompanion: false, replyOnThisBeat: false, PRIVATE_KEY: 'private',
+    beatInFlight: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, isCompanion: false, replyOnThisBeat: false, PRIVATE_KEY: 'private',
     rendering: Promise.resolve(), save: async () => {}, attach: async () => {},
     workspace: { snapshot: () => ({ ready: true, interactionActive: false }),
       viewer: { inspection: { captureXrRecoveryFrame: () => undefined } } },
     panelTour: undefined, tourHeartbeat: () => undefined, beatSuspended: () => false,
-    clearConnectionProblem() {}, noteRendererHeartbeat() {}, noteAgentPresence() {}, receiveSpokenReply() {},
+    heldComparisons: new Map(), comparisonRegistration: 0, noteNamedViews() {}, clearConnectionProblem() {}, noteRendererHeartbeat() {}, noteAgentPresence() {}, assistantStatus, waitForPanelRender:settleModule.exports.waitForPanelRender, receiveSpokenReply() {},
     isRendererHeartbeatFailure: () => false, showConnectionProblem: () => false, retireStaleHud() {},
     showProblem: message => { throw Error(message); }, problemMessage: (_kind, error) => error.message,
     thrownErrorMessage: error => error.message,
@@ -64,7 +68,7 @@ export function journeyNavigationHarness(overrides = {}) {
   // load through these three, so every context that runs it carries them. They
   // route through whatever `showOutcome` the context holds.
   for (const name of ['navigateExperience', 'busyBeat', 'confirmReceipt', 'receive',
-    'beginSourceLoadOutcome', 'finishSourceLoadOutcome', 'failSourceLoadOutcome']) {
+    'registerComparisonSources', 'registerPollState', 'receivePollDelivery', 'beginSourceLoadOutcome', 'finishSourceLoadOutcome', 'failSourceLoadOutcome']) {
     if (Object.hasOwn(overrides, name)) continue;
     let start = inspectorSource.indexOf(`async function ${name}(`);
     if (start < 0) start = inspectorSource.indexOf(`function ${name}(`);

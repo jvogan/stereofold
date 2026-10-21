@@ -1,11 +1,22 @@
 import { assembleReadiness, PRIVATE_INSPECTION_META_KEY } from '../src/inspection-contract.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
+import { LocalSceneService } from '../src/scene-service.js';
+import { InspectionCompanionHttp } from '../src/inspection-companion-http.js';
+import { LanCompanion } from '../src/inspection-lan.js';
+import { HEADSET_CHANNEL_METHOD } from '../src/headset-channel.js';
+import { DETAILED_VIEW_SESSION_SOURCE } from '../src/detailed-view-session.js';
 import { EventEmitter } from 'node:events';
 import { Readable, Writable } from 'node:stream';
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildSpeechVocabulary, type SpeechSceneContext } from '../src/speech-vocabulary.js';
+// @ts-ignore The real page recorder/result parser and runner.
+import { createPushToTalkAudio, createPushToTalkAudioEvents } from '../../lab/browser-roundtrip/push-to-talk-audio.mjs';
+// @ts-ignore Shared headset JavaScript.
+import { attachVoiceCommandRunner, AGENT_FORWARD_REPLY } from '../../lab/browser-roundtrip/voice-command-runner.mjs';
+import { buildSpeechVocabulary, WHISPER_DOMAIN_HINT, type SpeechSceneContext } from '../src/speech-vocabulary.js';
 import {
   applespeechBinCandidates, assembleChunks, containerExtension, createPushToTalkTranscriber, createTranscriptQueue,
   ffmpegBinCandidates, packagedApplespeechBins,
@@ -62,7 +73,7 @@ function fakeSpawner(options: {
       if (isFfmpeg) {
         const target = args[args.length - 1]!;
         if (options.onWav) await options.onWav(target);
-        else await writeFile(target, Buffer.from('RIFFfake'));
+        else await writeFile(target, quietWav(1, { atMs: 0, amplitude: 0.2 }));
         child.emit('close', options.ffmpegCode ?? 0);
         return;
       }
@@ -258,7 +269,8 @@ describe('transcription end to end with a fake spawner', () => {
       }
       if (route !== 'apple') {
         const whisper = spawner.calls.find(call => call.command.includes('whisper'))!;
-        expect(whisper.args[whisper.args.indexOf('--prompt') + 1]).toBe(vocabulary.whisperPrompt);
+        expect(whisper.args[whisper.args.indexOf('--prompt')+1]).toBe(WHISPER_DOMAIN_HINT);
+        expect(whisper.args).not.toContain(vocabulary.whisperPrompt);
       }
       // The next press takes a fresh snapshot, including the competing name.
       const next = await instance.accept(chunk({ utteranceId: '33333333-3333-4333-8333-333333333333', final: true }), context);
@@ -279,6 +291,30 @@ describe('transcription end to end with a fake spawner', () => {
     } finally { await instance.dispose(); }
   });
 
+  it.each([['Make it bigger.', undefined], ['Pause the animation.', undefined], ['Go back.', undefined], ['Jump to 141.', undefined]] as const)(
+    'does not guess page ownership from %j', async (text, marked) => {
+      const { instance } = transcriber({}, fakeSpawner({ text }));
+      try {
+        await instance.accept(chunk());
+        const outcome = await instance.accept(chunk({ seq: 1, final: true }));
+        expect(outcome.transcript?.text).toBe(text);
+        expect(outcome.transcript?.headsetAction).toBe(marked);
+        expect((await instance.transcripts.since(0, { waitMs: 0 })).entries[0]?.headsetAction).toBe(marked);
+      } finally { await instance.dispose(); }
+    });
+
+  it('refuses cross-session reuse after transcription has finished', async () => {
+    const { instance } = transcriber();
+    try {
+      await instance.accept(chunk());
+      await instance.accept(chunk({ seq: 1, final: true }));
+      const result = await instance.accept(chunk({ sessionId: '99999999-9999-4999-8999-999999999999' }));
+      expect(result.accepted).toBe(false);
+      expect(result.message).toMatch(/another session/);
+      expect(instance.transcripts.all()).toHaveLength(1);
+    } finally { await instance.dispose(); }
+  });
+
   it('assembles, decodes, transcribes and returns the text on the final chunk', async () => {
     const { instance, spawner } = transcriber();
     expect((await instance.accept(chunk({ seq: 0 }))).reason).toBe('chunk');
@@ -292,11 +328,29 @@ describe('transcription end to end with a fake spawner', () => {
     expect(ffmpeg.args).toEqual(expect.arrayContaining(['-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le']));
     const whisper = spawner.calls.find(call => call.command.includes('whisper'))!;
     expect(whisper.args).toEqual(expect.arrayContaining(['-m', '/models/ggml-small.en.bin', '-nt', '-np', '-otxt']));
-    // The headset grammar's own phrases prime the decoder, so "spin it" is not
-    // heard as "spitting" and a command does not detour through the agent.
-    expect(whisper.args.slice(whisper.args.indexOf('--prompt'), whisper.args.indexOf('--prompt') + 2)).toEqual(['--prompt', WHISPER_INITIAL_PROMPT]);
+    // Keep domain nouns for short-word accuracy, never seed scene commands.
+    expect(whisper.args[whisper.args.indexOf('--prompt')+1]).toBe(WHISPER_DOMAIN_HINT);
+    expect(whisper.args).not.toContain(WHISPER_INITIAL_PROMPT);
     for (const phrase of ['Spin it.', 'Stop', 'Start the tour.', 'VR mode.', 'Reset the view.']) expect(WHISPER_INITIAL_PROMPT).toContain(phrase);
     await instance.dispose();
+  });
+
+  describe.each(['whisper', 'fallback'] as const)('Whisper GPU selection on the %s route', route => {
+    it.each([undefined, '0', 'true', '1'])('uses the CPU unless STEREOFOLD_WHISPER_GPU=%s is exactly 1', async gpu => {
+      const { instance, spawner } = transcriber({
+        env: gpu === undefined ? {} : { STEREOFOLD_WHISPER_GPU: gpu },
+        transcriber: route === 'fallback' ? 'apple' : 'whisper',
+        applespeechBin: '/fixture/applespeech',
+      }, fakeSpawner({ appleCode: 1 }));
+      try {
+        await instance.accept(chunk());
+        const outcome = await instance.accept(chunk({ seq: 1, final: true }));
+        expect(outcome.reason).toBe('transcribed');
+        expect(spawner.calls.some(call => call.command.includes('applespeech'))).toBe(route === 'fallback');
+        const whisper = spawner.calls.find(call => call.command.includes('whisper'))!;
+        expect(whisper.args.includes('-ng')).toBe(gpu !== '1');
+      } finally { await instance.dispose(); }
+    });
   });
 
   it('uses Apple\'s on-device recognizer when the host opted in, and whisper otherwise', async () => {
@@ -521,18 +575,34 @@ describe('transcription end to end with a fake spawner', () => {
     } finally { await instance.dispose(); }
   });
 
-  it.each(['audio/wav', 'audio/mp4'])('keeps direct %s recognition available to Apple without ffmpeg', async mime => {
+  it('keeps direct PCM recognition available to Apple without ffmpeg after the energy gate', async () => {
+    const mime='audio/wav';
     const binary = '/fixture/applespeech';
     const spawner = fakeSpawner({ text: 'Pause the tour' });
     const instance = createPushToTalkTranscriber({ enabled: true, env: {}, transcriber: 'apple',
       applespeechBin: binary, exists: path => path === binary, spawn: spawner.spawn, log: () => {} });
     try {
       expect(instance.ready).toBe(false);
-      const outcome = await instance.accept(chunk({ mime, final: true }));
+      const data=quietWav(1,{atMs:0,amplitude:0.2}).toString('base64');
+      const outcome = await instance.accept(chunk({ mime, data, final: true }));
       expect(outcome.transcript?.text).toBe('Pause the tour');
       expect(spawner.calls.map(call => call.command)).toEqual([binary]);
       expect(spawner.calls[0].args[0]).toContain(`utterance.${containerExtension(mime)}`);
     } finally { await instance.dispose(); }
+  });
+
+  it.each(['audio/wav','audio/mp4'])('refuses native %s without readable speech energy instead of bypassing the gate',async mime=>{
+    const binary='/fixture/applespeech',spawner=fakeSpawner({text:'hide chain A'});
+    const instance=createPushToTalkTranscriber({enabled:true,env:{},transcriber:'apple',applespeechBin:binary,
+      exists:path=>path===binary,spawn:spawner.spawn,log:()=>{}});
+    try{
+      const data=(mime==='audio/wav'?quietWav(1):Buffer.from('encoded-m4a')).toString('base64');
+      const outcome=await instance.accept(chunk({mime,data,final:true}));
+      expect(outcome.message).toBe("Didn't catch that. Please speak again.");
+      expect(outcome.transcript?.text??'').toBe('');
+      expect(spawner.calls).toEqual([]);
+      expect(instance.transcripts.all().some(record=>Boolean(record.text))).toBe(false);
+    }finally{await instance.dispose();}
   });
 
   it('looks for the packaged binary before any Homebrew install', () => {
@@ -573,10 +643,42 @@ describe('transcription end to end with a fake spawner', () => {
     expect(outcome.accepted).toBe(true);
     expect(outcome.reason).toBe('transcribed');
     expect(outcome.transcript?.text).toBe('');
-    expect(outcome.message).toBe('No speech was recognized.');
+    expect(outcome.message).toBe("Didn't catch that. Please speak again.");
+    expect(outcome.transcript?.normalizedText).toBe('');
     expect(spawner.calls.some(call => call.command.includes('whisper'))).toBe(false);
     expect(lines.join('\n')).toContain('silent');
     await instance.dispose();
+  });
+
+  it.each(['whisper', 'apple', 'fallback'] as const)('does not publish a vocabulary-only echo on the %s route', async route => {
+    const context: SpeechSceneContext = { chains:[{labelChain:'NC2',authorChain:'NC2T',copyId:'1'}],
+      entityNames:[],componentIds:[],residueNumbers:[15],journeyTitles:[],representations:[] };
+    for(const text of ['Residue 15. Hide chain NC2T.',WHISPER_DOMAIN_HINT]) {
+    const spawner=fakeSpawner({text,appleCode:route==='fallback'?3:0});
+    const deliveries:TranscriptRecord[]=[];
+    const {instance}=transcriber({transcriber:route==='whisper'?'whisper':'apple',
+      applespeechBin:'/opt/homebrew/bin/applespeech',deliver:[async record=>{deliveries.push(record);} ]},spawner);
+    try {
+      const outcome=await instance.accept(chunk({final:true}),context);
+      expect(outcome.message).toBe("Didn't catch that. Please speak again.");
+      expect(outcome.transcript).toBeUndefined(); expect(outcome.accepted).toBe(false);
+      expect(instance.transcripts.all()).toEqual([]); expect(deliveries).toEqual([]);
+      expect(instance.captureObserved(SESSION)).toBe(false);
+    }finally{await instance.dispose();}
+    }
+  });
+
+  it.each([Buffer.alloc(0),Buffer.from('RIFFtruncated'),quietWav(3)])('does not publish a command from empty, truncated or silent decoded audio',async wav=>{
+    const spawner=fakeSpawner({text:'hide chain A',onWav:async path=>{await writeFile(path,wav);}});
+    const {instance}=transcriber({silenceRms:0},spawner);
+    try {
+      const outcome=await instance.accept(chunk({final:true}));
+      expect(outcome.message).toBe("Didn't catch that. Please speak again.");
+      expect(outcome.transcript?.text??'').toBe('');
+      expect(instance.transcripts.all().some(record=>Boolean(record.text||record.normalizedText))).toBe(false);
+      expect(instance.captureObserved(SESSION)).toBe(false);
+      expect(spawner.calls.some(call=>call.command.includes('whisper'))).toBe(false);
+    }finally{await instance.dispose();}
   });
 
   it('gates the Apple route too, which answers pure silence with "No"', async () => {
@@ -888,7 +990,7 @@ describe('transcript queue', () => {
 
 describe('the tool as the MCP server exposes it', () => {
   /** The same in-memory pair `inspection-server.test.ts` uses, with a real session. */
-  async function session(overrides: Parameters<typeof createPushToTalkTranscriber>[0] = {}, spawner = fakeSpawner()) {
+  async function session(overrides: Parameters<typeof createPushToTalkTranscriber>[0] = {}, spawner = fakeSpawner(), page?: { listening: boolean; surface?: string }) {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
     const { InMemoryTransport } = await import('@modelcontextprotocol/sdk/inMemory.js');
     const { createStereoStructureServer } = await import('../src/server.js');
@@ -896,17 +998,224 @@ describe('the tool as the MCP server exposes it', () => {
     const built = transcriber(overrides, spawner);
     const [a, b] = InMemoryTransport.createLinkedPair();
     const synthesized: string[] = [];
-    const server = createStereoStructureServer(undefined, { transcriber: built.instance,
+    const scene = new LocalSceneService({serverEpoch:randomUUID(),live:()=>true});
+    if(page) vi.spyOn(scene,'offer').mockResolvedValue(false);
+    const server = createStereoStructureServer(undefined, { transcriber: built.instance, ...(page?{sceneService:scene}:{}),
       replyAudio: { enabled: true, ready: true, describe: () => 'synthetic test speech', synthesize: async text => { synthesized.push(text); return undefined; } } });
     const client = new Client({ name: 'Headset voice contract test', version: '1' });
+    const messages: any[] = [];
+    client.setNotificationHandler(z.object({method:z.literal(HEADSET_CHANNEL_METHOD),params:z.any()}), n => { messages.push(n.params); });
     await server.connect(b);
     await client.connect(a);
     const call = async (name: string, args: Record<string, unknown>) =>
       await client.callTool({ name: `stereo_structure.${name}`, arguments: args }) as any;
     const opened = await call('inspect', { structureText: cif });
-    return { call, sessionId: opened.structuredContent.sessionId as string, built, synthesized,
-      close: async () => { await built.instance.dispose(); await client.close(); await server.close(); } };
+    const sessionId = opened.structuredContent.sessionId as string;
+    let panelId: string | undefined;
+    if (page) {
+      vi.spyOn(scene,'share').mockImplementation(async ({assistant} = {}) => {
+        if (assistant) scene.label = assistant;
+        return {role:'owner',sessionId,sceneId:'test-scene'};
+      });
+      const data = (await call('get_inspection',{sessionId}))._meta[PRIVATE_INSPECTION_META_KEY];
+      const catalog = data.catalog;
+      const savedScene = {sourceSha256:catalog.source.sha256,modelNumber:catalog.modelNumbers[0],assemblyId:catalog.assemblyId,
+        selectionKeys:[],camera:{mode:'perspective',fov:Math.PI/4,position:[0,0,80],target:[0,0,0],up:[0,1,0],radius:20,radiusMax:20,fog:50,clipFar:true,minNear:5,minFar:0},
+        inspection:{appearance:{representation:'cartoon',color:'chain-id',uniformColor:'#58dcc9',background:'#071015',opacity:1,labels:false,highlightColor:'#f2c47c',clipping:0,fog:0},placement:{translation:[0,0,0],rotation:[0,0,0],scale:1}}};
+      const binding = {sessionId,serverEpoch:data.serverEpoch,sourceToken:data.sourceToken,
+        baseStateRevision:data.stateRevision,baseInspectionRevision:data.inspectionRevision};
+      const saved = (await call('sync_inspection',{...binding,scene:savedScene})).structuredContent;
+      binding.baseStateRevision=saved.stateRevision; binding.baseInspectionRevision=saved.inspectionRevision;
+      panelId=(await call('attach_inspection',{...binding,surface:page.surface ?? 'companion'})).structuredContent.panelId;
+      await call('poll_inspection',{...binding,panelId,availability:'ready'});
+      const status = {url:'https://192.168.1.2:8443/',host:'192.168.1.2',port:8443,fingerprint:'test',
+        sessionExpiresAt:'2099-01-01T00:00:00.000Z',sessionMaxExpiresAt:'2099-01-01T00:00:00.000Z',pairingExpiresAt:'2099-01-01T00:00:00.000Z',launchId:randomUUID(),
+        clients:[{id:'test-client',deviceClass:'quest2',lastUsedAt:new Date().toISOString()}]};
+      vi.spyOn(InspectionCompanionHttp.prototype,'open').mockResolvedValue({url:'http://127.0.0.1:1234/#test',port:1234});
+      vi.spyOn(LanCompanion.prototype,'open').mockResolvedValue({...status,pairingCode:'test'} as any);
+      vi.spyOn(LanCompanion.prototype,'status').mockReturnValue(status as any);
+      await call('open_companion',{sessionId,connection:'lan',launch:'none'});
+      if(page.listening) await call('continue_session',{assistant:'Claude'});
+    }
+    return { call, sessionId, panelId, messages, built, synthesized,
+      close: async () => { await built.instance.dispose(); await client.close(); await server.close(); if(page)vi.restoreAllMocks(); } };
   }
+
+  for (const listening of [true, false]) {
+    it.each([
+      ['Play.', 'tour-play'], ['Make it bigger.', 'scale'], ['Go back.', undefined],
+      ['Highlight the ATP.', undefined], ['Jump to 141.', 'sequence'], ['Find residue 141.', undefined],
+    ] as const)('delivers recorder → parser → runner and host once: %s (Claude listening: ' + listening + ')', async (text, action) => {
+      const live = await session({}, fakeSpawner({ text }), { listening });
+      const events = createPushToTalkAudioEvents(), dispatched: any[] = [], said: string[] = [];
+      let last: any, recorder: any, lostDecisionReply = false;
+      events.on((event: any) => { if (event.state === 'heard') last = event; });
+      const runner = attachVoiceCommandRunner({ events, agentAttached: () => listening, sequenceOpen: () => text !== 'Find residue 141.',
+        dispatch: async (value: any) => { dispatched.push(value); return {}; }, caption: () => {},
+        speak: (value: string) => said.push(value), record: () => {} });
+      class Recorder {
+        static isTypeSupported() { return true; }
+        state = 'inactive'; mimeType = 'audio/webm';
+        ondataavailable?: (event: any) => void; onstop?: () => void;
+        constructor() { recorder = this; }
+        start() { this.state = 'recording'; }
+        stop() { this.state = 'inactive'; this.onstop?.(); }
+      }
+      const audio = createPushToTalkAudio({ events, recorderFactory: Recorder, newId: () => UTTERANCE,
+        media: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+        send: async (args: any) => {
+          const answer = await live.call('push_to_talk_audio', { ...args, sessionId: live.sessionId, panelId: live.panelId });
+          if (args.pageDecision && listening && text === 'Make it bigger.' && !lostDecisionReply) {
+            lostDecisionReply = true;
+            throw Error('Simulated lost decision response after host acceptance');
+          }
+          return answer;
+        },
+        setTimer: () => 0, clearTimer: () => {} });
+      try {
+        await audio.start();
+        recorder.ondataavailable({ data: new Blob(['opus']) });
+        await audio.stop();
+        await runner.settled();
+        expect(last.transcript.text).toBe(text);
+        expect(dispatched.map(value => value.kind)).toEqual(action ? [action] : []);
+        if (action) {
+          expect(last.transcript.pageDecision).toEqual(expect.any(String));
+          expect(said).not.toContain(AGENT_FORWARD_REPLY);
+        } else if (listening) expect(said).toEqual([AGENT_FORWARD_REPLY]);
+        else if (text === 'Go back.') expect(said[0]).toMatch(/Nothing to return from/);
+        if (text === 'Jump to 141.') expect(dispatched[0]).toMatchObject({ kind: 'sequence', op: 'goto', residue: 141 });
+        const local = Boolean(action);
+        expect(live.built.instance.transcripts.all()).toHaveLength(1);
+        expect(live.built.instance.transcripts.all()[0].headsetAction === true).toBe(local);
+        if (listening && !local) await vi.waitFor(() => expect(live.messages).toHaveLength(1));
+        else await new Promise(resolve => setTimeout(resolve, 330));
+        expect(live.messages.map(message => message.content)).toEqual(listening && !local ? [text] : []);
+        // Re-delivery of the same finished recorder event cannot act or speak twice.
+        const speechCount = said.length;
+        events.emit(last);
+        await runner.settled();
+        expect(dispatched).toHaveLength(action ? 1 : 0);
+        expect(said).toHaveLength(speechCount);
+      } finally { await audio.dispose(); runner.dispose(); await live.close(); }
+    });
+  }
+
+  it('releases Go back on chapter 2 to Claude once without a page action', async () => {
+    const text = 'Go back.';
+    const live = await session({}, fakeSpawner({ text }), { listening: true });
+    const lesson = { title: 'Claude-led lesson', chapters: [{ id: 'first' }, { id: 'second' }], chapterId: 'second' };
+    const events = createPushToTalkAudioEvents(), said: string[] = [];
+    const dispatch = vi.fn(async () => { lesson.chapterId = 'first'; });
+    const runner = attachVoiceCommandRunner({ events, agentAttached: () => true, lesson: () => lesson,
+      dispatch, speak: (value: string) => said.push(value), record: () => {} });
+    const args = { sessionId: live.sessionId, panelId: live.panelId, utteranceId: UTTERANCE,
+      seq: 0, mime: 'audio/webm', final: true };
+    try {
+      const reply = await live.call('push_to_talk_audio', { ...args, data: 'QUJD' });
+      const transcript = reply.structuredContent.transcript;
+      expect(transcript.pageDecision).toEqual(expect.any(String));
+      const decide = vi.fn(async (handled: boolean) => {
+        const result = await live.call('push_to_talk_audio', { ...args,
+          pageDecision: { token: transcript.pageDecision, handled } });
+        return result.structuredContent.handled;
+      });
+      const event = { state: 'heard', utteranceId: UTTERANCE, text, transcript, decide };
+      events.emit(event);
+      await runner.settled();
+      await vi.waitFor(() => expect(live.messages).toHaveLength(1));
+      events.emit(event);
+      await runner.settled();
+      expect(decide).toHaveBeenCalledExactlyOnceWith(false);
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(lesson.chapterId).toBe('second');
+      expect(said).toEqual([AGENT_FORWARD_REPLY]);
+      expect(live.messages.map(message => message.content)).toEqual([text]);
+      expect(live.built.instance.transcripts.all()).toHaveLength(1);
+      expect(live.built.instance.transcripts.all()[0].headsetAction).not.toBe(true);
+    } finally { runner.dispose(); await live.close(); }
+  });
+
+  for (const listening of [true, false]) it.each(['Show chain A.', 'Return.'])(
+    'full Mol* recorder releases or handles %s (Claude listening: ' + listening + ')', async text => {
+      const live = await session({}, fakeSpawner({ text }), { listening, surface: 'detailed' });
+      const page = new Function(`return ${DETAILED_VIEW_SESSION_SOURCE}`)();
+      let recorder: any, finalized: Promise<any> | undefined;
+      let returns = 0;
+      class Recorder {
+        static isTypeSupported() { return true; }
+        ondataavailable?: (event:any)=>void; onstop?: ()=>void;
+        constructor() { recorder=this; }
+        start() {} stop() { this.onstop?.(); }
+      }
+      const talk = page.createTalk({ Recorder, uuid:()=>UTTERANCE, toBase64:async()=> 'QUJD',
+        getMedia:async()=>({}), mimeTypes:['audio/webm'],
+        resolveTranscript:(heard:string)=>page.resolveReturnRequest(heard,{returnButton:{hidden:false,disabled:false,click:()=>{returns++;}}}),
+        post:(name:string,args:any)=>{
+          const sent=live.call(name,{...args,sessionId:live.sessionId,panelId:live.panelId});
+          if(args.pageDecision) finalized=sent;
+          return sent;
+        } });
+      try {
+        await talk.start(); recorder.ondataavailable({data:{size:3}}); talk.stop();
+        await vi.waitFor(()=>expect(finalized).toBeDefined()); await finalized;
+        await vi.waitFor(()=>expect(returns).toBe(text==='Return.'?1:0));
+        if(listening && text!=='Return.') await vi.waitFor(()=>expect(live.messages).toHaveLength(1));
+        else await new Promise(resolve=>setTimeout(resolve,330));
+        expect(live.messages.map(message=>message.content)).toEqual(listening && text!=='Return.'?[text]:[]);
+        expect(live.built.instance.transcripts.all()).toHaveLength(1);
+      } finally { await live.close(); }
+    });
+
+  it('releases a Mol* return phrase when neither return control can act', () => {
+    const page = new Function(`return ${DETAILED_VIEW_SESSION_SOURCE}`)();
+    expect(page.resolveReturnRequest('Return.', {returnButton:{hidden:true},back:{disabled:true}})).toBeUndefined();
+  });
+
+  it('releases a silent page after 300 ms and refuses its late or duplicate local claim', async () => {
+    const live = await session({}, fakeSpawner({text:'Play.'}), {listening:true});
+    let recorder: any;
+    class Recorder {
+      static isTypeSupported() { return true; }
+      state='inactive'; mimeType='audio/webm'; ondataavailable?: (event:any)=>void; onstop?: ()=>void;
+      constructor() { recorder=this; } start() { this.state='recording'; } stop() { this.state='inactive'; this.onstop?.(); }
+    }
+    const args={sessionId:live.sessionId,panelId:live.panelId,utteranceId:UTTERANCE,seq:0,mime:'audio/webm',final:true};
+    const audio=createPushToTalkAudio({events:createPushToTalkAudioEvents(),recorderFactory:Recorder,newId:()=>UTTERANCE,
+      media:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})},
+      send:(chunk:any)=>live.call('push_to_talk_audio',{...chunk,sessionId:live.sessionId,panelId:live.panelId}),
+      setTimer:()=>0,clearTimer:()=>{}});
+    try {
+      await audio.start(); recorder.ondataavailable({data:new Blob(['opus'])});
+      const record=await audio.stop();
+      const recognizedAt=Date.now();
+      expect(live.built.instance.transcripts.all()).toHaveLength(0);
+      expect(live.messages).toHaveLength(0);
+      await vi.waitFor(()=>expect(live.messages).toHaveLength(1));
+      expect(Date.now()-recognizedAt).toBeGreaterThanOrEqual(250);
+      for(let i=0;i<2;i++) {
+        const late=await live.call('push_to_talk_audio',{...args,pageDecision:{token:record.pageDecision,handled:true}});
+        expect(late.structuredContent.handled).toBe(false);
+      }
+      expect(live.messages.map(message=>message.content)).toEqual(['Play.']);
+      expect(live.built.instance.transcripts.all()).toHaveLength(1);
+    } finally { await audio.dispose(); await live.close(); }
+  });
+
+  it('rejects cross-session reuse before the host admits a new recording', async () => {
+    const live = await session();
+    try {
+      const args = { sessionId: live.sessionId, utteranceId: UTTERANCE, seq: 0, mime: 'audio/webm', data: 'AAAA', final: true };
+      expect((await live.call('push_to_talk_audio', args)).structuredContent.accepted).toBe(true);
+      const cif = await readFile(new URL('../../fixtures/1CRN.cif', import.meta.url), 'utf8');
+      const second = (await live.call('inspect', { structureText: cif })).structuredContent.sessionId;
+      const result = await live.call('push_to_talk_audio', { ...args, sessionId: second, final: false });
+      expect(result.isError === true || result.structuredContent?.accepted === false).toBe(true);
+      expect(result.content[0].text).toMatch(/another session/);
+      await new Promise(resolve => setTimeout(resolve, 320));
+      expect(live.built.instance.transcripts.all()).toHaveLength(1);
+    } finally { await live.close(); }
+  });
 
   it('passes real source vocabulary per press and exposes raw text and correction rules to the consumer agent', async () => {
     const live = await session({ transcriber: 'apple', applespeechBin: '/opt/homebrew/bin/applespeech' }, fakeSpawner({ text: 'Hi Jane' }));
@@ -941,7 +1250,7 @@ describe('the tool as the MCP server exposes it', () => {
       expect(first.structuredContent.reason).toBe('chunk');
       const last = await live.call('push_to_talk_audio', { ...base, seq: 1, final: true });
       expect(last.structuredContent.transcript.text).toBe('open the microtubule lattice');
-      const polled = await live.call('poll_voice_transcripts', { sessionId: live.sessionId, waitMs: 0 });
+      const polled = await live.call('poll_voice_transcripts', { sessionId: live.sessionId, waitMs: 1000 });
       expect(polled.structuredContent.transcripts.map((entry: any) => entry.text)).toEqual(['open the microtubule lattice']);
       expect(polled.structuredContent.cursor).toBe(1);
       const again = await live.call('poll_voice_transcripts', { sessionId: live.sessionId, after: polled.structuredContent.cursor, waitMs: 0 });
@@ -1066,6 +1375,8 @@ describe('the tool as the MCP server exposes it', () => {
     const [a, b] = InMemoryTransport.createLinkedPair();
     const server = createStereoStructureServer();
     const client = new Client({ name: 'Voice visibility test', version: '1' });
+    const messages: any[] = [];
+    client.setNotificationHandler(z.object({method:z.literal(HEADSET_CHANNEL_METHOD),params:z.any()}), n => { messages.push(n.params); });
     await server.connect(b);
     await client.connect(a);
     try {
@@ -1258,4 +1569,21 @@ describe('when the words existed', () => {
       expect(record.transcribedAt).toBe(Date.parse(record.receivedAt));
     } finally { await instance.dispose(); }
   });
+});
+
+it.each(['whisper','apple'] as const)('publishes only a final %s transcript with the original headset binding',async route=>{
+  const {instance}=transcriber({transcriber:route,applespeechBin:'/fake/applespeech'});
+  const entries: TranscriptRecord[]=[];
+  const off=instance.transcripts.subscribe(entry=>entries.push(entry));
+  const panelId='33333333-3333-4333-8333-333333333333';
+  try {
+    await instance.accept(chunk({panelId}));
+    expect(entries).toEqual([]);
+    const final=chunk({seq:1,final:true,data:undefined,panelId:'44444444-4444-4444-8444-444444444444'});
+    await instance.accept(final);
+    await instance.accept(final);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({sessionId:SESSION,panelId,utteranceId:UTTERANCE});
+    expect(entries[0].text.length).toBeGreaterThan(0);
+  } finally {off();await instance.dispose();}
 });

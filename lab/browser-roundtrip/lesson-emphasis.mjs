@@ -11,7 +11,8 @@
  * they can be tested directly:
  *
  * - which rows get which colour, from the lesson's colour key; and
- * - which rows fade, which is every row the focused parts do not claim.
+ * - which rows fade, which is every row the focused parts, and the parts lit
+ *   beside them, do not claim.
  *
  * Fading rather than hiding is the point. An isolated part with nothing around
  * it cannot be placed back in the complex it came from, so the context stays on
@@ -178,9 +179,11 @@ export function mergeEmphasisColourLayers(colours = []) {
  * is deliberately absent: a framing is something a chapter does once, not a
  * property of the emphasis a scene is wearing.
  */
-export function normalizeEmphasisState({ parts = [], focus, contextOpacity = DEFAULT_CONTEXT_OPACITY, strandShades = false } = {}) {
+export function normalizeEmphasisState({ parts = [], focus, alsoLit, contextOpacity = DEFAULT_CONTEXT_OPACITY, strandShades = false } = {}) {
   const ids = new Set(parts.map(part => part.id));
   const wanted = focusList(focus).filter(id => ids.has(id));
+  // With no focus the whole key is lit already, so only a focused key keeps these.
+  const beside = wanted.length ? focusList(alsoLit).filter(id => ids.has(id) && !wanted.includes(id)) : [];
   return {
     parts: parts.map(part => ({
       id: part.id,
@@ -191,6 +194,7 @@ export function normalizeEmphasisState({ parts = [], focus, contextOpacity = DEF
       ...(part.residues === undefined ? {} : { residues: { from: part.residues.from, to: part.residues.to } }),
     })),
     focus: wanted,
+    ...(beside.length ? { alsoLit: beside } : {}),
     contextOpacity: Math.min(1, Math.max(0, contextOpacity)),
     // The wall tier's whole-structure chapters shade one
     // lightness step per protofilament, so the flag travels with the key.
@@ -350,7 +354,7 @@ export function emphasisFocusForKeys(parts, resolveKeys, keys) {
  * @param rowKeys    every selectable row key in the loaded structure
  */
 export function planLessonEmphasis(chapter, resolveKeys, rowKeys = []) {
-  const { parts: authored = [], focus, contextOpacity = DEFAULT_CONTEXT_OPACITY, strandShades = false } = chapter ?? {};
+  const { parts: authored = [], focus, alsoLit, contextOpacity = DEFAULT_CONTEXT_OPACITY, strandShades = false } = chapter ?? {};
   // A whole-structure wall chapter steps one lightness per
   // protofilament at plan time, so the JSON keeps the base colours verbatim.
   const parts = applyWallStrandShades(authored, strandShades === true);
@@ -397,11 +401,12 @@ export function planLessonEmphasis(chapter, resolveKeys, rowKeys = []) {
   }
 
   const wanted = focusList(focus);
+  const besideIds = focusList(alsoLit);
   // Checked against the AUTHORED parts, not the resolved ones: a focus naming a
   // part the key does not list is an authoring mistake and still fails loudly,
   // while a focus naming a part that merely failed to resolve is a data problem
   // on the structure and is handled by the fallback below.
-  for (const id of wanted) {
+  for (const id of [...wanted, ...besideIds]) {
     if (!parts.some(part => part.id === id)) {
       throw Error(`This chapter emphasises "${id}", which its colour key does not name.`);
     }
@@ -433,9 +438,18 @@ export function planLessonEmphasis(chapter, resolveKeys, rowKeys = []) {
   //
   // A chapter with no focus — the opening — still paints the whole key, because
   // that chapter IS the key.
-  const colours = (focused.length > 0 ? focused : resolved).filter(part => part.keys.length > 0 && part.color);
+  //
+  // `alsoLit` names the parts a caption points at beside its subject: "the
+  // yellow PAM ... on the blue non-target strand", or a closing recap that
+  // recites the whole key. They wear their key colour and do not fade, in the
+  // key's own order so a sub-range still paints over its chain, but they are
+  // not what the chapter frames or explains.
+  const beside = focused.length > 0 ? resolved.filter(part => besideIds.includes(part.id)) : [];
+  const colours = (focused.length > 0 ? resolved.filter(part => focused.includes(part) || beside.includes(part)) : resolved)
+    .filter(part => part.keys.length > 0 && part.color);
   const lit = new Set(focused.flatMap(part => part.keys));
-  const wouldFade = focused.length > 0 ? rowKeys.filter(key => !lit.has(key)) : [];
+  const shown = new Set([...lit, ...beside.flatMap(part => part.keys)]);
+  const wouldFade = focused.length > 0 ? rowKeys.filter(key => !shown.has(key)) : [];
   // NO plan fades the whole structure.
   //
   // A fade with nothing lit behind it is not an emphasis, it is a blackout: in

@@ -258,9 +258,10 @@ describe('the heartbeat and the scene it delivered', () => {
     expect(busy).toMatch(/call\('poll_inspection'/u);
     // The word is chosen rather than hard-coded now, because
     // the same beat also runs while nothing owns the renderer. A command, a
-    // hydration or an unready workspace still forces `busy`.
+    // hydration or an unready workspace still forces `busy`, except while a
+    // desktop keeps its already drawn receipt ready during confirmation.
     expect(busy).toMatch(/const busy=forceBusy \|\| remote \|\| loading \|\| !workspace\.snapshot\(\)\.ready;/u);
-    expect(busy).toMatch(/const availability=busy\?'busy' as const:liveAvailability\(\);/u);
+    expect(busy).toMatch(/const availability=recovery\?'ready' as const:receiptBeat\?'ready' as const:busy\?'busy' as const:liveAvailability\(\);/u);
     // The headset log is only uploaded on this beat, so the queue and its
     // acknowledgement must ride it too, or a hang stays unreadable afterwards.
     expect(busy).toMatch(/__stereofoldDiagnostics\?\.heartbeat\?\.\(\)/u);
@@ -279,12 +280,11 @@ describe('the heartbeat and the scene it delivered', () => {
       expect(busy).not.toContain(forbidden);
     }
     // This beat may now start a command, because it is the
-    // only beat a wearer gets while the slow half of `poll` is waiting. It may
-    // do so only when it told the host the panel was `ready`, and a beat sent
-    // mid-command or mid-hydration never says that — `busy` above forces the
-    // word. It is still started rather than awaited.
-    expect(busy).toMatch(/const delivery=availability==='ready'\?privateState\?\.delivery:undefined;/u);
-    expect(busy).toMatch(/rendering=rendering\.then\(\(\)=>receive\(delivery,sent,ownGeneration\)\)/u);
+    // only beat a wearer gets while the slow half of `poll` is waiting. It
+    // dispatches when ready, or when the host admitted a lesson that will retire
+    // wearer input. It is still started rather than awaited.
+    expect(busy).toMatch(/const delivery=availability==='ready' \|\| privateState\?\.delivery\?\.change\?\.kind==='lesson'\?privateState\?\.delivery:undefined;/u);
+    expect(busy).toMatch(/rendering=rendering\.then\(\(\)=>receivePollDelivery\(response,sent,ownGeneration\)\)/u);
     expect(busy).not.toMatch(/await receive\(/u);
   });
 

@@ -69,9 +69,16 @@ function wedgedSession({ collapsed = false } = {}) {
       const eye = basis.origin.map((value, axis) => value + side * HALF_IPD_METERS * basis.right[axis]);
       const relative = point => point.map((value, axis) => value - eye[axis]);
       const v = relative(seatRoom), x = dot(v, basis.right), z = dot(v, basis.forward);
-      const left = (x * z - r * Math.sqrt(x * x + z * z - r * r)) / (z * z - r * r);
-      const right = Math.max(...points.map(point => dot(relative(point), basis.right) / dot(relative(point), basis.forward)));
-      return left - right;
+      return Math.min(...(points.plates ?? [points]).map(plate => {
+        const rays = plate.map(relative);
+        let gap = -Infinity;
+        for (let i = 0; i < rays.length; i++) for (let j = i + 1; j < rays.length; j++) {
+          const normal = Vec3.normalize(Vec3(), Vec3.cross(Vec3(), rays[i], rays[j]));
+          for (const sign of [-1, 1]) if (rays.every(ray => sign * dot(ray, normal) <= 1e-10))
+            gap = Math.max(gap, sign * dot(v, normal) - r);
+        }
+        return gap;
+      }));
     });
   };
   return { basis, panel, points, placement, center, radius, cameraScale, headInRoom, renderFromRoom, gapsFor };
@@ -90,12 +97,14 @@ function session({ presenting = true, scene = { camera: savedCamera }, collapsed
     world.points.splice(0, world.points.length, ...[-.3, -.05].flatMap(x => [-.2, .2].map(y =>
       world.basis.origin.map((v, i) => v + x * world.basis.right[i] + y * world.basis.up[i] + world.basis.forward[i]))));
   }
-  const calls = { fits: 0, cameraFits: 0, seats: 0, places: [], menuOptions: [] };
+  if (!large) delete world.points.plates;
+  const calls = { fits: 0, cameraFits: 0, seats: 0, places: [], menuOptions: [], placementReleases: [] };
   const roomEntry = {};
   let placement = { ...world.placement, ...(seat ?? {}) };
   const context = vm.createContext({
     Array, Math, Error, Boolean,
     resetViewPlacement, cameraSnapshot, structuredClone, roomEntry, applyMatrix4, Mat4,
+    releaseWearerPlacement: reason => { calls.placementReleases.push(reason); },
     scientificRepresentations: () => [], presentationTransform: () => Mat4.identity(), placementTransform: () => Mat4.identity(),
     canvas: { xr: { isPresenting: { value: presenting } }, camera: { scale: world.cameraScale } },
     latestRoomPlacementPose: { headInRoom: world.headInRoom, renderFromRoom: world.renderFromRoom },
@@ -248,7 +257,9 @@ test('Done keeps the pre-clearance entry and waits for the menu render before pu
   const done = s.run();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(s.roomEntry.seat, undefined, 'no Reset target before the menu render completes');
+  assert.deepEqual(s.calls.placementReleases, [], 'the pending draw must retain the wearer placement hold');
   finish(); await done;
+  assert.deepEqual(s.calls.placementReleases, ['entry-seat']);
   assert.deepEqual(s.roomEntry.seat.translation, s.world.placement.translation);
   assert.notDeepEqual(s.roomEntry.seat.translation, s.seat().translation);
   assert.equal(s.calls.cameraFits, 0);
@@ -260,4 +271,5 @@ test('failed Done rendering cannot publish a new Reset target', async () => {
   s.roomEntry.seat = old;
   await assert.rejects(s.run(), /menu render failed/u);
   assert.equal(s.roomEntry.seat, old);
+  assert.deepEqual(s.calls.placementReleases, [], 'failed Done must retain the wearer placement hold');
 });

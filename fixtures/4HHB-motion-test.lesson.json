@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "id": "hemoglobin-motion-test",
+  "title": "4HHB rigid body motion test",
+  "mode": "guided",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/4HHB"
+      }
+    ],
+    "sourceSha256": "2d3ca1bf21ddff35af2e2bc5d331720f7bfc46a16c4829ea3ec1b41062d5f5a6",
+    "note": "Test motion only. The authored rigid path is not a biological claim."
+  },
+  "presentation": {
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "moving",
+      "title": "Test motion: chains C and D",
+      "caption": "Chains C and D move together along an authored test path. This test motion is not a biological claim.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "animation": {
+        "version": 1,
+        "durationSeconds": 6,
+        "playback": {
+          "autoplay": true,
+          "loop": true,
+          "speed": 1
+        },
+        "tracks": [
+          {
+            "id": "cd",
+            "chains": [
+              "C",
+              "D"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 3,
+                "rotation": [
+                  0,
+                  0,
+                  0.25881904510252074,
+                  0.9659258262890683
+                ],
+                "translation": [
+                  12,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "immersive": {
+        "motion": "hold",
+        "appearance": {
+          "representation": "cartoon",
+          "color": "chain-id",
+          "componentLabels": false
+        },
+        "view": "fit",
+        "narration": "This is test motion of chains C and D, not a biological claim."
+      }
+    },
+    {
+      "id": "file-pose",
+      "title": "Original file pose",
+      "caption": "All chains are back at their coordinates in the loaded 4HHB file.",
+      "durationSeconds": 6,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 6
+        }
+      ],
+      "immersive": {
+        "motion": "hold",
+        "visibility": {
+          "op": "reset"
+        }
+      }
+    }
+  ]
+}

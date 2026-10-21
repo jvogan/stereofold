@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use Stereofold in your research, please cite it as below, and cite Mol* as well."
 title: "Stereofold"
-version: 0.1.0
+version: 0.1.22
 abstract: >-
   An MCP plugin, built on Mol*, that lets an AI agent put a protein structure
   on a Meta Quest or Apple Vision Pro over private Wi-Fi and change it on

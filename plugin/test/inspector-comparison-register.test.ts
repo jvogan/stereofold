@@ -12,10 +12,10 @@ const inspectorSource = await readFile(new URL('../src/inspector.ts', import.met
 const inspectorAst = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const pieces = inspectorAst.statements.filter(node =>
   (ts.isFunctionDeclaration(node) && node.name?.text === 'registerComparisonSources')
-  || (ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration => declaration.name.getText() === 'heldComparisons')));
-expect(pieces, 'registerComparisonSources or heldComparisons moved out of the module scope').toHaveLength(2);
+  || (ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration => ['heldComparisons','comparisonRegistration'].includes(declaration.name.getText()))));
+expect(pieces, 'comparison registration function/state moved out of the module scope').toHaveLength(3);
 
-function page(options: { fail?: (source: any, attempt: number) => boolean; delayMs?: number } = {}) {
+function page(options: { fail?: (source: any, attempt: number) => boolean; delayMs?: number; beforeHydrate?: (source:any)=>Promise<void> } = {}) {
   const registered: any[][] = [];
   const fetched: string[] = [];
   const attempts = new Map<string, number>();
@@ -27,6 +27,7 @@ function page(options: { fail?: (source: any, attempt: number) => boolean; delay
       const attempt = (attempts.get(source.sha256) ?? 0) + 1;
       attempts.set(source.sha256, attempt);
       fetched.push(`${sessionId}:${source.sha256}:${attempt}`);
+      if (options.beforeHydrate) await options.beforeHydrate(source);
       if (options.delayMs) await new Promise(resolve => setTimeout(resolve, options.delayMs));
       if (options.fail?.(source, attempt)) throw Error('The coordinates changed during delivery. Reconnect before continuing.');
       source.cif = `cif-of-${source.sha256}`;
@@ -105,4 +106,40 @@ it('keeps a structure that loaded when another in the same payload fails', async
   // S1 was fetched on the first call only; S2 is retried.
   expect(fetched.filter(entry => entry.includes('1'.repeat(64)))).toHaveLength(1);
   expect(fetched.filter(entry => entry.includes('2'.repeat(64)))).toHaveLength(2);
+});
+
+it('a superseded comparison transfer cannot replace the assets registered by a newer payload', async () => {
+  let release!:()=>void, started!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;}),entered=new Promise<void>(resolve=>{started=resolve;});
+  const {register,registered}=page({beforeHydrate:async source=>{if(source.id==='S1'){started();await gate;}}});
+  const older=register([descriptor('1')],'s');await entered;
+  await register([descriptor('2')],'s');
+  expect(registered.at(-1)!.map(source=>source.id)).toEqual(['S2']);
+  release();await older;
+  expect(registered.at(-1)!.map(source=>source.id),'The viewer may be about to draw S2; an obsolete hydration must not prune it').toEqual(['S2']);
+});
+
+it('an older failed transfer cannot evict a newer successful comparison entry', async () => {
+  let release!:()=>void, started!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;}),entered=new Promise<void>(resolve=>{started=resolve;});
+  const {register,registered,fetched}=page({beforeHydrate:async source=>{if(source.id==='S1'){started();await gate;}},fail:source=>source.id==='S1'});
+  const older=register([descriptor('1')],'s');const refused=expect(older).rejects.toThrow(/changed during delivery/);await entered;
+  await register([descriptor('2')],'s');release();await refused;
+  await register([descriptor('2')],'s');
+  expect(registered.map(sources=>sources.map(source=>source.id))).toEqual([['S2'],['S2']]);
+  expect(fetched.filter(value=>value.includes('2'.repeat(64)))).toHaveLength(1);
+});
+
+it.each([['empty', []], ['omitted', undefined]] as const)('handles a newer %s payload without pruning retained history assets', async (_label,payload) => {
+  let release!:()=>void, started!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;}),entered=new Promise<void>(resolve=>{started=resolve;});
+  const {register,registered,fetched}=page({beforeHydrate:async()=>{started();await gate;}});
+  const older=register([descriptor('1')],'s');await entered;
+  await register(payload as any,'s');release();await older;
+  expect(registered).toHaveLength(payload===undefined?1:0);
+  // Empty means no live comparison; local history may still need these same
+  // verified bytes later. Preserve reuse while suppressing the obsolete publish.
+  await register([descriptor('1')],'s');
+  expect(registered.at(-1)!.map(source=>source.id)).toEqual(['S1']);
+  expect(fetched).toHaveLength(1);
 });

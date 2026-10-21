@@ -114,6 +114,21 @@ describe('the agent presence the headset heartbeat carries', () => {
     } finally { await close(); }
   });
 
+  it('does not count a turn the agent began itself, nor a reply or action bound to it', async () => {
+    const { call, sessionId, binding, panelId, beat, close } = await setup();
+    try {
+      await call('poll_voice_transcripts', { sessionId, waitMs: 0 });
+      const begun = await call('update_inspection', { ...binding, panelId, commandId: 'agent-turn',
+        change: { kind: 'utterance', patch: { action: 'begin' } } });
+      const utteranceId = begun.structuredContent.lifecycle.utterance.utteranceId as string;
+      const said = await call('say_to_headset', { text: 'Hello.', utteranceId, speak: false });
+      expect(said.structuredContent).toMatchObject({ queued: true, stale: false, utteranceBinding: 'active' });
+      expect((await call('update_inspection', { ...binding, panelId, commandId: 'agent-turn-action', utteranceId,
+        change: { kind: 'render-quality', patch: { level: 'best' } } })).isError).not.toBe(true);
+      expect(await beat()).toBe(false);
+    } finally { await close(); }
+  });
+
   it('does not count a rejected scene action as processing a request', async () => {
     const { call, binding, panelId, beat, close, hear } = await setup();
     try {

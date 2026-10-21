@@ -201,7 +201,8 @@ export function mountExperiencePlayer(options: {
   const visibility = () => { if (document.hidden && playing) pause('Paused while this view is hidden.'); };
   document.addEventListener('visibilitychange', visibility);
   sync();
-  return Object.freeze({ getState, start, next, back, pause, togglePlay, openMenu, closeMenu,
+  // Keep the internal error flag separate from the shared player's pause options.
+  return Object.freeze({ getState, start, next, back, pause: (reason?: string) => pause(reason), togglePlay, openMenu, closeMenu,
     async finish(_reason?: 'completed' | 'done') {
       ensureLive();
       if (pending || rendering) throw Error('Wait for the current scene to finish loading.');

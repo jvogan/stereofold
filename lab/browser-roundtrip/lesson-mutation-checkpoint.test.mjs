@@ -1,3 +1,4 @@
+import { emptyMolecularAnimationBinding } from './fixtures/empty-lesson-figure.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -14,7 +15,7 @@ const oldEmphasis = normalizeEmphasisState({ parts: [{ id: 'old', label: 'Old le
 // The draw adapter injects loss after admission; no GPU rendering is claimed.
 function harness() {
   const noop = () => {};
-  const c = vm.createContext({ structuredClone, Error, console,
+  const c = vm.createContext({ ...emptyMolecularAnimationBinding(), lessonSelection: undefined, structuredClone, Error, console,
     detached: clone, assertReady: noop, assertContext: noop, interactionActive: () => false,
     state: { status: 'ready', revision: 0, mutationCounts: { representation: 0, inspection: 0 }, selectionKeys: [], lastPick: null },
     structure: { obj: { data: {} } }, volume: null, representation: {}, sourceRecord: {}, dataRoot: 'root',

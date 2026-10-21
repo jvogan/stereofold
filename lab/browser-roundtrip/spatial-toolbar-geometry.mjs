@@ -1,42 +1,25 @@
 import { HALF_IPD_METERS, EYE_HALF_FIELD_DEGREES } from './placement-fit-envelope.mjs';
 export { HALF_IPD_METERS, EYE_HALF_FIELD_DEGREES } from './placement-fit-envelope.mjs';
+import { menuCapDegrees, QUEST_MENU_MIN_CAP_DEGREES } from './menu-legibility.mjs';
 import { replyCardOffset } from './reply-card-layout.mjs';
 // Renderer-free physical XR toolbar geometry. Keep this module runnable in Node
 // so controller targeting can be verified without loading the Mol* renderer.
 export const EPSILON = 1e-6;
 // Metres in the XR `local` space. These public constants make controller-ray
 // acceptance deterministic without exposing a production test hook.
-// Known limit: the anchor is head-relative only. `toolbarLayoutForDepthRange`
-// keeps it inside the legal clip band, which is not the molecule's rendered
-// volume, so a wearer-enlarged structure can still surround the panel. A
-// bounds clamp would have to move the entry-pose anchor the session
-// deliberately retains, so it needs in-headset verification first.
-// The panel's seat, as a bearing rather than a raw offset.
-//
-// It used to be written as a forward and a sideways offset, which put it 23
-// degrees off the forward axis: on hardware that is the middle of the view,
-// and the wearer reported that the menu blocked the structure. A menu is
-// read by choice and a molecule is looked at continuously, so the panel is
-// now seated by the angle it subtends from the entry gaze. At 47 degrees its
-// inner edge clears 34 degrees, which leaves the central 60 degree cone -- the
-// band a wearer looking at the structure actually occupies -- empty of panel,
-// caption and status line alike. `faceViewer` then yaws it back square, so an
-// off-axis panel is still read as a surface rather than edge-on.
+// The toolbar's commit boundary proves new glass against the chapter's full
+// motion envelope; a seat that cannot clear asks the viewer to reframe it.
+// Seat every menu width inside both forward lenses. The 47-degree design
+// bearing is only a solver ceiling; the actual single column sits near 29
+// degrees. Chapter cards have an independent forward-facing seat above or
+// below the molecule, and chapter-field checks their drawn obstruction.
 //
 // Dimensions are authored at 0.95 m, then scaled together to the 1.35 m
 // reading range. This keeps their apparent size without close-up glass.
-/**
- * Cap height as a fraction of a Mol* text `size`, and Meta's minimum.
- *
- * Mol* scales a glyph quad by the font atlas line height, not by the cap:
- * `font-atlas.js` builds `lineHeight = fontSize + 2 * fontSize / 8 +
- * fontSize / 3` and normalises each glyph's measured box by it, so a capital
- * plus the atlas buffer is about 0.95 of `fontSize` against a 1.583 line
- * height. Meta publishes 14 dp as the minimum body size on a spatial panel
- * and 500 dp per metre as the default density, which is 0.028 m of cap.
- *
- * Any type on this panel must satisfy `size * GLYPH_CAP_FRACTION >=
- * META_MIN_CAP_METERS` at the seat, which is what the tests assert.
+/** Legacy layout fraction (includes atlas padding), retained for the existing
+ * physical caption layout. It is NOT ink cap height. Quest legibility is
+ * checked using MENU_INK_CAP_FRACTION (0.44) and a 0.6-degree minimum in
+ * menu-legibility.mjs; the atlas's measured bold H is 138/304 = 0.454.
  */
 export const GLYPH_CAP_FRACTION = 0.58;
 export const META_MIN_CAP_METERS = 0.028;
@@ -64,14 +47,27 @@ export const META_MIN_CAP_METERS = 0.028;
  */
 export const EYE_HALF_FIELD_VERTICAL_DEGREES = 45;
 export const PANEL_FRAME_MARGIN_DEGREES = 3;
+/**
+ * The view band, as tangents: the lens less the frame margin, 39 degrees
+ * across and 42 degrees high, in each eye.
+ *
+ * `menuSeatWithinView` admits a forward seat only when every drawn plate is
+ * inside it: an alternate seat, a summoned seat and an expanded grid. For
+ * those seats `captionEnvelope` sizes the card glass to this same band. It
+ * used to size it to 4 per cent off a 45 by 42 degree eye, 43.8 degrees high
+ * and 40.9 across, so a card the envelope had capped still ran 1.8 degrees
+ * past the band, every alternate seat failed by that margin, and the menu hid
+ * on telomerase and daraxonrasib chapter 1.
+ */
+export const VIEW_BAND_TAN_HORIZONTAL = Math.tan((EYE_HALF_FIELD_DEGREES - PANEL_FRAME_MARGIN_DEGREES) * Math.PI / 180);
+export const VIEW_BAND_TAN_VERTICAL = Math.tan((EYE_HALF_FIELD_VERTICAL_DEGREES - PANEL_FRAME_MARGIN_DEGREES) * Math.PI / 180);
 
 /**
  * The furthest off-axis the panel may be seated, and the range it sits at.
  *
- * Compact controls use the 47-degree peripheral seat, read by a deliberate
- * glance. Expanded grids and relocation candidates instead use
+ * All columns, expanded grids and relocation candidates use
  * `toolbarSeatDegrees` to fit their complete width in the forward lens.
- * Neither policy follows subsequent head movement.
+ * Their room seat does not follow subsequent head movement.
  */
 const MENU_SEAT_DEGREES = 47, DESIGN_SEAT_METERS = 0.95;
 // Keep the established angular layout, but put its glass beyond the close
@@ -564,6 +560,13 @@ export const READOUT_PAGE_LINE_WIDTH = 15;
 export const READOUT_PAGE_LINES = 3;
 
 /**
+ * The line a forward chapter card is as wide as: 45 characters of a shipped
+ * lesson's prose. Measured in the card's own type, the headset's Chromium
+ * makes it 13.9 em, an average of 0.31 em a character.
+ */
+export const CARD_LINE_SAMPLE = 'Gamma forms the shaft into the catalytic head';
+
+/**
  * One long caption cut into pages the glass can hold whole.
  *
  * This is the single paginator. `pageText` in `plugin/src/tour-player.ts` is a
@@ -624,6 +627,9 @@ export function pageCaptionText(value, maxCharacters = READOUT_PAGE_LINE_WIDTH *
  * `plugin/scripts/xr-gate.ts` measures with (`EMULATED_DEVICE`) and a little
  * under what a Quest 3 shows. `CAPTION_FRAME_MARGIN` keeps the glass off the
  * frame edge, which also covers the half-interpupillary offset of each eye.
+ * That is the envelope of the peripheral seat, read after a glance. A forward
+ * seat, which `menuSeatWithinView` admits, is fitted inside the view band
+ * instead (`VIEW_BAND`).
  */
 export const EYE_TAN_HALF_VERTICAL = 1;
 export const EYE_TAN_HALF_HORIZONTAL = Math.tan(EYE_HALF_FIELD_DEGREES * Math.PI / 180);
@@ -674,6 +680,9 @@ export const CENTRAL_CONE_TANGENT = Math.tan(CENTRAL_CONE_HALF_ANGLE_DEGREES * M
  */
 export const EXPANDED_GRID_CONE_HALF_ANGLE_DEGREES = 12;
 export const CAPTION_FRAME_MARGIN = 0.04;
+const EYE_ENVELOPE_BAND = Object.freeze({ vertical: EYE_TAN_HALF_VERTICAL * (1 - CAPTION_FRAME_MARGIN),
+  horizontal: EYE_TAN_HALF_HORIZONTAL * (1 - CAPTION_FRAME_MARGIN) });
+export const VIEW_BAND = Object.freeze({ vertical: VIEW_BAND_TAN_VERTICAL, horizontal: VIEW_BAND_TAN_HORIZONTAL });
 
 /**
  * The caption rectangle, in the panel's own axes, for one eye at `origin`.
@@ -685,7 +694,8 @@ export const CAPTION_FRAME_MARGIN = 0.04;
  */
 export function captionEnvelope({ origin, anchor, right, up, forward, headRight,
   outboard, floor, font, glyphAspect = 0.54, pad = 0, minLines = 1, maxLines = 10,
-  viewForward = forward, viewRight = headRight, coneTangent = CENTRAL_CONE_TANGENT }) {
+  viewForward = forward, viewRight = headRight, coneTangent = CENTRAL_CONE_TANGENT, band = EYE_ENVELOPE_BAND,
+  forwardVertical = Infinity }) {
   // The glass is measured from the eye that sees it worst, never from the head
   // centre. A panel on the wearer's left is further off the axis in the right
   // eye by half an interpupillary distance, which at this seat is about one
@@ -708,12 +718,18 @@ export function captionEnvelope({ origin, anchor, right, up, forward, headRight,
   // a glass that reaches across the forward axis is worst in the NEAR eye, so a
   // single-eye test let the 10-row menu's glass run to 41.9 degrees in the eye
   // it was not measuring.
+  // A glass measured for a glance (`viewForward` turned toward the panel) is
+  // still seen from the forward gaze, where the same rise is a steeper angle:
+  // at the 47 degree seat an 8-line card that fitted the glance reached 57
+  // degrees up. `forwardVertical` keeps it inside the forward view's top and
+  // bottom too.
   const visible = (eye, dx, dy) => {
     const relative = sub(add(add(anchor, scale(right, dx)), scale(up, dy)), eye);
     const point = { lateral: dot(relative, viewRight), rise: dot(relative, up), depth: dot(relative, viewForward) };
     return point.depth > EPSILON
-      && Math.abs(point.rise) <= EYE_TAN_HALF_VERTICAL * point.depth * (1 - CAPTION_FRAME_MARGIN)
-      && Math.abs(point.lateral) <= EYE_TAN_HALF_HORIZONTAL * point.depth * (1 - CAPTION_FRAME_MARGIN);
+      && Math.abs(point.rise) <= band.vertical * point.depth
+      && Math.abs(point.lateral) <= band.horizontal * point.depth
+      && Math.abs(point.rise) <= forwardVertical * dot(relative, forward);
   };
   const insideEye = (dx, dy) => eyes.every(eye => visible(eye, dx, dy));
   // The cone stays a cone -- the structure is a ball about the gaze, not an
@@ -789,9 +805,10 @@ export function captionEnvelope({ origin, anchor, right, up, forward, headRight,
   // so the caption plate lines up with the control plate on the side the
   // wearer turns to, and it never gives up more than half the panel's width,
   // so it stays a plate the rows sit under rather than a banner off to one
-  // side.
+  // side. When forward chapter glass starts inboard of the anchor, search
+  // toward its inner edge instead; halving a positive offset reverses the walk.
   const trials = [measure(outer)];
-  for (let edge = outer + step; edge <= outer / 2 + EPSILON; edge += step) trials.push(measure(edge));
+  for (let edge = outer + step; edge <= (outer > 0 ? inboard - font : outer / 2) + EPSILON; edge += step) trials.push(measure(edge));
   const holdsPage = trials.filter(trial => trial.lineBudget >= minLines);
   const pool = holdsPage.length ? holdsPage : trials;
   const better = holdsPage.length
@@ -820,13 +837,30 @@ function recordToolbarTruncation(detail) {
 }
 
 /** Pure, physical XR-local toolbar layout for deterministic ray tests. */
-export function createToolbarPanel({ rows, head, constants: baseConstants = SPATIAL_TOOLBAR_LAYOUT, readout = [], status = '', measureText, seatAnchor }) {
+export function createToolbarPanel({ rows, head, constants: baseConstants = SPATIAL_TOOLBAR_LAYOUT, readout = [], status = '', assistantLines = [], assistantGlance = [], measureText, seatAnchor, readoutPage, stableLesson = false }) {
   // The seat takes the wearer's eye height and yaw only. `toolbarSeatBasis`
   // carries the reasoning; the short version is that a panel built on a
   // pitched head is read edge-on from a level one.
   const basis = toolbarSeatBasis(head);
   if (!Array.isArray(rows) || rows.length === 0 || !basis) return undefined;
   const { origin, forward: headNormal, right: headRight, up: y } = basis;
+  // Control styling must not change the chapter's reading size or capacity.
+  const chapterFontMeters = baseConstants.fontMeters;
+  if (stableLesson) {
+    // A lesson keeps one compact grid facing forward. The old tall column
+    // needed more room than a chapter left; yawed pills also looked tilted.
+    const side = baseConstants.lessonSide ?? (seatAnchor ? Math.sign(dot(sub(seatAnchor, origin), headRight)) || 1 : 1);
+    const size = baseConstants.fontMeters / SPATIAL_TOOLBAR_LAYOUT.fontMeters;
+    baseConstants = { ...baseConstants, rightMeters: side * Math.abs(baseConstants.rightMeters),
+      faceViewer: false, peripheralSeat: false, maxRows: 2,
+      fontMeters: .060 * size, rowStepMeters: .085 * size, columnStepMeters: .225 * size,
+      rowPadMeters: .025 * size, backingPadMeters: .040 * size,
+      minColumnHalfWidthFactor: .4, maxColumnHalfWidthFactor: .49 };
+    if (seatAnchor && side * dot(sub(seatAnchor, origin), headRight) <= 0) seatAnchor = undefined;
+    const parts = String(assistantGlance[0] ?? assistantLines[0] ?? 'No assistant').split(' · ');
+    const microphone = parts[1] && /^(?:Listening|Starting|Transcribing|Microphone)/u.test(parts[1]);
+    assistantLines = [microphone ? parts[1] : parts[0].replace(/ connected$/u, '')];
+  }
   const density = toolbarDensity(rows.length, baseConstants);
   const constants = scaleConstants(baseConstants, density);
   const columns = Math.max(1, Math.ceil(rows.length / constants.maxRows));
@@ -838,7 +872,7 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   const glyphHalfWidth = row => Math.max(...(typeof row === 'string' ? [row] : row.labelLines ?? [row.label]).map(label =>
     typeof label === 'string' ? label.length : 0)) * constants.fontMeters * (constants.glyphAspect ?? 0.54) / 2;
   const columnHalfWidths = Array.from({ length: columns }, (_, column) => {
-    const widest = rows.reduce((widthSoFar, row, index) =>
+    const widest = stableLesson ? 6 * constants.fontMeters * (constants.glyphAspect ?? .54) / 2 : rows.reduce((widthSoFar, row, index) =>
       Math.floor(index / constants.maxRows) === column ? Math.max(widthSoFar, glyphHalfWidth(row)) : widthSoFar, 0);
     return Math.min(constants.columnStepMeters * (constants.maxColumnHalfWidthFactor ?? 0.46),
       Math.max(constants.columnStepMeters * (constants.minColumnHalfWidthFactor ?? 0.26), widest + (constants.rowPadMeters ?? 0)));
@@ -863,9 +897,7 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   // re-solved at that shorter range. Two passes settle it; without a band the
   // loop runs once and changes nothing.
   let seatRange = Math.hypot(constants.forwardMeters, constants.rightMeters);
-  const seatBearing = range => constants.peripheralSeat === true && columns === 1
-    ? Math.min(MENU_SEAT_DEGREES, preferredDegrees)
-    : toolbarSeatDegrees(panelHalfWidth, range, preferredDegrees);
+  const seatBearing = range => toolbarSeatDegrees(panelHalfWidth, range, preferredDegrees);
   let seatDegrees = seatBearing(seatRange);
   const maxDepth = Number.isFinite(constants.maxDepthMeters) ? constants.maxDepthMeters : Infinity;
   for (let pass = 0; pass < 3 && Number.isFinite(maxDepth); pass += 1) {
@@ -894,9 +926,15 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
       x = normalizeSpatialVector(cross(normal, y), headRight);
     }
   }
+  // A wearer drag translates a rigid panel. Compact/expanded lesson styling
+  // may change rows, but cannot silently yaw the placed control plane.
+  if (finite3(constants.heldMenuPlane?.normal) && finite3(constants.heldMenuPlane?.right)) {
+    normal = [...constants.heldMenuPlane.normal]; x = [...constants.heldMenuPlane.right];
+  }
   const halfHeight = constants.rowStepMeters * (constants.rowHalfHeightFactor ?? 0.47);
   const buttons = rows.map((row, index) => {
-    const column = Math.floor(index / constants.maxRows), line = index % constants.maxRows;
+    const column = stableLesson ? index % columns : Math.floor(index / constants.maxRows);
+    const line = stableLesson ? Math.floor(index / columns) : index % constants.maxRows;
     const point = add(add(anchor, scale(x, (column - (columns - 1) / 2) * constants.columnStepMeters)),
       scale(y, ((lines - 1) / 2 - line) * constants.rowStepMeters));
     // A row that only reports state is not a control. It is drawn as a flat
@@ -995,24 +1033,64 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   // the shipped nine-row menu that is 0.55 m against the panel's 0.37 m, which
   // is 18 characters of row type instead of 13, and the difference is what
   // stops a caption page from arriving as ragged fragments.
-  const captionGap = pad * 0.6, captionPad = pad * 0.8;
+  const captionGap = pad * 0.6, captionPad = Math.max(pad * 0.8, chapterFontMeters * .8);
   // Preserve the parent's caption floor over the full status extent,
   // including its blank baseline, without adding that space to menu glass.
   const captionMenuTop = Math.max(maxY, statusTopOffset + constants.fontMeters / 2 + pad);
-  const envelope = captionEnvelope({ origin, anchor, right: x, up: y, forward: headNormal,
+  // Chapter prose is read while watching the structure. Give it the inner
+  // side of the glass in the forward eye field, above the molecular cone;
+  // controls and ordinary scientific readouts retain their deliberate glance.
+  const forwardCaption = Array.isArray(readout) && readout.some(line => line.forwardView === true);
+  // The plain structure readout and the readout replacing a hidden chapter
+  // card share this forward seat and its overflow pages.
+  const capForwardView = Array.isArray(readout)
+    && readout.some(line => line.forwardViewCap === true);
+  const peripheralCaption = constants.peripheralSeat === true && columns === 1;
+  const chapterFloor = forwardCaption && peripheralCaption ? seatRange * 0.8 / TOOLBAR_READING_RANGE_METERS : 0;
+  const chapterCard = forwardCaption || capForwardView || constants.chapterCardSide;
+  // A chapter retains its title and three full-size prose lines regardless
+  // of the control grid. The narrow side card holds one prose line, as does
+  // the short lesson card a crowded chapter falls back to (`shortCard`).
+  const cardLines = constants.chapterCardSide || constants.shortCard ? 2 : forwardCaption ? 4 : 3;
+  const baseCaptionAnchor = chapterCard ? add(origin, scale(headNormal, seatRange)) : anchor;
+  const fittedChapterCard = forwardCaption && constants.fitChapterCaption === true;
+  const captionAnchor = fittedChapterCard ? add(baseCaptionAnchor, scale(y, Math.min(.015, seatRange * .01))) : baseCaptionAnchor;
+  const captionRight = chapterCard ? headRight : x;
+  const captionNormal = chapterCard ? headNormal : normal;
+  // Full-size lines above the subject ceiling, centered in both eyes.
+  const cardFont = chapterFontMeters * (constants.readoutFontFactor ?? 1);
+  const cueReserve = chapterCard ? cardFont * .75 : 0;
+  const cardHeight = 2 * captionPad + cueReserve + cardFont * (1 + (cardLines - 1) * READOUT_LINE_STEP_FACTOR);
+  const cardFloor = seatRange * VIEW_BAND.vertical - cardHeight - .02;
+  // The forward card is one line of `CARD_LINE_SAMPLE` wide, measured in the
+  // type it is drawn in, so the caption wraps where the plate ends. Sized as
+  // 45 characters of the 0.54 em stand-in glyph, it held about 77 of the
+  // headset's, and every line filled half of it.
+  const widthOf = measureText ?? (text => text.length * (constants.glyphAspect ?? 0.54));
+  const cardCharacterEm = widthOf(CARD_LINE_SAMPLE) / CARD_LINE_SAMPLE.length;
+  const cardHalfWidth = Math.min(seatRange * VIEW_BAND.horizontal - HALF_IPD_METERS - .02,
+    cardFont * (constants.chapterCardSide ? (constants.glyphAspect ?? .54) * 12 : widthOf(CARD_LINE_SAMPLE)) / 2 + captionPad);
+  const cardCentre = constants.chapterCardSide ? seatSide * (seatRange * VIEW_BAND.horizontal - HALF_IPD_METERS - .02 - cardHalfWidth) : 0;
+  const envelope = chapterCard ? { outboard: cardCentre - cardHalfWidth, inboard: cardCentre + cardHalfWidth,
+    floor: constants.chapterCardBelow ? -cardFloor - cardHeight : cardFloor,
+    ceiling: constants.chapterCardBelow ? -cardFloor : cardFloor + cardHeight,
+    wrapWidth: 45, lineBudget: cardLines } : captionEnvelope({ origin, anchor, right: x, up: y, forward: headNormal,
     headRight, outboard: minX,
-    floor: Math.max(captionMenuTop + captionGap, constants.captionFloorMeters ?? 0), font: constants.fontMeters,
+    floor: Math.max(captionMenuTop + captionGap, constants.captionFloorMeters ?? 0, chapterFloor),
+    font: constants.fontMeters,
     glyphAspect: constants.glyphAspect ?? 0.54, pad: captionPad,
     minLines: constants.readoutPageLines ?? READOUT_PAGE_LINES,
     maxLines: constants.maxReadoutLines ?? 10,
-    // A compact peripheral menu is read after a deliberate glance toward its
-    // room anchor. Measure its caption in that same binocular frame, while
-    // retaining a central sixty-degree cone around the original gaze for
-    // molecular clearance. These are construction frames, not head tracking.
-    ...(constants.peripheralSeat === true && columns === 1 ? { viewForward: normal, viewRight: x, coneTangent: Math.tan(PERIPHERAL_MENU_CONE_HALF_ANGLE_DEGREES * Math.PI / 180) } : {}) });
+    // Ordinary readouts also fit the forward lens. These construction
+    // frames never track later head motion.
+    ...(peripheralCaption ? {
+      band: VIEW_BAND, coneTangent: 0,
+    // Every other seat is admitted by `menuSeatWithinView`, so its card is
+    // fitted to that same band and can never be the plate that fails it.
+    } : { band: VIEW_BAND }) });
   const captionCentre = (envelope.outboard + envelope.inboard) / 2;
   const glassWidth = Math.max(constants.fontMeters, envelope.inboard - envelope.outboard - 2 * captionPad);
-  const glassHeight = Math.max(0, envelope.ceiling - envelope.floor - 2 * captionPad);
+  const glassHeight = Math.max(0, envelope.ceiling - envelope.floor - 2 * captionPad - cueReserve);
   // Readout text is display-only and lives above the hit grid. Its bounded
   // copy cannot move buttons or change the deterministic controller targets.
   // The first tour line sits at the top; following lines descend toward the
@@ -1035,20 +1113,25 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   // the end, before any line is cut. The tour readout marks its title, scene
   // and progress lines that way, so a caption sentence is never the thing that
   // goes.
-  const readoutLimit = constants.maxReadoutLines ?? 10;
+  const readoutLimit = chapterCard ? cardLines : constants.maxReadoutLines ?? 10;
   const readoutSource = Array.isArray(readout)
     ? readout.filter(line => typeof line?.text === 'string' && line.text)
     : [];
-  const wrapWidthFor = font => Math.max(8, Math.floor(glassWidth / (font * (constants.glyphAspect ?? 0.54))));
+  const characterEm = chapterCard && !constants.chapterCardSide ? cardCharacterEm : constants.glyphAspect ?? 0.54;
+  const wrapWidthFor = font => Math.max(8, Math.floor(glassWidth / (font * characterEm)));
   const lineBudgetFor = font => Math.max(0, Math.min(readoutLimit,
-    Math.floor((glassHeight - font) / (font * READOUT_LINE_STEP_FACTOR)) + 1));
-  const widthOf = measureText ?? (text => text.length * (constants.glyphAspect ?? 0.54));
-  const wrapAt = (font, entries) => entries.flatMap(line => {
+    Math.floor((glassHeight - font) / (font * READOUT_LINE_STEP_FACTOR) + 1e-8) + 1));
+  const wrapAt = (font, entries, unlimited = false) => entries.flatMap(line => {
     const width = glassWidth / font;
-    let text = line.text;
+    const limit = unlimited ? Infinity : line.whole ? readoutLimit : Math.min(line.maxLines ?? readoutLimit, readoutLimit);
+    let text = line.fitText ? line.fitText({ measureText: widthOf, width, maxLines: limit }) : line.text;
     if (line.whole && widthOf(text) > width && line.compactText) text = line.compactText;
     // Protect assembly names without changing the rendered string or its font.
-    for (const phrase of line.keepTogether ?? []) text = text.replaceAll(phrase, phrase.replaceAll(' ', '\u00a0'));
+    // A phrase wider than the glass is broken at its spaces instead: kept
+    // whole, it could only be cut, and `biological assembly 1` drew as `…`.
+    for (const phrase of line.keepTogether ?? []) {
+      if (widthOf(phrase) <= width) text = text.replaceAll(phrase, phrase.replaceAll(' ', '\u00a0'));
+    }
     const tokens = text.split(/[ \t\r\n]+/u).flatMap(word => {
       if (widthOf(word) <= width || word.includes('\u00a0')) return [word];
       return word.match(/[^/-]+[/-]?/gu) ?? [word];
@@ -1062,7 +1145,16 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
       } else current = next;
     }
     if (current) wrapped.push(current);
-    const limit = line.whole ? readoutLimit : Math.min(line.maxLines ?? readoutLimit, readoutLimit);
+    // A line break that lands on a ` · ` separator takes the separator with
+    // it: the break already says the facts are apart, and a row that starts or
+    // ends on a dot reads as a typo.
+    if (!line.whole && wrapped.length > 1) {
+      for (let row = 0; row < wrapped.length; row++) {
+        if (row > 0) wrapped[row] = wrapped[row].replace(/^·(\s+|$)/u, '');
+        if (row < wrapped.length - 1) wrapped[row] = wrapped[row].replace(/(^|\s+)·$/u, '');
+      }
+      for (let row = wrapped.length - 1; row >= 0; row--) if (!wrapped[row]) wrapped.splice(row, 1);
+    }
     return wrapped.slice(0, limit).map((value, index) => {
       const clipped = index === limit - 1 && wrapped.length > limit;
       let text = value.replaceAll('\u00a0', ' ');
@@ -1071,8 +1163,11 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
         const words = value.split(' ');
         while (words.length && widthOf(words.join(' ').replaceAll('\u00a0', ' ') + '…') > width) words.pop();
         text = words.join(' ').replaceAll('\u00a0', ' ') + '…';
+        // `cut` says words went, so a caller that would rather drop the whole
+        // entry than draw a fragment of it can tell.
+        return { ...line, text, cut: true };
       }
-      return { ...line, text };
+      return { ...line, text, ...(clipped ? { cut: true } : {}) };
     });
   });
   // Which optional entry yields next. The rank defaults to the entry's own
@@ -1090,9 +1185,18 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
     });
     return chosen;
   };
+  // A chapter card has room for the title and its sentence, and its side lines
+  // (the structure's name, identity and style) only fill what is left. At the
+  // chapter's type size those lines are wider than the glass: "Human
+  // deoxyhaemoglobin" came out as `Human` over `…`, and a long title as its
+  // first two words. A fragment tells the wearer nothing, so on the chapter
+  // card an optional line is drawn whole or not at all.
+  const wholeOrAbsent = font => forwardCaption
+    ? readoutSource.filter(line => line.optional !== true || !wrapAt(font, [line]).some(row => row.cut))
+    : readoutSource;
   const fitAt = (font, { clamp = true } = {}) => {
     const budget = lineBudgetFor(font);
-    let entries = readoutSource, wrapped = wrapAt(font, entries);
+    let entries = wholeOrAbsent(font), wrapped = wrapAt(font, entries);
     while (wrapped.length > budget) {
       const last = nextToDrop(entries);
       if (last < 0) break;
@@ -1130,33 +1234,157 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
           ({ ...line, maxLines: Math.min(line.maxLines ?? share, share) })));
       }
     }
-    return { wrapped, budget, overflow, dropped: readoutSource.length - entries.length };
+    return { wrapped, budget, overflow, dropped: readoutSource.length - entries.length, entries };
+  };
+  // The card in pages, for a caller that can turn them (`readoutPage`).
+  //
+  // The glass is as tall as the view band beside the structure allows and no
+  // taller, so a readout that cannot be whole at any font in the range is not
+  // cut to fit it: every entry is wrapped whole, without its own line cap,
+  // and the lines are dealt onto pages of the glass's line budget, so a page
+  // break always falls between words. A page at least half full is not
+  // filled with the start of an entry that fits a page of its own. A page
+  // that breaks inside an entry ends on the continuation mark, when the mark
+  // fits.
+  // A chapter card's title line heads every page, so a turned page still
+  // says which chapter it belongs to.
+  const pageReadout = (font, entries, fullBudget) => {
+    const width = glassWidth / font;
+    const header = chapterCard && fullBudget > 1 && entries[0]?.forwardView ? wrapAt(font, [entries[0]]).slice(0, 1) : [];
+    const budget = fullBudget - header.length;
+    if (header.length && entries.length === 2) {
+      // Split prose at words, then rewrap each page with the actual glyph
+      // metrics. Dealing already-wrapped lines strands short final lines.
+      const entry = entries[1], words = entry.text.trim().split(/\s+/u);
+      const sentenceEnd = word => /[.!?]["'”’)]?$/u.test(word);
+      // The words a page starting at each word can hold, wrapped greedily as
+      // `wrapAt` does from widths measured once per word. The small margin
+      // only ever breaks a line earlier, so every page found here fits.
+      const sizes = words.map(word => widthOf(word)), space = widthOf(' ');
+      const reach = words.map((_, start) => {
+        let line = sizes[start], rows = 1, end = start + 1;
+        for (; end < words.length; end++) {
+          if (line + space + sizes[end] <= width - 1e-9) line += space + sizes[end];
+          else if (++rows > budget) break;
+          else line = sizes[end];
+        }
+        return end;
+      });
+      const best = Array(words.length + 1);
+      best[words.length] = { cost: [0, 0, 0, 0, 0], ends: [] };
+      const less = (a, b) => {
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i];
+        return false;
+      };
+      for (let start = words.length - 1; start >= 0; start--) {
+        for (let end = start + 1; end <= reach[start]; end++) {
+          const rest = best[end], count = end - start, last = words[end - 1];
+          // A sentence is best, then a colon, semicolon or dash, then a comma,
+          // then a word that opens a clause. Anything else breaks a clause.
+          const boundary = end === words.length || sentenceEnd(last) ? 0
+            : /[;:—]["'”’)]?$/u.test(last) ? 1 : /,["'”’)]?$/u.test(last) ? 2
+              : /^(?:and|but|while|whereas|because|which|so)$/iu.test(words[end]) ? 3 : 6;
+          // Avoid short pages and mid-clause breaks first. Among readable
+          // splits, keep the fewest pages, prefer stronger breaks, then balance.
+          const cost = [rest.cost[0] + Math.max(0, 4 - count), rest.cost[1] + (boundary === 6 ? 1 : 0),
+            rest.cost[2] + 1, rest.cost[3] + boundary, rest.cost[4] + count * count];
+          if (!best[start] || less(cost, best[start].cost)) best[start] = { cost, ends: [end, ...rest.ends] };
+        }
+      }
+      const pages = best[0].ends.map((end, index, ends) =>
+        wrapAt(font, [{ ...entry, text: words.slice(ends[index - 1] ?? 0, end).join(' ') }], true));
+      // A word wider than the glass wraps in pieces; deal those lines instead.
+      if (pages.every(rows => rows.length <= budget)) return pages.map((rows, index) => {
+        const page = [...rows], last = page.at(-1);
+        // A page that stops mid-sentence ends on the continuation mark.
+        if (index < pages.length - 1 && !sentenceEnd(last.text) && !last.text.endsWith('…')
+          && widthOf(`${last.text}…`) <= width)
+          page[page.length - 1] = { ...last, text: `${last.text}…` };
+        return [...header, ...page];
+      });
+    }
+    const blocks = entries.slice(header.length).map(line => wrapAt(font, [line], true));
+    const deal = size => {
+      const pages = [];
+      let page = [];
+      for (const block of blocks) {
+        if (page.length * 2 >= size && page.length + block.length > size && block.length <= size) { pages.push(page); page = []; }
+        block.forEach((row, index) => {
+          if (page.length >= size) {
+            const last = page.at(-1);
+            if (index > 0 && !last.text.endsWith('…') && widthOf(`${last.text}…`) <= width) page[page.length - 1] = { ...last, text: `${last.text}…` };
+            pages.push(page); page = [];
+          }
+          page.push(row);
+        });
+      }
+      if (page.length) pages.push(page);
+      return pages;
+    };
+    // Even pages, so the last one is not a single stranded word, unless
+    // evening them out would cost a page.
+    const lines = blocks.reduce((count, block) => count + block.length, 0);
+    const fewest = Math.ceil(lines / budget), even = deal(Math.ceil(lines / fewest));
+    return (even.length <= fewest ? even : deal(budget)).map(page => [...header, ...page]);
   };
   let readoutFactor = constants.readoutFontFactor ?? 1;
-  let readoutFontMeters = constants.fontMeters * readoutFactor;
+  let readoutFontMeters = chapterCard ? cardFont : constants.fontMeters * readoutFactor;
   let fitted = fitAt(readoutFontMeters, { clamp: false });
-  // Smaller type is only worth taking when it makes the caption whole. A
-  // caption that shrinks to the floor and still loses three lines has paid
-  // 0.0255 m of cap height, under Meta's 0.028 m minimum, for nothing. The
-  // floor is that minimum, so a caption the eye cannot hold loses words at a
-  // legible size rather than keeping them at an illegible one.
+  let titleFit;
+  // Fit whole prose first. Forward chapter glass may also keep a short title
+  // together when an overlong sentence needs truncation. Every smaller chapter
+  // font must retain 0.6 degrees of ink cap in both eyes, including elevation.
+  // Glass sized to the view band keeps the row type: what it cannot hold
+  // goes onto the card's pages (`readoutPage`), not into smaller letters.
+  const fontFloor = chapterCard || !peripheralCaption ? readoutFactor : forwardCaption ? 0.70 : READOUT_FONT_FLOOR;
   for (let factor = readoutFactor - READOUT_FONT_STEP;
-    fitted.wrapped.length > fitted.budget && factor >= READOUT_FONT_FLOOR - EPSILON;
+    fitted.wrapped.length > fitted.budget && factor >= fontFloor - EPSILON;
     factor -= READOUT_FONT_STEP) {
     const font = constants.fontMeters * factor;
     const trial = fitAt(font, { clamp: false });
-    if (trial.wrapped.length > trial.budget) continue;
+    if (trial.wrapped.length > trial.budget) {
+      // Forward chapter glass may wrap the narration, but keep a short title
+      // together even when an overlong spoken sentence cannot fit whole.
+      if (!forwardCaption || trial.wrapped[0]?.text !== readoutSource[0]?.text) continue;
+    }
+    if (forwardCaption) {
+      const bottom = envelope.floor + captionPad + font / 2;
+      const top = bottom + (Math.min(trial.wrapped.length, trial.budget) - 1) * font * READOUT_LINE_STEP_FACTOR;
+      const ends = [bottom, top].map(dy => add(add(anchor, scale(x, captionCentre)), scale(y, dy)));
+      if (ends.some(point => [-1, 1].some(side => {
+        const eye = add(origin, scale(headRight, side * HALF_IPD_METERS));
+        return menuCapDegrees(font, Math.hypot(...sub(point, eye)), dot(sub(point, eye), y)) < QUEST_MENU_MIN_CAP_DEGREES;
+      }))) continue;
+    }
+    if (trial.wrapped.length > trial.budget) {
+      titleFit ??= { factor, font, trial };
+      continue;
+    }
     readoutFactor = factor;
     readoutFontMeters = font;
     fitted = trial;
+    break;
   }
-  // No font in the range makes the words whole, so the block is fitted to the
-  // lines the eye leaves instead: whole entries, each ending on a word.
-  if (fitted.wrapped.length > fitted.budget) fitted = fitAt(readoutFontMeters);
-  const readoutLines = fitted.wrapped.slice(0, fitted.budget);
+  if (fitted.wrapped.length > fitted.budget && titleFit) {
+    readoutFactor = titleFit.factor;
+    readoutFontMeters = titleFit.font;
+    fitted = titleFit.trial;
+  }
+  // No font in the range makes the words whole. A caller that turns pages
+  // gets the readout in pages of the glass; otherwise the block is fitted to
+  // the lines the eye leaves instead: whole entries, each ending on a word.
+  // An entry that keeps its own line cap can lose words even when the block
+  // fits, so a cut row is paged too.
+  const readoutPages = (fitted.wrapped.length > fitted.budget || fitted.wrapped.some(row => row.cut))
+    && fitted.budget > 0 && Number.isFinite(readoutPage)
+    ? pageReadout(readoutFontMeters, fitted.entries, fitted.budget) : undefined;
+  if (!readoutPages && fitted.wrapped.length > fitted.budget) fitted = fitAt(readoutFontMeters);
+  const readoutPageCount = readoutPages?.length ?? 1;
+  const readoutPageIndex = readoutPages ? ((Math.trunc(readoutPage) % readoutPageCount) + readoutPageCount) % readoutPageCount : 0;
+  const readoutLines = readoutPages ? readoutPages[readoutPageIndex] : fitted.wrapped.slice(0, fitted.budget);
   // A whole page can still exceed the physical block after all optional
   // headings yield. Never let the final defensive slice hide that omission.
-  if (fitted.wrapped.length > fitted.budget && readoutLines.length) {
+  if (!readoutPages && fitted.wrapped.length > fitted.budget && readoutLines.length) {
     const last = readoutLines.at(-1), words = last.text.replace(/…$/u, '').split(' ');
     while (words.length && widthOf(words.join(' ') + '…') > glassWidth / readoutFontMeters) words.pop();
     readoutLines[readoutLines.length - 1] = { ...last, text: words.join(' ') + '…' };
@@ -1164,30 +1392,133 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   // Words went. They end in an ellipsis now rather than mid-sentence, but the
   // headset log is still the only place the loss can be traced from:
   // `read_headset_log` on the Mac reads it.
-  if (fitted.overflow > readoutLines.length) {
+  if (!readoutPages && fitted.overflow > readoutLines.length) {
     recordToolbarTruncation({ kept: readoutLines.length, wrapped: fitted.overflow,
       limit: fitted.budget, fontFactor: Math.round(readoutFactor * 100) / 100,
       wrapWidth: wrapWidthFor(readoutFontMeters), droppedEntries: fitted.dropped });
   }
   const readoutLineStepMeters = readoutFontMeters * READOUT_LINE_STEP_FACTOR;
-  const captionBottom = envelope.floor + captionPad + readoutFontMeters / 2;
-  const readoutBottom = add(add(anchor, scale(x, captionCentre)), scale(y, captionBottom));
-  const readoutTop = add(readoutBottom, scale(y, (readoutLines.length - 1) * readoutLineStepMeters));
+  const captionBottom = envelope.floor + cueReserve + captionPad + readoutFontMeters / 2;
+  const readoutBottom = add(add(captionAnchor, scale(captionRight, captionCentre)), scale(y, captionBottom));
+  const readoutTop = chapterCard
+    ? add(add(captionAnchor, scale(captionRight, captionCentre)), scale(y, envelope.ceiling - captionPad - readoutFontMeters / 2))
+    : add(readoutBottom, scale(y, (readoutLines.length - 1) * readoutLineStepMeters));
   const readoutPoints = readoutLines.map((line, index) => ({ ...line,
     point: add(readoutTop, scale(y, -index * readoutLineStepMeters)) }));
-  const captionTop = captionBottom + (readoutLines.length - 1) * readoutLineStepMeters + readoutFontMeters / 2 + captionPad;
-  const captionFloor = envelope.floor;
+  const captionTop = chapterCard ? envelope.ceiling
+    : captionBottom + (readoutLines.length - 1) * readoutLineStepMeters + readoutFontMeters / 2 + captionPad;
+  // An opening map keeps its size. Remove only unused card space, retaining
+  // the full font, every line and the paging cue when one is needed.
+  const captionFloor = fittedChapterCard && readoutPageCount === 1
+    ? Math.max(envelope.floor, envelope.ceiling - 2 * captionPad - readoutFontMeters
+      - (readoutLines.length - 1) * readoutLineStepMeters)
+    : envelope.floor;
+  const cueFont = readoutFontMeters * .55;
+  const readoutPageCue = chapterCard && readoutPageCount > 1 ? {
+    text: `${readoutPageIndex + 1}/${readoutPageCount}`, fontMeters: cueFont,
+    point: add(add(captionAnchor, scale(captionRight, captionCentre)), scale(y, envelope.floor + captionPad + cueFont / 2)),
+  } : undefined;
   const captionBacking = readoutLines.length ? {
-    point: add(add(anchor, scale(x, captionCentre)), scale(y, (captionFloor + captionTop) / 2)),
+    point: add(add(captionAnchor, scale(captionRight, captionCentre)), scale(y, (captionFloor + captionTop) / 2)),
+    right: captionRight, up: y, normal: captionNormal,
     halfWidth: (envelope.inboard - envelope.outboard) / 2, halfHeight: (captionTop - captionFloor) / 2,
   } : undefined;
+  // Assistant glass belongs to the column: upright, centered beneath it,
+  // no wider than it. Clearance may reduce it to one line or set it aside;
+  // never slide it toward the molecule to accommodate a wider status.
+  // A compact menu's column is one Menu control no status line fits, so its
+  // glass is sized to its own words beneath the control. It gives up its
+  // centre only as far as both eyes' band needs, never past the control's edge.
+  // An expanded grid may compact its controls, but the low footer still has
+  // to clear the reading-size floor at that greater elevation from the eye.
+  // Keep its full layout font; the compact lesson footer matches its buttons.
+  const assistantFontMeters = stableLesson ? constants.fontMeters : baseConstants.fontMeters;
+  if (assistantLines.length) {
+    let shownLines = assistantLines.slice(0, lines > 10 ? 1 : 3);
+    const halfWidthFor = shown => rows.length === 1
+      ? Math.max(buttons[0].halfWidth, ...shown.map(text => widthOf(String(text)) * assistantFontMeters / 2 + pad))
+      : backing.halfWidth;
+    let halfWidth = halfWidthFor(shownLines);
+    const top = minY - pad;
+    const column = add(anchor, scale(x, (minX + maxX) / 2));
+    const depth = dot(sub(column, origin), headNormal), lateral = dot(sub(column, origin), headRight);
+    const centreFor = half => {
+      if (rows.length !== 1) return column;
+      // A turned card's outboard corner is also nearer the eye. Solve the
+      // actual plane in both eyes; treating its half width as head-horizontal
+      // loses the compact Menu+status seats at the lens edge.
+      let low = -Infinity, high = Infinity;
+      for (const side of [-1, 1]) for (const eye of [-HALF_IPD_METERS, HALF_IPD_METERS]) {
+        const cornerDepth = depth + side * half * dot(x, headNormal);
+        const cornerAside = side * half * dot(x, headRight);
+        low = Math.max(low, eye - VIEW_BAND.horizontal * cornerDepth - cornerAside);
+        high = Math.min(high, eye + VIEW_BAND.horizontal * cornerDepth - cornerAside);
+      }
+      const slack = Math.max(0, half - buttons[0].halfWidth);
+      const shift = Math.max(-slack, Math.min(slack, Math.max(low, Math.min(high, lateral)) - lateral));
+      return add(column, scale(headRight, shift));
+    };
+    const heightFor = count => assistantFontMeters * READOUT_LINE_STEP_FACTOR * count + 2 * pad;
+    const seen = (count, halfWidth) => [-1, 1].every(sx => [-1, 1].every(sy => [-1, 1].every(eyeSide => {
+      const corner = add(add(centreFor(halfWidth), scale(x, sx * halfWidth)),
+        scale(y, top - heightFor(count) / 2 + sy * heightFor(count) / 2));
+      const relative = sub(corner, add(origin, scale(headRight, eyeSide * HALF_IPD_METERS)));
+      const depth = dot(relative, headNormal);
+      return depth > EPSILON && Math.abs(dot(relative, headRight)) <= VIEW_BAND.horizontal * depth
+        && Math.abs(dot(relative, y)) <= VIEW_BAND.vertical * depth;
+    })));
+    // A compact glass is sized from its widest line, so that line comes back
+    // from metres a rounding error over its own width: allow for it.
+    const fits = shown => {
+      const half = halfWidthFor(shown), width = Math.max(0, (half * 2 - 2 * pad) / assistantFontMeters);
+      return seen(shown.length, half) && shown.every(text => widthOf(String(text)) <= width + 1e-9);
+    };
+    if (stableLesson) {
+      // Keep readable menu-sized type. Wrap presence into the existing glass
+      // rather than making the footer smaller than every button label.
+      const available = Math.max(0, (halfWidth * 2 - 2 * pad) / assistantFontMeters);
+      const words = String(shownLines[0] ?? 'No assistant').split(/\s+/u);
+      shownLines = [];
+      let line = '';
+      for (const word of words) {
+        if (line && widthOf(`${line} ${word}`) > available) { shownLines.push(line); line = word; }
+        else line = line ? `${line} ${word}` : word;
+      }
+      if (line) shownLines.push(line);
+      shownLines = shownLines.slice(0, 3).map(text => {
+        if (widthOf(text) <= available) return text;
+        while (text && widthOf(text + '…') > available) text = text.slice(0, -1);
+        return text + '…';
+      });
+    }
+    if (!stableLesson && !fits(shownLines)) {
+      const glance = String(assistantGlance[0] ?? shownLines[0] ?? '');
+      const parts = glance.split(' · ');
+      // Keep the immediate microphone state when it fits; otherwise presence.
+      const short = parts.length > 1 && /^(?:Listening|Starting|Transcribing|Microphone)/u.test(parts[1]) ? parts[1] : parts[0];
+      shownLines = [[glance], [short]].find(fits) ?? [];
+      halfWidth = halfWidthFor(shownLines);
+    }
+    const height = heightFor(shownLines.length), centre = centreFor(halfWidth);
+    statusBacking = { point: add(centre, scale(y, top - height / 2)), halfWidth, halfHeight: height / 2,
+      right: x, up: y, normal };
+    statusPoints.length = 0;
+    shownLines.forEach((text, index) => {
+      let shown = String(text ?? '');
+      statusPoints.push({ text: shown, point: add(centre,
+        scale(y, top - pad - assistantFontMeters / 2 - index * assistantFontMeters * READOUT_LINE_STEP_FACTOR)) });
+    });
+    statusPoint = statusPoints[0]?.point ?? buttons[0].point;
+    if (!shownLines.length) statusBacking = undefined;
+  }
   // `seatOrigin` and `seatForward` are the levelled head this panel was seated
   // from, kept so a caller can measure how far the wearer has turned away from
   // it without holding a copy of the pose. Neither is used to draw.
   return { anchor, right: x, up: y, normal, seatOrigin: origin, seatForward: headNormal,
     buttons, statusPoint, statusPoints, readoutPoints, backing, menuObstacle, captionBacking, statusBacking, density,
-    fontMeters: constants.fontMeters, readoutFontMeters,
+    fontMeters: constants.fontMeters, readoutFontMeters, ...(assistantLines.length ? {assistantFontMeters} : {}),
     readoutWrapWidth: wrapWidthFor(readoutFontMeters), readoutLineBudget: fitted.budget,
+    readoutPageCount, readoutPageIndex, readoutPageCue,
     captionEnvelope: envelope,
     plateCornerMeters: constants.plateCornerMeters ?? 0, plateBorderMeters: constants.plateBorderMeters ?? 0,
     plateInsetMeters: constants.rowStepMeters * (constants.plateInsetFactor ?? 0.06),
@@ -1197,6 +1528,44 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
     backingCornerMeters: constants.backingCornerMeters ?? 0, backingBorderMeters: constants.backingBorderMeters ?? 0,
     backingDepthMeters: constants.backingDepthMeters ?? 0 };
 }
+
+/**
+ * Where a string is written so that it reads on the glass it belongs to.
+ *
+ * Text stands `clearance` in front of its plate so no glyph is eaten by it,
+ * and the glass it is read against is a further `behind` back. Pushed along
+ * the plate's normal alone, the text appears to slide across the glass by the
+ * whole separation times the tangent of the angle between the sight line and
+ * that normal: a card 17 degrees off the normal showed its text flush with the
+ * glass's right edge, and a card above eye level pushed its title over the top
+ * edge. So the offset follows the sight line from the head the panel was seated
+ * from, to the glass face, with its normal component still `clearance`. From
+ * that seat the text covers the part of the glass it labels.
+ *
+ * A seat with no useful sight line (behind the plate, or so far to one side
+ * that the offset would be several times the separation) falls back to the
+ * plain normal offset, which is what every caller used before.
+ *
+ * @param {{seatOrigin?: number[], normal: number[]}} panel
+ * @param {number[]} point a point on the plate plane, in XR local metres
+ * @param {number} clearance metres in front of the plate plane, along its normal
+ * @param {number} behind metres from the plate plane back to the glass face
+ */
+export function toolbarTextPoint(panel, point, clearance, behind = 0) {
+  const outward = normalizeSpatialVector(panel.normal.map(value => -value), [0, 0, 1]);
+  const plain = add(point, scale(outward, clearance));
+  const seat = panel.seatOrigin;
+  if (!finite3(seat) || !finite3(point)) return plain;
+  const glass = sub(point, scale(outward, behind));
+  const toSeat = sub(seat, glass);
+  const depth = dot(toSeat, outward);
+  const separation = clearance + behind;
+  if (!(depth > separation * 4)) return plain;
+  const lateral = Math.sqrt(Math.max(0, dot(toSeat, toSeat) - depth * depth));
+  if (lateral > depth * TEXT_SIGHT_LINE_MAX_TANGENT) return plain;
+  return add(glass, scale(toSeat, separation / depth));
+}
+const TEXT_SIGHT_LINE_MAX_TANGENT = Math.tan(60 * Math.PI / 180);
 
 /** Pure target-ray/panel hit test; all arguments are XR local metres. */
 export function hitToolbarPanel(panel, ray) {
@@ -1224,6 +1593,7 @@ export function hitToolbarPanel(panel, ray) {
  */
 export function toolbarPlateOutline(panel, button, { inset = 0, segments = 4, depth = 0, corner: cornerMeters } = {}) {
   if (!panel || !button) return [];
+  panel = { ...panel, right: button.right ?? panel.right, up: button.up ?? panel.up, normal: button.normal ?? panel.normal };
   const halfWidth = Math.max(EPSILON, button.halfWidth - inset);
   const halfHeight = Math.max(EPSILON, button.halfHeight - inset);
   const corner = Math.max(0, Math.min(Number.isFinite(cornerMeters) ? cornerMeters : panel.plateCornerMeters ?? 0, halfWidth, halfHeight));
@@ -1271,7 +1641,7 @@ export function toolbarBackingOutline(panel, { inset = 0, segments = 5, depth = 
 export function toolbarPlatePoints(panel) {
   if (!panel) return [];
   const plateDepth = panel.plateDepthMeters ?? 0, backingDepth = panel.backingDepthMeters ?? 0;
-  return [...panel.buttons.map(button => button.point),
+  const points = [...panel.buttons.map(button => button.point),
     ...panel.buttons.flatMap(button => [...toolbarPlateOutline(panel, button, { segments: 1 }),
       ...toolbarPlateOutline(panel, button, { depth: plateDepth, segments: 1 })]),
     ...toolbarBackingOutline(panel, { segments: 2 }),
@@ -1282,6 +1652,36 @@ export function toolbarPlatePoints(panel) {
     ...(panel.readoutPoints ?? []).map(line => line.point),
     ...(panel.statusPoints ?? []).map(line => line.point),
     ...(panel.statusPoint ? [panel.statusPoint] : [])].filter(finite3);
+  // Preserve separate glass through structured-clone worker messages.
+  points.plates = toolbarGlassPlates(panel);
+  return points;
+}
+
+/**
+ * The same points as `toolbarPlatePoints`, one set per drawn plate: the
+ * caption card with its lines, the menu column with its buttons, and the
+ * status card. Screen clearance tests each plate on its own, because the
+ * union's rectangle also covers the empty corner between the cards.
+ */
+export function toolbarGlassPlates(panel) {
+  if (!panel) return [];
+  const plateDepth = panel.plateDepthMeters ?? 0, backingDepth = panel.backingDepthMeters ?? 0;
+  const card = (plate, segments = 2) => plate ? [...toolbarBackingOutline(panel, { segments, plate }),
+    ...toolbarBackingOutline(panel, { depth: backingDepth, segments, plate })] : [];
+  return [
+    [...card(panel.captionBacking), ...(panel.readoutPoints ?? []).map(line => line.point)],
+    [...panel.buttons.map(button => button.point),
+      ...panel.buttons.flatMap(button => [...toolbarPlateOutline(panel, button, { segments: 1 }),
+        ...toolbarPlateOutline(panel, button, { depth: plateDepth, segments: 1 })]),
+      ...card(panel.backing)],
+    toolbarStatusGlass(panel),
+  ].map(points => points.filter(finite3)).filter(points => points.length);
+}
+
+/** The assistant status card's own plate: its outline and its lines. */
+export function toolbarStatusGlass(panel) {
+  return [...(panel?.statusBacking ? toolbarBackingOutline(panel, { plate: panel.statusBacking }) : []),
+    ...(panel?.statusPoints ?? []).map(line => line.point)].filter(finite3);
 }
 
 /** Nearest drawn glass to either eye, including the interiors of the cards. */
@@ -1300,9 +1700,9 @@ export function toolbarHeadClearance(panel, head, offset = [0, 0, 0]) {
     const eye = add(basis.origin, scale(eyeRight, side * HALF_IPD_METERS));
     for (const plate of plates) {
       const relative = sub(eye, add(plate.point, offset));
-      const x = Math.max(0, Math.abs(dot(relative, panel.right)) - plate.halfWidth);
-      const y = Math.max(0, Math.abs(dot(relative, panel.up)) - plate.halfHeight);
-      const depth = dot(relative, panel.normal);
+      const x = Math.max(0, Math.abs(dot(relative, plate.right ?? panel.right)) - plate.halfWidth);
+      const y = Math.max(0, Math.abs(dot(relative, plate.up ?? panel.up)) - plate.halfHeight);
+      const depth = dot(relative, plate.normal ?? panel.normal);
       const z = Math.max(front - depth, depth - back, 0);
       nearest = Math.min(nearest, Math.hypot(x, y, z));
     }
@@ -1324,12 +1724,23 @@ export function toolbarHeadClearance(panel, head, offset = [0, 0, 0]) {
  *
  * Empty when there is no caption drawn, which is a panel with no readout: then
  * there is nothing for the subject to sit clear of. Read-only.
+ *
+ * The assistant status card rides along when it is drawn, and `plates` keeps
+ * the two cards apart: the box around a caption at the top of the lens and a
+ * status card at the bottom spans the middle, where a close-up stands clear
+ * of both.
  */
 export function toolbarCaptionPoints(panel) {
-  if (!panel?.captionBacking) return [];
-  return [...toolbarBackingOutline(panel, { segments: 2, plate: panel.captionBacking }),
+  if (!panel?.captionBacking && !panel?.statusBacking) return [];
+  const assistant = (panel.assistantFontMeters && panel.statusBacking ? [
+    ...toolbarBackingOutline(panel, {segments:2,plate:panel.statusBacking}),
+    ...toolbarBackingOutline(panel, {depth:panel.backingDepthMeters ?? 0,segments:2,plate:panel.statusBacking})] : []).filter(finite3);
+  const card = [...toolbarBackingOutline(panel, { segments: 2, plate: panel.captionBacking }),
     ...toolbarBackingOutline(panel, { depth: panel.backingDepthMeters ?? 0, segments: 2, plate: panel.captionBacking }),
     ...(panel.readoutPoints ?? []).map(line => line.point)].filter(finite3);
+  const points = [...assistant, ...card];
+  if (assistant.length && card.length) points.plates = [card, assistant];
+  return points;
 }
 
 /**
@@ -1348,6 +1759,7 @@ export function toolbarMenuPoints(panel) {
       plate: panel.menuObstacle ?? panel.backing }),
   ];
   return [...panel.buttons.map(button => button.point),
+    ...(panel.assistantFontMeters && panel.statusBacking ? toolbarBackingOutline(panel,{segments:2,plate:panel.statusBacking}) : []),
     ...statusBacking,
     ...panel.buttons.flatMap(button => [...toolbarPlateOutline(panel, button, { segments: 1 }),
       ...toolbarPlateOutline(panel, button, { depth: plateDepth, segments: 1 })])].filter(finite3);
@@ -1362,6 +1774,7 @@ export function toolbarDrawnMenuPoints(panel) {
     ...toolbarBackingOutline(panel, { depth: panel.backingDepthMeters ?? 0, segments: 2 }),
   ] : [];
   return [...panel.buttons.map(button => button.point),
+    ...(panel.assistantFontMeters && panel.statusBacking ? toolbarBackingOutline(panel,{segments:2,plate:panel.statusBacking}) : []),
     ...statusBacking,
     ...panel.buttons.flatMap(button => [...toolbarPlateOutline(panel, button, { segments: 1 }),
       ...toolbarPlateOutline(panel, button, { depth: plateDepth, segments: 1 })])].filter(finite3);

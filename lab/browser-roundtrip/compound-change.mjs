@@ -17,13 +17,13 @@
  */
 
 /**
- * Six kinds, including visibility and the companion structure.
+ * Saved field kinds, including history restoration of measured endpoints.
  *
  * The list is the panel's half of `compoundOpSchema` in the host's contract and
  * the two are pinned equal by a test: a kind the host can send and the panel
  * cannot run is a compound that fails half way through.
  */
-export const COMPOUND_OP_KINDS = Object.freeze(['appearance', 'placement', 'selection', 'emphasis', 'visibility', 'styles', 'companion-structure']);
+export const COMPOUND_OP_KINDS = Object.freeze(['appearance', 'placement', 'selection', 'emphasis', 'visibility', 'styles', 'companion-structure', 'measurement']);
 
 /** The ops of a compound change, checked for the shape the panel can run. */
 export function compoundOps(change) {

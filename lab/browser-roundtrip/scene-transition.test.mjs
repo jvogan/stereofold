@@ -215,7 +215,7 @@ test('companion recovery redraws desktop quality when XR exits during its deferr
       appearances.push(builtPresenting ? 'immersive' : 'desktop');
     },
     applyInspectionTransform() {}, waitForFrame: () => frames[framesStarted++],
-    assertContext() {}, fitDesktopPreview() {},
+    assertContext() {}, fitDesktopPreview() {}, releaseFigurePlates() {},
     snapshot: () => ({ ready: c.state.status === 'ready' && !c.busy }),
     refreshStructureSubject: () => { subjectQuality = builtPresenting; },
   });
@@ -355,6 +355,7 @@ function sourceSwapHarness(settings = { preserveRoomPlacement: true }) {
     // nothing. `render-dedupe-harness.mjs` is the one that counts paints, and
     // its stub runs the real emphasis pass.
     currentSelectionPlan: () => undefined,
+    now: () => 0, recordCost() {},
     async paintSelectionOverlay() {}, state: {}, retainedRepresentationCount: 0, styleLayers: previous.styleLayers,
     assertLoad(operation) { if (operation.cancelled) throw Error('cancelled'); },
     plugin: { state: { data: { updateCellState() {} } }, managers: { camera: {
@@ -408,7 +409,12 @@ function appearanceHarness(failFrame) {
   } } } };
   let frame = 0;
   const records = [];
-  const camera = { getSnapshot: () => ({ tracked: 'unchanged' }), setState(value) { assert.equal(value.tracked, 'unchanged'); } };
+  const camera = { state: { position: [0, 0, 0], target: [0, 0, -1], up: [0, 1, 0], radius: 1 },
+    getSnapshot() { return { ...structuredClone(this.state), tracked: 'unchanged' }; },
+    setState(value) {
+      assert.equal(value.tracked, 'unchanged');
+      for (const key of Object.keys(this.state)) assert.deepEqual(value[key], this.state[key]);
+    } };
   const context = vm.createContext({ appearanceWork: undefined, busy: true, retainedPoseHidden: false, frameWaiters: new Set(), ...emptyLessonFigureBinding(),
     styleLayers: [], ligandOverlay: undefined, companionRecord: undefined, showRetainedPose() {},
     // This fixture does not paint, so drawing the selection costs it
@@ -547,13 +553,17 @@ test('an opened tour menu retains transport across the production staged appeara
   ] };
   const player = mountTourPlayer({ ...h, tours: [tour] });
   const f = toolbarFrameHarness(runtime);
-  const refresh = async () => { f.setState({ tour: player.getState(), voice: { state: 'idle' } }); await f.toolbar.update(); };
   const flush = async () => { for (let i = 0; i < 200; i++) await Promise.resolve(); };
+  // A card that pages adds its page row on the update it queues after the
+  // draw, so the menu is read once that has run.
+  const refresh = async () => { f.setState({ tour: player.getState(), voice: { state: 'idle' } }); await f.toolbar.update(); await flush(); };
   const assertOpen = () => {
     assert.equal(f.toolbar.isCollapsed(), false);
     assert.equal(f.toolbar.isDimmed(), false);
     assert.ok(f.toolbar.rows().some(row => row.id === 'done'));
-    assert.ok(f.toolbar.rows().some(row => row.id === 'page'));
+    // The caption goes to the card whole and the card turns its own pages,
+    // so a two-sentence chapter has no tour page row to keep.
+    assert.ok(!f.toolbar.rows().some(row => row.id === 'page'));
     assert.equal(f.toolbar.menuRows().length, f.toolbar.rows().length);
   };
   try {

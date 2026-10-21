@@ -15,7 +15,7 @@ export function viewerCallback(source, name) {
     const visit = node => {
       if (isPropertyAssignment(node)) {
         const key = node.name.getText(ast);
-        if (key === 'onSpatialAction' || key === 'onHeadFrame') callbacks.set(key, node.initializer.getText(ast));
+        if (key === 'onSpatialAction' || key === 'onHeadFrame' || key === 'onInputFrame') callbacks.set(key, node.initializer.getText(ast));
       }
       forEachChild(node, visit);
     };

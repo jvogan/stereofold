@@ -269,9 +269,12 @@ speak, and let go. While you hold the button, the headset shows
 then the outcome. The Mac transcribes the recording itself with Apple's
 on-device speech or whisper.
 
-The agent hears you only while it waits in `listen_voice`. Ask it first, for
-example: "Listen for me in the headset." Each wait costs a model turn, so tell
-the agent when you are done and it stops listening.
+In Claude Code started with the Stereofold headset channel, your speech
+arrives in the conversation by itself; the voice reference in the
+`stereo-structure` skill gives the launch command. Other hosts hear you only
+while they wait in `listen_voice`. Ask one first, for example: "Listen for me
+in the headset." Each wait costs a model turn, so tell the agent when you are
+done and it stops listening.
 
 The first time Apple's recognizer runs, macOS shows a Speech Recognition
 dialog on the Mac for the application that started the server, such as your

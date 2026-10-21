@@ -13,7 +13,7 @@
  * The three seats below are separated and inside the band, and each sits
  * wholly outside one plane of the frustum: nearer than the near plane, beyond
  * the far plane, above the field. Before the fix each was handed back
- * untouched. The fourth is cropped by the same top plane but mostly visible;
+ * untouched. The fourth is cropped by the bottom plane but mostly visible;
  * the first reading refuses it too, and the second reading must go on keeping
  * it, because cropping a molecule the wearer seated is their choice.
  *
@@ -189,9 +189,10 @@ test('Done refits a saved seat the wearer cannot see, never hands it back', asyn
 test('a seat cropped by the field is still the wearer’s seat', async () => {
   const { h, points } = await panels();
   try {
-    // A quarter of its height over the 45-degree edge at 1.0 tangent, the
-    // other three quarters in plain sight.
-    const world = worldBox(0.05, 0.2, 0.85, 1.05, 3.585);
+    // A quarter of its height below the -1.0 tangent field edge, the
+    // rest in plain sight. The top edge now contains the forward information
+    // card, so a top-cropped box would also overlap real glass.
+    const world = worldBox(0.05, 0.2, -1.05, -0.85, 3.585);
     const saved = savedSubject(world);
     const { separated, travel, visible } = readings(saved, points);
     assert.equal(separated, true, 'off one side of the glass in both eyes');
@@ -203,6 +204,13 @@ test('a seat cropped by the field is still the wearer’s seat', async () => {
     assert.equal(travel, Infinity, 'the first reading refuses an edge it cannot solve sideways');
     assert.equal(visible, true, 'but the wearer is looking at it');
     assert.equal(savedSeatOutcome(saved, points).kept, true, 'so Done leaves the seat alone');
+    // The old top-edge fixture is still visible but now crosses the forward
+    // information card. Done must repair that overlap rather than retain it.
+    const top = savedSubject(worldBox(0.05, 0.2, 0.85, 1.05, 3.585));
+    assert.equal(readings(top, points).visible, true);
+    assert.equal(readings(top, points).separated, false);
+    assert.equal(savedSeatOutcome(top, points).kept, false,
+      'cropping does not excuse covering the overhead information card');
   } finally { await h.toolbar.dispose(); }
 });
 

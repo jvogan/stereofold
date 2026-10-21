@@ -462,7 +462,7 @@ describe('a grow waiting for permission against a host that watches the beat', (
     const source = await readFile(new URL('../src/inspector.ts', import.meta.url), 'utf8');
     const grow = source.slice(source.indexOf('async function growStructure'), source.indexOf('function expected()'));
     // The flag goes on where the host accepts the post, and nowhere earlier.
-    expect(grow).toMatch(/call\('grow_structure',growStructureArgs\(stage\)\);\n\s*remote=true;/);
+    expect(grow).toMatch(/call\('grow_structure',growStructureArgs\(stage\)\);\n\s*hooks\?\.continuation\?\.beginTransition\(\);\n\s*remote=true;/);
     expect(grow.slice(0, grow.indexOf('retryWhileNotYet'))).not.toContain('remote=true');
     // The between-tries beat reports the panel; it no longer declares it busy.
     const refresh = source.slice(source.indexOf('async function refreshGrowBinding'), source.indexOf('async function growStructure'));
@@ -471,7 +471,7 @@ describe('a grow waiting for permission against a host that watches the beat', (
     // One rule for what this panel is, read by the ordinary beat as well.
     expect(source).toContain('function liveAvailability()');
     const ordinaryBeat = source.slice(source.indexOf('const ownGeneration=generation, sent={...expected(),panelId,'), source.indexOf('let response;', source.indexOf('const ownGeneration=generation, sent={...expected(),panelId,')));
-    expect(ordinaryBeat).toContain('availability:liveAvailability(),');
+    expect(ordinaryBeat).toContain("availability:failedSourceLoad?'ready' as const:liveAvailability(),");
     expect(ordinaryBeat).toContain('tourState:tourHeartbeat(panelTour),');
   });
 

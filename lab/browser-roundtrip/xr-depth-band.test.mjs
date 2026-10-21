@@ -69,9 +69,12 @@ test('an automatic near plane is never a plane the panel has to clear', () => {
   assert.equal(band.far, Infinity, 'the far plane has always been gated on a cutaway');
 });
 
-test('a cutaway the wearer asked for is still a plane the panel has to clear', () => {
+test('a cutaway never moves the glass: the panel keeps its reading distance', () => {
+  // The site chapter of the ATP lesson asks for a cutaway whose near plane sat
+  // at 1.452 m. Told about it, the layout scaled the menu out to 1.5 m while
+  // the held seat kept it at 1.19 m, and the column was cut away whole.
   const band = panelDepthBand({ clipped: true, depthNear: WALL_NEAR_METRES, depthFar: WALL_FAR_METRES });
-  assert.equal(band.near, WALL_NEAR_METRES);
+  assert.equal(band.near, 0, 'the glass is never pushed out after a near plane');
   assert.equal(band.far, WALL_FAR_METRES);
   // A session that never reported a plane leaves the panel unconstrained.
   assert.deepEqual(panelDepthBand({ clipped: true }), { near: 0, far: Infinity });
@@ -88,11 +91,13 @@ test('an unrestricted frame opens its near plane to admit the panel', () => {
   assert.equal(immersiveDepthPlanes({ depthNear: 0.5, depthFar: 20, presentationNear: 3, presentationFar: 4 }).depthNear, 0.5);
 });
 
-test('a cutaway keeps both of its planes exactly as asked', () => {
+test('a cutaway keeps its far plane, and its near plane stays inside the nearest glass', () => {
   const planes = immersiveDepthPlanes({ clipped: true, depthNear: WALL_NEAR_METRES, depthFar: WALL_FAR_METRES,
     presentationNear: PANEL_NEAR_METRES, presentationFar: 99 });
-  assert.equal(planes.depthNear, WALL_NEAR_METRES);
-  assert.equal(planes.depthFar, WALL_FAR_METRES);
+  assert.equal(planes.depthNear, PANEL_NEAR_METRES, 'the menu at 0.9 m is never inside the cut');
+  assert.equal(planes.depthFar, WALL_FAR_METRES, 'the far plane stays as asked');
+  // A cut nearer than the glass is kept exactly.
+  assert.equal(immersiveDepthPlanes({ clipped: true, depthNear: 0.5, depthFar: 20, presentationNear: 0.9, presentationFar: 1.2 }).depthNear, 0.5);
 });
 
 test('the band is never handed to WebXR inside out', () => {

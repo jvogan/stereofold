@@ -1,3 +1,5 @@
+// @ts-ignore Shared menu status used by the extracted inspector closure.
+import { assistantStatus } from '../../lab/browser-roundtrip/assistant-status.mjs';
 import { createPollBackoff } from '../src/inspection-poll-backoff.js';
 // @ts-ignore Shared browser state exercised by the inspector slice.
 import { connectionStatus, setConnectionStatus, LINK_LOST, PAIR_AGAIN } from '../../lab/browser-roundtrip/connection-liveness.mjs';
@@ -67,7 +69,7 @@ const inspectorAst = ts.createSourceFile('inspector.ts', inspectorSource, ts.Scr
 const recoveryFunctions = inspectorAst.statements.filter(node => ts.isFunctionDeclaration(node)
   // `poll` now arms its own next tick and hands a stuck beat
   // to `busyBeat`, so both travel with it into this harness.
-  && ['registerComparisonSources', 'poll', 'armPoll', 'beatSuspended', 'busyBeat', 'problemMessage', 'showProblem', 'showConnectionProblem', 'refreshGrowBinding', 'recoverConfirmation', 'rebindCompanionSession'].includes(node.name?.text ?? ''))
+  && ['registerComparisonSources', 'poll', 'armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'problemMessage', 'showProblem', 'showConnectionProblem', 'refreshGrowBinding', 'recoverConfirmation', 'rebindCompanionSession'].includes(node.name?.text ?? ''))
   .map(node => node.getText(inspectorAst)).join('\n');
 const reloadListener = inspectorAst.statements.find(node =>
   node.getText(inspectorAst).startsWith("reload.addEventListener('click'"))!.getText(inspectorAst);
@@ -84,11 +86,13 @@ function failedPoll(kind: 'save' | 'poll' | 'reconnect', error: Error) {
   const realNow = Date.now;
   const clock: { value?: number } = {};
   const h = vm.createContext({ pollBackoff:createPollBackoff(()=>clock.value??realNow(),()=>0.5), clock, Date: { now: () => clock.value ?? realNow() },
-    failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined,
+    failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, beatCompletion:undefined, desktopReceiptInFlight:false, desktopReceiptBeat:undefined, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined,
     connectionStatus, setConnectionStatus, LINK_LOST, PAIR_AGAIN, Error, thrownErrorMessage, closed: false, binding: { sessionId: 'session' },
     loading: false, isCompanion: true, remote: false, generation: 1, dirty: kind === 'save', blocked: false,
+    heldComparisons: new Map(), comparisonRegistration: 0,
     panelId: kind === 'reconnect' ? undefined : 'panel', savedScene: {},
-    workspace: { setStatus:()=>{}, snapshot: () => ({ ready: true }), capture: () => ({}), viewer: { xr: {} } },
+    workspace: { setStatus:()=>{}, snapshot: () => ({ ready: true }), capture: () => ({}),
+      serializeCapture() { return JSON.stringify(this.capture()); }, viewer: { xr: {} } },
     syncHandoff() {}, save: fail, attach: fail, call: fail, expected: () => ({}),
     liveAvailability: () => 'ready', tourHeartbeat: () => ({}), tourPlayer: undefined, panelTour: undefined, experiencePlayer: undefined, experienceView: undefined,
     xrStartupReport: () => ({}), isRendererHeartbeatFailure: () => false, companionStartupMessage,
@@ -521,7 +525,7 @@ it.each(['grow', 'poll'] as const)('%s delivery catch bounds its error and offer
   h.call = async () => ({ structuredContent: { ...h.binding, attached: true },
     _meta: { [KEY]: { delivery: { commandId: 'command' } } } });
   Object.assign(h, { clearConnectionProblem() {}, noteRendererHeartbeat() {}, showOutcome() {},
-    retireStaleHud() {}, noteAgentPresence() {}, followsSourceTransition: () => false,
+    retireStaleHud() {}, noteAgentPresence() {}, assistantStatus, followsSourceTransition: () => false,
     voiceBindingKey: () => '', voiceReadyBinding: '', replyOnThisBeat: false, experienceView: undefined,
     receiveSpokenReply() {}, handoffSpokenRequest() {},
     receive: async () => { throw longFailure; } });
@@ -764,4 +768,31 @@ it('the actual heartbeat scheduler retries once within one second, backs off out
   h.call=vi.fn(async()=>({structuredContent:{superseded:true}}));
   await h.poll();expect(h.pollBackoff.remaining()).toBe(0);
   expect(h.closed).toBe(true);
+});
+
+it('a failed host source render clears abandoned drag work and offers the next load without reload',async()=>{
+  const h=failedPoll('poll',Error('unused'));
+  Object.assign(h,{binding:{sessionId:'session',serverEpoch:'epoch',sourceToken:'old',stateRevision:1,inspectionRevision:1},
+    panelId:'panel',dirty:true,completedHydration:true,narrationGeneration:0,voiceOwnedSourceTransition:false,
+    voiceInteraction:undefined,sourceLoadOutcome:undefined,handoffSource:undefined,handoffFeedback:'',handoffPending:false,
+    handoffVersion:0,sourceGeometryBudgetSupported:false,rendererContextSupported:false,renderedSourceIdentitySupported:false,experienceSourceChanged:false,
+    beginSourceLoadOutcome:()=>{},failSourceLoadOutcome:()=>{},inspectionFailureReceipt:()=>({failure:'render_failed',failureReason:'GPU failed'}),
+  });
+  const drawn={preserved:true};h.workspace.capture=()=>drawn;
+  const sent:any[]=[];
+  h.call=async(name:string,args:any)=>{
+    sent.push({name,args});
+    if(name==='get_inspection')return {_meta:{[KEY]:{sessionId:'session',serverEpoch:'epoch',sourceToken:'new',
+      stateRevision:2,inspectionRevision:0,catalog:{},format:'mmcif',sourceReplacement:{panelId:'panel',previousSourceToken:'old'}}}};
+    return {structuredContent:{}};
+  };
+  h.registerComparisonSources=async()=>{throw Error('GPU failed');};
+  installEarlyHydration(h);
+  await expect(h.hydrate('session')).rejects.toThrow('GPU failed');
+  h.showProblem('GPU failed','loading',Error('GPU failed'));
+  expect(h.dirty).toBe(false);
+  expect(h.blocked).toBe(false);
+  expect(h.savedScene).toEqual(drawn);
+  expect(h.failedSourceLoad).toMatchObject({sourceToken:'new',receipt:undefined});
+  expect(sent.at(-1)).toMatchObject({name:'report_source_failure',args:{sourceToken:'new'}});
 });

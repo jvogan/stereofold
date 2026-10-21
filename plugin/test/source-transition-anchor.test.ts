@@ -60,11 +60,16 @@ describe('source transition room anchor', () => {
   });
 });
 
-it.each([.01, 8, 100])('preserves explored scale %s and distant translation through a source swap', scale => {
+// 0.1.22 saved scenes permit scales down to 1e-6, including 0.005.
+it.each([1e-6, .005, .01, 8, 100])('preserves explored scale %s and distant translation through a source swap', scale => {
   const base={center:[10,0,0],radius:40}, nextBase={center:[-100,20,0],radius:80};
   const placement={translation:[12,-20,30],rotation:[12,24,-36],scale};
   const next=preserveSourceTransitionAnchor({priorBase:base,priorPlacement:placement,priorCameraScale:.01,nextBase});
-  expect(next.cameraScale).toBe(.01); expect(next.cameraOffset).toBeUndefined();
-  expect(next.placement.scale).toBe(scale/2);
-  expect(transformedVisibleCenter({base:nextBase,placement:next.placement})).toEqual(transformedVisibleCenter({base,placement}));
+  expect(next.cameraOffset).toBeUndefined();
+  expect(next.placement.scale).toBeGreaterThanOrEqual(1e-6);
+  expect(next.placement.scale).toBe(Math.max(1e-6, scale / 2));
+  expect(next.placement.scale * next.cameraScale).toBeCloseTo(scale / 2 * .01, 12);
+  const moved = transformedVisibleCenter({base:nextBase,placement:next.placement}).map(v=>v*next.cameraScale);
+  const original = transformedVisibleCenter({base,placement}).map(v=>v*.01);
+  moved.forEach((v,i)=>expect(v).toBeCloseTo(original[i], 12));
 });

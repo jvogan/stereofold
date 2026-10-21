@@ -29,7 +29,7 @@ const validate = (distRoot: string, servedDistRoot: string, settings = diagnosti
 
 describe('render settings', () => {
   it('enables the shipping patches by default', () => {
-    expect(defaults).toEqual({opaqueDepthEnabled:true, zeroLightEnabled:true, matteLightEnabled:true, impostorScaleEnabled:true, xrCulling:false,
+    expect(defaults).toEqual({uniformCacheEnabled:true, opaqueDepthEnabled:true, zeroLightEnabled:true, matteLightEnabled:true, impostorScaleEnabled:true, xrCulling:false,
       xrSinglePassEnabled:true, conservativeDepthEnabled:false, sphereNormalsEnabled:false, depthPrepassEnabled:false, questMenuDepthResetEnabled:false, xrSkipFinalFlushEnabled:true, sphereOcclusionEnabled:true, impostorSplit:null});
     expect(renderSettingsManifest(defaults)).toEqual({version:1,diagnosticOnly:false,...defaults});
   });
@@ -154,4 +154,11 @@ describe('render output safety', () => {
     await expect(validate(join(dangling,'diagnostic'),served)).rejects.toMatchObject({code:'ENOENT'});
     await expect(resolveRenderOutputPath('relative')).rejects.toThrow(/absolute/);
   });
+});
+
+it('supports a strict default-on uniform cache flag and records rollback builds', () => {
+  expect(readRenderSettings({}).uniformCacheEnabled).toBe(true);
+  expect(readRenderSettings({STEREOFOLD_UNIFORM_CACHE_PATCH:'0'}).uniformCacheEnabled).toBe(false);
+  expect(renderSettingsManifest(readRenderSettings({STEREOFOLD_UNIFORM_CACHE_PATCH:'0'})).diagnosticOnly).toBe(true);
+  expect(() => readRenderSettings({STEREOFOLD_UNIFORM_CACHE_PATCH:'false'})).toThrow('must be 0 or 1');
 });

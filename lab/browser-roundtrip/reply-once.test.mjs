@@ -1,3 +1,4 @@
+import { assistantStatus } from './assistant-status.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -31,6 +32,7 @@ test('held microphone and pending transcription keep persistent talking feedback
   runtime.setTalkOutcomeSink(text => { outcomes.push(text); card.set({ outcome: text }); });
   // Optional registration lets this regression execute against e506b87.
   runtime.setTalkProgressSink?.(state => card.set(state));
+  assistantStatus.notePresence({ activeAssistant: 'Codex', voiceDelivery: { mode: 'polling', assistant: 'Codex' } });
   const talk = attachGripPushToTalk({ session: h.session, audio: null,
     interaction: { start: async () => {}, stop: () => pending },
     status: (text, progress) => h.toolbar.setStatus(text, undefined, progress) });
@@ -70,6 +72,7 @@ test('held microphone and pending transcription keep persistent talking feedback
   } finally {
     finish({ message: '' }); await flush();
     await talk.dispose();
+    assistantStatus.resetPresence();
     runtime.setTalkProgressSink?.(undefined);
     runtime.setTalkOutcomeSink(undefined);
     await card.dispose(); await h.toolbar.dispose();

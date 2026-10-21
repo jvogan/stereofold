@@ -450,3 +450,18 @@ test('spatial scale, nudges, fit, reset, room placement and clearance repair ass
     'a clearance adjustment still updates the placed representation bounds');
   assert.equal(writes.at(-1).patch.scale, 2);
 });
+
+test('animation bounds reuse sphere storage over repeated moving frames', () => {
+  const invariant=Sphere3D.create(Vec3.create(1,2,3),4);
+  Sphere3D.setExtrema(invariant,[Vec3.create(1,2,7)]);
+  const repr=visualRepresentation(invariant,Mat4.identity());
+  updatePlacementBounds(repr);
+  const values=repr.renderObjects[0].values, sphere=values.boundingSphere.ref.value;
+  const center=sphere.center, extrema=sphere.extrema, point=extrema[0], transform=Mat4();
+  for(let i=0;i<100;i++) {
+    Mat4.fromTranslation(transform,[i,0,0]); repr.setState({transform}); updatePlacementBounds(repr);
+    assert.equal(values.boundingSphere.ref.value,sphere); assert.equal(sphere.center,center);
+    assert.equal(sphere.extrema,extrema); assert.equal(sphere.extrema[0],point);
+    assert.equal(sphere.center[0],i+1);
+  }
+});

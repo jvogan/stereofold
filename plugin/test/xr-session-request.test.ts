@@ -1,7 +1,95 @@
 import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
 import {afterEach,expect,it,vi} from 'vitest';
 // @ts-ignore Shared browser helper is exercised without a headset runtime.
-import {applyFoveation,trackFoveation,entryFallbackCopy,entryRefusalReason,foveationLevelFor,APPLE_PROMPT_DEADLINE_MS,HEADSET_ENTRY_DEADLINE_MS,HEADSET_OPTIONAL_FEATURES,headsetEntryDeadlineMs,headsetOptionalFeatures,isAppleSafariXr,passthroughPlan,requestHeadsetSession} from '../../lab/browser-roundtrip/xr-session-request.mjs';
+import {applyFoveation,trackFoveation,entryFallbackCopy,entryRefusalReason,foveationLevelFor,APPLE_PROMPT_DEADLINE_MS,HEADSET_ENTRY_DEADLINE_MS,HEADSET_OPTIONAL_FEATURES,headsetEntryDeadlineMs,headsetOptionalFeatures,isAppleSafariXr,passthroughPlan,restorePassthroughOnEntry,readPassthroughPreference,storePassthroughPreference,requestHeadsetSession} from '../../lab/browser-roundtrip/xr-session-request.mjs';
+
+// Run the shipped controller action, including its post-switch logic. The
+// helper alone cannot prove that pending user intent survives another entry.
+async function passthroughActionHarness() {
+  const source=await readFile(new URL('../../lab/browser-roundtrip/viewer.mjs',import.meta.url),'utf8');
+  const start=source.indexOf('  async function setPassthrough(on) {');
+  expect(start).toBeGreaterThan(0);
+  const toggle=vi.fn(()=>true), switchMode=vi.fn(async()=>({switched:false}));
+  const context=vm.createContext({passthroughPlan,preferredPassthrough:false,passthroughOn:false,
+    blendMode:'opaque',canvas:{xr:{isPresenting:{value:true}},requestDraw:vi.fn()},
+    storePassthroughPreference:vi.fn(),firePassthroughToggle:toggle,recordManipulation:vi.fn(),talkCaption:undefined,
+    switchImmersiveMode:switchMode});
+  context.immersiveSession={environmentBlendMode:()=>context.blendMode,refreshToolbar:async()=>{}};
+  vm.runInContext(source.slice(start,source.indexOf('\n  }',start)+4),context);
+  return {context,toggle,switchMode};
+}
+
+it('keeps a pending Room-on request through the physical press that finishes AR entry',async()=>{
+  const {context,toggle,switchMode}=await passthroughActionHarness();
+  switchMode.mockResolvedValue({switched:false,pending:'immersive-ar'} as any);
+  expect(await context.setPassthrough(true)).toMatchObject({pending:'immersive-ar'});
+  expect(context.preferredPassthrough).toBe(true);
+  expect(restorePassthroughOnEntry({blendMode:'alpha-blend',preferred:context.preferredPassthrough,toggle}))
+    .toEqual({on:true,restored:false});
+  expect(toggle).not.toHaveBeenCalled();
+  expect(switchMode).toHaveBeenCalledTimes(1);
+});
+
+it.each(['opaque','additive',null])('stops after one accepted AR switch with %s blend and reports the room unavailable',async blend=>{
+  const {context,toggle,switchMode}=await passthroughActionHarness();
+  switchMode.mockImplementation(async()=>{
+    // Bound the old recursion so a regression fails rather than hanging.
+    if(switchMode.mock.calls.length>1)throw Error('repeated switch');
+    context.blendMode=blend;
+    return {switched:true};
+  });
+  expect(await context.setPassthrough(true)).toMatchObject({switched:true,passthrough:false,mode:blend,unsupported:true});
+  expect(switchMode).toHaveBeenCalledTimes(1);
+  expect(toggle).not.toHaveBeenCalled();
+  expect(context.preferredPassthrough).toBe(false);
+});
+
+it('applies Room on once after a successful alpha-blend switch restored an older off choice',async()=>{
+  const {context,toggle,switchMode}=await passthroughActionHarness();
+  switchMode.mockImplementation(async()=>{context.blendMode='alpha-blend';return {switched:true};});
+  expect(await context.setPassthrough(true)).toMatchObject({switched:true,passthrough:true,mode:'alpha-blend'});
+  expect(switchMode).toHaveBeenCalledTimes(1);
+  expect(toggle).toHaveBeenCalledTimes(1);
+  expect(context.preferredPassthrough).toBe(true);
+  expect(context.passthroughOn).toBe(true);
+});
+
+it('keeps the prior Room choice when an unsupported switch retains the original session',async()=>{
+  const {context,toggle,switchMode}=await passthroughActionHarness();
+  switchMode.mockResolvedValue({switched:false,retained:true,unsupported:true,passthrough:false} as any);
+  expect(await context.setPassthrough(true)).toMatchObject({retained:true,unsupported:true,passthrough:false});
+  expect(context.preferredPassthrough).toBe(false);
+  expect(toggle).not.toHaveBeenCalled();
+});
+
+it('restores Room off on each new alpha-blend entry without changing sessions',()=>{
+  let room = true;
+  const toggle = vi.fn(() => { room = !room; return true; });
+  for (let entry=0;entry<3;entry++) {
+    room = true; // Mol* seeds its private clear again on every session.
+    expect(restorePassthroughOnEntry({blendMode:'alpha-blend',preferred:false,toggle}))
+      .toEqual({on:false,restored:true});
+    expect(room).toBe(false);
+  }
+  expect(toggle).toHaveBeenCalledTimes(3);
+  for (const preferred of [undefined,true]) {
+    expect(restorePassthroughOnEntry({blendMode:'alpha-blend',preferred,toggle}))
+      .toEqual({on:true,restored:false});
+  }
+  for (const blendMode of ['opaque',null]) {
+    expect(restorePassthroughOnEntry({blendMode,preferred:true,toggle}))
+      .toEqual({on:false,restored:false});
+  }
+  expect(toggle).toHaveBeenCalledTimes(3);
+});
+
+it('reports the actual room state when restoring the clear fails',()=>{
+  for (const toggle of [()=>false,()=>{throw Error('input gone');}]) {
+    expect(restorePassthroughOnEntry({blendMode:'alpha-blend',preferred:false,toggle}))
+      .toEqual({on:true,restored:false,failed:true});
+  }
+});
 
 it('turns the room off inside the passthrough session instead of ending it',()=>{
   // Hiding the room used to mean a whole new session and a drop to the 2D
@@ -281,4 +369,50 @@ it('never throws when the session, the scope timers or the diagnostics sink are 
   expect(()=>trackFoveation(undefined as any,{scope:{}}).stop()).not.toThrow();
   const thrower={setInterval(){throw Error('no timers');},clearInterval(){}};
   expect(()=>trackFoveation({renderState:{baseLayer:{fixedFoveation:0}}} as any,{level:1,scope:thrower}).stop()).not.toThrow();
+});
+
+
+it('persists only explicit boolean Room choices across new page scopes and leaves fresh/invalid storage unset',()=>{
+  const values=new Map<string,string>();
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value)};
+  const first={localStorage:storage};
+  expect(readPassthroughPreference(first)).toBeUndefined();
+  storePassthroughPreference(false,first);
+  const reopened={localStorage:storage};
+  expect(readPassthroughPreference(reopened)).toBe(false);
+  const toggle=vi.fn(()=>true);
+  expect(restorePassthroughOnEntry({blendMode:'alpha-blend',preferred:readPassthroughPreference(reopened),toggle}))
+    .toEqual({on:false,restored:true});
+  expect(toggle).toHaveBeenCalledTimes(1);
+  storePassthroughPreference(true,reopened);expect(readPassthroughPreference(first)).toBe(true);
+  storePassthroughPreference('false',first);expect(readPassthroughPreference(first)).toBe(true);
+  for(const value of ['null','0','FALSE','{}','']){
+    expect(readPassthroughPreference({localStorage:{getItem:()=>value}})).toBeUndefined();
+  }
+});
+
+it('blocked storage never prevents a live Room choice or changes first-time defaults',async()=>{
+  const blocked={get localStorage(){throw Error('denied');}};
+  expect(readPassthroughPreference(blocked)).toBeUndefined();
+  expect(()=>storePassthroughPreference(false,blocked)).not.toThrow();
+  const {context}=await passthroughActionHarness();
+  context.blendMode='alpha-blend';context.passthroughOn=true;
+  context.storePassthroughPreference=(on:boolean)=>storePassthroughPreference(on,blocked);
+  await context.setPassthrough(false);
+  expect(context.passthroughOn).toBe(false);expect(context.preferredPassthrough).toBe(false);
+});
+
+it('persists applied, unchanged and pending choices but never a refused request',async()=>{
+  const {context,toggle,switchMode}=await passthroughActionHarness();
+  context.blendMode='alpha-blend';context.passthroughOn=true;
+  await context.setPassthrough(false);
+  expect(context.storePassthroughPreference).toHaveBeenLastCalledWith(false);
+  await context.setPassthrough(false);
+  expect(context.storePassthroughPreference).toHaveBeenCalledTimes(2);
+  toggle.mockReturnValue(false);
+  await expect(context.setPassthrough(true)).rejects.toThrow();
+  expect(context.storePassthroughPreference).toHaveBeenCalledTimes(2);
+  context.blendMode='opaque';switchMode.mockResolvedValue({switched:false,pending:'immersive-ar'} as any);
+  await context.setPassthrough(true);
+  expect(context.storePassthroughPreference).toHaveBeenLastCalledWith(true);
 });

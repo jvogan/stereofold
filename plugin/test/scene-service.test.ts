@@ -378,6 +378,22 @@ describe('a host that lost its attachment to the shared scene', () => {
     } finally { await b.close(); await a.close(); await rm(directory, { recursive: true, force: true }); }
   });
 
+  it('sends a voice edit that names only its utteranceId to the owner, which holds that utterance', async () => {
+    const directory = await root(), file = join(directory, 'scene-service.json');
+    const { owner } = await owning(file, new Set(['first']));
+    const seen: any[] = [];
+    owner.register('update_inspection', async (args: any) => { seen.push(args); return { ok: true }; });
+    const joiner = new LocalSceneService({ file, env: {}, live: () => false });
+    try {
+      expect(await joiner.share({ assistant: 'Claude' })).toMatchObject({ role: 'attached', sessionId: 'first' });
+      const change = { kind: 'placement', patch: { scale: 1.25 } };
+      expect(await joiner.forward('update_inspection', { utteranceId: 'u-1', change })).toEqual({ value: { ok: true } });
+      expect(seen).toEqual([{ utteranceId: 'u-1', change, assistant: 'Claude' }]);
+      // Without a session or an utterance there is nothing to name the owner's scene by.
+      expect(await joiner.forward('update_inspection', { change })).toBeUndefined();
+    } finally { await owner.close?.(); await rm(directory, { recursive: true, force: true }); }
+  });
+
   it('sends a failed call once, then rejoins before the next one', async () => {
     const directory = await root(), file = join(directory, 'scene-service.json');
     const { owner, reached } = await owning(file, new Set(['first']));

@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { createSelectionAdapter } from './selection.mjs';
 import extraction from '../identity/extract.cjs';
 import { colorDistance, composeOverpaintLayers, selectionMarkColor, selectionOverpaintLayer,
-  selectionPaintPlan, SELECTION_MARK_COLORS, SELECTION_MARK_MIN_BACKGROUND_DISTANCE } from './selection-paint.mjs';
+  selectionPaintPlan, selectionSignature, SELECTION_MARK_COLORS, SELECTION_MARK_MIN_BACKGROUND_DISTANCE } from './selection-paint.mjs';
 
 const require = createRequire(new URL('../../plugin/package.json', import.meta.url));
 const { CIF } = require('molstar/lib/commonjs/mol-io/reader/cif.js');
@@ -131,4 +131,33 @@ test('a hidden chain is not marked, and an empty selection paints nothing', () =
     plan: selectionPaintPlan({ selectionKeys: [], appearance: {} }),
     bundleFor: scene.bundleFor, data: scene.structure, color }), undefined);
   assert.deepEqual(composeOverpaintLayers([], undefined), []);
+});
+
+// "Orange is the guide RNA" played over a pink RNA. The chapter's framing
+// selected the part it lit, and the magenta mark, the last layer, covered the
+// lesson's orange. A selection the lesson made is the lesson's own: its colour
+// key already marks it, so the mark is not painted over it.
+test('a selection the lesson made is not marked over its colour key', () => {
+  const lessonSelection = selectionSignature([...scene.keys].reverse());
+  const lesson = selectionPaintPlan({ selectionKeys: scene.keys, appearance: { background: '#071015' }, lessonSelection, lessonColorKeys: scene.keys });
+  assert.deepEqual(lesson.keys, []);
+  assert.equal(selectionOverpaintLayer({ plan: lesson, bundleFor: scene.bundleFor, data: scene.structure, color }), undefined);
+  // A wearer who then picks something else gets the mark, painted last as before.
+  const picked = scene.keys.slice(0, 3);
+  const wearer = selectionPaintPlan({ selectionKeys: picked, appearance: { background: '#071015' }, lessonSelection, lessonColorKeys: scene.keys });
+  assert.deepEqual(wearer.keys, picked);
+  assert.equal(selectionPaintPlan({ selectionKeys: scene.keys, appearance: {} }).keys.length, scene.keys.length);
+});
+
+for (const kind of ['first-chain', 'aromatic']) test(`the built-in ${kind} tour visibly marks its selection without a lesson key`, async () => {
+  const { tsImport } = require('tsx/esm/api');
+  const { TOURS } = await tsImport('../../plugin/src/tour-catalog.ts', import.meta.url);
+  const { resolveTourSelection } = await tsImport('../../plugin/src/tour-player.ts', import.meta.url);
+  const step = TOURS[0].steps.find(step => kind === 'first-chain' ? step.selection?.firstChain : step.selection?.componentIds?.includes('PHE'));
+  assert.ok(step); assert.equal(step.emphasis, undefined);
+  const keys = resolveTourSelection(scene.adapter.rows, step.selection);
+  assert.ok(keys.length, '1CRN has the requested residues');
+  const plan = selectionPaintPlan({selectionKeys:keys, lessonSelection:selectionSignature(keys), lessonColorKeys:[]});
+  assert.deepEqual(plan.keys,keys);
+  assert.ok(selectionOverpaintLayer({plan,bundleFor:scene.bundleFor,data:scene.structure,color}));
 });

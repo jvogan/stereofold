@@ -8,7 +8,7 @@ skills for Claude Code, Claude Science, Codex CLI, and the Codex desktop app.
 
 Bring the structure and question you're already working on. Your agent can
 build a custom scene or lesson, send it to the headset, and keep changing it
-as you explore. The bundled demos show a few examples.
+as you explore. The bundled [demos](#demos) show a few examples.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-94E8F5.svg)](LICENSE)
 [![Project page](https://img.shields.io/badge/Project%20page-jvogan.github.io%2Fstereofold-EC85C7.svg)](https://jvogan.github.io/stereofold/)
@@ -45,6 +45,58 @@ with no plugin install. Its publication address is the
 [project page](https://jvogan.github.io/stereofold/). Watch the
 [two-minute desktop walkthrough](https://jvogan.github.io/stereofold/walkthrough.html)
 to see live scene edits and a molecular lesson.
+
+## Demos
+
+<p>
+  <img src="docs/artwork/demos/kinesin-walk.webp" width="260" alt="Headless render of the kinesin-walk demo: a green and a pink kinesin head joined by their neck coil above a strand of blue and amber tubulin, the green head mid-swing.">
+  <img src="docs/artwork/demos/atp-synthase-rotor.webp" width="260" alt="Headless render of the atp-synthase-rotor demo: the red and orange gamma stalk rising from a pink ring of c subunits into the grey catalytic head.">
+  <img src="docs/artwork/demos/hemoglobin-switch.webp" width="260" alt="Headless render of the hemoglobin-switch demo in the R state, with the earlier T position of the blue subunit pair drawn faded behind it.">
+</p>
+
+Ask for a demo by name. In Claude Science, finish the one-time
+[setup](#claude-science), run `node plugin/dist/headset-host.mjs 4HHB` in a Mac
+terminal, put the headset on, and ask:
+
+> Join the Stereofold scene on this Mac and open the kinesin-walk demo.
+
+In Claude Code or Codex, ask: “Open the kinesin-walk demo on my Quest.”
+
+| Demo | What you see |
+| --- | --- |
+| `kinesin-walk` | Two kinesin heads trade the lead along a microtubule, 8.2 nm per step, then rest with both heads bound. |
+| `atp-synthase-rotor` | The gamma stalk and a ring of ten c subunits turn under the catalytic head of ATP synthase, in three 120° steps per turn. |
+| `hemoglobin-switch` | One alpha-beta pair of hemoglobin turns 14 degrees against the other into the R state, with O2 on every heme, then turns back. |
+| `binder-gallery` | Seventeen designs meeting the published study's binding criteria, with toxin names and measured Adaptyv KD labels; an aligned comparison keeps each reference target fixed. |
+| `binder-gallery-extended` | The same 17 first, then one representative intended-target pairing for each of the other 194 tested designs, in ten additional batches. |
+| `microtubule-growth` | Say “grow it” and the next tier replaces the last: one tubulin, a dimer, a strand, then a wall three strands wide. |
+| `crispr-cas9` | Cas9 with its guide RNA and both DNA strands; nine chapters name the guide, the PAM, the recognition lobe and the nucleases. |
+| `telomerase-haca` | The RNA-protein lobe of human telomerase: nine proteins on one RNA, anchored by two dyskerin copies. |
+| `spike` | The SARS-CoV-2 spike trimer, closed, turned on its long axis and shown as a surface. |
+| `nucleosome` | 147 base pairs of DNA wrapped not quite twice around eight histones, then cut open to the core. |
+| `daraxonrasib` | KRAS G12D and cyclophilin A held together by the drug, with its two contacts measured at 3.38 Å and 2.90 Å. |
+
+The three moving demos have more stages: `flipbook` and `cycle` for
+`kinesin-walk`, `flipbook` and `figure` for the other two. Name a stage to open
+it, for example “Open the cycle stage of kinesin-walk.” Their authored rigid-body
+paths illustrate motion; they are not measured trajectories. Coordinates download
+from RCSB on first use, while the binder galleries ship their published predicted
+coordinates. All coordinate sources must match the digests in
+[`plugin/demos/index.json`](plugin/demos/index.json).
+[`plugin/demos/README.md`](plugin/demos/README.md) lists every demo and stage,
+and the [project page](https://jvogan.github.io/stereofold/#demos) shows animated
+examples.
+
+For the slideshow, ask: “Open binder-gallery-extended on my Quest, keep narration
+off, use Room off for the white background, and play while preserving my
+placement.” Each slide dwells for three seconds after rendering; loading adds
+time between slides and batches. The first 17 are all study-qualified designs,
+not a ranked top 17. Labels distinguish published measured Adaptyv KD (including
+bounds and approximate fits) from computational prediction scores, and show
+the other designs' actual assay outcomes. These are predicted complexes; binding does not establish toxin
+neutralization. The galleries adapt Anthropic's pinned scorpion-toxin dataset
+under CC BY 4.0; see [credits and structural-source terms](plugin/demos/binder-gallery/CREDITS.md)
+and [extended selection and provenance](plugin/demos/binder-gallery/extended/README.md).
 
 ## Install
 
@@ -452,5 +504,7 @@ Structure provenance, third-party notices, and font licenses are on the
 
 ## License
 
-MIT. Mol\* is used under its own license; see the
+Code: MIT. The binder gallery dataset is CC BY 4.0; its
+[credits](plugin/demos/binder-gallery/CREDITS.md) retain attribution and structural-source terms.
+Mol\* is used under its own license; see the
 [notices](https://jvogan.github.io/stereofold/licenses/THIRD-PARTY-NOTICES.txt).

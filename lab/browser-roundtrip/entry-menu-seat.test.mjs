@@ -19,9 +19,9 @@ function menuRect(constants, rows = COMPACT) {
 
 test('compact default seats actual glass left of the molecular framing band', () => {
   const rect = menuRect(SPATIAL_TOOLBAR_LAYOUT);
-  assert.ok(rect.right < -ENTRY_SUBJECT_LENS - PLATE_CLEARANCE_LENS);
+  assert.ok(rect.left > -1 && rect.right < 0, 'the complete column stays inside the left lens');
   const panel = createToolbarPanel({ rows: COMPACT, head: HEAD });
-  assert.ok(Math.abs(Math.atan2(-panel.anchor[0], -panel.anchor[2]) * 180 / Math.PI - 47) < 1e-6);
+  assert.ok(Math.abs(Math.atan2(-panel.anchor[0], -panel.anchor[2]) * 180 / Math.PI - 26.915314027471144) < 1e-6);
 });
 
 test('entry seating preserves reading range and physical glyph size', () => {
@@ -32,10 +32,10 @@ test('entry seating preserves reading range and physical glyph size', () => {
   assert.equal(seat.factor, 1, 'the peripheral default needs no extra outboard rung');
 });
 
-test('peripheral menu clears the entry band and is readable after a glance left', () => {
+test('inboard menu honestly reports overlap with a full entry band', () => {
   const seat = entryMenuSeat({ rows: COMPACT, head: HEAD, constants: SPATIAL_TOOLBAR_LAYOUT });
-  assert.equal(seat.clear, true);
-  assert.equal(lensRectsOverlap(seat.rect, seat.subject, PLATE_CLEARANCE_LENS), false);
+  assert.equal(seat.clear, false);
+  assert.equal(lensRectsOverlap(seat.rect, seat.subject, PLATE_CLEARANCE_LENS), true);
 });
 
 test('entry menu keeps the wearer’s left side at every row count', () => {
@@ -116,12 +116,14 @@ test('production entry seating and its record use the same per-eye lit geometry'
   for (const view of geometry.views) view.transform.inverse.matrix[13] = -1.6;
   const previous = globalThis.__stereofoldDiagnostics;
   globalThis.__stereofoldDiagnostics = { record: (kind, detail) => records.push({ kind, detail }) };
-  let reads = 0;
-  const h = toolbarFrameHarness(runtime, { getEntryGeometry: () => { reads++; return geometry; } });
+  const reads = [];
+  const h = toolbarFrameHarness(runtime, { getEntryGeometry: options => { reads.push(options?.keyOnly === true); return geometry; } });
   try {
     await h.toolbar.update();
-    assert.equal(reads, 1);
-    const entry = records.find(r => r.kind === 'plate-standoff' && r.detail.phase === 'entry').detail;
+    assert.deepEqual(reads, [false, true], 'seat measurement gets full geometry; redraw signature requests only the proof key');
+    const entries = records.filter(r => r.kind === 'plate-standoff' && r.detail.phase === 'entry');
+    assert.equal(entries.length, 1, 'the clearance-key read does not seat or measure again');
+    const entry = entries[0].detail;
     const measured = measureEntryStandoff({ ...geometry, menuPoints: h.toolbar.drawnMenuPoints() });
     assert.equal(entry.clearanceLeft, measured.clearanceLeft);
     assert.equal(entry.clearanceRight, measured.clearanceRight);
@@ -133,14 +135,14 @@ test('production entry seating and its record use the same per-eye lit geometry'
       constants: SPATIAL_TOOLBAR_LAYOUT });
     assert.equal(entry.frame.menu.clear, menuSeatClears(measured, geometry));
     assert.equal(entry.frame.menu.clear, true);
-    assert.equal(nominal.clear, true);
+    assert.equal(nominal.clear, false);
     assert.ok(ENTRY_MENU_OUTBOARD_FACTORS.includes(entry.frame.menu.outboard));
     geometry.objects[0].values.dTransparency.ref.value = false;
     const whole = measureEntryStandoff({ ...geometry, menuPoints: h.toolbar.drawnMenuPoints() });
     assert.ok(whole.clearanceLeft < entry.clearanceLeft);
     assert.ok(whole.clearanceRight < entry.clearanceRight);
     await h.frames(72);
-    assert.equal(reads, 1, 'frame tracking does not recompute clearance');
+    assert.deepEqual(reads, [false, true], 'frame tracking does not recompute clearance');
   } finally {
     await h.toolbar.dispose();
     globalThis.__stereofoldDiagnostics = previous;
@@ -182,6 +184,31 @@ test('a summoned menu seats all its glass clear of the committed subject in both
 // Nothing below re-implements either; a producer that moves, stops passing
 // the geometry or stops recording the shared measurement fails here first.
 import { entryProducerHarness } from './fixtures/entry-standoff.mjs';
+
+test('production key-only provider preserves exact proof metadata without expanding unused envelope vertices', () => {
+  const bounds = { center: [1, 2, 3], radius: 4, spheres: [
+    { center: [1, 2, 3], radius: 2 },
+    { center: [2, 3, 4], quad: [[1, 0, 0], [0, 1, 0]], sweep: .1, renderOffset: [0, 0, 1] },
+  ] };
+  const transform = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const h = entryProducerHarness({ chapterFieldBounds: () => bounds, presentationTransform: () => transform });
+  const expand = h.page.framingEnvelopeObject; let expansions = 0;
+  h.page.framingEnvelopeObject = (...args) => { expansions++; return expand(...args); };
+  const before = h.getEntryGeometry();
+  assert.equal(before.objects.length, 1); assert.ok(before.objects[0].values.aPosition.ref.value.length > 0);
+  const key = h.getEntryGeometry({ keyOnly: true });
+  assert.equal(key.clearanceKey, before.clearanceKey);
+  assert.equal(key.cameraScale, before.cameraScale); assert.equal(key.views, before.views); assert.equal(key.renderFromRoom, before.renderFromRoom);
+  assert.equal(key.objects.length, 0); assert.equal(expansions, 1);
+  transform[12] = 2; bounds.spheres[0].radius = 3;
+  const changedKey = h.getEntryGeometry({ keyOnly: true });
+  assert.notEqual(changedKey.clearanceKey, key.clearanceKey);
+  assert.equal(expansions, 1, 'metadata invalidation does not construct geometry');
+  const after = h.getEntryGeometry();
+  assert.equal(after.clearanceKey, changedKey.clearanceKey); assert.equal(expansions, 2);
+  assert.equal(before.objects[0].values.aTransform.ref.value[12], 0, 'normal geometry remains an eager transform snapshot');
+  assert.equal(after.objects[0].values.aTransform.ref.value[12], 2);
+});
 import { measureComponentLabels } from './component-label-measurement.mjs';
 import { applyMatrix4 } from './room-lock.mjs';
 

@@ -389,7 +389,7 @@ export function registerInspectionVoiceTools(privateTool: PrivateTool, hooks: In
 
   privateTool('stereo_structure.voice_command', {
     title: 'Recognize a bounded headset voice command',
-    description: 'App-only OAuth transcription for one short microphone capture from a current ready companion panel. It returns only a known typed command, never a transcript or molecular edit.',
+    description: 'App-only OAuth transcription for one short microphone capture from a current ready companion panel. It returns a known typed command or queued intent, plus a bounded heard excerpt for the wearer; it applies no molecular edit.',
     inputSchema: voiceCommandRequestSchema, ...config,
   }, async raw => {
     const input = voiceCommandRequestSchema.parse(raw);
@@ -407,18 +407,18 @@ export function registerInspectionVoiceTools(privateTool: PrivateTool, hooks: In
         // phrase is executed here and the page is told it was handled.
         if (command === 'undo' && hooks.undo) {
           const { message } = await hooks.undo(binding);
-          return { content: [{ type: 'text' as const, text: message }], structuredContent: { command, message, handled: true } };
+          return { content: [{ type: 'text' as const, text: message }], structuredContent: { command, message, heard:transcript?.slice(0,80), handled: true } };
         }
         const message = `Recognized ${command}.`;
-        return { content: [{ type: 'text' as const, text: message }], structuredContent: { command, message } };
+        return { content: [{ type: 'text' as const, text: message }], structuredContent: { command, message, heard:transcript?.slice(0,80) } };
       }
       // An unrecognized spoken request is not a dead end. The companion sees
-      // no transcript; the current desktop host may claim the bounded text
+      // only a short heard excerpt; the current desktop host may claim the bounded text
       // from its source-scoped queue and submit it as the user's own request.
       if (transcript) {
         const intent = intents.enqueue({ ...binding, transcript, ...(referent ? { referent } : {}) });
         const message = 'Request queued for the connected task.';
-        return { content: [{ type: 'text' as const, text: message }], structuredContent: { intentId: intent.id, message } };
+        return { content: [{ type: 'text' as const, text: message }], structuredContent: { intentId: intent.id, message, heard:transcript.slice(0,80) } };
       }
       return { content: [{ type: 'text' as const, text: 'I could not hear a usable request.' }], structuredContent: { message: 'I could not hear a usable request.' } };
     } finally { leave(binding.panelId); }

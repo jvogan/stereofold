@@ -1,3 +1,4 @@
+import { createAssistantStatus } from './assistant-status.mjs';
 import { menuSeatWithinView } from './menu-view-band.mjs';
 import { connectionStatus, setConnectionStatus, markTalkLinkLost, LINK_LOST, TALK_LINK_LOST } from './connection-liveness.mjs';
 import { spatialToolbarRows } from './spatial-toolbar-content.mjs';
@@ -12,6 +13,7 @@ import { syntheticViews, identity } from './fixtures/component-label-diagnostics
 import { replayOptionsFromLayoutRecord } from './fixtures/layout-replay.mjs';
 import { layoutComponentPlates, countObstacleOverlaps } from './label-layout.mjs';
 import { sanitizeDetail } from './headset-diagnostics.mjs';
+import { emptyLessonFigureBinding } from './fixtures/empty-lesson-figure.mjs';
 
 const capture = JSON.parse(readFileSync(new URL('./fixtures/acceptance-6-show-dyskerin.json', import.meta.url)));
 const layouts = capture.entries.filter(e => e.kind === 'component-label-layout');
@@ -34,7 +36,7 @@ function harness(clearanceSource = () => clearance) {
   const source = readFileSync(new URL('./talk-caption.mjs', import.meta.url), 'utf8');
   const live = new Set(), records = [], quads = [];
   let time = 0, solves = 0;
-  const h = vm.createContext({ menuSeatWithinView, connectionStatus, TALK_LINK_LOST, ...geometry, measureReplyCard, measureReplyCardClearance, replyCardOffsetAsync: (args, options) => { solves++; return replyCardOffsetAsync(args, { ...options, now: () => 0 }); },
+  const h = vm.createContext({ assistantStatus: createAssistantStatus(), menuSeatWithinView, connectionStatus, TALK_LINK_LOST, ...geometry, measureReplyCard, measureReplyCardClearance, replyCardOffsetAsync: (args, options) => { solves++; return replyCardOffsetAsync(args, { ...options, now: () => 0 }); },
     MeshBuilder: { createState: () => ({}), addTriangleWithNormal(s, a, b, c) { quads.push([a, b, c]); }, getMesh: () => ({}) },
     Mesh: { Utils: {} }, TextBuilder: { create: () => ({ add() {}, getText: () => ({}) }) }, Text: { Utils: {} },
     // Conservative sans width; no recorded glyph atlas exists in the ring.
@@ -125,7 +127,8 @@ test('viewer supplies committed backing geometry and full subject bounds to the 
     plugin: { state: { data: { cells: new Map([
       ['plate-backing', { obj: { data: { repr: { renderObjects: [backing] } } } }],
       ['plate-text', { obj: { data: { repr: { renderObjects: [text] } } } }],
-    ]) } } }, representation: { obj: { data: { repr: { renderObjects: [subject] } } } }, ligandOverlay: null,
+    ]) } } }, ...emptyLessonFigureBinding(),
+    scientificRepresentations: includeCompanion => { assert.equal(includeCompanion, true); return [{ renderObjects: [subject] }]; },
     labelObjectRenderable: o => o === backing,
     renderedSubjectSpheres: (o, scale) => { assert.equal(o, subject); assert.equal(scale, .01); return [{ center: [0, 0, -2], radius: .2 }]; },
     measureComponentLabels: options => { assert.equal(options.plates[0].objects[0], backing); assert.equal(options.subject.spheres.length, 1); return measured; },

@@ -8,6 +8,7 @@ import { toolbarFrameRuntime, toolbarFrameHarness } from './fixtures/toolbar-fra
 import { resetViewPlacement } from './reset-view-placement.mjs';
 import { resetEntryLateralTravel } from './reset-entry-geometry.mjs';
 import { journeySeatDetail } from './journey-seat-record.mjs';
+import { measureGlassClearance } from './fixtures/glass-clearance.mjs';
 import { measureEntryStandoff } from './entry-standoff.mjs';
 import { menuSeatClears } from './entry-menu-seat.mjs';
 import { identity, syntheticViews } from './fixtures/component-label-diagnostics.mjs';
@@ -134,6 +135,7 @@ for (const endingScale of [.4543570, .4172]) {
       immersiveSession: { platePoints: () => points, toolbarPlacementPoints: () => points },
       placeInspection: async patch => { placement = { ...placement, ...patch }; moves.push(patch); },
       restoreTourSeat: async () => { assert.equal(measure().frame.menu.clear, true); },
+      releaseWearerPlacement() {},
       seatStructureForEntry: async () => assert.fail('the saved view must be restored'),
     });
     h.journeySeatDetail = journeySeatDetail;
@@ -178,6 +180,7 @@ for (const row of fixture.rows) test(`row ${row.row} viewer fits entry and Done 
       assert.equal(roomEntry.seat, undefined, 'no Reset target until that render returns');
     },
     seatStructureForEntry: async () => assert.fail('a saved pose must use the shared size fit'),
+    releaseWearerPlacement() {},
     emphasisState: { parts: [] }, componentLabelsWanted: () => false,
     componentLabelViewBasis: () => ({}),
     placementFromRoom: () => ({ ...row.preTourPlacement, rotation: undefined }),
@@ -196,7 +199,7 @@ for (const row of fixture.rows) test(`row ${row.row} viewer fits entry and Done 
   assert.deepEqual(roomEntry.seat, row.preTourPlacement);
 });
 
-test('the toolbar preview clears the restored caption and emits clear entry and tour-end records', async () => {
+test('the toolbar preview clears the overhead caption and controls and records entry and tour-end measurements', async () => {
   const runtime = await toolbarFrameRuntime(), records = [];
   let placement = { translation: [0, 1.8, -3], scale: 1.98, rotation: [0, 0, 0] };
   const local = [-.6, .6].flatMap(x => [-.5, .5].flatMap(y => [-.1, .1].map(z => [x, y, z])));
@@ -212,6 +215,25 @@ test('the toolbar preview clears the restored caption and emits clear entry and 
     state: { subject: { title: 'Hemoglobin tetramer', pdbId: '4HHB', chains: 4, representation: 'cartoon', color: 'chain-id' } } });
   const prior = globalThis.__stereofoldDiagnostics;
   globalThis.__stereofoldDiagnostics = { record: (kind, detail) => records.push({ kind, detail }) };
+  const measurements = new Map();
+  const assertDrawnClear = phase => {
+    assert.ok(h.toolbar.captionPoints().length > 0, `${phase} draws the caption`);
+    assert.ok(h.toolbar.drawnMenuPoints().length > 0, `${phase} draws the controls`);
+    const points = h.toolbar.platePoints();
+    assert.ok(points.plates.length >= 2, `${phase} measures separate full glass plates`);
+    // The overhead caption clears vertically; the controls clear horizontally.
+    // Their combined rectangle includes empty space, and the horizontal-only
+    // diagnostic cannot certify the clearance of these separate plates.
+    for (const plate of points.plates) {
+      const measured = measureGlassClearance({ ...geometry(), menuPoints: plate });
+      assertAutomaticSeat(measured, geometry(), false);
+      if (phase === 'tour-end') assert.ok(measured.eyes.every(eye => Math.abs(eye.subjectX) <= .135));
+    }
+    // Entry records the combined horizontal footprint; Done records controls.
+    // Keep checking those diagnostic contracts against the committed draw.
+    measurements.set(phase, measureEntryStandoff({ ...geometry(), menuPoints: phase === 'entry'
+      ? [...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()] : h.toolbar.drawnMenuPoints() }));
+  };
   const fit = restoreTourSeat => {
     const points = h.toolbar.placementPoints({ headInRoom, restoreTourSeat });
     const fitted = resetViewPlacement({ seat: placement, fit: true, bounded: true, restoreSaved: restoreTourSeat, points,
@@ -222,25 +244,22 @@ test('the toolbar preview clears the restored caption and emits clear entry and 
   try {
     fit(false); await h.toolbar.update();
     assert.equal(placement.scale, 1.98, 'automatic entry uses free field before shrinking');
-    assertAutomaticSeat(measureEntryStandoff({ ...geometry(), menuPoints: [...h.toolbar.drawnMenuPoints(), ...h.toolbar.captionPoints()] }), geometry());
+    assertDrawnClear('entry');
     h.setState({ tour: { active: true, step: 1, title: 'A chapter', progress: 'Scene 2 / 20' } });
     await h.toolbar.update();
     h.setState({ subject: { title: 'Human deoxyhaemoglobin', pdbId: '4HHB', chains: 4, representation: 'cartoon', color: 'element-symbol' },
       tour: { active: false, step: -1, feedback: 'Back at the start' } });
     placement = { translation: [0, 1.8, -3], scale: 1.98, rotation: [0, 0, 0] };
     fit(true); await h.toolbar.update({ restoreTourSeat: true });
-    for (const points of [h.toolbar.drawnMenuPoints(), h.toolbar.captionPoints()]) {
-      const measured = measureEntryStandoff({ ...geometry(), menuPoints: points });
-      assert.ok(measured.eyes.every(eye => eye.clearance > 0 && Math.abs(eye.subjectX) <= .135));
-    }
+    assertDrawnClear('tour-end');
     const standoffs = records.filter(r => r.kind === 'plate-standoff');
     for (const phase of ['entry', 'tour-end']) assert.ok(standoffs.some(r => r.detail.phase === phase));
     for (const { detail } of standoffs) {
       if (detail.frame?.menu) assert.equal(detail.frame.menu.clear, menuSeatClears(detail, geometry()),
         `${detail.phase} reports whether the measured margin clears`);
-      // The diagnostic's clear flag requires the configured extra margin;
-      // positive separation and whole-subject visibility remain required.
-      if (detail.phase === 'entry') assertAutomaticSeat(detail, undefined, false);
+      const measured = measurements.get(detail.phase);
+      if (measured) for (const key of ['eyes', 'clearanceLeft', 'clearanceRight', 'lit', 'units'])
+        assert.deepEqual(detail[key], measured[key], `${detail.phase} records the drawn ${key}`);
       if (detail.phase === 'tour-end')
         assert.ok(detail.eyes.every(eye => eye.clearance > 0 && Math.abs(eye.subjectX) <= .135));
     }
@@ -322,7 +341,7 @@ test('the current peripheral menu preserves a saved clear view through Done', as
 test('Done clears completed glass at the held chapter anchor', async () => {
   const { deviceDoneClearance, devicePlacement } = await import('./fixtures/device-done-clearance.mjs');
   let placement = structuredClone(devicePlacement);
-  const h = await deviceDoneClearance({ runtime: await toolbarFrameRuntime(undefined, { peripheralSeat: false }),
+  const h = await deviceDoneClearance({ runtime: await toolbarFrameRuntime(undefined, { peripheralSeat: false }), halfHeight: .4,
     getPlacement: () => placement, setPlacement: value => { placement = value; } });
   try {
     // Seat the larger current menu left of the synthetic subject; the old
@@ -331,7 +350,10 @@ test('Done clears completed glass at the held chapter anchor', async () => {
     assert.ok(h.measure().eyes.every(eye => eye.clearance > .1));
     for (let pass = 0; pass < 2; pass++) {
       placement = structuredClone(devicePlacement);
-      await h.chapter(4); await h.moveChapterMenu(.13);
+      // The upright lesson menu is on the right and clears the old short
+      // silhouette vertically. Move it left over this taller synthetic mesh.
+      // A new chapter also retires Done's pending completed-menu presentation.
+      await h.chapter(4 + pass); await h.moveChapterMenu(-.4);
       assert.ok(h.measure().eyes.some(eye => eye.clearance < 0), 'the outgoing chapter glass crosses the saved view');
       const heldAnchor = h.seatAnchor();
       const result = await h.restore({ camera: {}, inspection: { placement: devicePlacement } });

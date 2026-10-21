@@ -53,7 +53,7 @@ const client=new Client({name:'Stereofold local desktop host',version:'1'});
 // Version 2 of push-to-talk records the Quest microphone and transcribes it
 // with whisper-cpp on this Mac, so --ptt also turns the transcriber on and
 // carries its tool paths and delivery settings across the same filter.
-const voiceEnvironment=Object.fromEntries(['STEREOFOLD_WHISPER_BIN','STEREOFOLD_WHISPER_MODEL','STEREOFOLD_FFMPEG_BIN',
+const voiceEnvironment=Object.fromEntries(['STEREOFOLD_WHISPER_BIN','STEREOFOLD_WHISPER_MODEL','STEREOFOLD_WHISPER_GPU','STEREOFOLD_FFMPEG_BIN',
   'STEREOFOLD_PTT_TRANSCRIPTS','STEREOFOLD_PTT_TEXT_COMMAND','STEREOFOLD_BRIDGE_DIR',
   // The transcriber choice and the Apple Speech helper travel with the whisper
   // settings: selecting Apple on the launcher must reach the MCP child too.
@@ -148,7 +148,7 @@ let token=randomBytes(32).toString('hex');let port=0;
 // fragment, which browsers never send, so no HTTP response ever carries it
 // and another local user cannot read it back off the loopback port.
 const browserToken=randomBytes(32).toString('hex');
-const SESSIONLESS_TOOLS=new Set(['listen_voice','say_to_headset','continue_session']);
+const SESSIONLESS_TOOLS=new Set(['prepare_composite','listen_voice','say_to_headset','continue_session']);
 // Chunked hydration is private renderer data. The authenticated panel needs
 // this route to finish loading; the model-facing agent route must not expose it.
 const panelOnly=new Set(['get_inspection_bytes']);
@@ -157,7 +157,7 @@ const panelOnly=new Set(['get_inspection_bytes']);
 // however plainly it is registered, and two were: the Claude Code kit promises
 // `read_headset_browser` over the debugging cable, and `grow_structure` is the
 // whole point of "grow it" on the one route that has no panel of its own.
-const permitted=new Set(['get_inspection','resolve_scene_import','sync_inspection','attach_inspection','poll_inspection','complete_inspection','report_source_failure','detach_inspection','open_companion','open_detailed_view','import_detailed_view','get_inspection_state','get_readiness','update_inspection','focus_selection','emphasize','control_tour','manage_companion','navigate_experience','acknowledge_experience_step','replace_inspection_source','push_to_talk_audio','poll_voice_transcripts','voice_command','voice_acknowledgement','speak_to_headset','say_to_headset','listen_voice','claim_voice_intent','acknowledge_voice_intent','acknowledge_voice_playback','read_headset_log','recall_headset','capture_headset_view','read_headset_browser','grow_structure','continue_session','switch_assistant','undo_last_change','redo_last_change','manage_inspection_view']);
+const permitted=new Set(['prepare_composite','install_lesson','measure','remove_measurement','get_inspection','resolve_scene_import','sync_inspection','attach_inspection','poll_inspection','complete_inspection','report_source_failure','detach_inspection','open_companion','open_detailed_view','import_detailed_view','get_inspection_state','get_readiness','update_inspection','focus_selection','emphasize','control_tour','manage_companion','navigate_experience','acknowledge_experience_step','replace_inspection_source','push_to_talk_audio','poll_voice_transcripts','voice_command','voice_acknowledgement','speak_to_headset','say_to_headset','listen_voice','claim_voice_intent','acknowledge_voice_intent','acknowledge_voice_playback','read_headset_log','recall_headset','capture_headset_view','read_headset_browser','grow_structure','continue_session','switch_assistant','undo_last_change','redo_last_change','manage_inspection_view']);
 const expiredSessionMessage='Stereofold session was not found or has expired. Open a structure to create a new session and use its returned sessionId.';
 const isExpiredSessionError=(error:unknown)=>error instanceof Error&&error.message===expiredSessionMessage;
 if(assemblyId&&!lessonPath)throw Error('--assembly needs a lesson: the assembly is opened with the lesson that describes it.');

@@ -1,6 +1,6 @@
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { Euler } from 'molstar/lib/mol-math/linear-algebra/3d/euler.js';
-import { PLATE_CLEARANCE_LENS, PLATE_STANDOFF_METRES, SUBJECT_CENTRE_LENS, SUBJECT_GHOST_LENS_CEILING, SUBJECT_GHOST_LENS_LIMIT, SUBJECT_LENS_CEILING, SUBJECT_LENS_FLOOR, SUBJECT_RISE_CEILING, SUBJECT_WHOLE_LENS_CEILING, ghostButtonAvoidance, lensBounds, lensFraction, lensRect, lensRectFromPoints, lensRectsOverlap, menuAvoidance, plateAvoidance, projectedExtent, standoffFraming, subjectCapShrink, viewBasis, volumeMenuAvoidance } from './plate-standoff.mjs';
+import { PLATE_CLEARANCE_LENS, PLATE_STANDOFF_METRES, STANDOFF_REACH_METRES, SUBJECT_CENTRE_LENS, SUBJECT_GHOST_LENS_CEILING, SUBJECT_GHOST_LENS_LIMIT, SUBJECT_LENS_CEILING, SUBJECT_LENS_FLOOR, SUBJECT_RISE_CEILING, SUBJECT_WHOLE_LENS_CEILING, ghostButtonAvoidance, lensBounds, lensFraction, lensRect, lensRectFromPoints, lensRectsOverlap, menuAvoidance, plateAvoidance, projectedExtent, standoffFraming, subjectCapShrink, viewBasis, volumeMenuAvoidance } from './plate-standoff.mjs';
 import { PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE, PLACEMENT_MAX_TRANSLATION } from './placement-limits.mjs';
 import { EYE_TAN_HALF_HORIZONTAL, EYE_TAN_HALF_VERTICAL } from './spatial-toolbar-geometry.mjs';
 
@@ -59,6 +59,47 @@ export function focusRotation(degrees) {
   const [x, y, z] = degrees.map(value => value * Math.PI / 180);
   return Mat4.mul(Mat4(), Mat4.fromRotation(Mat4(), z, Vec3.create(0, 0, 1)),
     Mat4.mul(Mat4(), Mat4.fromRotation(Mat4(), y, Vec3.create(0, 1, 0)), Mat4.fromRotation(Mat4(), x, Vec3.create(1, 0, 0))));
+}
+
+/**
+ * Everything a chapter's turn sweeps, as points a seat can be solved from.
+ *
+ * A seat solved from the drawn extent at t=0 holds only while nothing turns.
+ * The filament's spin chapters were seated for the tube standing end on to
+ * the wearer, and a quarter turn later it lay across far more than the lens,
+ * its ends swinging behind the menu and past the wearer. `turn` is the
+ * apparent turn of the drawn molecule: a render-space `axis` and signed
+ * `degrees` (a full turn or more sweeps the whole circle). `pivot` is the
+ * model-space point it turns about and `rotation` the placement rotation,
+ * both as `focusPlacement` reads them. The points come back in the same model
+ * coordinates, turned through the turn about the pivot in steps of at most
+ * 15 degrees and pushed out from the axis by `1 / cos` of half a step, so the
+ * arc between two steps lies inside them too and no turn reaches past the
+ * extent solved for it. Without a turn they come back unchanged.
+ */
+export function turnSweptPoints(points, turn, { pivot, rotation } = {}) {
+  const list = Array.isArray(points) ? points.filter(finitePoint) : [];
+  const axis = turn?.axis?.length === 3 && turn.axis.every(Number.isFinite) ? Vec3.create(...turn.axis) : undefined;
+  if (!list.length || !axis || Vec3.magnitude(axis) < 1e-9 || !Number.isFinite(turn.degrees) || turn.degrees === 0
+    || !finitePoint(pivot) || rotation?.length !== 3 || !rotation.every(Number.isFinite)) return points;
+  // The render-space axis, carried out of the placement into the model frame.
+  const local = Vec3.transformDirection(Vec3(), axis, Mat4.transpose(Mat4(), focusRotation(rotation)));
+  Vec3.normalize(local, local);
+  const full = Math.abs(turn.degrees) >= 360;
+  const arc = full ? 360 : turn.degrees;
+  const steps = Math.max(1, Math.ceil(Math.abs(arc) / 15));
+  const reach = 1 / Math.cos(Math.abs(arc) / steps / 2 * Math.PI / 180);
+  const centre = Vec3.create(...pivot), swept = [];
+  for (let step = 0; step < steps + (full ? 0 : 1); step++) {
+    const turned = Mat4.fromRotation(Mat4(), arc * step / steps * Math.PI / 180, local);
+    for (const point of list) {
+      const offset = Vec3.transformMat4(Vec3(), Vec3.sub(Vec3(), Vec3.create(...point), centre), turned);
+      const along = Vec3.scale(Vec3(), local, Vec3.dot(offset, local));
+      const out = Vec3.scale(Vec3(), Vec3.sub(Vec3(), offset, along), reach);
+      swept.push(Array.from(Vec3.add(Vec3(), Vec3.add(out, out, along), centre)));
+    }
+  }
+  return swept;
 }
 
 /**
@@ -307,7 +348,7 @@ export function projectPlacedToLens({ points, targetCenter, rotation, scale, cam
  */
 export function focusPlacement(options = {}) {
   const { headInRoom, renderFromRoom, cameraScale, center, radius, placement, targetCenter, targetRadius, framing,
-  enclosure, elevationDegrees = ELEVATION_DEGREES, plateNearMetres, standoffMetres = PLATE_STANDOFF_METRES,
+  enclosure, assemblyRadius = radius, elevationDegrees = ELEVATION_DEGREES, plateNearMetres, standoffMetres = PLATE_STANDOFF_METRES,
   // The subject's and the structure's boundary `extrema`, in the
   // same untransformed molecular coordinates as `targetCenter` and `center`,
   // and the plate points in room metres. All three are optional: without them
@@ -330,6 +371,8 @@ export function focusPlacement(options = {}) {
   // Talk and Play is binocular rivalry, not a ghost
   //. Omitted, the seat below
   // is exactly the one it always was.
+  // `sweptTurn` requires the swept assembly to stand in front of the eye,
+  // including an end-on short arc that static pocket framing permits inside out.
   // `drawnGains` is this module's OWN later passes talking to
   // themselves. It carries how much wider and taller the wearer saw the granted
   // rectangle drawn on the pass before, so the caps below can be granted on the
@@ -339,7 +382,7 @@ export function focusPlacement(options = {}) {
   // replaced can still be measured — `frame.drawn.granted` is then exactly what
   // the captures measured.
   subjectPoints, assemblyPoints, platePoints, captionPoints, menuPoints, menuRows, avoidMenu = false,
-  wholeStructure = false, minExtentFraction = 0, subjectCeiling, wholeSubjectCeiling, drawnGains } = options;
+  sweptTurn = false, wholeStructure = false, minExtentFraction = 0, subjectCeiling, wholeSubjectCeiling, drawnGains } = options;
 
   const angle = FOCUS_FRAMINGS[framing];
   if (!angle) throw Error('A focus framing must be fill or context.');
@@ -349,8 +392,8 @@ export function focusPlacement(options = {}) {
   if (headInRoom?.length !== 16 || renderFromRoom?.length !== 16 || center?.length !== 3 || targetCenter?.length !== 3
     || placement?.rotation?.length !== 3 || placement?.translation?.length !== 3
     || ![...headInRoom, ...renderFromRoom, ...center, ...targetCenter, ...placement.rotation, ...placement.translation,
-      placement.scale, cameraScale, radius, targetRadius].every(Number.isFinite)
-    || cameraScale <= 0 || radius <= 0 || targetRadius <= 0) throw Error('A current tracked room pose is required.');
+      placement.scale, cameraScale, radius, assemblyRadius, targetRadius].every(Number.isFinite)
+    || cameraScale <= 0 || radius <= 0 || assemblyRadius <= 0 || targetRadius <= 0) throw Error('A current tracked room pose is required.');
 
   /**
    * THE RESOLVED RULE, where the asked-for enclosure and the plate rule meet.
@@ -383,7 +426,7 @@ export function focusPlacement(options = {}) {
    * solved independently of these numerical bounds.
    */
   const asked = given ?? Math.tan(angle * Math.PI / 360);
-  const reachUnits = Vec3.distance(Vec3.create(...targetCenter), Vec3.create(...center)) + radius;
+  const reachUnits = Vec3.distance(Vec3.create(...targetCenter), Vec3.create(...center)) + assemblyRadius;
 
   const forward = Vec3.create(-headInRoom[8], 0, -headInRoom[10]);
   if (Vec3.magnitude(forward) < .01) throw Error('Look ahead before bringing a region into view.');
@@ -489,7 +532,13 @@ export function focusPlacement(options = {}) {
     ...(measured || subjectCeiling !== undefined
       ? { subjectCeiling: litGrant(subjectCeiling ?? (wholeStructure ? wholeCeiling : SUBJECT_LENS_CEILING)) } : {}),
     plateNearMetres, standoffMetres });
-  const halfAngle = fit.tanHalfSubject;
+  // A swept subject must stay in front of the eye. The pocket/inside-out
+  // framing is useful for static selections, but its projection has no safe
+  // scale interval for a turn. Bound its depth before projecting any points.
+  const sweptDepthLimited = sweptTurn && measured && fit.tanHalfAssembly >= 1;
+  const halfAngle = sweptDepthLimited
+    ? Math.min(fit.tanHalfSubject, wideUnits / asmDeep * (1 - fit.floorMetres / STANDOFF_REACH_METRES))
+    : fit.tanHalfSubject;
   // The framing the same call would have produced with neither rule, kept only
   // so the caller can record what the plate rule cost.
   const unconstrained = (tangent => {
@@ -497,7 +546,7 @@ export function focusPlacement(options = {}) {
     const at = clamp(want, PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE);
     return { scale: at, distance: clamp(at * wideUnits * cameraScale / tangent, MIN_DISTANCE_METRES, MAX_DISTANCE_METRES) };
   })(asked);
-  const floorMetres = Math.min(fit.minDistanceMetres, MAX_DISTANCE_METRES);
+  const floorMetres = sweptDepthLimited ? STANDOFF_REACH_METRES : Math.min(fit.minDistanceMetres, MAX_DISTANCE_METRES);
   const seat = clamp(Math.max(PREFERRED_DISTANCE_METRES, floorMetres), MIN_DISTANCE_METRES, MAX_DISTANCE_METRES);
   const wanted = seat * halfAngle / (wideUnits * cameraScale);
   const framedScale = clamp(wanted, PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE);
@@ -572,6 +621,18 @@ export function focusPlacement(options = {}) {
   const captionRect = lensRectFromPoints({ points: captionPoints ?? platePoints,
     origin: Array.from(eye), basis });
   /**
+   * The caption card and the assistant status card, one rectangle each. The
+   * box around both spans the middle of the lens, so a close-up framed in the
+   * gap between them, clear of each, was shifted out to the lens edge, or,
+   * with the status card beneath the menu column, lowered or raised toward
+   * the rim. It stays where it was framed instead. A subject over either
+   * card still takes the box's answer.
+   */
+  const captionPlateRects = (Array.isArray(captionPoints?.plates) ? captionPoints.plates : [])
+    .map(points => lensRectFromPoints({ points, origin: Array.from(eye), basis })).filter(Boolean);
+  const clearOfCaptions = subject => captionPlateRects.length > 1
+    && !captionPlateRects.some(rect => lensRectsOverlap(lensRect(subject), rect, PLATE_CLEARANCE_LENS));
+  /**
    * The four button rows, no caption. After the caption seat the whole
    * projected subject (ghost included) is checked against this, and one
    * rectangle per row keeps the ghost strand off the buttons after the seat is
@@ -619,7 +680,8 @@ export function focusPlacement(options = {}) {
     const subject = { x: onAxis.x, y: onAxis.y, halfWidth: litW * cap, halfHeight: litH * cap };
     const litFloor = Math.max(subject.halfWidth > 0 ? Math.min(1, litFloorShare / subject.halfWidth) : 1,
       scaleFloor);
-    const dodge = plateAvoidance({ subject, plate: captionRect, shrinkFloor: litFloor });
+    const boxed = plateAvoidance({ subject, plate: captionRect, shrinkFloor: litFloor });
+    const dodge = clearOfCaptions(subject) ? plateAvoidance({ subject }) : boxed;
     const ghost = { x: dodge.x, y: dodge.y,
       halfWidth: dodge.rect.halfWidth * wholeRatioW, halfHeight: dodge.rect.halfHeight * wholeRatioH };
     const ghostFloor = ghost.halfWidth > 0
@@ -652,9 +714,10 @@ export function focusPlacement(options = {}) {
    * column. The pass moves the whole subject rigidly: raise, then shift right
    * within the centre band, then shrink. The menu and the caption never move.
    */
-  const menuScale = clamp(framedScale * seated.cap * dodge.shrink * menu.shrink, PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE);
+  let menuScale = clamp(framedScale * seated.cap * dodge.shrink * menu.shrink, PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE);
   const menuLateral = menu.x * EYE_TAN_HALF_HORIZONTAL, menuRise = menu.y * EYE_TAN_HALF_VERTICAL;
   const menuDepth = distance / Math.hypot(1, menuLateral, menuRise);
+  if (sweptDepthLimited) menuScale = Math.min(menuScale, (menuDepth - fit.floorMetres) / (asmDeep * nextCameraScale));
   const menuCentre = Vec3.clone(eye);
   Vec3.scaleAndAdd(menuCentre, menuCentre, forward, menuDepth);
   Vec3.scaleAndAdd(menuCentre, menuCentre, Vec3.create(...basis.right), menuLateral * menuDepth);
@@ -746,6 +809,7 @@ export function focusPlacement(options = {}) {
   // exactly here — the same centre, scale and scene scale the wearer's frame
   // will be drawn with.
   const seatCentreRoom = Array.from(point);
+  if (sweptDepthLimited) scale = Math.min(scale, (depth - fit.floorMetres) / (asmDeep * nextCameraScale));
   /**
    * The last word, on the drawn rectangle, and it only ever
    * shrinks.
@@ -781,7 +845,20 @@ export function focusPlacement(options = {}) {
    * are the two things only a volume caller ever passes.
    */
   const drawnRound = measured && wholeSubjectCeiling === undefined && avoidMenu !== true;
-  if (drawnRound) {
+  if (sweptDepthLimited) {
+    // Perspective near the eye is nonlinear: a proportional cut can throw
+    // away almost the entire subject. Bisect the valid depth interval for
+    // the largest scale that satisfies the same width and height caps.
+    let low = 0, high = scale;
+    for (let i = 0; i < 32; i++) {
+      const candidate = (low + high) / 2;
+      const lit = drawnFrom(subjectPoints, candidate), ghost = drawnFrom(assemblyPoints, candidate);
+      const fits = subjectCapShrink({ litHalfWidth: lit?.halfWidth, wholeHalfWidth: ghost?.halfWidth,
+        litCeiling: litCap, ghostOnLens: true }) >= 1 - 1e-9 && lit?.halfHeight <= SUBJECT_RISE_CEILING;
+      if (fits) low = candidate; else high = candidate;
+    }
+    scale = low;
+  } else if (drawnRound) {
     const cut = Math.min(
       // The width band, in the precedence `subjectCapShrink` owns: the ghost
       // limit outranks the lit floor, the lit floor outranks the ghost ceiling.
@@ -873,7 +950,7 @@ export function focusPlacement(options = {}) {
   const nextGains = measured ? drawnGain(drawnLensGains({ drawnLit: grantLit, drawnGhost: grantGhost,
     grantedLit: seatRect.halfWidth / wholeRatioW, grantedGhost: seatRect.halfWidth,
     grantedRise: seatRect.halfHeight / wholeRatioH, previous: gain })) : gain;
-  if (drawnRound && (drawnGains?.pass ?? 0) < DRAWN_GAIN_PASSES && drawnGainsMoved(gain, nextGains))
+  if (drawnRound && !sweptDepthLimited && (drawnGains?.pass ?? 0) < DRAWN_GAIN_PASSES && drawnGainsMoved(gain, nextGains))
     return focusPlacement({ ...options,
       drawnGains: { ...dampedGain(gain, nextGains), pass: (drawnGains?.pass ?? 0) + 1 } });
   return { translation: Array.from(point), scale, framing, distance: range, angleDegrees: achieved,
@@ -888,7 +965,7 @@ export function focusPlacement(options = {}) {
     // same framing would have done without the rule. A caller records all
     // three; the wearer only ever sees the middle one.
     standoff: { plateNearMetres: fit.plateNearMetres, floorMetres: fit.floorMetres,
-      minDistanceMetres: fit.minDistanceMetres, limited: fit.limited,
+      minDistanceMetres: sweptDepthLimited ? floorMetres : fit.minDistanceMetres, limited: fit.limited,
       clears: assembly.nearestMetres >= fit.floorMetres - 1e-6, assembly, before,
       // What the plates were granted once the reach cap had its
       // say, and whether the subject was measured or merely bounded. A run

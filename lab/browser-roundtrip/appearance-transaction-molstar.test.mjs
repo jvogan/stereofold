@@ -109,7 +109,7 @@ test('native re-entry draws the complete figure without counting the withheld ol
   await c.lessonFigure.install(figure);
   const previous=c.representation;
   Object.assign(c,{retainedPoseHidden:false,scientificRepresentations:()=>[c.representation.obj.data.repr,...c.lessonFigure.molecular()],
-    awaitPlacementViews:async()=>{},clearHeldPlatePlacement:async p=>p,recordManipulation:noop,
+    awaitPlacementViews:async()=>{},clearHeldPlatePlacement:async()=>{throw Error('entry quality must not refit the held menu');},recordManipulation:noop,
   });
   c.immersiveSession.platePoints=()=>[{}];
   for(const name of ['hideRetainedPose','showRetainedPose']) vm.runInContext(pageFunction(viewer,name),c);
@@ -245,3 +245,97 @@ test('actual upload pacing waits for a fresh draw without requiring a captured r
   assert.equal(c.frameWaiters.size,0);
   assert.ok(c.state.drawCount>0);
 }));
+
+test('entry staging counts a hidden animation template still attached to the primary scene', async()=>fixture(async c=>{
+  const previous = c.representation;
+  // During an animated entry, hideRetainedPose removes the posed bodies.
+  // Their already-hidden source template remains registered in Canvas3D.
+  previous.obj.data.repr.setState({visible:false});
+  c.retainedPoseHidden = true;
+  const counts = [], drawn = c.canvas.requestDraw;
+  c.canvas.requestDraw=()=>{counts.push([c.scientificRepresentationCount(),c.canvas.reprCount.value]);drawn();};
+  await c.applyInspectionAppearance({preservePlacement:true});
+  assert.ok(counts.length >= 2);
+  assert.ok(counts.every(([expected, actual])=>expected===actual), JSON.stringify(counts));
+  assert.equal(c.retainedRepresentationCount,0);
+  assert.equal(c.representation.checkValid(),true);
+  assert.throws(()=>previous.checkValid(),/Not created at all/);
+}));
+
+function retainedEntryFrameBranch() {
+  const start = viewer.indexOf('          if (latestRoomPlacementPose && typeof retainedEntryCheckPending');
+  const end = viewer.indexOf('          if (latestRoomPlacementPose && roomEntry', start);
+  assert.ok(start >= 0 && end > start, 'the actual tracked-frame retained-entry branch is present');
+  return viewer.slice(start, end);
+}
+
+test('tracked re-entry waits for the actual hidden appearance candidate to finish before proving its retained pose', async () => fixture(async c => {
+  const { resetEntryGeometry } = await import('./reset-entry-geometry.mjs');
+  const { identity, syntheticViews } = await import('./fixtures/component-label-diagnostics.mjs');
+  const before = structuredClone(c.inspectionState.snapshot()), source = c.structure;
+  const captions = [], outcomes = [];
+  let release, entered, candidate, retainedProofs = 0;
+  const fitting = new Promise(resolve => { entered = resolve; });
+  const held = new Promise(resolve => { release = resolve; });
+  Object.assign(c, {
+    retainedEntryCheck: undefined, retainedEntryCheckPending: true,
+    latestRoomPlacementPose: { labelViews: syntheticViews() },
+    scientificRepresentations: () => [c.representation.obj.data.repr, ...c.lessonFigure.molecular()],
+    awaitPlacementViews: async () => {},
+    prepareUploads: async staged => { candidate = staged; entered(); await held; },
+    talkCaption: { set: value => captions.push(value) },
+    recordManipulation: (kind, detail) => outcomes.push({ kind, ...detail }),
+    clearHeldPlatePlacement: async (placement, { hidden = [], kind } = {}) => {
+      const objects = c.scientificRepresentations().flatMap(repr => repr.renderObjects)
+        .map(object => hidden.some(repr => repr.renderObjects.includes(object))
+          ? { ...object, state: { ...object.state, visible: true } } : object);
+      const geometry = resetEntryGeometry({ objects, fromPlacement: identity(), toPlacement: identity(),
+        views: syntheticViews(), cameraScale: 1, renderFromRoom: identity() });
+      if (kind === 'retained-pose') retainedProofs++;
+      if (!geometry) throw Error('Cannot change the appearance until its new geometry is measurable in both eyes. Try again in a moment.');
+      assert.equal(kind, 'retained-pose', 'entry geometry quality never runs an independent appearance fit');
+      return placement;
+    },
+  });
+  c.immersiveSession.platePoints = () => [{}];
+  for (const name of ['hideRetainedPose', 'showRetainedPose', 'checkRetainedEntryPose'])
+    vm.runInContext(pageFunction(viewer, name), c);
+  c.hideRetainedPose();
+  const appearance = c.onXrPresented();
+  try {
+    await fitting;
+    assert.ok(candidate && candidate !== c.representation, 'upload pacing still owns the unadopted real Mol* selector');
+    assert.equal(candidate.checkValid(), true);
+    assert.equal(candidate.cell.state.isHidden, true, 'the actual candidate stays hidden in the state tree');
+    assert.equal(candidate.obj.data.repr.state.visible, false, 'real Mol* candidate is still hidden');
+    assert.ok(c.busy && c.appearanceWork, 'the appearance draw barrier owns this selector');
+    for (let frame = 0; frame < 3; frame++) vm.runInContext(retainedEntryFrameBranch(), c);
+    await c.retainedEntryCheck;
+    assert.equal(retainedProofs, 0, 'tracked frames must not measure the hidden provisional candidate');
+    assert.equal(c.retainedEntryCheckPending, true, 'the pending entry proof survives for a later tracked frame');
+    assert.equal(c.retainedPoseHidden, true);
+    assert.deepEqual(captions, [], 'no false fit refusal is shown while appearance owns geometry');
+  } finally { release(); await appearance; }
+  assert.equal(c.appearanceWork, undefined);assert.equal(c.busy, false);
+  assert.equal(c.representation, candidate, 'the upload candidate is now the accepted live representation');
+  vm.runInContext(retainedEntryFrameBranch(), c);
+  await c.retainedEntryCheck;
+  assert.equal(retainedProofs, 1, 'the first settled frame measures the actual final molecular geometry');
+  assert.equal(c.retainedPoseHidden, false);assert.equal(c.retainedEntryCheckPending, false);
+  assert.deepEqual(captions, []);assert.deepEqual(outcomes, []);
+  assert.equal(c.structure, source);assert.deepEqual(c.inspectionState.snapshot(), before);
+  assert.equal(c.representation.checkValid(), true);
+}));
+
+for (const gate of ['busy', 'appearanceWork']) test(`tracked retained-entry proof defers while ${gate} alone owns the renderer`, () => {
+  let checks = 0;
+  const c = vm.createContext({ latestRoomPlacementPose: {}, retainedEntryCheckPending: true,
+    busy: false, appearanceWork: undefined, clearHeldPlatePlacement() {},
+    immersiveSession: { platePoints: () => [{}] }, checkRetainedEntryPose: () => { checks++; } });
+  c[gate] = gate === 'busy' ? true : {};
+  vm.runInContext(retainedEntryFrameBranch(), c);
+  assert.equal(checks, 0);assert.equal(c.retainedEntryCheckPending, true);
+  c[gate] = gate === 'busy' ? false : undefined;
+  vm.runInContext(retainedEntryFrameBranch(), c);
+  assert.equal(checks, 1);
+});

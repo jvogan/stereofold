@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 /**
  * The expanded menu must not grow over the structure when a tour
  * chapter adds a column.
@@ -120,7 +121,7 @@ function clearance(scene, geometry, points) {
 }
 
 async function seatedHarness(scene) {
-  const runtime = await toolbarFrameRuntime();
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
   const records = [];
   const previous = globalThis.__stereofoldDiagnostics;
   globalThis.__stereofoldDiagnostics = { record: (kind, detail) => records.push({ kind, detail }) };
@@ -132,7 +133,7 @@ async function seatedHarness(scene) {
   harness.toolbar.runAction({ kind: 'collapse', value: false });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(harness.toolbar.isCollapsed(), false, 'Menu opens the expanded controls');
-  return { ...harness, records,
+  return { ...harness, records, runtime,
     standoffs: phase => records.filter(r => r.kind === 'plate-standoff' && r.detail.phase === phase).map(r => r.detail),
     restore: async () => { await harness.toolbar.dispose(); globalThis.__stereofoldDiagnostics = previous; } };
 }
@@ -251,7 +252,7 @@ test('a recovery caption keeps the narrow grid clear and stable', async () => {
 });
 
 test('only a confirmed rollback gets the short wearer outcome', async () => {
-  const runtime = await toolbarFrameRuntime();
+  const runtime = await toolbarFrameRuntime(undefined, { glyphAdvances: JSON.parse(readFileSync(new URL('./fixtures/toolbar-bold-font-metrics.json', import.meta.url))).advances });
   const feedback = 'Journey could not render: placed exceeded 45 seconds. Previous view restored.';
   const tour = { feedbackError: true, feedback };
   assert.equal(runtime.toolbarTourFeedback(tour), 'Tour paused. Previous view restored.');
@@ -279,5 +280,20 @@ test('the seat is solved on the column edge, not on every redraw', async () => {
     await h.frames(72);
     assert.equal(h.standoffs('tour-chapter').length, 1,
       'an unchanged column count re-solves nothing, and a frame never solves');
+  } finally { await h.restore(); }
+});
+
+
+test('current column solve reserves visible status glass before listener attachment', async () => {
+  const h = await seatedHarness(d106Scene());
+  try {
+    h.setState({ ...RESTING, tour: CHAPTER });
+    await h.toolbar.update();
+    assert.ok(h.toolbar.menuWithinView(h.frame));
+    const seat = h.toolbar.seatAnchor();
+    h.runtime.assistantStatus.notePresence({ activeAssistant: 'Claude', voiceDelivery: { mode: 'channel', assistant: 'Claude' } });
+    await h.toolbar.update();
+    assert.deepEqual(h.toolbar.seatAnchor(), seat, 'attachment retains the room seat');
+    assert.ok(h.toolbar.menuWithinView(h.frame), 'expanded caption, controls and listener remain in both eyes');
   } finally { await h.restore(); }
 });

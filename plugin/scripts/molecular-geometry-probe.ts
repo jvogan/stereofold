@@ -1,9 +1,21 @@
 /** Read-only test instrumentation; never written into distributed HTML. */
 import { build } from 'esbuild';
-import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 export function instrumentMolecularGeometry(html: string): string {
+  const modern = /getEntryGeometry:\(\{keyOnly:/u;
+  const start = html.search(modern);
+  if (start >= 0) {
+    if ([...html.matchAll(/getEntryGeometry:\(\{keyOnly:/gu)].length !== 1)
+      throw Error('Expected exactly one production molecular entry-geometry reader.');
+    const tail = html.slice(start), end = tail.indexOf('beforeMenuDraw:');
+    if (end < 0) throw Error('Expected the molecular geometry reader before menu drawing.');
+    const reader = tail.slice(0, end);
+    const primary = reader.match(/:\[([A-Za-z_$][\w$]*)\?\.obj\?\.data\?\.repr,/u)?.[1];
+    if (!primary || !reader.includes('return{objects:')) throw Error('Expected source-backed molecular geometry.');
+    return html.slice(0, start) + reader.replace('getEntryGeometry:', 'getEntryGeometry:globalThis.__stereofoldReadGeometry=')
+      .replace('return{objects:', `return{sourceBoundary:${primary}?.obj?.data?.sourceData?.boundary?.sphere,objects:`) + tail.slice(end);
+  }
   const target = 'getEntryGeometry:()=>({objects:';
   if (html.split(target).length !== 2) throw Error('Expected exactly one production molecular entry-geometry reader.');
   const primary = html.match(/getEntryGeometry:\(\)=>\(\{objects:\[([A-Za-z_$][\w$]*)\?\.obj\?\.data\?\.repr,/u)?.[1];
@@ -103,11 +115,7 @@ globalThis.__stereofoldMeasureDensity = () => {
         eyeCoordinateBoundsMeters:physical,depthMeters:{nearest:-physical.max[2],farthest:-physical.min[2]}};
     })};
 };` },
-    plugins: [{ name: 'expose-existing-lit-reader-for-test', setup(api) {
-      api.onLoad({ filter: /[/\\]entry-standoff\.mjs$/ }, async args => ({
-        contents: `${await readFile(args.path, 'utf8')}\nexport { litVertex };`, loader: 'js',
-      }));
-    } }],
+
   });
   return bundled.outputFiles[0]!.text;
 }

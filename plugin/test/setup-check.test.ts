@@ -319,6 +319,26 @@ describe('setup check discovery', () => {
     expect(check.run(['--root', artifact, '--no-write'], env).code).toBe(0);
   });
 
+  it('requires both script companions only for a split inspector', async () => {
+    const artifact = await temporaryDirectory('stereofold-missing-script-');
+    await mkdir(resolve(artifact, '.codex-plugin'));
+    await writeFile(resolve(artifact, '.codex-plugin/plugin.json'), '{"name":"stereofold"}');
+    await mkdir(resolve(artifact, 'dist'));
+    for (const file of ['server.mjs', 'viewer.html', 'inspector.html', 'inspector.css', 'inspector-host.js'])
+      await writeFile(resolve(artifact, 'dist', file), 'built');
+    await writeFile(resolve(artifact, '.mcp.json'), JSON.stringify({ mcpServers: { stereo_structure: { command: 'node', args: ['./dist/server.mjs'], cwd: '.' } } }));
+    const env = { PATH: '', STEREOFOLD_CONFIG: resolve(artifact, 'config.json') };
+    expect(check.run(['--root', artifact, '--no-write'], env).code).toBe(0);
+    await writeFile(resolve(artifact, 'dist/inspector.html'), '<script>/* STEREOFOLD_INSPECTOR_SCRIPT_1 *//* STEREOFOLD_INSPECTOR_SCRIPT_2 */</script>');
+    const missing = check.run(['--root', artifact, '--no-write'], env);
+    expect(missing.code).toBe(1);
+    expect(missing.text).toContain('dist/inspector-script-1.js');
+    expect(missing.text).toContain('dist/inspector-script-2.js');
+    for (const file of ['inspector-script-1.js', 'inspector-script-2.js'])
+      await writeFile(resolve(artifact, 'dist', file), 'script');
+    expect(check.run(['--root', artifact, '--no-write'], env).code).toBe(0);
+  });
+
   it('prefers the variable, then the config file, then PATH, and reports which one answered', () => {
     const exists = (path: string) => path.startsWith('/usr');
     expect(check.findHelper({

@@ -9,12 +9,25 @@ const { build } = createRequire(new URL('../../../plugin/package.json', import.m
 // boundary is replaced; the counters are injected at actual function entries.
 const molstar = `
 import { count } from 'frame-audit';
+// Record what is drawn, so a test can hold the glyphs against their glass.
 export const MeshBuilder = {
-  createState: () => ({}), addTriangleWithNormal() {}, getMesh: () => ({}),
+  createState: () => ({ triangles: [] }),
+  addTriangleWithNormal(state, a, b, c) { state.triangles?.push({ points: [[...a], [...b], [...c]], group: state.currentGroup }); },
+  getMesh: state => ({ triangles: state?.triangles ?? [] }),
 };
 export const Mesh = { Utils: {} }, Text = { Utils: {} };
-export const TextBuilder = { create: () => { const lines = [];
-  return { add: text => lines.push(text), getText: () => ({ lines }) }; } };
+export const TextBuilder = { create: () => { const lines = [], glyphs = [];
+  return { add: (text, x, y, z, depth, size, group) => { lines.push(text); glyphs.push({ text, position: [x, y, z], size, group }); },
+    getText: () => {
+      const centers = [], mappings = [], groups = [];
+      for (const glyph of glyphs) for (const corner of [[-.3,.4],[-.3,-.4],[.3,.4],[.3,-.4]]) {
+        centers.push(...glyph.position); mappings.push(...corner.map(value => value * glyph.size)); groups.push(glyph.group);
+      }
+      const cell = value => ({ ref: { value } });
+      return { lines, glyphs, charCount: glyphs.length,
+        centerBuffer: cell(new Float32Array(centers)), mappingBuffer: cell(new Float32Array(mappings)),
+        groupBuffer: cell(new Float32Array(groups)) };
+    } }; } };
 export const Shape = { create: (name, data, geometry) => ({ name, data, geometry }) };
 export const ShapeRepresentation = getShape => {
   count('ShapeRepresentation');
@@ -76,6 +89,7 @@ export async function toolbarFrameRuntime(directory = new URL('../', import.meta
   const built = await build({
     stdin: { contents: `export * from './spatial-toolbar.mjs';
       export * from './talk-caption.mjs';
+      export { assistantStatus } from './assistant-status.mjs';
       ${roomScene ? "export { createPresentationScene } from './presentation-scene.mjs';" : ''}
       ${resolver ? "export * from './menu-resolve.mjs';" : ''}
       export { counts, count, reset, setTimers } from 'frame-audit';
@@ -134,7 +148,7 @@ export async function toolbarFrameRuntime(directory = new URL('../', import.meta
 
 export const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-export function toolbarFrameHarness(runtime, { state = {}, bounds = { center: [0, 0, -1], radius: .1 }, onRepresentationChange = () => {}, onAction = async () => {}, onConsumeSelect = () => {}, presentation = {}, getEntryGeometry = () => ({}),
+export function toolbarFrameHarness(runtime, { state = {}, bounds = { center: [0, 0, -1], radius: .1 }, onRepresentationChange = () => {}, onAction = async () => {}, onActionIntent = () => {}, onConsumeSelect = () => {}, presentation = {}, beforeMenuDraw, getEntryGeometry = () => ({}),
   // The toolbar's own clock, for a test that watches the title line's
   // reading window close. Omitted, the toolbar reads `performance.now()`.
   now, runTask = task => task.run() } = {}) {
@@ -151,9 +165,9 @@ export function toolbarFrameHarness(runtime, { state = {}, bounds = { center: [0
   const toolbar = runtime.createSpatialToolbar({
     plugin: { runTask }, canvas: {}, session, space: {}, Mat4: {},
     presentation: { add() {}, remove() {}, update() {}, setVisible() {}, roomMatrix: () => identity, ...presentation },
-    getEntryGeometry,
+    getEntryGeometry, beforeMenuDraw,
     getMolecularBounds: () => { runtime.count('molecularBounds'); return bounds; },
-    getDepthRange: () => { runtime.count('getDepthRange'); return depth; }, getState: () => state, onRepresentationChange, onAction, onConsumeSelect,
+    getDepthRange: () => { runtime.count('getDepthRange'); return depth; }, getState: () => state, onRepresentationChange, onAction, onActionIntent, onConsumeSelect,
     ...(now ? { now } : {}),
   });
   return { toolbar, frame, session, moveHead: value => { x = value; },

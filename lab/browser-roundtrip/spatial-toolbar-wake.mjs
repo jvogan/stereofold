@@ -43,16 +43,17 @@ export function hitToolbarGlass(panel, ray) {
     .every(vector => Array.isArray(vector) && vector.length === 3 && vector.every(Number.isFinite))) return false;
   const direction = unit(ray.direction, [0, 0, 0]);
   const dot = (a, b) => a.reduce((sum, value, axis) => sum + value * b[axis], 0);
-  const divisor = dot(direction, panel.normal);
-  if (Math.abs(divisor) <= EPSILON) return false;
   const depth = panel.backingDepthMeters ?? 0;
-  const distance = (dot(panel.anchor.map((value, axis) => value - ray.origin[axis]), panel.normal) + depth) / divisor;
-  if (!Number.isFinite(distance) || distance < 0) return false;
-  const point = ray.origin.map((value, axis) => value + direction[axis] * distance);
   return [panel.backing, panel.captionBacking, panel.statusBacking].some(plate => {
     if (!plate || !Number.isFinite(plate.halfWidth) || !Number.isFinite(plate.halfHeight)) return false;
+    const normal = plate.normal ?? panel.normal, right = plate.right ?? panel.right, up = plate.up ?? panel.up;
+    const divisor = dot(direction, normal);
+    if (Math.abs(divisor) <= EPSILON) return false;
+    const distance = (dot(plate.point.map((value, axis) => value - ray.origin[axis]), normal) + depth) / divisor;
+    if (!Number.isFinite(distance) || distance < 0) return false;
+    const point = ray.origin.map((value, axis) => value + direction[axis] * distance);
     const delta = point.map((value, axis) => value - plate.point[axis]);
-    const x = Math.abs(dot(delta, panel.right)), y = Math.abs(dot(delta, panel.up));
+    const x = Math.abs(dot(delta, right)), y = Math.abs(dot(delta, up));
     if (x > plate.halfWidth || y > plate.halfHeight) return false;
     const corner = Math.max(0, Math.min(panel.backingCornerMeters ?? 0, plate.halfWidth, plate.halfHeight));
     return Math.hypot(Math.max(0, x - plate.halfWidth + corner), Math.max(0, y - plate.halfHeight + corner)) <= corner;

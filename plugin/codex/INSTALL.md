@@ -76,7 +76,8 @@ root contains `.agents/plugins/marketplace.json` and `plugins/stereofold/`.
    On Linux use `sha256sum -c SHA256SUMS`. Keep the complete share together,
    and do not write into a Codex cache by hand. Install the complete release so
    `dist/server.mjs`, `dist/viewer.html`, `dist/inspector.html`,
-   `dist/inspector.css`, and `dist/inspector-host.js` come from the same build; mixing them leaves a stale
+   `dist/inspector.css`, `dist/inspector-script-1.js`,
+`dist/inspector-script-2.js`, and `dist/inspector-host.js` come from the same build; mixing them leaves a stale
    inspection panel behind a current server.
 
 ## After installing
@@ -114,7 +115,7 @@ In a new conversation, the legacy stereo-viewer tools are registered as
 logs name them `mcp__stereo_structure__stereo_structure_<verb>`; a Claude Code
 plugin install names them
 `mcp__plugin_stereofold_stereo_structure__stereo_structure_<verb>`. These are
-five of the plugin's 64 registered tools, 37 of them model-visible; see
+five of the plugin's 68 registered tools, 41 of them model-visible; see
 [README.md](../README.md) for the full list, including the focused inspector's
 `inspect`, `inspect_file`, `inspect_scene`, and `inspect_lesson`. Discover tool availability from the live connection.
 

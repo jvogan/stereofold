@@ -1,3 +1,4 @@
+import { assistantStatus } from './assistant-status.mjs';
 import { recordLoopStage } from './loop-timing.mjs';
 /**
  * Stream the Quest microphone to the Mac while the grip is held.
@@ -369,6 +370,8 @@ export function transcriptFromResult(result) {
       // shown and still what the grammar is tried against first.
       const normalized = candidate.normalizedText;
       return { text: text.trim(), utteranceId: candidate.utteranceId, model: candidate.model, durationMs: candidate.durationMs,
+        ...(candidate.headsetAction === true ? { headsetAction: true } : {}),
+        ...(typeof candidate.pageDecision === 'string' ? { pageDecision: candidate.pageDecision } : {}),
         ...(typeof normalized === 'string' && normalized.trim() && normalized.trim() !== text.trim()
           ? { normalizedText: normalized.trim(),
               normalizationRules: Array.isArray(candidate.normalizationRules) ? candidate.normalizationRules : [] }
@@ -422,9 +425,12 @@ export function createPushToTalkAudio({
   let active;
   let disposed = false;
   let uploads = Promise.resolve();
+  const finishing = new Set();
   let meter;
 
   function emit(event) {
+    if (disposed) return;
+    assistantStatus.update(event.state === 'heard' ? {heard:event.text, microphone:'idle'} : {microphone:event.state==='uploading'?'recording':event.state});
     recordVoiceDiagnostic('voice-state', { state: event?.state, utteranceId: event?.utteranceId,
       ...(event?.message ? { message: event.message } : {}) });
     return events.emit(event);
@@ -454,15 +460,30 @@ export function createPushToTalkAudio({
     const request = streamRequest;
     // A late grant is still worth keeping: the next press uses it without
     // prompting again, even though this press gave up on it.
-    request.then(granted => { stream ??= granted; }, () => {});
+    request.then(granted => {
+      if (disposed) {
+        setStreamEnabled(granted, false);
+        for (const track of granted?.getTracks?.() ?? EMPTY) { try { track.stop(); } catch {} }
+      } else {
+        stream ??= granted;
+        // A timed-out or cancelled prompt may still be granted later. Keep
+        // that permission for the next press without leaving the mic live.
+        if (!active) setStreamEnabled(granted, false);
+      }
+    }, () => {});
     let timer;
     const deadline = new Promise((_, reject) => {
       timer = setTimer(() => reject(Object.assign(
         Error('The headset did not answer the microphone prompt. Leave VR, allow the microphone, then press talk again.'),
         { name: 'MicrophonePromptTimeout' })), micTimeoutMs);
     });
-    try { stream = await Promise.race([request, deadline]); }
+    let granted;
+    try { granted = await Promise.race([request, deadline]); }
     finally { clearTimer(timer); }
+    // The permission promise can outlive disposal. Its handler above owns
+    // stopping that late grant; never revive it here.
+    if (disposed) return granted;
+    stream = granted;
     setStreamEnabled(stream, true);
     return stream;
   }
@@ -482,8 +503,11 @@ export function createPushToTalkAudio({
     }));
     if (final && !pieces.length) posts.push({ final: true });
     // One chain, so sequence numbers reach the Mac in the order they were cut.
-    uploads = uploads.then(async () => {
+    const pending = uploads.then(async () => {
+      if (disposed || session.cancelled) return;
+      if (session.uploadError) throw session.uploadError;
       for (const post of posts) {
+        if (disposed || session.cancelled) return;
         if (session.seq > PUSH_TO_TALK_AUDIO_MAX_SEQ) throw Error('That utterance produced too many chunks.');
         const args = {
           utteranceId: session.utteranceId,
@@ -495,11 +519,15 @@ export function createPushToTalkAudio({
         const result = await send(args);
         if (post.final) session.result = result;
       }
-    }, error => {
+    }).catch(error => {
       session.uploadError ??= error;
       throw error;
     });
-    return uploads;
+    // Keep transport ordering across presses, but a failed utterance must not
+    // poison the next one. Its own error still rejects pending and blocks its
+    // final marker, so a partial recording can never become a command.
+    uploads = pending.catch(() => {});
+    return pending;
   }
 
   function stopTracks() {
@@ -542,59 +570,80 @@ export function createPushToTalkAudio({
   }
 
   async function finish(session, { cancelled = false, silent = false } = {}) {
-    session.ended = true;
-    clearTimer(session.timer);
-    if (session.levelTimer !== undefined) clearTimer(session.levelTimer);
-    if (session.recorder?.state === 'recording' || session.recorder?.state === 'paused') {
-      try { session.recorder.stop(); } catch { /* The UA may have stopped it already. */ }
-    }
-    // A press stopped while its microphone request is still outstanding has no
-    // recorder and no `stopped` promise. Awaiting one threw a TypeError here,
-    // which left the recorder running and the status row stuck: the stop it was given
-    // never completed. Nothing to wait for is a valid state, not a fault.
-    await (session.stopped ?? Promise.resolve()).catch(() => {});
-    // Let go of the microphone between presses so the headset's recording
-    // indicator goes out, while the grant itself is kept for the next press.
-    setStreamEnabled(stream, false);
-    // A read can enqueue nothing new, but it can still be in flight, so drain
-    // until the set is empty rather than snapshotting it once.
-    while (session.reads.size) await Promise.allSettled([...session.reads]);
-    if (cancelled) { if (!silent) emit({ state: 'idle', utteranceId: session.utteranceId }); return undefined; }
-    // A press stopped before the recorder ever ran has nothing to send. The
-    // Mac must not be handed a final marker for an utterance with no audio and
-    // no container type, so this closes out on the page instead.
-    if (!session.seq && !session.live) {
-      emit({ state: 'idle', utteranceId: session.utteranceId, message: 'Nothing was recorded.' });
-      return undefined;
-    }
-    emit({ state: 'transcribing', utteranceId: session.utteranceId });
+    finishing.add(session);
+    session.cancelled ||= cancelled;
     try {
-      await queueChunk(session, new Uint8Array(), { final: true });
-      await uploads;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'The recording could not be delivered.';
-      emit({ state: 'error', utteranceId: session.utteranceId, message, error });
-      return undefined;
-    }
-    const transcript = transcriptFromResult(session.result);
-    if (!transcript) {
-      // Separate the two ways a press comes back empty. A press too short to
-      // hold a sentence is a grip that was tapped, and telling the wearer to
-      // hold it is the only useful thing to say; anything longer really was
-      // heard as silence. The meter's own answer outranks the clock, because a
-      // wearer who spoke one word did speak.
-      const durationMs = now() - session.startedAt;
-      const tapped = !session.heardSpeech && durationMs < PUSH_TO_TALK_MIN_UTTERANCE_MS;
-      if (tapped) recordVoiceDiagnostic('voice-too-short', { utteranceId: session.utteranceId, durationMs });
-      emit({ state: 'heard', utteranceId: session.utteranceId, text: '',
-        message: tapped ? 'Hold the grip while you speak.' : 'No speech was recognized.' });
-      return undefined;
-    }
-    recordLoopStage('transcript-received', { utteranceId: session.utteranceId });
-    emit({ state: 'heard', utteranceId: session.utteranceId, text: transcript.text, transcript,
-      ...(transcript.normalizedText ? { normalizedText: transcript.normalizedText } : {}),
-      message: `Heard: ${transcript.text}` });
-    return transcript;
+      session.ended = true;
+      clearTimer(session.timer);
+      if (session.levelTimer !== undefined) clearTimer(session.levelTimer);
+      if (session.recorder?.state === 'recording' || session.recorder?.state === 'paused') {
+        try { session.recorder.stop(); } catch { /* The UA may have stopped it already. */ }
+      }
+      // A press stopped while its microphone request is still outstanding has no
+      // recorder and no `stopped` promise. Awaiting one threw a TypeError here,
+      // which left the recorder running and the status row stuck: the stop it was given
+      // never completed. Nothing to wait for is a valid state, not a fault.
+      await (session.stopped ?? Promise.resolve()).catch(() => {});
+      // Let go of the microphone between presses so the headset's recording
+      // indicator goes out, while the grant itself is kept for the next press.
+      if (!active) setStreamEnabled(stream, false);
+      // A read can enqueue nothing new, but it can still be in flight, so drain
+      // until the set is empty rather than snapshotting it once.
+      while (session.reads.size) await Promise.allSettled([...session.reads]);
+      if (disposed || session.cancelled) { if (!silent && !active) emit({ state: 'idle', utteranceId: session.utteranceId }); return undefined; }
+      if (session.uploadError) {
+        emit({ state: 'error', utteranceId: session.utteranceId, message: session.uploadError.message || 'The recording could not be delivered.', error: session.uploadError });
+        return undefined;
+      }
+      // A press stopped before the recorder ever ran has nothing to send. The
+      // Mac must not be handed a final marker for an utterance with no audio and
+      // no container type, so this closes out on the page instead.
+      if (!session.seq && !session.live) {
+        emit({ state: 'idle', utteranceId: session.utteranceId, message: 'Nothing was recorded.' });
+        return undefined;
+      }
+      emit({ state: 'transcribing', utteranceId: session.utteranceId });
+      try {
+        await queueChunk(session, new Uint8Array(), { final: true });
+      } catch (error) {
+        if (disposed || session.cancelled) return undefined;
+        const message = error instanceof Error ? error.message : 'The recording could not be delivered.';
+        emit({ state: 'error', utteranceId: session.utteranceId, message, error });
+        return undefined;
+      }
+      if (disposed || session.cancelled) return undefined;
+      const transcript = transcriptFromResult(session.result);
+      if (!transcript) {
+        // Separate the two ways a press comes back empty. A press too short to
+        // hold a sentence is a grip that was tapped, and telling the wearer to
+        // hold it is the only useful thing to say; anything longer really was
+        // heard as silence. The meter's own answer outranks the clock, because a
+        // wearer who spoke one word did speak.
+        const durationMs = now() - session.startedAt;
+        const tapped = !session.heardSpeech && durationMs < PUSH_TO_TALK_MIN_UTTERANCE_MS;
+        if (tapped) recordVoiceDiagnostic('voice-too-short', { utteranceId: session.utteranceId, durationMs });
+        emit({ state: 'heard', utteranceId: session.utteranceId, text: '',
+          message: tapped ? 'Hold the grip while you speak.' : "Didn't catch that. Please speak again." });
+        return undefined;
+      }
+      recordLoopStage('transcript-received', { utteranceId: session.utteranceId });
+      let decision;
+      const decide = transcript.pageDecision ? handled => {
+        // One event may be replayed or observed twice; only its first handler decides.
+        if (decision || disposed || session.cancelled) return Promise.resolve(false);
+        const args = { utteranceId: session.utteranceId, seq: session.seq ?? 0,
+          mime: session.mime || 'audio/webm', final: true,
+          pageDecision: { token: transcript.pageDecision, handled } };
+        decision = Promise.resolve().then(() => disposed || session.cancelled ? undefined : send(args))
+          .catch(() => disposed || session.cancelled ? undefined : send(args))
+          .then(answer => (answer?.structuredContent ?? answer)?.handled === true).catch(() => false);
+        return decision;
+      } : undefined;
+      emit({ state: 'heard', utteranceId: session.utteranceId, text: transcript.text, transcript, decide,
+        ...(transcript.normalizedText ? { normalizedText: transcript.normalizedText } : {}),
+        message: `Heard: ${transcript.text}` });
+      return transcript;
+    } finally { finishing.delete(session); }
   }
 
   const api = {
@@ -627,6 +676,7 @@ export function createPushToTalkAudio({
       const failWith = (error, fallback) => {
         if (abandoned()) return;
         active = undefined;
+        setStreamEnabled(stream, false);
         const message = error?.name === 'NotAllowedError'
           ? 'Microphone permission was declined in the headset.'
           : error instanceof Error && error.message ? error.message : fallback;
@@ -635,7 +685,7 @@ export function createPushToTalkAudio({
       let source;
       try { source = await ensureStream(); }
       catch (error) { failWith(error, 'The headset microphone is unavailable.'); throw error; }
-      if (abandoned()) { setStreamEnabled(stream, false); return utteranceId; }
+      if (abandoned()) { if (!active) setStreamEnabled(stream, false); return utteranceId; }
       // The meter is a display accessory: it is built after permission was
       // granted, shares the granted track, and its absence changes nothing
       // about what is recorded or uploaded.
@@ -653,7 +703,7 @@ export function createPushToTalkAudio({
       // each chunk declares.
       session.mimeType = (typeof recorder.mimeType === 'string' && recorder.mimeType.trim())
         ? recorder.mimeType.trim() : chosen ?? PUSH_TO_TALK_AUDIO_MIME;
-      if (abandoned()) { try { recorder.stop(); } catch { /* Never started. */ } setStreamEnabled(stream, false); return utteranceId; }
+      if (abandoned()) { try { recorder.stop(); } catch { /* Never started. */ } if (!active) setStreamEnabled(stream, false); return utteranceId; }
       session.recorder = recorder;
       session.stopped = new Promise(resolve => { session.settle = resolve; });
       /**
@@ -670,11 +720,15 @@ export function createPushToTalkAudio({
         watchSilence(session);
       };
       recorder.ondataavailable = event => {
+        if (disposed || session.cancelled) return;
         markLive();
-        // Reading a Blob is asynchronous, so the last timeslice can still be
-        // decoding when `stop()` resolves. Tracking the read here lets the
-        // final marker wait for it and keep its sequence number last.
-        const read = blobBytes(event?.data).then(bytes => {
+        // Read in recorder event order: independent Blob promises can resolve
+        // in reverse order and corrupt the container before the upload queue
+        // even sees it. Tracking this chain also keeps the final marker last.
+        const blob = event?.data;
+        const read = (session.reading ?? Promise.resolve()).then(() =>
+          disposed || session.cancelled ? new Uint8Array() : blobBytes(blob)).then(bytes => {
+          if (disposed || session.cancelled) return;
           if (!bytes.length) return;
           session.bytes += bytes.length;
           if (session.bytes > maxBytes) {
@@ -684,11 +738,13 @@ export function createPushToTalkAudio({
           }
           emit({ state: 'uploading', utteranceId, seq: session.seq, bytes: session.bytes });
           void queueChunk(session, bytes, { final: false }).catch(() => {});
-        }).catch(() => {});
+        }).catch(error => { session.uploadError ??= error; });
+        session.reading = read;
         session.reads.add(read);
         void read.finally(() => session.reads.delete(read));
       };
       recorder.onerror = event => {
+        if (disposed || session.cancelled) return;
         const failure = event?.error ?? Error('The headset recorder failed.');
         session.uploadError ??= failure;
         // Show it now. Waiting for the release edge would leave the menu lit
@@ -740,8 +796,11 @@ export function createPushToTalkAudio({
 
     /** Abandon the utterance without asking for a transcript. */
     async cancel() {
+      // stop() releases active before it awaits transcription. That pending
+      // answer still belongs to this page and must be retired on cancel/exit.
+      for (const session of finishing) session.cancelled = true;
       const session = active;
-      if (!session) return;
+      if (!session) { if (finishing.size) emit({ state: 'idle' }); return; }
       active = undefined;
       if (session.startTimer !== undefined) clearTimer(session.startTimer);
       await finish(session, { cancelled: true });
@@ -749,9 +808,10 @@ export function createPushToTalkAudio({
 
     async dispose() {
       disposed = true;
-      await api.cancel();
-      await uploads.catch(() => {});
+      const cancelled = api.cancel();
       stopTracks();
+      await cancelled;
+      await uploads.catch(() => {});
     },
   };
   return api;

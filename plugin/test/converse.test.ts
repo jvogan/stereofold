@@ -250,7 +250,8 @@ describe('sending what the agent decided', () => {
     expect(result.receipt.status).toBe('rendered');
     const sent = calls.find(call => call.name === 'update_inspection')!;
     expect(sent.arguments.serverEpoch).toBe(BINDING.serverEpoch);
-    expect(sent.arguments.baseInspectionRevision).toBe(9);
+    // Left for the host to fill on arrival, so a placement save cannot strand it.
+    expect(sent.arguments).not.toHaveProperty('baseInspectionRevision');
     expect(sent.arguments.panelId).toBe('quest-panel');
     expect(String(sent.arguments.commandId)).toMatch(/^cli-/u);
   });

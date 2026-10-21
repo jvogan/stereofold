@@ -59,7 +59,7 @@ test('desktop and orthographic capture preserve scientific direction through the
 // This checks lifecycle and XR no-camera-write routing, not just pure math.
 const {readFileSync}=await import('node:fs');
 const viewerSource=readFileSync(new URL('./viewer.mjs',import.meta.url),'utf8');
-const captureClosure=viewerSource.slice(viewerSource.indexOf('  function captureNamedViewIntent()'),viewerSource.indexOf('  function completeInspectionCapture()'));
+const captureClosure=viewerSource.slice(viewerSource.indexOf('  function captureNamedViewIntent()'),viewerSource.indexOf('  function completeInspectionCapture('));
 function production(presenting) {
   const stored={...source,selectionKeys:[],camera,inspection:{appearance:{},placement:{}}};
   const pose={headInRoom:head,renderFromRoom:I,labelViews:[{projectionMatrix:I}]};

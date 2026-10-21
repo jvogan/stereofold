@@ -1,0 +1,419 @@
+{
+  "name": "binder-gallery-extended",
+  "title": "Published 17 binders, then all other tested designs",
+  "sourceId": "Anthropic/scorpion-toxin-binder-design",
+  "lesson": "binder-gallery/extended/selected17/lesson.json",
+  "coordinates": {
+    "file": "binder-gallery.cif",
+    "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+    "bytes": 2384344,
+    "atomSites": 22272,
+    "derivation": {
+      "kind": "bundled-file",
+      "path": "binder-gallery/gallery.cif"
+    }
+  },
+  "sources": [
+    {
+      "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+      "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+    },
+    {
+      "title": "Source identities, methods and data",
+      "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+    },
+    {
+      "title": "Attribution and license",
+      "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+    }
+  ],
+  "stageMode": "sequence",
+  "defaultStage": "selected17",
+  "stages": [
+    {
+      "id": "selected17",
+      "order": "0",
+      "title": "17 qualified binders \u00b7 published results",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/selected17/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery.cif",
+        "sha256": "46026c20860739b3445bbd4f9d4dc926790061ccda6e2a8b006187ba1fec43a6",
+        "bytes": 2384344,
+        "atomSites": 22272,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-01",
+      "order": "1",
+      "title": "Other tested designs \u00b7 batch 1/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-01/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-01.cif",
+        "sha256": "988f562970e1ca3fc38335ffb723d51a807f80447d16ecabddafc2b81def8c84",
+        "bytes": 3151994,
+        "atomSites": 28823,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-01/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-02",
+      "order": "2",
+      "title": "Other tested designs \u00b7 batch 2/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-02/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-02.cif",
+        "sha256": "c2fbb04f03a2b287c8cbf8dfaef7981b6077b5e66e2cc3192dee9aa35811c240",
+        "bytes": 3157949,
+        "atomSites": 28762,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-02/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-03",
+      "order": "3",
+      "title": "Other tested designs \u00b7 batch 3/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-03/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-03.cif",
+        "sha256": "f1478ee9f6b054b5d6033a2574aac6d30089073cf862d2e5fba77ccf3e87f365",
+        "bytes": 3208010,
+        "atomSites": 29167,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-03/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-04",
+      "order": "4",
+      "title": "Other tested designs \u00b7 batch 4/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-04/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-04.cif",
+        "sha256": "bb8cf6bfebf123512bb8c9f5beedacc8b8d978f5632d090160c319fd44942f96",
+        "bytes": 3165637,
+        "atomSites": 28993,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-04/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-05",
+      "order": "5",
+      "title": "Other tested designs \u00b7 batch 5/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-05/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-05.cif",
+        "sha256": "62078e89ce9bd851ee8aeed0126e73abf8b0ff65f3044acfc306afe9070bfcc3",
+        "bytes": 3236431,
+        "atomSites": 29653,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-05/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-06",
+      "order": "6",
+      "title": "Other tested designs \u00b7 batch 6/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-06/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-06.cif",
+        "sha256": "12e906805b98f0789f9d601dddafbc19c47230f36def3d3e5d2bec4d009db970",
+        "bytes": 3101291,
+        "atomSites": 28298,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-06/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-07",
+      "order": "7",
+      "title": "Other tested designs \u00b7 batch 7/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-07/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-07.cif",
+        "sha256": "82f89241db9e35669236509602a7fa70701cc0e9845b5c2da6aa3c093d50ac57",
+        "bytes": 3207428,
+        "atomSites": 29067,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-07/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-08",
+      "order": "8",
+      "title": "Other tested designs \u00b7 batch 8/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-08/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-08.cif",
+        "sha256": "e2c9a8673f9ff0c1e54f06098202289ca5df9b8f307b50705be5e5f199aadb88",
+        "bytes": 3167893,
+        "atomSites": 28867,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-08/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-09",
+      "order": "9",
+      "title": "Other tested designs \u00b7 batch 9/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-09/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-09.cif",
+        "sha256": "4a7b089e0ffb2ef0d469c14e61e50f37c168aa951835f5b9c8ae7a3eb48b3002",
+        "bytes": 3223853,
+        "atomSites": 29465,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-09/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "id": "batch-10",
+      "order": "10",
+      "title": "Other tested designs \u00b7 batch 10/10",
+      "sourceId": "Anthropic/scorpion-toxin-binder-design",
+      "tiers": [
+        "quest2",
+        "quest3"
+      ],
+      "lesson": "binder-gallery/extended/batch-10/lesson.json",
+      "coordinates": {
+        "file": "binder-gallery-extended-batch-10.cif",
+        "sha256": "dd031fdbd4eb175bb6d259515364fdec0d2fb4ed5ef043e3d54223c587818e14",
+        "bytes": 2773081,
+        "atomSites": 25272,
+        "derivation": {
+          "kind": "bundled-file",
+          "path": "binder-gallery/extended/batch-10/gallery.cif"
+        }
+      },
+      "sources": [
+        {
+          "title": "Anthropic \u00b7 Published protein-binding study (2026)",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design"
+        },
+        {
+          "title": "Source identities, methods and data",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/COLUMNS.md"
+        },
+        {
+          "title": "Attribution and license",
+          "url": "https://huggingface.co/datasets/Anthropic/scorpion-toxin-binder-design/blob/main/LICENSE.md"
+        }
+      ]
+    }
+  ]
+}

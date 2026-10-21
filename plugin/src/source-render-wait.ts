@@ -11,7 +11,7 @@ import type { InspectionFailureCode } from './inspection-failure-receipt.js';
  * the moment nor the revision a command receipt carries. A receipt that cannot
  * be told apart from no receipt is worth nothing to a caller.
  */
-export type SourceRenderReceipt = {
+export type SourceRenderReceipt = { commandId?:string } & ({
   status:'rendered'; panelId:string; sourceToken:string; inspectionRevision:number;
   /** Host clock at the panel's post-save reattach. */
   renderedAt:number;
@@ -21,7 +21,7 @@ export type SourceRenderReceipt = {
 } | {
   status:'failed'; panelId:string; sourceToken:string; inspectionRevision:number;
   failedAt:number; failure:InspectionFailureCode; failureReason:string;
-};
+});
 
 /** One replacement's completion signal. Fed by its renderer's post-save attach or source-bound refusal. */
 export class SourceRenderWait {
@@ -31,8 +31,8 @@ export class SourceRenderWait {
   /** The receipt this replacement settled with, for a caller that arrives after the wait. */
   settled():SourceRenderReceipt|undefined { return this.receipt; }
   complete(receipt:SourceRenderReceipt) {
-    this.receipt=receipt;
-    for(const listener of this.listeners) listener(receipt);
+    this.receipt={...receipt,...(this.commandId?{commandId:this.commandId}:{})};
+    for(const listener of this.listeners) listener(this.receipt);
     this.listeners.clear();
   }
   wait(timeoutMs:number):Promise<SourceRenderReceipt|undefined> {

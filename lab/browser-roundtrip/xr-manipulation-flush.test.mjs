@@ -8,7 +8,7 @@ import { Sphere3D } from 'molstar/lib/mol-math/geometry/primitives/sphere3d.js';
 import { ValueCell } from 'molstar/lib/mol-util/value-cell.js';
 import { createTransform } from 'molstar/lib/mol-geo/geometry/transform-data.js';
 import { Visual } from 'molstar/lib/mol-repr/visual.js';
-import { createXrManipulation, moleculeGrabDistance, GRAB_REJECTED, MANIPULATION_FRAME_GAP_MS, TRIGGER_HOLD_MS } from './xr-manipulate.mjs';
+import { createXrManipulation, moleculeGrabDistance, oneHandScaleFactor, GRAB_REJECTED, MANIPULATION_FRAME_GAP_MS, TRIGGER_HOLD_MS } from './xr-manipulate.mjs';
 import { createXrGrabFeedback } from './xr-grab-feedback.mjs';
 import { createXrThumbstick, STICK_METRES_PER_SECOND, STICK_DEGREES_PER_SECOND } from './xr-buttons.mjs';
 import { STICK_MODE } from './xr-locomotion.mjs';
@@ -20,6 +20,7 @@ import { wearerAxesFrom } from './wearer-axes.mjs';
 import { clampPlacementScale, PLACEMENT_MAX_SCALE, PLACEMENT_MAX_TRANSLATION } from './placement-limits.mjs';
 import { companionTransform } from './companion-structure.mjs';
 import { updatePlacementBounds } from './placement-bounds.mjs';
+import { sizeImmersiveAnnotation } from './immersive-annotations.mjs';
 
 const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -39,7 +40,7 @@ function harness({ legacy = false, limited = false } = {}) {
     return { renderObjects: [object], setState: ({ transform }) => { counts.transforms++; Visual.setTransform(object, transform); } };
   }
   const representations = Array.from({ length: 8 }, representation);
-  const h = vm.createContext({ appearanceWork: undefined, AbortController, focusPivotRequest: undefined, gesturePivot: createGesturePivot(), xrPlacementFollowup: undefined, now: () => clock, Mat4, Vec3, GRAB_REJECTED, PLACEMENT_MAX_TRANSLATION, clampPlacementScale,
+  const h = vm.createContext({ roomEntry: undefined, appearanceWork: undefined, AbortController, focusPivotRequest: undefined, gesturePivot: createGesturePivot(), xrPlacementFollowup: undefined, now: () => clock, Mat4, Vec3, GRAB_REJECTED, PLACEMENT_MAX_TRANSLATION, clampPlacementScale,
     companionTransform, moleculeGrabDistance,
     inspectionState: { placement: () => structuredClone(placement) }, inspectionSnapshot: () => ({ placement }),
     loadedSphere: () => sphere, pivotCenter: () => [.5, .25, -.1], // off-center visible stage
@@ -155,7 +156,7 @@ function combinedHarness({ batched, limited }) {
   const inspection = createInspectionState(); inspection.place(t.placement);
   Object.assign(h, {
     inspectionState: inspection, inspectionSnapshot: () => inspection.snapshot(),
-    STICK_MODE, STICK_METRES_PER_SECOND, STICK_DEGREES_PER_SECOND, normalizePlacement, pivotPreservingTranslation, Euler,
+    STICK_MODE, STICK_METRES_PER_SECOND, STICK_DEGREES_PER_SECOND, oneHandScaleFactor, normalizePlacement, pivotPreservingTranslation, Euler,
     xrInputBlind: false, xrDeferredBake: undefined, naturalInput: undefined,
     POINTER_TRIGGER: 1, lastTriggerHand: undefined, lastTriggerAt: 0, performance: { now: t.now },
     xrButtons: { update() {} }, stickModifiers: { mode: () => STICK_MODE.depthYaw, update() {}, engaged: () => true },
@@ -261,12 +262,23 @@ test('production viewer intent wiring keeps the rotation pivot and size fixed th
 test('the actual input callback uses fresh head axes, leaves drawn evidence untouched, and releases its borrowed pose', () => {
   const t = combinedHarness({ batched: true }), h = t.h;
   const previousHead = Mat4.identity(), freshHead = Mat4.fromRotation(Mat4(), Math.PI / 2, Vec3.create(0, 1, 0));
+  freshHead[12] = 2; freshHead[13] = 3; freshHead[14] = 4;
   h.latestRoomPlacementPose = { headInRoom: previousHead, labelViews: ['drawn eye evidence'] };
-  h.canvas.camera.view = Mat4.identity(); h.wearerAxesFrom = wearerAxesFrom;
+  h.canvas.camera.view = Mat4.fromTranslation(Mat4(), [1, 1, 1]); h.wearerAxesFrom = wearerAxesFrom;
+  const plateStart = source.indexOf('  const plateEyeInverse =');
+  const plateEnd = source.indexOf('\n  }', plateStart) + 4;
+  vm.runInContext(source.slice(plateStart, plateEnd), h);
   const start = source.indexOf('  function wearerAxes(');
   vm.runInContext(source.slice(start, source.indexOf('\n  }', start) + 4), h);
-  let reads = 0;
-  Object.assign(h, { latestXrSpace: undefined, naturalInput: undefined,
+  let reads = 0, plateUpdates = 0;
+  Object.assign(h, { latestXrSpace: undefined, naturalInput: undefined, XRRigidTransform: class {}, capDrawnPlates() {},
+    sizeImmersiveAnnotation(repr, canvas, eye) {
+      plateUpdates++;
+      assert.equal(h.xrInputHeadInRoom, undefined, 'frame-owned head pose is released before plate sizing');
+      assert.deepEqual(Array.from(eye), [2, 4, 6], 'fresh head position is transformed from room to scene units');
+      return sizeImmersiveAnnotation(repr, canvas, eye);
+    },
+    molecularAnimation: { tick() {}, tetherRepresentations: () => [] }, flushXrDeferredGrab() {},
     xrControllerInput: { read() { reads++; return []; } },
     processXrPointers() {
       assert.equal(h.xrInputHeadInRoom, freshHead);
@@ -278,12 +290,14 @@ test('the actual input callback uses fresh head axes, leaves drawn evidence unto
   });
   const from = source.indexOf('      onInputFrame:');
   const callback = vm.runInContext('({' + source.slice(from, source.indexOf('      onHeadFrame:', from)) + '}).onInputFrame', h);
-  callback({ frame: { getViewerPose: () => ({ transform: { matrix: freshHead } }) }, space: {} });
+  callback({ frame: { getViewerPose: () => ({ transform: { matrix: freshHead } }) }, space: { getOffsetReferenceSpace: () => ({}) } });
   assert.equal(reads, 1);
+  assert.equal(plateUpdates, 1);
   assert.equal(h.xrInputHeadInRoom, undefined);
   h.processXrPointers = () => { throw Error('input failed'); };
-  assert.throws(() => callback({ frame: { getViewerPose: () => ({ transform: { matrix: freshHead } }) }, space: {} }), /input failed/);
+  assert.throws(() => callback({ frame: { getViewerPose: () => ({ transform: { matrix: freshHead } }) }, space: { getOffsetReferenceSpace: () => ({}) } }), /input failed/);
   assert.equal(h.xrInputHeadInRoom, undefined, 'a failure cannot leak a frame-owned matrix');
+  assert.equal(plateUpdates, 2, 'plates still receive the fresh eye when input throws');
 });
 
 test('missing second-hand pose cannot dispatch a partial scale delta', () => {
@@ -305,3 +319,48 @@ test('legacy callbacks keep rotation-before-translation order when the combined 
   input.update([pointer(0, [0, 0, -1])]); input.update([pointer(.1, [.1, 0, -1])]);
   assert.deepEqual(calls, ['rotate', 'translate']);
 });
+
+test('carrying an assistant-sized close-up does not resize it on release', async () => {
+  const t = combinedHarness({ batched: true, limited: false });
+  t.h.roomEntry = { seat: { scale: 1 } };
+  const before = t.inspection.placement();
+  assert.equal(before.scale, 12, 'an intentional assistant close-up may exceed the wearer resize range');
+  t.h.applyGrabDelta({ translation: [.02, 0, 0] });
+  await t.h.bakeGrab({ phase: 'grab' });
+  assert.equal(t.inspection.placement().scale, before.scale);
+  assert.notDeepEqual(t.inspection.placement().translation, before.translation);
+});
+
+for (const input of ['grip', 'stick']) for (const authored of [12, .05, 2.6]) for (const direction of [-1, 1]) {
+  test(`${input} resize ${direction} from authored scale ${authored} is gradual, directional and stable on release`, async () => {
+    const t = combinedHarness({ batched: true, limited: false }), h = t.h;
+    h.roomEntry = { seat: { scale: 1 } };
+    t.inspection.place({ scale: authored });
+    h.stickModifiers.mode = () => STICK_MODE.scale;
+    const p = t.pointer;
+    for (let gesture = 0; gesture < 3; gesture++) {
+      let span = .4;
+      const pointers = () => input === 'grip' ? [p('right', span / 2), p('left', -span / 2)]
+        : [{ ...p('right', .2), axes: [0, 0, 0, -direction * .5] }];
+      if (input === 'grip') t.frame([p('right', span / 2)]);
+      t.frame(pointers());
+      for (let step = 0; step < 10; step++) {
+        const before = t.inspection.placement().scale * h.grabScale;
+        const pivot = Vec3.transformMat4(Vec3(), [.5, .25, -.1], h.presentationTransform());
+        span *= 1.01 ** direction;
+        t.frame(pointers());
+        const after = t.inspection.placement().scale * h.grabScale;
+        assert.ok(direction * (after - before) >= -1e-12, `${before} -> ${after} reversed gesture`);
+        assert.ok(Math.abs(Math.log(after / before)) < .03, `${before} -> ${after} jumped`);
+        if ((before > 5 && direction > 0) || (before < .2 && direction < 0)) assert.equal(after, before);
+        else assert.ok(direction * (after - before) > 0, 'movement toward/in the band responds');
+        assert.ok(Vec3.distance(pivot, Vec3.transformMat4(Vec3(), [.5, .25, -.1], h.presentationTransform())) < 1e-9);
+      }
+      const drawn = t.inspection.placement().scale * h.grabScale;
+      t.frame([p('right', .2, { held: false }), p('left', -.2, { held: false })]);
+      await h.bakeGrab({ phase: input });
+      assert.equal(t.inspection.placement().scale, drawn, 'release preserves the drawn scale');
+      assert.equal(h.roomEntry.seat.scale, 1, 'authored placement and releases do not rebase the entry');
+    }
+  });
+}

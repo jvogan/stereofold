@@ -63,6 +63,7 @@ export function renderedLabelQuads(object, view, cameraScale) {
     const first = selected[0];
     const anchor = xyz(transform(matrix, positions.slice(first * 3, first * 3 + 3))).map(v => v * cameraScale);
     const center = xyz(transform(view.transform.inverse.matrix, anchor));
+    const glyphPush = ((cell(object, 'uOffsetZ') ?? 0) + (depths?.[first] ?? 0) * 0.95) * cameraScale;
     let push = ((cell(object, 'uOffsetZ') ?? 0) + (depths?.[first] ?? 0) * 0.95) * cameraScale;
     if (backing.length) {
       const clip = transform(view.projectionMatrix, center);
@@ -72,11 +73,14 @@ export function renderedLabelQuads(object, view, cameraScale) {
     const distance = Math.hypot(...center);
     if (!(distance > EPS)) continue;
     const pushed = center.map(v => v * (1 - push / distance));
+    const glyphDepth = center[2] * (1 - glyphPush / distance);
+    const compensation = backing.length && cell(object, 'uPlateBillboard') > .5 && glyphDepth < -1e-5
+      ? pushed[2] / glyphDepth : 1;
     let left = Infinity, right = -Infinity, bottom = Infinity, top = -Infinity;
     for (const i of selected) {
       const size = sizeAt(object, i, instance) * cell(object, 'uSizeFactor') * cameraScale;
-      const x = mappings[i * 2] * size + (cell(object, 'uOffsetX') ?? 0) * cameraScale;
-      const y = mappings[i * 2 + 1] * size + (cell(object, 'uOffsetY') ?? 0) * cameraScale;
+      const x = (mappings[i * 2] * size + (cell(object, 'uOffsetX') ?? 0) * cameraScale) * compensation;
+      const y = (mappings[i * 2 + 1] * size + (cell(object, 'uOffsetY') ?? 0) * cameraScale) * compensation;
       left = Math.min(left, x); right = Math.max(right, x);
       bottom = Math.min(bottom, y); top = Math.max(top, y);
     }
@@ -86,6 +90,33 @@ export function renderedLabelQuads(object, view, cameraScale) {
       anchor, em: 0.8 * sizeAt(object, first, instance) * cell(object, 'uSizeFactor') * cameraScale });
   }
   return quads;
+}
+
+/**
+ * Each drawn name plate as a sphere, in room metres, that the near plane must
+ * stay in front of. text.vert pushes a plate's anchor toward the eye by
+ * `uOffsetZ` and draws the plate square to the eye at that depth, fanned
+ * across the view from there, so none of it is nearer than its anchor less the
+ * push. That is one anchor and one transform per plate, cheap enough to read
+ * from the live transforms on every frame. `out` is reused when given.
+ */
+export function drawnPlateDepthSpheres(objects = [], cameraScale = 1, out = []) {
+  out.length = 0;
+  if (!(cameraScale > 0)) return out;
+  for (const object of objects) {
+    if (object?.type !== 'text' || !labelObjectVisible(object)) continue;
+    const positions = cell(object, 'aPosition'), matrices = cell(object, 'aTransform');
+    if (!(positions?.length >= 3) || !(matrices?.length >= 16)) continue;
+    const push = Math.abs(cell(object, 'uOffsetZ') ?? 0) * cameraScale;
+    const instances = Math.min(cell(object, 'instanceCount') ?? 1, Math.floor(matrices.length / 16));
+    for (let instance = 0; instance < instances; instance++) {
+      const m = matrices.subarray ? matrices.subarray(instance * 16, instance * 16 + 16)
+        : matrices.slice(instance * 16, instance * 16 + 16);
+      const center = xyz(transform(m, positions)).map(value => value * cameraScale);
+      if (center.every(Number.isFinite) && Number.isFinite(push)) out.push({ center, radius: push });
+    }
+  }
+  return out;
 }
 
 /** Mol* boundingSphere contains local instance transforms, but not values.matrix. */

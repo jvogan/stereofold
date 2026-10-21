@@ -1,0 +1,1381 @@
+{
+  "version": 1,
+  "id": "hemoglobin-switch-motion",
+  "title": "Hemoglobin switches from T to R",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/2DN2"
+      },
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/2DN1"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1016/j.jmb.2006.05.036"
+      }
+    ],
+    "sourceSha256": "e2136004fda282c399554481defd63f89a2275180a1e625095c88c6b9a232bea",
+    "note": "Human hemoglobin from one study, both at 1.25 Angstrom by X-ray diffraction: deoxy (T state, entry 2DN2) and oxy (R state, entry 2DN1). The coordinates are the prepared composite hemoglobin-tr-motion, built from its recipe: ten chains: T and R copies of the four subunits, and a second copy (I and J, backbone only) of the T alpha 2 beta 2 pair that stays at its starting position as a faded reference. Every atom is a deposited atom of 2DN2 or 2DN1 moved by one rigid-body transform. The whole composite is turned once so that the measured screw axis of alpha 2 beta 2 points out of the opening view; within it the 2DN2 chains keep their deposited arrangement, the 2DN1 dimer and its assembly-operator copy are fitted on the T alpha 1 beta 1 pair, and the intermediate positions are fractions of the measured screw motion of the T alpha 2 beta 2 pair (14.1 degrees about one axis, 1.3 Angstrom along it). Waters and the two toluene molecules of 2DN1 are left out. The path between the two deposited structures is illustrative; only the T and R end points are measured."
+  },
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "switch",
+      "title": "Hemoglobin switches from T to R",
+      "caption": "Green: alpha 1 beta 1, which stays fixed. Blue: alpha 2 beta 2, which turns 14.1 degrees about one axis. In the opening view you look straight down that axis. Once the turn starts, a faded copy marks where the pair began. Beta is the lighter shade in both pairs. When the turn ends, the T subunits give way to the deposited R subunits, with O2 on every heme. Then the R subunits give way to T again, without O2, and the pair turns back to its start, so the clip repeats. The path between the two deposited structures, in either direction, is illustrative.",
+      "durationSeconds": 14,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 14
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "The blue pair turns 14 degrees to R, O2 on every heme, then back.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#20b58c",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#7be0bf",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#3f86dc",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#8bbdf2",
+              "chain": "H"
+            },
+            {
+              "id": "alpha2-t-start",
+              "label": "Alpha 2, T start",
+              "color": "#3f86dc",
+              "chain": "I"
+            },
+            {
+              "id": "beta2-t-start",
+              "label": "Beta 2, T start",
+              "color": "#8bbdf2",
+              "chain": "J"
+            }
+          ],
+          "contextOpacity": 0.28,
+          "focus": [
+            "alpha1-t",
+            "beta1-t",
+            "alpha2-t",
+            "beta2-t",
+            "alpha1-r",
+            "beta1-r",
+            "alpha2-r",
+            "beta2-r"
+          ]
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-a",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "A",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-b",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "B",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "C",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-d",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "D",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "E",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "F",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "G",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "H",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-o2-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            }
+          ],
+          "labels": [
+            {
+              "id": "state-t",
+              "target": {
+                "chain": "A",
+                "residues": {
+                  "from": 78,
+                  "to": 78
+                },
+                "atomName": "CA"
+              },
+              "text": "T state",
+              "color": "#303840",
+              "sizeFactor": 1.3,
+              "offsetX": -8,
+              "offsetY": 13
+            },
+            {
+              "id": "turn",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 74,
+                  "to": 74
+                },
+                "atomName": "CA"
+              },
+              "text": "Turns 14\u00b0",
+              "color": "#285c91",
+              "sizeFactor": 1.2,
+              "offsetX": 10,
+              "offsetY": 13
+            },
+            {
+              "id": "state-r",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 78,
+                  "to": 78
+                },
+                "atomName": "CA"
+              },
+              "text": "R state",
+              "color": "#303840",
+              "sizeFactor": 1.3,
+              "offsetX": -8,
+              "offsetY": 13
+            }
+          ],
+          "distances": []
+        }
+      },
+      "animation": {
+        "version": 1,
+        "durationSeconds": 9.0,
+        "playback": {
+          "autoplay": true,
+          "loop": true,
+          "speed": 1
+        },
+        "tracks": [
+          {
+            "id": "t-fixed",
+            "chains": [
+              "A",
+              "B"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "visibility": [
+              {
+                "t": 0.0,
+                "visible": true
+              },
+              {
+                "t": 4.0,
+                "visible": false
+              },
+              {
+                "t": 7.0,
+                "visible": true
+              }
+            ]
+          },
+          {
+            "id": "t-turning",
+            "chains": [
+              "C",
+              "D"
+            ],
+            "pivot": [
+              10.038694,
+              24.197047,
+              62.296575
+            ],
+            "keyframes": [
+              {
+                "t": 0.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.0
+                ]
+              },
+              {
+                "t": 2.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.0
+                ]
+              },
+              {
+                "t": 2.2,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.003448083,
+                  0.999994055
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.036992
+                ]
+              },
+              {
+                "t": 2.4,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.012806841,
+                  0.999917989
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.137398
+                ]
+              },
+              {
+                "t": 2.6,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.026596415,
+                  0.999646253
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.285364
+                ]
+              },
+              {
+                "t": 2.8,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.043333844,
+                  0.999060648
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.465038
+                ]
+              },
+              {
+                "t": 3.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.061534137,
+                  0.998104979
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.660566
+                ]
+              },
+              {
+                "t": 3.2,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.079713991,
+                  0.996817777
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.856093
+                ]
+              },
+              {
+                "t": 3.4,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.096396601,
+                  0.995343004
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.035767
+                ]
+              },
+              {
+                "t": 3.6,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.110115127,
+                  0.993918839
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.183734
+                ]
+              },
+              {
+                "t": 3.8,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.119412355,
+                  0.992844746
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.28414
+                ]
+              },
+              {
+                "t": 4.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.122835057,
+                  0.9924271
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.321131
+                ]
+              },
+              {
+                "t": 7.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.122835057,
+                  0.9924271
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.321131
+                ]
+              },
+              {
+                "t": 7.2,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.119412355,
+                  0.992844746
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.28414
+                ]
+              },
+              {
+                "t": 7.4,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.110115127,
+                  0.993918839
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.183734
+                ]
+              },
+              {
+                "t": 7.6,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.096396601,
+                  0.995343004
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -1.035767
+                ]
+              },
+              {
+                "t": 7.8,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.079713991,
+                  0.996817777
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.856093
+                ]
+              },
+              {
+                "t": 8.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.061534137,
+                  0.998104979
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.660566
+                ]
+              },
+              {
+                "t": 8.2,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.043333844,
+                  0.999060648
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.465038
+                ]
+              },
+              {
+                "t": 8.4,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.026596415,
+                  0.999646253
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.285364
+                ]
+              },
+              {
+                "t": 8.6,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.012806841,
+                  0.999917989
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.137398
+                ]
+              },
+              {
+                "t": 8.8,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.003448083,
+                  0.999994055
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.036992
+                ]
+              },
+              {
+                "t": 9.0,
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "translation": [
+                  -0.0,
+                  -0.0,
+                  -0.0
+                ]
+              }
+            ],
+            "visibility": [
+              {
+                "t": 0.0,
+                "visible": true
+              },
+              {
+                "t": 4.0,
+                "visible": false
+              },
+              {
+                "t": 7.0,
+                "visible": true
+              }
+            ]
+          },
+          {
+            "id": "t-start",
+            "chains": [
+              "I",
+              "J"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "visibility": [
+              {
+                "t": 0.0,
+                "visible": false
+              },
+              {
+                "t": 2.4,
+                "visible": true
+              },
+              {
+                "t": 8.9,
+                "visible": false
+              }
+            ]
+          },
+          {
+            "id": "r-fixed",
+            "chains": [
+              "E",
+              "F"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "visibility": [
+              {
+                "t": 0.0,
+                "visible": false
+              },
+              {
+                "t": 4.0,
+                "visible": true
+              },
+              {
+                "t": 7.0,
+                "visible": false
+              }
+            ]
+          },
+          {
+            "id": "r-turning",
+            "chains": [
+              "G",
+              "H"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9.0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "visibility": [
+              {
+                "t": 0.0,
+                "visible": false
+              },
+              {
+                "t": 4.0,
+                "visible": true
+              },
+              {
+                "t": 7.0,
+                "visible": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "overlay",
+      "title": "T and R overlaid, at rest",
+      "caption": "The same colours as the turn: green alpha 1 beta 1, blue alpha 2 beta 2, beta the lighter shade. Solid: R. Faded: the T position of alpha 2 beta 2. Alpha 1 beta 1 is drawn once, in R, because it matches the T pair to 0.9 \u00c5 RMS over 285 alpha-carbon atoms. With it fitted, alpha 2 beta 2 in R is turned 14.1 degrees about one axis and shifted 1.3 \u00c5 along it. Its alpha carbons lie 5.2 \u00c5 RMS from their T positions.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H"
+          ],
+          "classes": [
+            "polymer"
+          ]
+        },
+        "narration": "Overlaid: one subunit pair is turned 14 degrees from its T position.",
+        "motion": "hold",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "alpha1-t",
+              "label": "Alpha 1, T",
+              "color": "#20b58c",
+              "chain": "A"
+            },
+            {
+              "id": "beta1-t",
+              "label": "Beta 1, T",
+              "color": "#7be0bf",
+              "chain": "B"
+            },
+            {
+              "id": "alpha2-t",
+              "label": "Alpha 2, T",
+              "color": "#3f86dc",
+              "chain": "C"
+            },
+            {
+              "id": "beta2-t",
+              "label": "Beta 2, T",
+              "color": "#8bbdf2",
+              "chain": "D"
+            },
+            {
+              "id": "alpha1-r",
+              "label": "Alpha 1, R",
+              "color": "#20b58c",
+              "chain": "E"
+            },
+            {
+              "id": "beta1-r",
+              "label": "Beta 1, R",
+              "color": "#7be0bf",
+              "chain": "F"
+            },
+            {
+              "id": "alpha2-r",
+              "label": "Alpha 2, R",
+              "color": "#3f86dc",
+              "chain": "G"
+            },
+            {
+              "id": "beta2-r",
+              "label": "Beta 2, R",
+              "color": "#8bbdf2",
+              "chain": "H"
+            }
+          ],
+          "contextOpacity": 0.3,
+          "focus": [
+            "alpha1-r",
+            "beta1-r",
+            "alpha2-r",
+            "beta2-r"
+          ]
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "lay-heme-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "E",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "F",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 142,
+                  "to": 142
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "G",
+                    "residues": {
+                      "from": 142,
+                      "to": 142
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-heme-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 147,
+                  "to": 147
+                },
+                "componentId": "HEM"
+              },
+              "representation": "ball-and-stick",
+              "color": "#e0362c",
+              "opacity": 1,
+              "sizeFactor": 0.25,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "H",
+                    "residues": {
+                      "from": 147,
+                      "to": 147
+                    },
+                    "componentId": "HEM",
+                    "atomName": "FE"
+                  },
+                  "color": "#ffd34a"
+                }
+              ]
+            },
+            {
+              "id": "lay-o2-e",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-f",
+              "target": {
+                "chain": "F",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 143,
+                  "to": 143
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            },
+            {
+              "id": "lay-o2-h",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 148,
+                  "to": 148
+                },
+                "componentId": "OXY"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2f2f2",
+              "opacity": 1,
+              "sizeFactor": 0.35
+            }
+          ],
+          "labels": [
+            {
+              "id": "fixed",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 79,
+                  "to": 79
+                },
+                "atomName": "CA"
+              },
+              "text": "Fixed pair",
+              "color": "#08745a",
+              "sizeFactor": 1.2,
+              "offsetX": -8,
+              "offsetY": 15
+            },
+            {
+              "id": "r-solid",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 71,
+                  "to": 71
+                },
+                "atomName": "CA"
+              },
+              "text": "R, solid",
+              "color": "#285c91",
+              "sizeFactor": 1.2,
+              "offsetX": 1,
+              "offsetY": 12
+            },
+            {
+              "id": "t-faded",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 79,
+                  "to": 79
+                },
+                "atomName": "CA"
+              },
+              "text": "T, faded",
+              "color": "#3f86dc",
+              "sizeFactor": 1.2,
+              "offsetX": 0,
+              "offsetY": -13
+            }
+          ],
+          "distances": []
+        }
+      }
+    }
+  ]
+}

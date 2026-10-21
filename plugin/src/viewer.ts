@@ -2,6 +2,7 @@ import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
 import { PluginContext } from 'molstar/lib/mol-plugin/context.js';
 import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec.js';
 import type { Canvas3D } from 'molstar/lib/mol-canvas3d/canvas3d.js';
+import type { CanvasSnapshotSettings } from './molstar-props-patch.js';
 import { Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { type GlassesKind, type Variant } from '@stereo/anaglyph';
 import type { StereoMode, StereoParams, StereoSettings } from '@stereo/geometry';
@@ -207,7 +208,7 @@ type ViewerMessage = {
  * height this app asks for instead.
  */
 const app = new App(
-  { name: 'Stereofold', version: '0.1.21' },
+  { name: 'Stereofold', version: '0.1.22' },
   { tools: { listChanged: false } },
   { autoResize: false },
 );
@@ -534,11 +535,10 @@ type CameraPose = {
   letterboxWidth: number;
 };
 
-function readCameraPose(): CameraPose {
+function readCameraPose(stereo: CameraPose['stereo']): CameraPose {
   const canvas = plugin.canvas3d;
   if (canvas == null) throw new Error('Stereofold Mol* canvas is not initialized.');
   const view = canvas.camera.view;
-  const stereo = canvas.props.camera.stereo;
   const box = stage.getBoundingClientRect();
   const tuple = (value: ArrayLike<number>): [number, number, number] => [value[0] ?? 0, value[1] ?? 0, value[2] ?? 0];
   return {
@@ -546,9 +546,7 @@ function readCameraPose(): CameraPose {
     target: tuple(canvas.camera.state.target),
     up: tuple(canvas.camera.state.up),
     worldXInCameraFrame: [view[0], view[1], view[2]],
-    stereo: stereo.name === 'on'
-      ? { eyeSeparation: stereo.params.eyeSeparation, focus: stereo.params.focus }
-      : undefined,
+    stereo,
     eyeViewport: eyeViewportPx(),
     stageWidth: box.width,
     stageHeight: box.height,
@@ -1725,44 +1723,48 @@ function installAcceptanceHook(): void {
       updateDensityNote();
       controller?.setSettings({ cssPxPerInch, devicePixelRatio });
     },
-    state: () => ({
-      mode,
-      params: controller?.getParams(),
-      camera: readCamera(),
-      stageWidth: stage.getBoundingClientRect().width,
-      webgl2: plugin.canvas3d?.webgl.isWebGL2 === true,
-      variant,
-      glasses,
-      passes: {
-        antialiasing: plugin.canvas3d?.props.postprocessing.antialiasing.name ?? 'unknown',
-        multiSample: plugin.canvas3d?.props.multiSample.mode ?? 'unknown',
-      },
-      pose: readCameraPose(),
-      look: {
-        color: lookColor,
-        style: lookStyle,
-        appliedColorTheme,
-        plddtApplicable: plddtApplicable(),
-        disabled: colorSelect.disabled && styleSelect.disabled,
-        // Read back out of Mol*'s own state tree, so a measurement can tell an
-        // applied theme from an intended one.
-        representations: plugin.managers.structure.hierarchy.current.structures
-          .flatMap((structure) => structure.components)
-          .flatMap((component) => component.representations)
-          .map((representation) => {
-            const params = representation.cell.transform.params as {
-              type?: { name?: string; params?: { ignoreLight?: boolean } };
-              colorTheme?: { name?: string };
-            } | undefined;
-            return {
-              type: params?.type?.name ?? 'unknown',
-              colorTheme: params?.colorTheme?.name ?? 'unknown',
-              ...(params?.type?.params?.ignoreLight == null ? {} : { ignoreLight: params.type.params.ignoreLight }),
-              tags: representationTags(representation),
-            };
-          }),
-      },
-    }),
+    state: () => {
+      const canvas = plugin.canvas3d as (Canvas3D & { getSnapshotSettings(includeClipping: boolean): CanvasSnapshotSettings }) | undefined;
+      const settings = canvas?.getSnapshotSettings(false);
+      return {
+        mode,
+        params: controller?.getParams(),
+        camera: readCamera(),
+        stageWidth: stage.getBoundingClientRect().width,
+        webgl2: plugin.canvas3d?.webgl.isWebGL2 === true,
+        variant,
+        glasses,
+        passes: {
+          antialiasing: settings?.antialiasing ?? 'unknown',
+          multiSample: settings?.multiSample ?? 'unknown',
+        },
+        pose: readCameraPose(settings?.stereo),
+        look: {
+          color: lookColor,
+          style: lookStyle,
+          appliedColorTheme,
+          plddtApplicable: plddtApplicable(),
+          disabled: colorSelect.disabled && styleSelect.disabled,
+          // Read back out of Mol*'s own state tree, so a measurement can tell an
+          // applied theme from an intended one.
+          representations: plugin.managers.structure.hierarchy.current.structures
+            .flatMap((structure) => structure.components)
+            .flatMap((component) => component.representations)
+            .map((representation) => {
+              const params = representation.cell.transform.params as {
+                type?: { name?: string; params?: { ignoreLight?: boolean } };
+                colorTheme?: { name?: string };
+              } | undefined;
+              return {
+                type: params?.type?.name ?? 'unknown',
+                colorTheme: params?.colorTheme?.name ?? 'unknown',
+                ...(params?.type?.params?.ignoreLight == null ? {} : { ignoreLight: params.type.params.ignoreLight }),
+                tags: representationTags(representation),
+              };
+            }),
+        },
+      };
+    },
   };
 }
 

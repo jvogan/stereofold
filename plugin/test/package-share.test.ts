@@ -12,7 +12,8 @@ import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { createStereoStructureServer } from '../src/server.js';
 import { detailedViewHtml } from '../src/detailed-view-page.js';
-import { packageShare, shareGuide, sourceRevision } from '../scripts/package-share.js';
+import { TOOL_SET_VERSION } from '../src/tool-text-state.js';
+import { packageShare, shareGuide, sourceRevision, validateArtifact } from '../scripts/package-share.js';
 import { releaseEntries, stageRelease } from '../scripts/release.js';
 import { APP_ONLY_TOOL_NAMES, MODEL_VISIBLE_TOOL_NAMES } from '../scripts/tool-inventory.js';
 
@@ -63,6 +64,8 @@ const fixtureFiles: Record<string, string> = {
   'dist/inspector.html': '<!doctype html><p>inspector</p>\n',
   'dist/inspector.css': 'body{}\n',
   'dist/inspector-host.js': '(()=>{})();\n',
+  'dist/inspector-script-1.js': '// fixed inspector chunk 1\n',
+  'dist/inspector-script-2.js': '// fixed inspector chunk 2\n',
   'dist/server.mjs': 'export {};\n',
   'dist/headset-host.mjs': 'export {};\n',
   'dist/serve-inspection.mjs': 'export {};\n',
@@ -80,6 +83,7 @@ const fixtureFiles: Record<string, string> = {
   'skills/stereo-structure/SKILL.md': '# Skill\n',
   'skills/molecular-presentation/SKILL.md': '# Presentation skill\n',
   'skills/molecular-presentation/scripts/lesson.mjs': 'export {};\n',
+  'skills/molecular-presentation/references/live-authoring.md': '# Live authoring\n',
   // The setup skill and the one command a recipient can run before any
   // install. A share without them assumes the recipient already knows.
   'skills/stereofold-setup/SKILL.md': '# Setup skill\n',
@@ -126,7 +130,7 @@ const recipientPages = [
 const nonPathTokens = new Set([
   '/', '//', '/s', 'Node.js', '@stereo/anaglyph', '@stereo/geometry', '@stereo/motion',
   'Autoplay/Pause', 'Meta/Cloudflare', 'Next/Back', 'B/Y', 'PDB/mmCIF', 'WebM/Opus',
-  'amplitude/period', 'front/back', 'left/right', 'px/inch', 'room/world',
+  'amplitude/period', 'axis/scale', 'front/back', 'left/right', 'px/inch', 'room/world',
   'stereo_structure/structure', 'Play/Pause', 'author/label', 'cartoon/sticks',
   'chain/element', 'fit/focus/orbit/dolly', 'identity/selection/viewpoint',
   'missing/evicted', 'rotation/pause', 'stereo_structure/inspection', 'H/ACA',
@@ -282,6 +286,11 @@ const recipientRegressionRules = [
 ];
 
 function recipientRegressionText(page: string, text: string, ruleName: string): string {
+  if (page.endsWith('/SKILL.md') && ruleName === 'dated capture and authoring notes') {
+    // A schema version is a runtime contract, not a dated authoring note.
+    // Exempt only the exact current declaration; keep all other date checks.
+    return text.replaceAll('`toolSetVersion: "' + TOOL_SET_VERSION + '"`', '`toolSetVersion`');
+  }
   if (page !== '.codex-plugin/plugin.json' || ruleName !== 'internal work labels') return text;
   let manifest;
   try { manifest = JSON.parse(text); } catch { return text; }
@@ -351,6 +360,21 @@ function invalidToolExamples(markdown: string, tools: Tool[]): string[] {
 }
 
 describe('recipient regression classes', () => {
+  it('pins every shipped skill to the runtime schema version without admitting dated notes', async () => {
+    const declaration = '`toolSetVersion: "' + TOOL_SET_VERSION + '"`';
+    const rule = recipientRegressionRules.find(rule => rule.name === 'dated capture and authoring notes')!;
+    for (const name of ['stereo-structure', 'molecular-presentation', 'stereofold-setup']) {
+      const page = `skills/${name}/SKILL.md`;
+      const skill = await readFile(resolve(pluginRoot, page), 'utf8');
+      expect(skill).toContain(declaration);
+      expect(rule.forbidden.test(recipientRegressionText(page, declaration, rule.name))).toBe(false);
+      for (const dated of ['Authored 2026-10-11', '`toolSetVersion: "2026-10-11.authoring.0"`']) {
+        expect(rule.forbidden.test(recipientRegressionText(page, `${declaration}\n${dated}`, rule.name))).toBe(true);
+      }
+    }
+    expect(rule.forbidden.test(recipientRegressionText('demos/example.json', declaration, rule.name))).toBe(true);
+  });
+
   it('validates shipped tool examples against the live registry, including required arguments', async () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const server = createStereoStructureServer(resolve(pluginRoot, 'dist/viewer.html'));
@@ -966,5 +990,247 @@ with tarfile.open(sys.argv[1]) as archive:
     } finally {
       await rm(temporaryRoot, { force: true, recursive: true });
     }
+  });
+});
+
+describe('indexed modelled composite packaging', () => {
+  it('requires, verifies and checksums the exact recipe and local CIF from a staged composite', async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), 'stereofold-share-modelled-'));
+    try {
+      const artifact = await createArtifact(temporaryRoot);
+      const output = resolve(temporaryRoot, 'share');
+      const cif = 'data_linkers\nloop_\n_atom_site.id\n1\n';
+      const digest = createHash('sha256').update(cif).digest('hex');
+      const recipe = { version: 1, id: 'modelled-fixture', title: 'Modelled fixture',
+        sources: [{ id: 'linkers', file: 'linkers.cif', sha256: digest, modelled: 'Synthetic linkers' }],
+        bodies: [{ source: 'linkers', authChains: ['A'], atoms: 'all', chain: 'L', matrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]] }] };
+      const index = JSON.parse(fixtureFiles['demos/index.json']);
+      index.demos[0].stages = [{ lesson: 'hemoglobin.json', coordinates: {
+        derivation: { kind: 'prepared-rigid-composite', recipe: 'custom/recipe.json' },
+      } }];
+      await writeFile(resolve(artifact, 'demos/index.json'), JSON.stringify(index));
+      const custom = resolve(artifact, 'demos/custom');
+      await mkdir(custom);
+      const recipeText = JSON.stringify(recipe);
+      await writeFile(resolve(custom, 'recipe.json'), recipeText);
+      await expect(packageShare({ artifact, output })).rejects.toThrow(/ENOENT/);
+      await writeFile(resolve(custom, 'linkers.cif'), cif + '# tampered\n');
+      await expect(packageShare({ artifact, output })).rejects.toThrow('sha256 mismatch');
+      const outside = resolve(temporaryRoot, 'outside.cif');
+      await writeFile(outside, cif);
+      await rm(resolve(custom, 'linkers.cif'));
+      await symlink(outside, resolve(custom, 'linkers.cif'));
+      await expect(packageShare({ artifact, output })).rejects.toThrow('inside demos/');
+      await rm(resolve(custom, 'linkers.cif'));
+      await writeFile(resolve(custom, 'linkers.cif'), cif);
+      await writeFile(resolve(custom, 'unreferenced.cif'), cif);
+      await expect(packageShare({ artifact, output })).rejects.toThrow('forbidden share entry');
+      await rm(resolve(custom, 'unreferenced.cif'));
+      const result = await packageShare({ artifact, output });
+      expect(await readFile(resolve(result.plugin, 'demos/custom/linkers.cif'), 'utf8')).toBe(cif);
+      const sums = await readFile(result.checksums, 'utf8');
+      expect(sums).toContain(`${digest}  plugins/stereofold/demos/custom/linkers.cif\n`);
+      expect(sums).toContain(`${createHash('sha256').update(recipeText).digest('hex')}  plugins/stereofold/demos/custom/recipe.json\n`);
+      await execFileAsync('shasum', ['-a', '256', '-c', 'SHA256SUMS'], { cwd: output });
+      const extracted = resolve(temporaryRoot, 'extracted');
+      await mkdir(extracted);
+      await execFileAsync('tar', ['-xzf', result.archive, '-C', extracted]);
+      expect(await readFile(resolve(extracted, 'plugins/stereofold/demos/custom/linkers.cif'), 'utf8')).toBe(cif);
+      await execFileAsync('shasum', ['-a', '256', '-c', 'SHA256SUMS'], { cwd: extracted });
+    } finally { await rm(temporaryRoot, { recursive: true, force: true }); }
+  });
+});
+
+describe('unindexed composite packaging', () => {
+  it('requires every shipped recipe source file even when the index does not reference the recipe', async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), 'stereofold-share-recipe-source-'));
+    try {
+      const artifact = await createArtifact(temporaryRoot), output = resolve(temporaryRoot, 'share');
+      const directory = resolve(artifact, 'demos/kinesin-walk');
+      await mkdir(directory, { recursive: true });
+      const cif = 'data_local\n', digest = createHash('sha256').update(cif).digest('hex');
+      await writeFile(resolve(directory, 'cycle-recipe.json'), JSON.stringify({ version: 1, id: 'local-fixture', title: 'Local fixture',
+        sources: [{ id: 'local', file: 'local.cif', sha256: digest, modelled: 'Synthetic fixture' }],
+        bodies: [{ source: 'local', authChains: ['A'], atoms: 'all', chain: 'L', matrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]] }] }));
+      await expect(packageShare({ artifact, output })).rejects.toThrow(/local\.cif/);
+      await expect(lstat(output)).rejects.toThrow();
+      await writeFile(resolve(directory, 'local.cif'), cif);
+      const result = await packageShare({ artifact, output });
+      expect(await readFile(resolve(result.plugin, 'demos/kinesin-walk/local.cif'), 'utf8')).toBe(cif);
+      expect(await readFile(result.checksums, 'utf8')).toContain(`${digest}  plugins/stereofold/demos/kinesin-walk/local.cif\n`);
+    } finally { await rm(temporaryRoot, { recursive: true, force: true }); }
+  });
+});
+
+
+describe('bundled gallery artifact validation', () => {
+  it.each(['dist/inspector-script-1.js', 'dist/inspector-script-2.js'])
+  ('requires the fixed inspector companion before any share is created: %s', async file => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-inspector-companion-'));
+    try {
+      const artifact = await createArtifact(root);
+      await rm(resolve(artifact, file));
+      await expect(validateArtifact(artifact)).rejects.toThrow(file);
+      expect(await readdir(root)).toEqual(['stereofold']);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  async function galleryArtifact(root: string, extended = false) {
+    const artifact = await createArtifact(root);
+    await cp(resolve(pluginRoot, 'demos/binder-gallery'), resolve(artifact, 'demos/binder-gallery'), { recursive: true });
+    await cp(resolve(pluginRoot, 'skills/molecular-presentation/references/binder-gallery.md'),
+      resolve(artifact, 'skills/molecular-presentation/references/binder-gallery.md'));
+    const index = JSON.parse(await readFile(resolve(pluginRoot, 'demos/index.json'), 'utf8'));
+    const gallery = index.demos.find((entry: any) => entry.name === 'binder-gallery');
+    expect(gallery).toBeDefined();
+    await writeFile(resolve(artifact, 'demos/index.json'), JSON.stringify({ version: 1, demos: extended
+      ? index.demos.filter((entry: any) => ['binder-gallery', 'binder-gallery-extended'].includes(entry.name))
+      : [gallery] }));
+    return artifact;
+  }
+
+  it('accepts the complete published gallery and both indexed stages without producing a share', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-gallery-validation-'));
+    try {
+      const artifact = await galleryArtifact(root);
+      await expect(validateArtifact(artifact)).resolves.toMatchObject({ name: 'stereofold' });
+      const manifest = JSON.parse(await readFile(resolve(artifact, 'demos/binder-gallery/manifest.json'), 'utf8'));
+      expect(manifest.entries).toHaveLength(17);
+      expect(await readdir(resolve(artifact, 'demos/binder-gallery/structures'))).toHaveLength(17);
+      expect(await readdir(root)).toEqual(['stereofold']);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('packages all eleven extended stages with their exact coordinates and retained provenance', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-extended-share-'));
+    try {
+      const artifact = await galleryArtifact(root, true);
+      const result = await packageShare({ artifact, output: resolve(root, 'share') });
+      const index = JSON.parse(await readFile(resolve(result.plugin, 'demos/index.json'), 'utf8'));
+      const extended = index.demos.find((entry: any) => entry.name === 'binder-gallery-extended');
+      expect(extended.stages).toHaveLength(11);
+      const checksums = await readFile(result.checksums, 'utf8');
+      for (const stage of extended.stages) {
+        const file = `demos/${stage.coordinates.derivation.path}`;
+        expect(createHash('sha256').update(await readFile(resolve(result.plugin, file))).digest('hex'))
+          .toBe(stage.coordinates.sha256);
+        expect(checksums).toContain(`${stage.coordinates.sha256}  plugins/stereofold/${file}\n`);
+      }
+      const required = [
+        'catalog.json', 'upstream/in_silico_scores.csv', 'upstream/LICENSE.md',
+        'extended/README.md', 'extended/source-lock.json', 'extended/manifest.json',
+        'extended/selected17/lesson.json', 'extended/batch-10/manifest.json',
+      ];
+      const lock = JSON.parse(await readFile(resolve(result.plugin, 'demos/binder-gallery/extended/source-lock.json'), 'utf8'));
+      expect(Object.keys(lock)).toHaveLength(194);
+      required.push(...Object.keys(lock).map(file => `extended/upstream/${file}`));
+      for (const file of required) {
+        const shipped = `demos/binder-gallery/${file}`;
+        expect(await readFile(resolve(result.plugin, shipped))).toEqual(await readFile(resolve(artifact, shipped)));
+        expect(checksums).toContain(`  plugins/stereofold/${shipped}\n`);
+      }
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it.each([
+    'catalog.json', 'upstream/in_silico_scores.csv', 'extended/source-lock.json',
+    'extended/batch-10/manifest.json', 'extended/upstream/structures/05efdf6e/05efdf6e_esmfold2-cn2.pdb',
+  ])('requires extended-gallery provenance before creating a share: %s', async file => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-extended-missing-'));
+    try {
+      const artifact = await galleryArtifact(root, true);
+      await rm(resolve(artifact, 'demos/binder-gallery', file));
+      await expect(packageShare({ artifact, output: resolve(root, 'share') })).rejects.toThrow(file);
+      await expect(lstat(resolve(root, 'share'))).rejects.toThrow();
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('rejects modified extended coordinates and does not admit extra files from the source lock', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-extended-boundary-'));
+    try {
+      const artifact = await galleryArtifact(root, true);
+      const cif = resolve(artifact, 'demos/binder-gallery/extended/batch-10/gallery.cif');
+      const original = await readFile(cif);
+      await writeFile(cif, 'changed coordinates');
+      await expect(validateArtifact(artifact)).rejects.toThrow('sha256 mismatch');
+      await writeFile(cif, original);
+      const privateFile = 'demos/binder-gallery/extended/credentials.json';
+      await writeFile(resolve(artifact, privateFile), 'unapproved fixture');
+      const lockPath = resolve(artifact, 'demos/binder-gallery/extended/source-lock.json');
+      const lock = JSON.parse(await readFile(lockPath, 'utf8'));
+      lock['credentials.json'] = { sha256: 'a'.repeat(64) };
+      await writeFile(lockPath, JSON.stringify(lock));
+      await expect(validateArtifact(artifact)).rejects.toThrow(`forbidden share entry: ${privateFile}`);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it.each([
+    'demos/binder-gallery/structures/Binder17.cif',
+    'demos/binder-gallery/upstream/structures/03131527/03131527_esmfold2-aah1.pdb',
+    'demos/binder-gallery/upstream/structures/INDEX.csv',
+    'demos/binder-gallery/upstream/LICENSE.md',
+    'demos/binder-gallery/manifest.json',
+    'demos/binder-gallery/PROVENANCE.md',
+    'demos/binder-gallery/original-pairs.json',
+    'skills/molecular-presentation/references/binder-gallery.md',
+  ])('requires the complete gallery asset: %s', async file => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-gallery-required-'));
+    try {
+      const artifact = await galleryArtifact(root);
+      await rm(resolve(artifact, file));
+      await expect(validateArtifact(artifact)).rejects.toThrow(file);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('checks the bundled coordinate digest before any share is created', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-gallery-digest-'));
+    try {
+      const artifact = await galleryArtifact(root);
+      await writeFile(resolve(artifact, 'demos/binder-gallery/gallery.cif'), 'changed coordinates');
+      await expect(validateArtifact(artifact)).rejects.toThrow('sha256 mismatch');
+      expect(await readdir(root)).toEqual(['stereofold']);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it.each(['../credentials.json', '/tmp/private.cif', 'binder-gallery/private.cif', 'hemoglobin.json'])
+  ('does not let an indexed bundled path extend the explicit share boundary: %s', async path => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-gallery-path-'));
+    try {
+      const artifact = await galleryArtifact(root);
+      const indexPath = resolve(artifact, 'demos/index.json');
+      const index = JSON.parse(await readFile(indexPath, 'utf8'));
+      index.demos[0].stages[0].coordinates.derivation.path = path;
+      await writeFile(indexPath, JSON.stringify(index));
+      await expect(validateArtifact(artifact)).rejects.toThrow('explicitly approved share file');
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it.each([
+    'demos/binder-gallery/credentials.json',
+    'demos/binder-gallery/upstream/structures/03131527/private.pdb',
+    'demos/binder-gallery/structures/private.cif',
+    'skills/molecular-presentation/references/private.md',
+  ])('still rejects extra nested files even when the gallery manifest names them: %s', async file => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-gallery-private-'));
+    try {
+      const artifact = await galleryArtifact(root);
+      await writeFile(resolve(artifact, file), 'unapproved fixture');
+      const manifestPath = resolve(artifact, 'demos/binder-gallery/manifest.json');
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest.upstreamFiles.push({ file, sha256: 'a'.repeat(64) });
+      await writeFile(manifestPath, JSON.stringify(manifest));
+      await expect(validateArtifact(artifact)).rejects.toThrow(`forbidden share entry: ${file}`);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('rejects symlinks in the approved gallery paths', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stereofold-gallery-symlink-'));
+    try {
+      const artifact = await galleryArtifact(root);
+      const file = resolve(artifact, 'demos/binder-gallery/structures/Binder17.cif');
+      await rm(file);
+      await symlink(resolve(artifact, 'demos/binder-gallery/structures/Binder01.cif'), file);
+      await expect(validateArtifact(artifact)).rejects.toThrow('symlink');
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 });

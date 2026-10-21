@@ -6,6 +6,7 @@ export async function interruptibleCommand(viewer, admit, action, rolledBack) {
     throw error;
   }
   const before=viewer.inspection.capture();
+  const animation=viewer.inspection.checkpointMolecularAnimation?.();
   const motion=viewer.inspection.getMotion?.();
   const quality=viewer.inspection.renderQuality?.();
   // Keep the existing operation grouping; this checkpoint is only for recovery.
@@ -26,6 +27,7 @@ export async function interruptibleCommand(viewer, admit, action, rolledBack) {
       // This restores undo state AND rebuilds geometry. Keep the queue and
       // publication held until that last frame, including its possible failure.
       if(checkpoint!==undefined) await viewer.inspection.rollbackOperation(checkpoint);
+      await viewer.inspection.restoreMolecularAnimation?.(animation);
     } catch(recovery) {
       throw Object.assign(new Error('The cancelled command could not restore the previous view. Load the saved view before continuing.',{cause:recovery}),{code:'rollback_failed'});
     }

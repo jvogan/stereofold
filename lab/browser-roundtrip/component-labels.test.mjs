@@ -125,20 +125,18 @@ test('entering and leaving presentation within one tick leaves one live set of p
   assert.equal(session.busy(), false);
 });
 
-// The half `0cf026b` missed. The old subscriber gated on the ref list being
-// non-empty, and `removeComponentLabels` emptied that list synchronously
-// before awaiting its deletes — so for the whole of an in-flight rebuild the
-// viewer answered "no plates to resize" and the edge was declined with nothing
-// left to re-fire. The wearer finished the session looking at desktop-sized
-// plates, which on a Quest 2 is the same as looking at none.
+// A rebuild empties the ref list before it awaits its deletes, so for the
+// whole of an in-flight rebuild the list says "no plates to resize". A
+// subscriber that gates on the list being non-empty declines a session edge
+// that lands then, and nothing re-fires: the wearer keeps desktop-sized
+// plates, which on a Quest 2 are too small to read.
 test('a session edge that lands inside a rebuild still ends with XR-sized plates', async () => {
   const h = harness({ presenting: false });
   const release = h.hold();
   const rebuilding = h.session.rebuild();
 
-  // Mid-build the ref list is empty by design. This is precisely the reading
-  // the old gate trusted, so the session has to answer the question a
-  // different way.
+  // Mid-build the ref list is empty by design. A gate on the list reads that
+  // as "no plates", so the session answers the question a different way.
   assert.deepEqual(h.session.refs(), [], 'the ref list is empty while a rebuild is in flight');
   assert.equal(h.session.busy(), true);
   assert.equal(h.session.active(), true, 'but the plates are still live as far as a caller is concerned');
@@ -425,9 +423,9 @@ test('a session needs every one of its four collaborators', () => {
 });
 
 
-// The shipped lesson, passed through the same state and rebuild owners as the viewer.
+// A ten-part plate lesson (telomerase as it shipped with plates), passed through the same state and rebuild owners as the viewer.
 async function lessonPlates(install = true) {
-  const demo = JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url), 'utf8'));
+  const demo = JSON.parse(readFileSync(new URL('../../plugin/test/fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8'));
   const baseline = demo.chapters[0].immersive;
   let emphasis = baseline.emphasis;
   let origin = 'resting';
@@ -713,8 +711,8 @@ test('cancelled in-flight update cannot adopt or repair the old source after sou
 });
 
 
-test('XR telomerase chapters 1 and 4 draw only full-contrast emphasis plates; desktop keeps context', () => {
-  const demo = JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url), 'utf8'));
+test('XR chapters 1 and 4 of a ten-part plate lesson draw only full-contrast emphasis plates; desktop keeps context', () => {
+  const demo = JSON.parse(readFileSync(new URL('../../plugin/test/fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8'));
   const viewer = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
   for (const index of [0, 3]) {
     const emphasis = { ...demo.chapters[index].immersive.emphasis, parts: demo.chapters[0].immersive.emphasis.parts };

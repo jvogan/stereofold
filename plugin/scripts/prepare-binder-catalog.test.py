@@ -10,6 +10,37 @@ from unittest import mock
 SPEC = importlib.util.spec_from_file_location('binder_catalog', Path(__file__).with_name('prepare-binder-catalog.py'))
 catalog = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(catalog)
+DOWNLOAD_LIMIT = 8 * 1024 * 1024
+
+
+class EndlessResponse:
+    """An HTTP body far past the limit; `served` counts what the reader took."""
+    def __init__(self, size):
+        self.size, self.served, self.headers = size, 0, {}
+
+    def read(self, n=-1):
+        n = self.size - self.served if n is None or n < 0 else min(n, self.size - self.served)
+        self.served += n
+        return b'A' * n
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class DownloadTests(unittest.TestCase):
+    def test_fetch_stops_an_endless_body_and_writes_nothing(self):
+        body = EndlessResponse(3 * DOWNLOAD_LIMIT)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('urllib.request.urlopen', return_value=body):
+            root = Path(tmp)
+            (root / 'upstream').mkdir()
+            (root / 'upstream/design.csv').write_bytes((catalog.DEFAULT_ROOT / 'upstream/design.csv').read_bytes())
+            with self.assertRaises(ValueError):
+                catalog.checked_inputs(root, fetch=True)
+            self.assertLessEqual(body.served, DOWNLOAD_LIMIT + 1)
+            self.assertFalse((root / 'upstream/in_silico_scores.csv').exists())
 
 
 def fixture(intended='Cn2; Ts1; AaH II'):

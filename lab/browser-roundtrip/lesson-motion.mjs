@@ -125,6 +125,57 @@ function rotateAboutAxis(v, axis, radians) {
   ];
 }
 
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const finite3 = value => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
+
+/** The camera's own axes (right, up, back) from its pose, or undefined for a degenerate pose. */
+function cameraAxes(camera) {
+  if (!finite3(camera?.position) || !finite3(camera?.target) || !finite3(camera?.up)) return undefined;
+  const back = subtract(camera.position, camera.target), length = magnitude(back);
+  if (!(length > 0)) return undefined;
+  const z = scale(back, 1 / length), side = cross(camera.up, z), width = magnitude(side);
+  if (!(width > 1e-9)) return undefined;
+  const x = scale(side, 1 / width);
+  return [x, cross(z, x), z];
+}
+
+/**
+ * Where a headset lesson move was made, seen from the camera it left.
+ *
+ * A lesson takes its moves back newest first. Each one is taken back from the
+ * camera that the moves after it, once taken back, leave: the camera this move
+ * left, moved on by whatever turned the view between (the agent's or the
+ * wearer's turn, a scene-scale change). Kept in that camera's own axes, the
+ * move's centre and axis ride along with such a turn, so taking every lesson
+ * move back keeps exactly the turns made outside the lesson. Distances are in
+ * metres (render units times the XR scene scale), which a scene-scale change
+ * keeps. Undefined when the camera pose has no usable axes.
+ */
+export function lessonMoveFrame(camera, pivot, axis, sceneScale) {
+  const axes = cameraAxes(camera);
+  if (!axes || !finite3(pivot) || !(Number.isFinite(sceneScale) && sceneScale > 0)) return undefined;
+  const offset = subtract(pivot, camera.position);
+  const frame = { pivot: axes.map(direction => dot(offset, direction) * sceneScale) };
+  if (axis !== undefined) {
+    const vector = typeof axis === 'string' ? AXIS_VECTORS[axis] : axis;
+    if (!finite3(vector) || !(magnitude(vector) > 0)) return undefined;
+    const unit = scale(vector, 1 / magnitude(vector));
+    frame.axis = axes.map(direction => dot(unit, direction));
+  }
+  return frame;
+}
+
+/** The render-space centre and axis a `lessonMoveFrame` names, from the camera now. */
+export function lessonMoveFromFrame(camera, frame, sceneScale) {
+  const axes = cameraAxes(camera);
+  if (!axes || !finite3(frame?.pivot) || !(Number.isFinite(sceneScale) && sceneScale > 0)
+    || (frame.axis !== undefined && !finite3(frame.axis))) return undefined;
+  const along = (local, unit) => axes.reduce((sum, direction, index) => add(sum, scale(direction, local[index] * unit)), [0, 0, 0]);
+  return { pivot: add(camera.position, along(frame.pivot, 1 / sceneScale)),
+    ...(frame.axis ? { axis: along(frame.axis, 1) } : {}) };
+}
+
 /**
  * One chapter tick's next camera pose, from the live pose alone.
  *

@@ -12,7 +12,7 @@ import { companionTransform, foldCompanion } from './companion-structure.mjs';
 import { updatePlacementBounds } from './placement-bounds.mjs';
 import { createDrawnSubsetCache, createVisibleStageBoundsCache } from './visible-stage-bounds.mjs';
 import { PLACEMENT_MAX_TRANSLATION, XR_ROOM_MAX_METRES, clampPlacementScale, clampPlacementTranslation } from './placement-limits.mjs';
-import { requireSceneGeometryBudget, requireGeometryBudget, structureGeometryCounts, geometryBudgetReceipt, geometryBudgetConfirmation } from './representation-budget.mjs';
+import { requireSceneGeometryBudget, requireGeometryBudget, structureGeometryCounts, geometryBudgetReceipt, geometryBudgetConfirmation, solidEmphasisContext } from './representation-budget.mjs';
 import { compoundOps } from './compound-change.mjs';
 import { prepareRepresentationUploads, runTransitionTask, representationLayerRef } from './scene-transition.mjs';
 import { beginSceneTransition } from './xr-render-budget.mjs';
@@ -22,8 +22,9 @@ import { composeOverpaintLayers, selectionOverpaintLayer, selectionPaintPlan, se
 import { residueRunPlate, residueLabelText } from './residue-label-plates.mjs';
 import { capPlateInEyes, plateObstaclesInEyes, releasePlateInEyes } from './plate-eye-cap.mjs';
 import { cameraSnapshot } from './camera-snapshot.mjs';
-import { createLabelMeasurementGate, drawnPlateDepthSpheres, labelObjectRenderable, measureComponentLabels, renderedMeshVertexCount, renderedSubjectPoints, renderedSubjectSpheres } from './component-label-measurement.mjs';
+import { createLabelMeasurementGate, drawnPlateDepthSpheres, labelObjectRenderable, measureComponentLabels, noteAtomSphereMeshes, renderedMeshVertexCount, renderedSubjectPoints, renderedSubjectSpheres } from './component-label-measurement.mjs';
 import { measureEntryStandoff } from './entry-standoff.mjs';
+import { escapeStructureMarkup } from './structure-markup.mjs';
 import { PluginUIContext } from 'molstar/lib/mol-plugin-ui/context.js';
 import { PluginConfig } from 'molstar/lib/mol-plugin/config.js';
 import { PLUGIN_VERSION } from 'molstar/lib/mol-plugin/version.js';
@@ -37,6 +38,7 @@ import { Mat4, Vec2, Vec3, Vec4 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { Ray3D } from 'molstar/lib/mol-math/geometry/primitives/ray3d.js';
 import { Euler } from 'molstar/lib/mol-math/linear-algebra/3d/euler.js';
 import { StructureElement } from 'molstar/lib/mol-model/structure.js';
+import { OrderedSet } from 'molstar/lib/mol-data/int.js';
 import { StructureSelection } from 'molstar/lib/mol-model/structure/query.js';
 import { EveryLoci } from 'molstar/lib/mol-model/loci.js';
 import { Color } from 'molstar/lib/mol-util/color/index.js';
@@ -58,9 +60,11 @@ import { availableChains, describeVisibility, emptyVisibility, hiddenRowKeys, no
   resolveVisibility, sameVisibility, visibilityIsEmpty } from './inspection-visibility.mjs';
 import { roomPlacement } from './room-placement.mjs';
 import { motionFocusPlacement } from './motion-framing.mjs';
-import { chapterFieldDistance, createMenuObstructionScorer, fitChapterField, framingEnvelopeObject, menuGlassInView, visibleChapterSpheres } from './chapter-field.mjs';
+import { chapterFieldDistance, createMenuObstructionScorer, fitChapterField, framingEnvelopeObject, menuGlassInView, sweptChapterBalls, visibleChapterSpheres } from './chapter-field.mjs';
 import { glassPlatesOverlapInViews } from './glass-overlap.mjs';
 import { focusPlacement, focusTravel, obliqueGrowthTurn, turnSweptPoints, GROWTH_WALL_AZIMUTH_DEGREES } from './focus-placement.mjs';
+import { closeUpContext, towardWearer } from './closeup-context.mjs';
+import { eyeFrame, nearestView, rotationTurn, sameRotation, siteView, siteViewAtoms, siteViewTurn } from './site-view.mjs';
 // The density tier's whole-map lens ceiling, stricter than the
 // atomic whole-structure one. Read `plate-standoff.mjs` for the numbers.
 import { occludedPlateShare, pointRange, SUBJECT_LENS_CEILING, VOLUME_WHOLE_LENS_CEILING } from './plate-standoff.mjs';
@@ -157,7 +161,7 @@ import { createPlacementHold } from './wearer-placement.mjs';
 import { createAgentPlacementHistory } from './agent-placement-history.mjs';
 // The lesson's own chapter turn — pure camera arithmetic and
 // one admission gate. The viewer owns the privileged half around it.
-import { createLessonMotionHold, lessonCameraMove, lessonMotionApplies, normalizeLessonMotion } from './lesson-motion.mjs';
+import { createLessonMotionHold, lessonCameraMove, lessonMotionApplies, lessonMoveFrame, lessonMoveFromFrame, normalizeLessonMotion } from './lesson-motion.mjs';
 // The stock XR thumbstick, retuned so it is not the only way to move.
 // And the trigger/grip modifier layer both sticks now read.
 import { createStickModifiers, firePassthroughToggle, xrLocomotionAttribs, xrManagerAttribs,
@@ -247,15 +251,13 @@ const EMPHASIS_LAYER_REF = 'stereofold-lesson-emphasis';
  * reads without leaning in, which is what "name the PAM" needs.
  */
 const DESKTOP_LABEL_SIZE_FACTOR = 1.5;
-// The hardware calibration of the angular model used
-// to be a constant here, `XR_LABEL_HARDWARE_GAIN = 1.3`. It was the compromise
-// between run 13 (gain 2.7: ideal in the `site` chapter at placement scale 2.4,
-// ten plates piled up in the wide one) and run 14 (gain 1.3: read wide, small
-// and buried up close), and it satisfied neither. Those two readings were never
-// in conflict — they are two points on a curve, and `componentLabelHardwareGain`
-// in `label-facing.mjs` is that curve. The stacking that made 2.7 unusable wide
-// is a layout problem now, not a size one, which is what lets the wide view
-// take a bigger gain at all.
+// The hardware calibration of the angular model is a curve, not a constant.
+// On a Quest 2, gain 2.7 reads well in the `site` chapter at placement scale
+// 2.4 and piles ten plates up in the wide chapter at scale 1; gain 1.3 reads
+// in the wide chapter and is small and partly buried up close. Those are two
+// points on one curve, `componentLabelHardwareGain` in `label-facing.mjs`.
+// Label layout keeps the wide view's plates apart, so the wide view can take
+// a gain above the 1.3 floor.
 /**
  * The state-tree ref prefix for the per-part name plates a
  * chapter asks for with `componentLabels`. Root-level cells, siblings of the
@@ -268,6 +270,20 @@ const COMPONENT_LABEL_REF = 'stereofold-component-labels';
  * the plates are drawn rather than a second rule to drift.
  */
 const COMPONENT_LABEL_LIMIT = 16;
+/**
+ * At most this many atoms per part reach the plate solver. A part this size or
+ * smaller hands over every atom (each telomerase part does); a larger one hands
+ * over every n-th, read in file order, which keeps a relayout of sixteen parts
+ * to a few milliseconds.
+ */
+const COMPONENT_LABEL_POINT_LIMIT = 4096;
+/**
+ * How far, in Angstrom, the drawn part reaches past its atom centres: the
+ * largest van der Waals radius Mol* draws for a common element (potassium,
+ * 2.75), which also covers a cartoon tube. A sampled part is also bounded by
+ * its sphere; read `partsSilhouette` in label-layout.mjs.
+ */
+const COMPONENT_LABEL_POINT_PAD = 2.75;
 /** The exact atlas settings used by StructureSelectionsLabel3D's defaults. */
 const COMPONENT_LABEL_TEXT_PROPS = Object.freeze({
   fontFamily: 'sans-serif', fontQuality: 3, fontStyle: 'normal',
@@ -351,6 +367,7 @@ export const FRAMING_UNWIND_DEGREES_PER_SECOND = 120;
 // Making room for its glass leaves a lesson chapter at least this share of
 // the angular size it was framed at, and a motion chapter at least this wide.
 export const GLASS_MIN_SIZE_SHARE = .75;
+export const SPIN_GLASS_MIN_SIZE_SHARE = .9;
 export const MOTION_MIN_DEGREES = 35;
 
 // `runSpatialAction` lets the embedding workspace admit an in-headset toolbar
@@ -432,6 +449,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
   let structure, representation, selection, visibleStage, disposedSnapshot, busy = false;
   let spatialRepresentationInputs = [], spatialRepresentationOptions = [];
   let companionRecoveryActive = false, companionRecoveryPendingXr = false;
+  // An XR exit that met a busy viewer still owes the flat page its repaint (`repaintAfterExit`).
+  let exitRepaintPending = false;
   let retainedRepresentationCount = 0;
   let appearanceWork;
   let sequenceRefreshVersion = -1;
@@ -527,6 +546,45 @@ export async function createViewer({ canvas: element, container, onSelection = (
   // The chapter whose framing stands the wearer inside the structure, so its
   // spin is held still (`focusSelection`).
   let turnHeldFor = null;
+  // The last chapter painted with a spin without end, and whether the chapter
+  // on show turns so: while it paints, then while that spin runs. A close-up
+  // that holds its spin still does not.
+  let spinningChapter = null;
+  function chapterSpinning() {
+    const chapter = paintingChapter !== undefined ? (paintingTurn?.continuous ? paintingChapter : null)
+      : motionReason() ? null : spinningChapter;
+    return chapter !== null && turnHeldFor !== chapter;
+  }
+  // A spin's field, built once for the same drawn geometry, axis and pivot:
+  // each menu redraw and its status check reuse it while the chapter turns.
+  // The key holds the drawn objects' geometry and visibility revisions and
+  // every drawn ball, a tenth of an angstrom apart: the balls come back to the
+  // source basis through the live spin, so their last bits are rounded away.
+  let sweptFieldCache = new Map();
+  function sweptChapterField(balls, axis, pivot, revisions = '') {
+    let hash = 2166136261;
+    for (let i = 0; i < balls.length; i++) {
+      const { center, radius } = balls[i];
+      hash = Math.imul(hash ^ Math.round(center[0] * 10), 16777619);
+      hash = Math.imul(hash ^ Math.round(center[1] * 10), 16777619);
+      hash = Math.imul(hash ^ Math.round(center[2] * 10), 16777619);
+      hash = Math.imul(hash ^ Math.round(radius * 10), 16777619);
+    }
+    const unit = Math.hypot(...axis) || 1;
+    const key = [revisions, balls.length, hash >>> 0, ...axis.map(v => Math.round(v / unit * 1e4)), ...pivot.map(v => Math.round(v * 100))].join('|');
+    let swept = sweptFieldCache.get(key);
+    if (!swept) {
+      if (sweptFieldCache.size >= 4) sweptFieldCache.delete(sweptFieldCache.keys().next().value);
+      sweptFieldCache.set(key, swept = Object.assign(sweptChapterBalls(balls, { axis, pivot }).map(sphere => ({ ...sphere, kind: 'drawn' })), { key }));
+    }
+    return swept;
+  }
+  // The last menu proof drawn against a spin's field (`clearChapterMenu`).
+  let lastSpinProof = null;
+  // A new source leaves no spin to sweep. Leaving the headset drops the field
+  // and the proof but keeps the installed chapter's spin: Play after entering
+  // again turns it with no new paint, and its glass must clear the turn.
+  function forgetChapterSpin(source = true) { sweptFieldCache.clear(); lastSpinProof = null; if (source) spinningChapter = null; }
   // The animated chapter that has had its one menu-clearance move.
   let menuClearanceMovedFor = null;
   let companionRecord;
@@ -669,7 +727,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
       appearance: { representation: rendered.representation, color: rendered.color },
       figure: Boolean(lessonFigure.snapshot()),
       // Density has no molecular emphasis layers, even when its lesson names parts.
-      emphasis: volume ? undefined : { ...emphasisState, contextOpacity: paintedContextOpacity(emphasisState.contextOpacity) },
+      emphasis: volume ? undefined : { ...emphasisState, contextOpacity: typeof solidContextTarget === 'function'
+        && solidContextTarget(representation, structure?.obj?.data)
+        ? 1 : paintedContextOpacity(emphasisState.contextOpacity) },
       styles: styleLayers.map(layer => {
         const params = layer.representation?.cell?.params?.values;
         return { representation: params?.type?.name, color: params?.colorTheme?.name };
@@ -727,6 +787,41 @@ export async function createViewer({ canvas: element, container, onSelection = (
   // geometry, and rebuilding Mol* text for them is the Quest frame-rate cliff.
   let componentLabelBuildSignature = null;
   const componentLabelBounds = createSelectionBoundsCache(loci => StructureElement.Loci.getBoundingSphere(loci));
+  // A part's own atom positions in model space, flat x, y, z: every atom up
+  // to COMPONENT_LABEL_POINT_LIMIT, every `stride`-th beyond it, read while
+  // walking the loci so a large part is never copied whole. The plate solver
+  // measures where the part is drawn from these rather than from its bounding
+  // sphere; read `partOutline` in label-layout.mjs.
+  const componentLabelAtoms = createSelectionBoundsCache(loci => {
+    const count = StructureElement.Loci.size(loci);
+    if (!(count > 0)) return null;
+    const stride = Math.max(1, Math.ceil(count / COMPONENT_LABEL_POINT_LIMIT));
+    const positions = new Float32Array(Math.ceil(count / stride) * 3), point = Vec3();
+    let seen = 0, kept = 0;
+    for (const { unit, indices } of loci.elements) {
+      for (let i = 0, n = OrderedSet.size(indices); i < n; i++, seen++) {
+        if (seen % stride !== 0) continue;
+        unit.conformation.position(unit.elements[OrderedSet.getAt(indices, i)], point);
+        positions[3 * kept] = point[0]; positions[3 * kept + 1] = point[1]; positions[3 * kept + 2] = point[2];
+        kept += 1;
+      }
+    }
+    return { positions: positions.subarray(0, 3 * kept), stride };
+  });
+  /** A part's atoms in the scene units the plate anchors are in, and how far the drawn part reaches past them. */
+  function componentLabelPoints(loci, transform, scale) {
+    const atoms = componentLabelAtoms(loci);
+    if (!atoms) return {};
+    const { positions, stride } = atoms;
+    const points = new Float32Array(positions.length), point = Vec3();
+    for (let i = 0; i < positions.length; i += 3) {
+      Vec3.set(point, positions[i], positions[i + 1], positions[i + 2]);
+      Vec3.transformMat4(point, point, transform);
+      points[i] = point[0]; points[i + 1] = point[1]; points[i + 2] = point[2];
+    }
+    return { points, pointRadius: COMPONENT_LABEL_POINT_PAD * (Number.isFinite(scale) ? scale : 1),
+      pointsSampled: stride > 1 };
+  }
   let componentLabelLayoutCache = null;
   let latestHeadContext = null, latestHeadSample = 0, latestRoomPlacementPose = null;
   let retainedPoseHidden = false, retainedEntryCheckPending = false;
@@ -917,6 +1012,16 @@ export async function createViewer({ canvas: element, container, onSelection = (
   // spoken move and a menu nudge all take it; Reset view, Fit and a spoken
   // "recenter" give it back. See wearer-placement.mjs.
   const wearerPlacement = createPlacementHold();
+  // A headset site close-up's left-out residues and what the hidden layer
+  // last drew of them (`closeUpMaskKeys`).
+  let closeUpMask = { keys: [], structure: undefined, figure: undefined }, paintedCloseUpMask = '';
+  // The orientation a site close-up's plane view turned away from, kept so
+  // the next framed figure turns back to it: `{ rotation, landed }` in the
+  // headset (placement rotations), `{ camera, landedCamera }` on the desktop
+  // (directions toward the eye and up), each with its `structure`. A lesson
+  // installed or a source placed (`setLessonRestingState`) drops it. It stays
+  // after a turn back, so a restored close-up pose turns back again.
+  let siteViewReturn;
   const agentPlacementHistory = createAgentPlacementHistory({ hold: wearerPlacement, context: () => {
     const scene = liveScene();
     return { session: canvas.xr?.isPresenting?.value ? canvas.webgl.xr.session : undefined,
@@ -1121,6 +1226,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
         // or startPresentationMotion() reads desktop rotation as already
         // running and the structure stays frozen after leaving immersion.
         if (motionFrame !== undefined && motionFrameScheduler) stopPresentationMotion({ resetPose: false });
+        // A site close-up is a headset framing: the flat page draws the chapter's chains.
+        if (typeof setCloseUpMask === 'function' && setCloseUpMask())
+          void inspectionMutation(() => paintVisibilityLayers()).catch(error => console.error(error));
       }
       // Stock XR forces full-scene depth. A deliberate cutaway opts out;
       // clearing it restores stock full-scene behavior for head movement.
@@ -1195,6 +1303,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
         geometryBudget: appliedGeometryBudget,
         // A controller/voice placement owns the existing menu relation too.
         placementMoves: wearerPlacement.state().moves,
+        // Whether that placement still holds; the menu's claim ends with it.
+        placementHeld: wearerPlacement.state().held,
         ...spatialSharedHistory(),
         sequence: sequenceNavigation.snapshot(),
         // Where the last placement receipt put the
@@ -1291,7 +1401,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
         }
       },
       onPresented: async () => { await prepareEntryGeometryAdvisory(); },
-      onLeavingPresentation: async () => { releaseFigurePlates(); fitDesktopPreview(); try { if (canRebuildForXr({ presenting: false })) await applyInspectionAppearance({ labels: false, componentLabels: false }); } finally { fitDesktopPreview(); } },
+      onLeavingPresentation: async () => { releaseFigurePlates(); fitDesktopPreview(); try { if (canRebuildForXr({ presenting: false })) await applyInspectionAppearance({ labels: false, componentLabels: false }); else exitRepaintPending = busy; } finally { fitDesktopPreview(); } },
       onConsumeSpatialSelect: ({ inputSource, phase }) => {
         const hand = inputSource?.handedness;
         if (phase === 'start') {
@@ -1754,6 +1864,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
           });
           latestRoomPlacementPose = roomPose ? { headInRoom: Array.from(roomPose.transform.matrix),
             renderFromRoom: Array.from(roomFromRender.inverse.matrix), labelViews, labelViewports } : null;
+          if (typeof placementViewWaiters !== 'undefined')
+            for (const check of placementViewWaiters) check();
           if (roomEntry && roomPose && !busy && state.status === 'ready') roomEntry.cameraScale = canvas.camera.scale;
           sampleHeadFrame({ pose, roomPose, mode, sphere });
           // The floor arrives seconds after the session
@@ -1991,33 +2103,44 @@ export async function createViewer({ canvas: element, container, onSelection = (
     ] });
   }
 
-  function geometryFor(representationName, data = structure?.obj?.data, figure) {
+  function geometryFor(representationName, data = structure?.obj?.data, figure, opacity = 1) {
     const presenting = Boolean(canvas.xr.isPresenting.value);
     if ((companionRecord || stylesState.length || lessonFigure.geometryEntries?.(figure).length) && data === structure?.obj?.data) {
-      return comparisonGeometry(companionRecord, representationName, figure)[0];
+      return comparisonGeometry(companionRecord, representationName, figure, opacity)[0];
     }
     return requireGeometryBudget({ representation: representationName, ...structureGeometryCounts(data, representationName),
       presenting, deviceClass: sessionDeviceClass(currentXrSession(), globalThis.navigator),
       quality: xrRepresentationQuality({ presenting, representation: representationName }),
-      standalone: isStandaloneHmdAgent(globalThis.navigator) });
+      standalone: isStandaloneHmdAgent(globalThis.navigator), lesson: lessonOwnsScene(), opacity });
+  }
+  // A chapter playing or a lesson figure installed: the scene's spheres keep
+  // the path a lesson has been seen with (see `sphereTypeParams`).
+  function lessonOwnsScene() {
+    return Boolean(lessonPlayback) || Boolean(lessonFigure.geometryIdentity?.());
   }
 
-  function comparisonGeometry(record, primaryRepresentation = inspectionSnapshot().appearance.representation, figure) {
+  function comparisonGeometry(record, primaryRepresentation = inspectionSnapshot().appearance.representation, figure,
+    opacity = inspectionSnapshot().appearance.opacity) {
     const plans = styleLayerDefinitions(stylesState, { ...inspectionSnapshot().appearance, representation: primaryRepresentation });
-    return sceneGeometry(plans, record, primaryRepresentation, figure);
+    return sceneGeometry(plans, record, primaryRepresentation, figure, opacity);
   }
-  function sceneGeometryEntries(plans, record = companionRecord, primaryRepresentation = inspectionSnapshot().appearance.representation) {
+  function sceneGeometryEntries(plans, record = companionRecord, primaryRepresentation = inspectionSnapshot().appearance.representation,
+    opacity = inspectionSnapshot().appearance.opacity) {
     return [
-      { representation: primaryRepresentation, ...structureGeometryCounts(structure.obj.data, primaryRepresentation) },
-      ...(record ? [{ representation: record.companionState.appearance.representation, ...structureGeometryCounts(record.structure.obj.data, record.companionState.appearance.representation) }] : []),
-      ...plans.map(plan => ({ representation: plan.look.representation, ...structureGeometryCounts(plan.data, plan.look.representation) })),
+      { representation: primaryRepresentation, ...structureGeometryCounts(structure.obj.data, primaryRepresentation), opacity },
+      ...(record ? [{ representation: record.companionState.appearance.representation, ...structureGeometryCounts(record.structure.obj.data, record.companionState.appearance.representation),
+        opacity: record.companionState.appearance.opacity ?? 1 }] : []),
+      ...plans.map(plan => ({ representation: plan.look.representation, ...structureGeometryCounts(plan.data, plan.look.representation),
+        opacity: plan.look.opacity ?? 1 })),
     ];
   }
-  function sceneGeometry(plans, record = companionRecord, primaryRepresentation = inspectionSnapshot().appearance.representation, figure) {
+  function sceneGeometry(plans, record = companionRecord, primaryRepresentation = inspectionSnapshot().appearance.representation, figure,
+    opacity = inspectionSnapshot().appearance.opacity) {
     const presenting = Boolean(canvas.xr.isPresenting.value);
-    return requireSceneGeometryBudget([...sceneGeometryEntries(plans, record, primaryRepresentation),
+    return requireSceneGeometryBudget([...sceneGeometryEntries(plans, record, primaryRepresentation, opacity),
       ...(lessonFigure.geometryEntries?.(figure) ?? [])], { presenting, deviceClass: sessionDeviceClass(currentXrSession(), globalThis.navigator),
-      quality: xrRepresentationQuality({ presenting, representation: primaryRepresentation }), standalone: isStandaloneHmdAgent(globalThis.navigator) });
+      quality: xrRepresentationQuality({ presenting, representation: primaryRepresentation }), standalone: isStandaloneHmdAgent(globalThis.navigator),
+      lesson: Boolean(figure) || lessonOwnsScene() });
   }
 
   async function paintCompanion() {
@@ -2175,6 +2298,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
       selectionLociElementCount: selection ? StructureElement.Loci.size(selection.toLoci(state.selectionKeys)) : 0,
       contextLost,
       xrPresenting: canvas.xr.isPresenting.value,
+      xrEntryPending: xrEntryPending(),
       // Public diagnostic only; this is Mol*'s XR unit conversion, never a headset pose.
       xrCameraScale: canvas.camera.scale,
       trackballAnimation: canvasSettings.trackballAnimation,
@@ -2543,10 +2667,12 @@ export async function createViewer({ canvas: element, container, onSelection = (
   function placementIntentCheckpoint() {
     return agentPlacementHistory.checkpoint(inspectionSnapshot().placement);
   }
+  // 'returned' when an agent edit put the molecule back and gave its ownership back.
   function settlePlacementIntent(before, { agent = false, history = false } = {}) {
-    if (history) agentPlacementHistory.replay(before, inspectionSnapshot().placement);
-    else if (agent) agentPlacementHistory.accept(before, inspectionSnapshot().placement,
+    if (history) return agentPlacementHistory.replay(before, inspectionSnapshot().placement);
+    if (agent) return agentPlacementHistory.accept(before, inspectionSnapshot().placement,
       () => takeWearerPlacement('agent-placement'));
+    return false;
   }
 
   /**
@@ -2569,6 +2695,17 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return state;
   }
   /**
+   * A size the wearer asked for by voice through the host's typed words. It
+   * is the wearer's own move, held as the menu row's size step is, so it
+   * carries across ordinary chapters rather than ending with the chapter.
+   */
+  async function scaleInspectionForWearer(scale) {
+    const prior = inspectionSnapshot().placement.scale;
+    const applied = await placeInspection({ scale }, 'place', { wearer: true });
+    takeWearerPlacement('voice-scale', { scale: Math.round((scale / prior) * 1000) / 1000 });
+    return applied;
+  }
+  /**
    * One tracked head frame. Tracking is fresh whenever the room pose
    * resolves; a lost pose is never stamped, so spatialContext() cannot present
    * tracking loss as a current sample. The molecule-relative reading stops at
@@ -2579,10 +2716,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
     latestHeadContext = pose && sphere && inspectionState ? relativeHeadContext({ mode, headMatrix: pose.transform.matrix,
       cameraScale: canvas.camera.scale, moleculeTransform: presentationTransform(), center: sphere.center, radius: sphere.radius }) : null;
     if (roomPose) latestHeadSample = performance.now();
-    // Notify only after the drawn XR callback has published its real pose and
-    // sample time. A renderer callback without tracking cannot satisfy focus.
-    if (typeof placementViewWaiters !== 'undefined')
-      for (const check of placementViewWaiters) check();
+    // A chapter framing that found a stale sample waits for this stamp. Only
+    // that wait is woken here; the other placement waiters keep their own
+    // place in the frame callback.
+    if (roomPose && typeof focusPivotRequest !== 'undefined') focusPivotRequest?.trackingChanged?.();
   }
 
   /** The wearer asked for the authored seat back. */
@@ -2592,11 +2729,32 @@ export async function createViewer({ canvas: element, container, onSelection = (
     recordManipulation('wearer-placement', { event: 'released', reason: state.reason, chapter: state.chapter });
   }
 
-  /** Called once by the player, never by appearance or animation repainting. */
-  function beginChapterFraming() {
+  /**
+   * Called once by the player, never by appearance or animation repainting.
+   * Given what `endChapterPlacement` handed back, returns it with this
+   * release counted as the chapter change's own, so a failed change still
+   * gives the wearer's hold back and only newer input outranks it.
+   */
+  function beginChapterFraming(change) {
     cancelXrPlacementFollowup();
     invalidateGesturePivot();
     releaseWearerPlacement('authored-chapter');
+    return change ? Object.freeze({ found: change.found, ended: wearerPlacement.ownership() }) : undefined;
+  }
+
+  /**
+   * The player left a chapter: a hold taken for that chapter alone ends.
+   * Returns what `resumeChapterPlacement` needs if that chapter change fails.
+   */
+  function endChapterPlacement() {
+    const found = wearerPlacement.ownership();
+    const state = wearerPlacement.endChapter('chapter-ended');
+    if (state) recordManipulation('wearer-placement', { event: 'released', reason: state.reason, chapter: state.chapter });
+    return Object.freeze({ found, ended: wearerPlacement.ownership() });
+  }
+  /** A failed chapter change put its found pose back: that pose's owner comes back too. */
+  function resumeChapterPlacement(change) {
+    return Boolean(change) && wearerPlacement.resumeChapter(change.found, change.ended);
   }
 
   function cancelXrPlacementFollowup() {
@@ -2911,7 +3069,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
    * was pressed. The grab's own bake solved the same problem the same way, by
    * admitting live interaction, and the placement itself is identical.
    */
-  async function seatStructureForEntry({ resetMenu = false, bounded = false, chapter = false } = {}) {
+  async function seatStructureForEntry({ resetMenu = false, bounded = false, chapter = false, authored, lesson } = {}) {
     const assertPlacementIdle = () => {
       // Fit and Reset replace the saved pose. An unbaked hand/stick delta must
       // never be applied over that new seat, including a released pending save.
@@ -2934,25 +3092,53 @@ export async function createViewer({ canvas: element, container, onSelection = (
     if (!canvas.xr.isPresenting.value || performance.now() - latestHeadSample >= 1500 || !latestRoomPlacementPose) {
       throw Error('Enter VR and wait for tracking before recentring the structure.');
     }
-    // Reset/Fit is recovery from a lost view. A cutaway's old near plane can
-    // lie beyond every seat the room allows; remove it before measuring.
-    if (inspectionSnapshot().appearance?.clipping > 0 && typeof configureInspection === 'function') {
-      await configureInspection({ clipping: 0 }, { preservePlacement: true });
-      if (typeof awaitPlacementViews === 'function') await awaitPlacementViews();
-    }
-    const sphere = loadedSphere();
-    let seat;
-    try { seat = roomAnchorPlacement({ mode: 'auto', floorY: roomAnchor?.floorY() ?? null, sphere, resetMenu, bounded }); }
+    const solveSeat = () => roomAnchorPlacement({ mode: 'auto', floorY: roomAnchor?.floorY() ?? null,
+      sphere: loadedSphere(), resetMenu, bounded });
+    const reportRefusal = error => {
+      if (!resetMenu) return;
+      const text = error?.message ?? String(error);
+      talkCaption?.set({ outcome: text, holdMs: 6000, complete: true });
+      recordManipulation('outcome', { status: 'refused', action: 'reset', reason: text });
+      error.resetReported = true;
+    };
+    // A cutaway is part of what the chapter or the assistant is showing, so
+    // Fit, Reset and Done seat the structure with it. Its near plane can also
+    // lie beyond every seat the room allows, and Reset/Fit is how a wearer
+    // recovers a lost view. Only then is the cutaway removed, the open views
+    // measured, and the seat solved again. Any refusal after that puts the
+    // cutaway back: it was not what stood in the way.
+    const cutawayNotice = 'Cutaway removed to fit the structure.';
+    let seat, removedCutaway = 0;
+    const restoreCutaway = async () => {
+      const cutaway = removedCutaway;
+      removedCutaway = 0;
+      if (!(cutaway > 0)) return;
+      try { await configureInspection({ clipping: cutaway }, { preservePlacement: true }); }
+      catch (error) { recordManipulation('outcome', { status: 'failed', action: 'restore-cutaway', reason: error?.message ?? String(error) }); }
+    };
+    try { seat = solveSeat(); }
     catch (error) {
-      if (resetMenu) {
-        const text = error?.message ?? String(error);
-        talkCaption?.set({ outcome: text, holdMs: 6000, complete: true });
-        recordManipulation('outcome', { status: 'refused', action: 'reset', reason: text });
-        error.resetReported = true;
+      const cutaway = inspectionSnapshot().appearance?.clipping;
+      if (!(cutaway > 0) || typeof configureInspection !== 'function'
+        || !String(error?.message).startsWith('Could not reset: the entry size cannot fit')) {
+        reportRefusal(error);
+        throw error;
       }
-      throw error;
+      await configureInspection({ clipping: 0 }, { preservePlacement: true });
+      removedCutaway = cutaway;
+      try {
+        if (typeof awaitPlacementViews === 'function') await awaitPlacementViews();
+        seat = solveSeat();
+      } catch (retry) {
+        await restoreCutaway();
+        reportRefusal(retry);
+        throw retry;
+      }
     }
-    const menuRecovery = typeof applySeatMenuRecovery === 'function' ? await applySeatMenuRecovery(seat) : undefined;
+    const cutawayRemoved = removedCutaway > 0;
+    let menuRecovery;
+    try { menuRecovery = typeof applySeatMenuRecovery === 'function' ? await applySeatMenuRecovery(seat) : undefined; }
+    catch (error) { await restoreCutaway(); throw error; }
     const wasHidden = typeof retainedPoseHidden !== 'undefined' && retainedPoseHidden;
     const checkpoint = inspectionState.checkpoint();
     try {
@@ -2968,7 +3154,13 @@ export async function createViewer({ canvas: element, container, onSelection = (
     } catch (error) {
       inspectionState.restoreCheckpoint(checkpoint);
       await menuRecovery?.rollback?.();
+      await restoreCutaway();
       throw error;
+    }
+    if (cutawayRemoved) {
+      // Nothing else tells the wearer or the assistant why the cut is gone.
+      recordManipulation('outcome', { status: 'adjusted', action: resetMenu ? 'reset' : 'fit', reason: cutawayNotice });
+      if (!resetMenu) talkCaption?.set({ outcome: cutawayNotice, holdMs: 6000, complete: true });
     }
     // Reset is an explicit stop, even when its mutation retained a wearer
     // placement or came from an agent. Bake the chapter's separate timer too.
@@ -2981,12 +3173,18 @@ export async function createViewer({ canvas: element, container, onSelection = (
     notePlacement(inspectionSnapshot().placement, resetMenu ? 'reset' : 'fit');
     recordManipulation(chapter ? 'chapter-entry-seat' : 'xr-button', { action: 'recenter-structure', mode: seat.mode,
       metersAcross: Math.round(seat.metersAcross * 100) / 100, scale: seat.scale });
+    // The lesson's later chapters read their authored placements against this seat.
+    if (chapter && typeof recordAuthoredChapterFrame === 'function') recordAuthoredChapterFrame(authored, seat, lesson);
     // Reset view is the wearer handing the seat back. The lesson
     // may frame again from here, and an authored placement may land again.
     // A chapter's seat is the lesson's, like a swap's: no wearer gave it.
     if (!chapter) releaseWearerPlacement('reset-view');
+    // This seat replaces the one the lesson opened at, so later chapters are
+    // no longer read against that one: the next keeps this centre unless its
+    // authored seat faces the wearer.
+    if (!chapter && typeof authoredChapterFrame !== 'undefined') authoredChapterFrame = null;
     void roomAnchor?.applied({ roomPoint: seat.roomPoint, wearerRequested: !chapter })?.catch?.(() => {});
-    return seat;
+    return cutawayRemoved ? { ...seat, cutawayNotice } : seat;
   }
 
   /**
@@ -3015,12 +3213,30 @@ export async function createViewer({ canvas: element, container, onSelection = (
       try {
         // The seat measures the drawn geometry from its current transform.
         applyInspectionTransform();
-        const seat = roomAnchorPlacement({ mode: 'auto', floorY: roomAnchor?.floorY() ?? null, sphere: loadedSphere() });
+        // The glass drawn now is still the outgoing chapter's. The seat keeps a
+        // usable size against it; when only a sliver would clear it, the seat
+        // names the menu move or hide that clears it; the load awaits that move.
+        const seat = roomAnchorPlacement({ mode: 'auto', floorY: roomAnchor?.floorY() ?? null, sphere: loadedSphere(), entryFloor: true });
         inspectionState.place({ translation: seat.translation, scale: seat.scale }, 'entry-seat');
         // As after Fit, the room anchor measures drift from this seat.
         if (!deferAnchor) void roomAnchor?.applied({ roomPoint: seat.roomPoint })?.catch?.(() => {});
-        record({ anchor: 'entry-seat', anchoredScale: anchor.placement.scale, scale: seat.scale,
-          metersAcross: Math.round(seat.metersAcross * 100) / 100 });
+        // The fitter's step, read from what it returned: the entry seat kept,
+        // moved back, shrunk, raised or lowered, or shifted sideways.
+        const shifted = seat.entryTranslation?.some((value, axis) => Math.abs(seat.translation[axis] - value) > 1e-9);
+        const step = seat.verticalTravelMeters ? 'vertical' : seat.scale < seat.entryScale ? 'shrunk' : seat.resetTravelMeters ? 'deeper'
+          : shifted ? 'lateral' : 'entry';
+        const detail = { anchor: 'entry-seat', anchoredScale: anchor.placement.scale, scale: seat.scale,
+          metersAcross: Math.round(seat.metersAcross * 100) / 100, step, entryScale: seat.entryScale, menuSeat: seat.menuSeat };
+        if (!seat.menuCandidate || typeof applySeatMenuRecovery !== 'function') { record(detail); return seat; }
+        // A menu move or hide is recorded once the toolbar has drawn it. A
+        // refusal, or a draw a newer one superseded, is recorded as the attempt
+        // that failed, with the toolbar's reason.
+        const attempt = seat.menuRelocation;
+        seat.menuMove = applySeatMenuRecovery(seat).then(receipt => {
+          if (receipt?.kept) throw Error('The lesson kept its controls drawn.');
+          record({ ...detail, step: seat.menuCandidate.hide ? 'menu-hidden' : 'menu-moved', menuMove: attempt });
+          return receipt;
+        }).catch(error => record({ ...detail, step: 'menu-failed', menuAttempt: attempt, menuError: error?.message ?? String(error) }));
         return seat;
       } catch (error) {
         // `settleInRoom` retries a refused seat and tells the wearer.
@@ -3293,9 +3509,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
           throw Error('Let go of it first.');
         }
         const seat = await seatStructureForEntry({ resetMenu: true });
-        // The owner, after the 23:00Z pass: "resetting the view
-        // should also reset the menu on the side so I can see that one again
-        // too". A reset is the wearer saying they are lost, and a menu still
+        // Resetting the view also resets the menu at the side, so the wearer
+        // can see it again. A reset is the wearer saying they are lost, and a menu still
         // seated on a pose they walked away from keeps them lost. Re-seat it on
         // the pose they have now, shown, so the reset leaves nothing to find.
         // A menu that cannot re-seat must not turn a finished reset into a
@@ -3313,8 +3528,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
           menuReseated = false;
           recordManipulation('xr-button', { action: 'recenter-structure', menu: 'not re-seated', reason: String(error?.message ?? error) });
         }
-        talkCaption?.set({ outcome: seat.menuRecovery ? 'View reset. Controls hidden; B/Y brings them back.'
-          : menuReseated ? 'View reset.' : 'View reset. The menu did not move.' });
+        talkCaption?.set({ outcome: (seat.menuRecovery ? 'View reset. Controls hidden; B/Y brings them back.'
+          : menuReseated ? 'View reset.' : 'View reset. The menu did not move.')
+          + (seat.cutawayNotice ? ` ${seat.cutawayNotice}` : ''), ...(seat.cutawayNotice ? { holdMs: 6000 } : {}) });
         return { ...seat, structureReset: true, menuReseated };
       } catch (error) {
         const text = error?.message ?? String(error);
@@ -4530,6 +4746,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const previousIdentity = liveScene();
     companionRecord = record?.companionRecord;
     dataRoot = record?.rootRef;
+    if (typeof forgetChapterSpin === 'function' && sourceRecord !== record?.source) forgetChapterSpin();
     sourceRecord = record?.source;
     structure = record?.structure;
     appliedGeometryBudget = record?.geometryBudget;
@@ -4571,11 +4788,11 @@ export async function createViewer({ canvas: element, container, onSelection = (
     }
     // A new source is a new lesson, so the previous chapter's
     // framing key must not survive the swap either. `lessonKey.forget` drops the
-    // taught names; without this the tourgrab "a chapter frames once, keyed by
+    // taught names; without this the rule "a chapter frames once, keyed by
     // its colour key" treats the grown tier's opening chapter as a repaint when
     // its key collides with the previous tier's, and any emphasis raced with
-    // the swap wears the old source's chains — on the protofilament that lit
-    // the lower dimer and ghosted the new one at 76aa6ff.
+    // the swap wears the old source's chains. On the protofilament that lights
+    // the lower dimer and ghosts the new one.
     const adoptedIdentity = liveScene();
     if (state.sourceSha256 !== previousSource || adoptedIdentity.modelNumber !== previousIdentity.modelNumber
       || adoptedIdentity.assemblyId !== previousIdentity.assemblyId) {
@@ -5112,7 +5329,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
   }
 
   /** The monumental placement for the room this session is in. */
-  function roomAnchorPlacement({ mode, floorY, sphere, resetMenu = false, bounded = false }) {
+  function roomAnchorPlacement({ mode, floorY, sphere, resetMenu = false, bounded = false, entryFloor = false }) {
     // Read unplaced part bounds once; candidates use the same rotation, names,
     // font measurement and projection as the label rebuild after placement.
     const named = new Map(emphasisState.parts.map(part => [part.id, part]));
@@ -5163,7 +5380,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
         && entryPlacementCandidate[key].every((value, axis) => Number.isFinite(value) && value === roomEntry.seat[key]?.[axis])));
     const menuCandidates = immersiveSession?.toolbarRelocationCandidates?.(latestRoomPlacementPose) ?? [];
     let placement = resetViewPlacement({ seat: entry, centered: resetMenu, bounded, fit: true, recoverVisible: true, menuCandidates,
-      retainFreeFieldSeat,
+      retainFreeFieldSeat, entryFloor,
       geometry: (latestRoomPlacementPose.labelViews?.length === 2 || (latestRoomPlacementPose.labelViews?.length === 1 && latestRoomPlacementPose.labelViews[0]?.eye === 'none')) ? {
         objects: typeof retainedPoseHidden !== 'undefined' && retainedPoseHidden ? retainedFitObjects()
           : scientificRepresentations(true).flatMap(repr => repr.renderObjects).filter(object => object.type !== 'text'),
@@ -5207,7 +5424,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
     latestPlateSeat = placement.plateSeat ?? null;
     // Keep the cap frame through anchor creation, placement and label deletes.
     view.plateSeat = latestPlateSeat;
-    return { ...placement, seatBasis: view };
+    // A swapped source's record names its entry size and the seat the drawn glass stands at.
+    const menuSeat = () => menuCandidates.find(candidate => !candidate.hide && candidate.baseline === JSON.stringify(candidate.points))?.id
+      ?? (menuCandidates.length ? 'unlisted' : 'none offered');
+    return { ...placement, seatBasis: view, ...(entryFloor ? { entryScale: entry.scale, entryTranslation: [...entry.translation], menuSeat: menuSeat() } : {}) };
   }
 
   async function applySeatMenuRecovery(seat) {
@@ -5224,6 +5444,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
   /** Every automatic entry starts without the previous session's pose or cap. */
   function beginRoomEntry(presenting) {
     if (!presenting && typeof rejectPlacementViews === 'function') rejectPlacementViews('The headset session ended before placement could be measured.');
+    if (!presenting && typeof forgetChapterSpin === 'function') forgetChapterSpin(false);
     if (!presenting && typeof showRetainedPose === 'function') showRetainedPose();
     if (typeof retainedEntryCheckPending !== 'undefined') retainedEntryCheckPending = presenting && wearerPlacedInRoom;
     if (presenting && typeof retainedEntryCheckPending !== 'undefined'
@@ -5248,6 +5469,20 @@ export async function createViewer({ canvas: element, container, onSelection = (
     pendingRoomLabelBasis = null;
     if (!wearerPlacedInRoom) { latestPlateSeat = null; latestSeatStandoffMeters = null; }
     menuResolveReason = null;
+  }
+
+  /**
+   * Whether this headset session still owes the structure its room seat.
+   *
+   * A lesson turn restored before entry waits for the seat to commit, and a
+   * committed seat announces itself. A refused seat, and a placement the
+   * wearer kept, announce nothing, so a turn that waited on the announcement
+   * alone stood still for the rest of the session. This is true from entering
+   * VR until the seat commits or is refused, and while a kept placement is
+   * still being checked against the menu.
+   */
+  function xrEntryPending() {
+    return Boolean(canvas.xr.isPresenting.value && (pendingRoomSeat || retainedEntryCheckPending));
   }
 
   /** Seat once from the tracked head; the `above` mode also works without a floor.
@@ -5369,8 +5604,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
       ...lessonFigure.molecular(),
       inspectionLabel?.representation?.obj?.data?.repr,
       ...(inspectionLabel?.extraRepresentations ?? []).map(label => label.obj?.data?.repr)].filter(Boolean);
-    if (templates || typeof molecularAnimation === 'undefined') return representations;
-    return [...representations.filter(repr => !molecularAnimation.replaces(repr)), ...molecularAnimation.representations()];
+    // Every geometry reader collects its objects here, so a spacefill drawn as
+    // sphere meshes is noted before any of them reads it (`atomSphereMesh`).
+    if (templates || typeof molecularAnimation === 'undefined') return noteAtomSphereMeshes(representations);
+    return noteAtomSphereMeshes([...representations.filter(repr => !molecularAnimation.replaces(repr)), ...molecularAnimation.representations()]);
   }
 
   /**
@@ -5626,9 +5863,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // And the shortfall is not one number. Mol*'s camera scale is
     // a session constant — the XR manager derives it once from the scene radius
     // — so a chapter that enlarges the structure spreads the parts apart while
-    // leaving every plate exactly the size it was. That is why run 13 read
-    // ideally at placement scale 2.4 and piled up at 1: the plates never
-    // changed, the room between them did. The gain therefore tracks the
+    // leaving every plate exactly the size it was. That is why gain 2.7 reads
+    // well at placement scale 2.4 and piles plates up at 1: the plates keep
+    // their size and the room between them changes. The gain therefore tracks the
     // placement, and the diagnostic records which one this chapter drew at.
     const hardwareGain = componentLabelHardwareGain(placementScale,
       { measuredMeters });
@@ -5848,8 +6085,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
   /**
    * One name plate per part of the lesson's colour key.
    *
-   * The owner asked for "the structure shows up with clear labels for the
-   * components". A colour key already names every component — "Dyskerin",
+   * A lesson's structure shows clear labels for its components. A colour key
+   * already names every component — "Dyskerin",
    * "NOP10", "hTR RNA" — but the names lived on a 2D panel the wearer is not
    * looking at, so in the headset the key was a set of unexplained colours.
    * This draws each name at its own part's centroid, in that part's colour.
@@ -5918,6 +6155,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
         color: authored.color ?? part.color ?? highlight,
         anchor: sphere ? Array.from(Vec3.transformMat4(Vec3(), sphere.center, transform)) : null,
         radius: (sphere?.radius ?? 0) * (Number.isFinite(placement.scale) ? placement.scale : 1),
+        // Only a headset layout solves positions; the desktop's plates sit on
+        // their parts and never read these. Harnesses that lift this closure
+        // without the sampler lay plates out by their discs, as before.
+        ...(presenting && typeof componentLabelPoints === 'function' ? componentLabelPoints(loci, transform, placement.scale) : {}),
       });
     }
     // The structure's own silhouette, in the same space and
@@ -6080,7 +6321,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
         const sphere = componentLabelBounds(entry.loci);
         return { ...entry, focused: wanted.get(entry.id)?.focused === true,
           anchor: sphere ? Array.from(Vec3.transformMat4(Vec3(), sphere.center, transform)) : null,
-          radius: (sphere?.radius ?? 0) * scale };
+          radius: (sphere?.radius ?? 0) * scale,
+          ...(presenting && typeof componentLabelPoints === 'function' ? componentLabelPoints(entry.loci, transform, scale)
+            : { points: undefined, pointRadius: undefined, pointsSampled: undefined }) };
       });
       const loaded = loadedSphere();
       const subject = loaded ? {
@@ -6247,7 +6490,15 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // Full committed bounds conservatively protect the scientific subject,
     // including geometry without a readable vertex buffer.
     const subject = { spheres: objects.flatMap(object => renderedSubjectSpheres(object, scale)) };
-    return { views: pose.labelViews, renderFromRoom: pose.renderFromRoom,
+    // A sphere that reaches an eye's own plane makes the silhouette the whole
+    // glass in that eye (`subjectRect`). In both eyes, the structure surrounds
+    // the wearer, and the talk caption is seated over it.
+    const surrounds = pose.labelViews.length === 2 && pose.labelViews.every(({ transform, projectionMatrix: p }) =>
+      subject.spheres.some(({ center: [x, y, z], radius }) => {
+        const m = transform.inverse.matrix, depth = -(m[2] * x + m[6] * y + m[10] * z + m[14]);
+        return depth <= radius && depth + radius > p[14] / (p[10] - 1);
+      }));
+    return { views: pose.labelViews, renderFromRoom: pose.renderFromRoom, surrounds,
       measured: measureComponentLabels({ plates, views: pose.labelViews, cameraScale: scale, subject }) };
   }
 
@@ -6315,22 +6566,30 @@ export async function createViewer({ canvas: element, container, onSelection = (
       })();
       // The caption card is glass too. A plate under it hides the menu that
       // clears everything else, so the plates keep off both.
-      const captionRect = (() => {
+      // One rectangle per glass plate the caption carries (the card and the
+      // assistant line), as the chapter framing reads them. One box round
+      // both also covered the open glass between them.
+      const captionRects = (() => {
         try {
           const points = immersiveSession?.captionPoints?.() ?? [];
           const matrix = immersiveSession?.presentation?.()?.roomMatrix?.();
-          const scenePoints = matrix ? points.map(point => applyMatrix4(point, matrix)).filter(Boolean) : [];
-          return scenePoints.length ? screenRectFromPoints({ points: scenePoints, eye: view.eye, target: view.target, up: view.up }) : null;
-        } catch { return null; }
+          if (!matrix) return [];
+          const groups = Array.isArray(points.plates) && points.plates.length ? points.plates : [points];
+          return groups.map(group => {
+            const scenePoints = group.map(point => applyMatrix4(point, matrix)).filter(Boolean);
+            return scenePoints.length ? screenRectFromPoints({ points: scenePoints, eye: view.eye, target: view.target, up: view.up }) : null;
+          }).filter(Boolean);
+        } catch { return []; }
       })();
       const options = {
-        plates: drawable.map(({ id, text, anchor, radius, focused }) => ({ id, text, anchor, radius, focused })),
+        plates: drawable.map(({ id, text, anchor, radius, focused, points, pointRadius, pointsSampled }) =>
+          ({ id, text, anchor, radius, focused, points, pointRadius, pointsSampled })),
         eye: view.eye, target: view.target, up: view.up,
         characterUnits: sizing.characterUnits,
         minSizeScale: sizing.minSizeScale,
         contextAlpha: Math.max(0.3, 1 - (plan?.transparency ?? 0)),
         measureText: componentLabelTextWidth,
-        obstacles: menuGlassObstacles([toolbarRect, captionRect]),
+        obstacles: menuGlassObstacles([toolbarRect, ...captionRects]),
         subject: subject ?? null,
         standoff,
         // The band the wearer can actually read. Nothing is
@@ -6377,7 +6636,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
         subject: subject ? solved.subjectOverlaps : null,
         // How far the arrangement is spread around the
         // structure, and the mean leader a wearer has to follow. The heap of
-        // seven plates under the fifth device run's structure reported a clean
+        // seven plates under a device run's structure reported a clean
         // `overlaps: 0`; these are the two numbers it would have failed.
         ...(solved.sides ? { sides: solved.sides } : {}),
         leaderEm: Math.round(solved.leaderEm * 100) / 100,
@@ -6392,7 +6651,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
         // tangent x/y at its depth in this pass's basis, with its part radius,
         // plate half extents, line count and focus; an on-axis replay basis
         // reproduces the same projection. Six decimals keep the replay within
-        // a millionth of a tangent unit; the acceptance-5 rings lacked all of
+        // a millionth of a tangent unit; the overprint recordings lacked all of
         // this, which is why their replays had to synthesise anchors.
         ...(solved.inputs ? {
           anchors: solved.inputs.anchors.map(entry => ({ id: entry.id,
@@ -6412,6 +6671,15 @@ export async function createViewer({ canvas: element, container, onSelection = (
         ...(solved.search ? { search: { nodes: solved.search.nodes, slots: solved.search.slots,
           complete: solved.search.complete === true, resolution: exact(solved.search.resolution) } } : {}),
         ...(menuReason ? { menuReason } : {}) });
+      // Each part's outline on the glass, which decided where its plate
+      // rests: sixteen x, y pairs per part, one flat list per part id, so the
+      // replay has every input. A record of its own keeps the layout record
+      // inside its field limit.
+      const outlines = (solved.inputs?.anchors ?? []).filter(entry => entry.outline?.length);
+      // Keys are `part:<id>`, so no authored id can take a field the
+      // diagnostics contract reserves.
+      if (outlines.length) recordCost('component-label-outline', { ...(reason ? { reason } : {}),
+        ...Object.fromEntries(outlines.map(entry => [`part:${entry.id}`, entry.outline.map(exact)])) });
       const placements = new Map(solved.placements.map(entry => [entry.id, entry]));
       componentLabelLayoutCache = { key, placements };
       return placements;
@@ -6569,6 +6837,31 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return Boolean(canvas.xr.isPresenting.value) === presenting;
   }
 
+  /**
+   * The flat repaint an XR exit owes when it lands on a busy viewer.
+   *
+   * Leaving immersion rebuilds the structure at desktop quality and paints
+   * its emphasis again for the flat page (`onLeavingPresentation`). A viewer
+   * still finishing a change refuses that rebuild (`canRebuildForXr`), and the
+   * flat page then kept what was built for the headset, such as the solid
+   * context of a heavy Quest 2 spacefill in place of its ghost, until some
+   * later change repainted it. The page asks for the owed rebuild at a quiet
+   * moment, when no command, chapter or receipt is in hand (`xr.repaintAfterExit`);
+   * started here the moment the viewer went idle, it could land between a
+   * command's draw and its receipt. The debt goes when the page is back in
+   * immersion, whose entry rebuild then owns the geometry. Resolves when the
+   * rebuild is done; undefined when none ran.
+   */
+  function repaintAfterExit() {
+    if (!exitRepaintPending) return undefined;
+    if (canvas.xr.isPresenting.value || state.status === 'disposed') { exitRepaintPending = false; return undefined; }
+    if (appearanceWork || !canRebuildForXr({ presenting: false })) return undefined;
+    exitRepaintPending = false;
+    return applyInspectionAppearance({ labels: false, componentLabels: false })
+      .then(() => { fitDesktopPreview(); })
+      .catch(error => recordCost('xr-frame-error', { phase: 'exit-repaint', error: error?.message ?? String(error) }));
+  }
+
   async function onXrPresented() {
     if (companionRecoveryActive) { companionRecoveryPendingXr = true; return false; }
     if (!canRebuildForXr()) return false;
@@ -6660,9 +6953,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
     })).commit({ revertOnError: true });
     builtRepresentation = VOLUME_REPRESENTATION;
     appliedGeometryBudget = undefined;
-    // Re-read the paint after the re-theme. A chapter that
-    // silently lost the key is exactly the failure the run-7 capture showed,
-    // and this is where it would show up second.
+    // Re-read the paint after the re-theme. Mol* can drop the radial colour
+    // theme without an error and paint the map uniform cream; this read
+    // records that fallback for the chapter.
     volumePaint = volumeThemePaint(representation);
     if (!volumePaint.themed) {
       recordCost('volume-theme-fallback', { theme: VOLUME_RADIAL_COLOR_THEME,
@@ -6718,7 +7011,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
 
   async function applyInspectionAppearance({ signal, labels = true, depth = false, componentLabels: plates = true,
     emphasis = true, recovering = false, check = recovering ? () => assertContext({ recovering: true }) : undefined,
-    onRetainedRollback, recoverWithoutFit = false, explicitPlacement = false, preservePlacement = false } = {}) {
+    onRetainedRollback, recoverWithoutFit = false, explicitPlacement = false, preservePlacement = false,
+    fixedMenu = false, glassMustMove = false } = {}) {
     // Session-edge rebuilds do not run through mutate. They must nevertheless
     // own admission and the release barrier while selectors can be replaced.
     if (appearanceWork) throw failure('viewer_busy', 'A molecular appearance is still rendering.');
@@ -6764,7 +7058,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // Chain identity uses the same palette on every representation and session edge.
     const xrColor = xrColorParams({ presenting: canvas.xr.isPresenting.value,
       representation: built, color: appearance.color });
-    const geometry = geometryFor(built);
+    const geometry = geometryFor(built, undefined, undefined, appearance.opacity);
     const params = createStructureRepresentationParams(plugin, structure.obj.data, {
       type: built, color: appearance.color,
       typeParams: { alpha: appearance.opacity, ...(xrQuality ? { quality: xrQuality } : {}),
@@ -6881,7 +7175,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
         const requested = inspectionSnapshot().placement;
         // Outside XR the check returns synchronously; keep one rejection path.
         const cleared = await Promise.resolve().then(() => clearHeldPlatePlacement(requested, { signal, hidden: hiddenCells.map(cell => cell.obj.data.repr), keepClearSeat: true,
-          allowOffscreen: explicitPlacement,
+          allowOffscreen: explicitPlacement, fixedMenu, glassMustMove,
           keepWearer: explicitPlacement || (typeof wearerPlacement !== 'undefined' && wearerPlacement?.holdsPlacement())
         })).catch(error => {
           if (typeof chapterInteractionDepth !== 'undefined' && chapterInteractionDepth > 0 && wearerPlacement.holdsPlacement()
@@ -7085,7 +7379,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const check = () => operation ? assertLoad(operation) : assertContext({ recovering: true });
     check();
     if (source.map) return await buildVolumeCandidate(source, settings, operation, candidate, check);
-    const data = await plugin.builders.data.rawData({ data: source.cif, label: source.id },
+    // Read structure-markup.mjs for why Mol* never sees a '<' from the file.
+    const data = await plugin.builders.data.rawData({ data: escapeStructureMarkup(source.cif), label: source.id },
       { ref: candidate.rootRef, state: { isGhost: true } });
     check();
     const parseBegan = now();
@@ -7482,6 +7777,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // payload and history, rather than the candidate's reset defaults.
     if (previous && inspectionState && operation.inspectionCheckpoint) inspectionState.restoreCheckpoint(operation.inspectionCheckpoint);
     if (previous?.lesson) restoreRetainedLessonState(previous.lesson);
+    // The restored structure is drawn and checked against the menu seat it had.
+    try { await operation.menuRollback?.(); } catch { /* The scene still restores; the menu keeps its seat. */ }
     if (lost) {
       recoveryRecord = previous;
       record.recoveryPending = true;
@@ -7591,6 +7888,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
             // load does, and then takes the entry seat.
             inspectionState.place({ ...sourceAnchor.placement, rotation: inspectionSnapshot().placement.rotation }, 'source-transition');
             committedRoomSeat = seatSwappedSource(sourceAnchor, { deferAnchor: true });
+            // The appearance step measures the glass this seat was cleared against.
+            // A failed load puts the menu back beside the previous structure.
+            const menuReceipt = await committedRoomSeat?.menuMove;
+            if (operation) operation.menuRollback = menuReceipt?.rollback;
           } else {
             inspectionState.place(sourceAnchor.placement, 'source-transition');
             // The anchor carries the previous tier's orientation
@@ -7736,7 +8037,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
     }
     if (plan?.colours.some(part => part.keys.length)
       && !plugin.state.data.cells.get(`${representationLayerRef(representation, EMPHASIS_LAYER_REF)}-colour`)?.obj) return false;
-    if ((plan?.faded.length || hiddenSceneKeys().length || stylesState.length)
+    // A solid context paints no fade on the base (`solidContextTarget`).
+    const fadeDrawn = plan?.faded.length > 0
+      && !(typeof solidContextTarget === 'function' && solidContextTarget(representation, structure?.obj?.data));
+    if ((fadeDrawn || hiddenSceneKeys().length || stylesState.length)
       && !plugin.state.data.cells.get(representationLayerRef(representation, SCENE_VISIBILITY_LAYER_REF))?.obj) return false;
     // A selection the wearer cannot see is a layer that needs
     // rebuilding, exactly as a missing lesson key is. Before this the scene
@@ -7789,7 +8093,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return result;
   }
 
-  async function focus(keys) {
+  async function focus(keys, { orient } = {}) {
     assertReady();
     const chosen = selectedKeys(keys);
     const loci = selection.toLoci(modelledFocusKeys(chosen));
@@ -7810,6 +8114,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
     if (!inspectionState) return focusMutation();
     await inspectionMutation(() => {
       syncInspectionPayload(); inspectionState.recordPayload(null, 'focus');
+      // A site close-up's plane view: the focus below keeps this direction.
+      if (orient) orientDesktopCamera(orient);
       const placement = inspectionSnapshot().placement;
       const sphere = molecularAnimation.selectionSphere(loci);
       const transformed = { center: Vec3.transformMat4(Vec3(), sphere.center, presentationTransform()),
@@ -7854,10 +8160,18 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const cached = spokenSelectionCache?.targets.get(cacheKey);
     if (cached) return cached.slice();
     const [first, last] = residues ?? [];
-    const rows = (sourceRows ?? []).filter(row => {
+    const inRange = id => !residues
+      || (Number.isInteger(id.authorResidue) && id.authorResidue >= first && id.authorResidue <= last);
+    // A chain is named by its author ID, as lessons and the wearer name it.
+    // The label ID is only a fallback for a name no author chain answers to:
+    // in an entry whose label IDs are the author IDs shifted along (8OUE's
+    // label E is author G), matching either took residues of a second chain
+    // into the part, so its colour, focus and name plate covered both.
+    const named = chain ? (sourceRows ?? []).filter(row => row.identity.authorChain === chain && inRange(row.identity)) : [];
+    const rows = named.length ? named : (sourceRows ?? []).filter(row => {
       const id = row.identity;
       if (chain && id.authorChain !== chain && id.labelChain !== chain) return false;
-      return !residues || (Number.isInteger(id.authorResidue) && id.authorResidue >= first && id.authorResidue <= last);
+      return inRange(id);
     });
     if (rows.length) {
       const keys = rows.map(row => row.key);
@@ -8096,7 +8410,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
     }
     const painted = now();
     for (const { repr, suffix, data } of targets) {
-      if (!transparency || !repr?.ref || !plan.faded.length) continue;
+      if (!transparency || !repr?.ref || !plan.faded.length
+        || (typeof solidContextTarget === 'function' && solidContextTarget(repr, data))) continue;
       const bundle = bundleFor(plan.faded, data);
       if (bundle) {
         await plugin.build().to(repr.ref)
@@ -8208,6 +8523,37 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const hidden = hiddenSceneKeySet(), keys = staticMaskKeys().filter(key => !hidden.has(key));
     return keys.length && selection ? selection.toLoci(keys) : undefined;
   }
+  /**
+   * The shown residues a headset site close-up leaves out (`closeUpContext`).
+   * It belongs to the installed figure it was framed for, on this structure,
+   * and never to the saved visibility, so no receipt, undo, restored scene or
+   * desktop view carries it: once another figure is installed by any path,
+   * the next repaint of the hidden set draws without it. A representation
+   * choice (Spacefill, Ribbons) re-installs the same figure with an override,
+   * so the figure is compared without it. Its state is declared with the
+   * viewer's early state, because the presenting subscription can clear it as
+   * soon as the canvas exists.
+   */
+  const closeUpFigureSignatures = new WeakMap();
+  function installedFigure() {
+    const figure = typeof lessonFigure === 'undefined' ? undefined : lessonFigure.geometryIdentity?.();
+    if (!figure || typeof figure !== 'object') return undefined;
+    if (!closeUpFigureSignatures.has(figure)) {
+      const { representationOverride: _representation, ...authored } = figure;
+      closeUpFigureSignatures.set(figure, JSON.stringify(authored));
+    }
+    return closeUpFigureSignatures.get(figure);
+  }
+  function closeUpMaskKeys() {
+    return closeUpMask.keys.length && closeUpMask.structure === structure && closeUpMask.figure === installedFigure()
+      ? closeUpMask.keys : [];
+  }
+  /** Replace the close-up mask for the installed figure; true when it differs from what is drawn. */
+  function setCloseUpMask(keys = []) {
+    closeUpMask = keys.length ? { keys: [...keys], structure, figure: installedFigure() }
+      : { keys: [], structure: undefined, figure: undefined };
+    return closeUpMaskKeys().join('\n') !== paintedCloseUpMask;
+  }
   let paintedStaticMask = '';
   /** Repaint only when the chapter animation changed which copies are masked. */
   async function syncStaticMask() {
@@ -8244,8 +8590,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
    */
   async function paintVisibilityLayers(emphasisPlan, { recovering = false } = {}) {
     if (!selection) return;
-    const keys = hiddenSceneKeys(), mask = typeof staticMaskKeys === 'function' ? staticMaskKeys() : [];
-    if (typeof syncStaticMask === 'function') paintedStaticMask = mask.join('\n');
+    const keys = hiddenSceneKeys(), staticMask = typeof staticMaskKeys === 'function' ? staticMaskKeys() : [];
+    if (typeof syncStaticMask === 'function') paintedStaticMask = staticMask.join('\n');
+    const site = typeof closeUpMaskKeys === 'function' ? closeUpMaskKeys() : [];
+    const mask = [...staticMask, ...site];
     // Styled residues are drawn by their component. Mask their base geometry
     // so an opaque cartoon cannot shine through a translucent scoped style.
     const styled = [...new Set(stylesState.flatMap(style => style.selectionKeys))];
@@ -8261,6 +8609,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
       const ref = representationLayerRef(representation, SCENE_VISIBILITY_LAYER_REF, suffix);
       if (plugin.state.data.cells.get(ref)) await plugin.build().delete(ref).commit();
     }
+    if (typeof setCloseUpMask === 'function') paintedCloseUpMask = '';
     const plates = () => { if (typeof refreshPlateVisibility === 'function') refreshPlateVisibility(fade); };
     if (!keys.length && !styled.length && !fade?.faded?.length && !mask.length) { plates(); return; }
     for (const { repr, suffix, data } of targets) {
@@ -8275,13 +8624,14 @@ export async function createViewer({ canvas: element, container, onSelection = (
       };
       // Mol* replaces a representation's transparency state. Keep the fade and
       // full masks in this final state, with hidden rows taking precedence.
-      add(fade?.faded, fade?.transparency);
+      if (!(typeof solidContextTarget === 'function' && solidContextTarget(repr, data))) add(fade?.faded, fade?.transparency);
       add(hidden, 1);
       if (!layers.length) continue;
       await plugin.build().to(repr.ref)
         .apply(StateTransforms.Representation.TransparencyStructureRepresentation3DFromBundle,
           { layers }, { ref: representationLayerRef(representation, SCENE_VISIBILITY_LAYER_REF, suffix) }).commit();
     }
+    if (typeof setCloseUpMask === 'function') paintedCloseUpMask = site.join('\n');
     assertContext({ recovering });
     plates();
   }
@@ -8315,6 +8665,23 @@ export async function createViewer({ canvas: element, container, onSelection = (
     try { blend = canvas.xr.isPresenting.value ? (immersiveSession?.environmentBlendMode?.() ?? null) : null; }
     catch { blend = null; }
     return contextOpacityForBlendMode(contextOpacity, blend);
+  }
+
+  /**
+   * Whether one painted representation keeps its emphasis context solid
+   * (`solidEmphasisContext`): a heavy spacefill on a Quest 2, where a ghost
+   * costs every hidden layer of spheres. Judged at paint time from the
+   * representation the target draws now and the atoms it holds, so a style
+   * layer, the ligand overlay and the base each answer for themselves, and a
+   * key planned before a rebuild still paints by the rebuilt geometry.
+   */
+  function solidContextTarget(repr, data) {
+    try {
+      const type = repr?.cell?.params?.values?.type?.name ?? repr?.cell?.transform?.params?.type?.name;
+      return solidEmphasisContext({ representation: type, presenting: Boolean(canvas.xr.isPresenting.value),
+        deviceClass: sessionDeviceClass(currentXrSession(), globalThis.navigator),
+        atoms: repr?.obj?.data?.sourceData?.elementCount ?? data?.elementCount ?? 0 });
+    } catch { return false; }
   }
 
   /**
@@ -8554,6 +8921,11 @@ export async function createViewer({ canvas: element, container, onSelection = (
    */
   async function setLessonRestingState(value, options) {
     assertReady();
+    // A new lesson or a placed source starts from the pose it finds: no turn
+    // back to what another lesson's close-up left.
+    if (typeof siteViewReturn !== 'undefined') siteViewReturn = undefined;
+    // Nor are its chapters read against another lesson's opening seat.
+    if (typeof authoredChapterFrame !== 'undefined') authoredChapterFrame = null;
     return lessonResting.install(value, options);
   }
 
@@ -8623,43 +8995,166 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return result;
   }
 
-  async function setLessonFigure(value, { frame = false } = {}) {
+  /**
+   * The residues a headset site close-up keeps and leaves out, or undefined
+   * for every other figure. Only a figure with a focus and `contextRadius`,
+   * framed while presenting as a close-up whose chapter hides chains, and
+   * not held where the wearer put it, draws less than the chains it shows.
+   * `towardEye` is the direction the site will be seen from once framed, when
+   * a plane view turns it (`siteFacing`); else the wearer's direction now.
+   */
+  function closeUpSite(value, { frame, visibility, towardEye } = {}) {
+    if (!value?.focus?.length || !(value.contextRadius > 0) || !frame || !visibility?.hiddenChains?.length
+      || !canvas.xr.isPresenting.value || wearerPlacement.holdsPlacement() || !latestRoomPlacementPose || !selection?.rows) return undefined;
+    const rows = selection.rows;
+    const hidden = new Set(hiddenRowKeys(rows, { hiddenChains: visibility.hiddenChains }));
+    const matching = targets => rows.filter(row => targets.some(target => figureTargetMatchesRow(target, row))).map(row => row.key);
+    const site = closeUpContext({ rows, radius: value.contextRadius,
+      shownKeys: rows.filter(row => !hidden.has(row.key)).map(row => row.key),
+      focusKeys: matching(value.focus),
+      namedKeys: matching([...(value.layers ?? []).map(layer => layer.target), ...(value.labels ?? []).map(label => label.target),
+        ...(value.distances ?? []).flatMap(distance => [distance.a, distance.b])]),
+      towardEye: towardEye ?? towardWearer({ ...latestRoomPlacementPose, rotation: inspectionSnapshot().placement.rotation }) });
+    return site?.kept.length ? site : undefined;
+  }
+
+  /** The desktop camera as an eye frame: unit directions toward the eye and up, in the world. */
+  function desktopCameraView() {
+    const camera = canvas.camera.getSnapshot();
+    const toEye = Vec3.sub(Vec3(), camera.position, camera.target);
+    if (!(Vec3.magnitude(toEye) > 1e-9)) return undefined;
+    Vec3.normalize(toEye, toEye);
+    const right = Vec3.cross(Vec3(), camera.up, toEye);
+    if (!(Vec3.magnitude(right) > 1e-9)) return undefined;
+    return { toEye: Array.from(toEye), up: Array.from(Vec3.normalize(Vec3(), Vec3.cross(Vec3(), toEye, Vec3.normalize(right, right)))) };
+  }
+  /** The structure's own rotation on the desktop, without its scale. */
+  function desktopStructureRotation() {
+    const transform = presentationTransform(), rotation = Mat4.identity();
+    for (let column = 0; column < 3; column++) {
+      const axis = Vec3.normalize(Vec3(), Vec3.create(transform[column * 4], transform[column * 4 + 1], transform[column * 4 + 2]));
+      for (let row = 0; row < 3; row++) rotation[column * 4 + row] = axis[row];
+    }
+    return rotation;
+  }
+  /** A structure-frame view as world directions for the desktop camera. */
+  function desktopWorldView(view) {
+    const rotation = desktopStructureRotation();
+    const world = direction => Array.from(Vec3.normalize(Vec3(), Vec3.transformDirection(Vec3(), Vec3.create(...direction), rotation)));
+    return { toEye: world(view.toEye), up: world(view.up) };
+  }
+  const sameDirection = (a, b) => Boolean(a && b) && Vec3.dot(Vec3.create(...a), Vec3.create(...b)) > .99995;
+  /** Turn the desktop camera about its target to look from `toEye` with `up` (world directions); no draw of its own. */
+  function orientDesktopCamera({ toEye, up }) {
+    const camera = canvas.camera.getSnapshot();
+    const distance = Vec3.distance(camera.position, camera.target);
+    canvas.camera.setState({ position: Array.from(Vec3.scaleAndAdd(Vec3(), camera.target, Vec3.create(...toEye), distance)),
+      target: Array.from(camera.target), up: [...up] }, 0);
+  }
+
+  /**
+   * How a framed figure's close-up is turned (`site-view.mjs`). A figure with
+   * a `viewPlane` is turned to the view of that plane the structure reaches
+   * with the smallest turn, in the headset or on the desktop; another framed
+   * figure turns back to what the last plane view turned away from, if nothing
+   * has turned the structure or camera since (`back`).
+   */
+  function siteFacing(value) {
+    const xr = canvas.xr.isPresenting.value;
+    const owned = siteViewReturn?.structure === structure;
+    if (!value?.viewPlane?.length || !value.focus?.length) {
+      if (!owned || !(xr ? siteViewReturn.rotation : siteViewReturn.camera)) return undefined;
+      // A close-up framed on the way back is cut for the direction it will be seen from.
+      const placement = xr && inspectionState && latestRoomPlacementPose ? inspectionSnapshot().placement : undefined;
+      const towardEye = placement && sameRotation(placement.rotation, siteViewReturn.landed)
+        ? towardWearer({ ...latestRoomPlacementPose, rotation: siteViewReturn.rotation }) : undefined;
+      return { back: siteViewReturn, ...(towardEye ? { towardEye } : {}) };
+    }
+    if (!inspectionState || !selection?.rows || (xr && !latestRoomPlacementPose)) return undefined;
+    const placement = inspectionSnapshot().placement;
+    const camera = xr ? undefined : desktopCameraView();
+    if (!xr && !camera) return undefined;
+    const rotation = xr ? undefined : desktopStructureRotation();
+    const towardEye = xr ? towardWearer({ ...latestRoomPlacementPose, rotation: placement.rotation })
+      : Array.from(Vec3.transformDirection(Vec3(), Vec3.create(...camera.toEye), Mat4.transpose(Mat4(), rotation)));
+    const site = siteView({ ...siteViewAtoms({ rows: selection.rows, figure: value, matchesRow: figureTargetMatchesRow }), towardEye });
+    if (!site) return undefined;
+    const view = xr ? siteViewTurn({ ...latestRoomPlacementPose, placement, views: site.views })?.view
+      : nearestView(site.views, Mat4.mul(Mat4(), eyeFrame(camera), rotation));
+    if (!view) return undefined;
+    // A second plane view still turns back to the orientation before the first.
+    const pending = owned && (xr
+      ? siteViewReturn.rotation && sameRotation(placement.rotation, siteViewReturn.landed)
+      : siteViewReturn.camera && sameDirection(camera.toEye, siteViewReturn.landedCamera?.toEye) && sameDirection(camera.up, siteViewReturn.landedCamera?.up));
+    return { view, elevationDegrees: site.elevationDegrees, ...(pending ? { returnTo: xr ? siteViewReturn.rotation : siteViewReturn.camera } : {}) };
+  }
+
+  async function setLessonFigure(value, { frame = false, visibility } = {}) {
     assertReady();
     // A verified empty clear changes no pixels or saved state. Keep normal
     // admission above, and let the registry prove that this exact source has
     // no figure, queued retirement or animation masks still needing a draw.
-    if (value === undefined && lessonFigure.isEmptyFor?.(structure)) return snapshot();
+    if (value === undefined && lessonFigure.isEmptyFor?.(structure)
+      && (typeof paintedCloseUpMask === 'undefined' || !paintedCloseUpMask)) return snapshot();
     const began = now();
     recordCost('lesson-figure-stage', { stage: 'install', outcome: 'started' });
+    let site;
+    // A plane view decides where the site is seen from, so the residues it
+    // keeps are cut for that direction rather than for the pose it leaves.
+    const facing = value && frame && !wearerPlacement.holdsPlacement() && typeof siteFacing === 'function' ? siteFacing(value) : undefined;
     await inspectionMutation(async () => {
       // A figure set during running motion belongs to that motion: stage it
       // hidden, then attach its plates to their bodies in one handoff.
       const live = molecularAnimation.poseSample()?.definition;
       await lessonFigure.install(value, live ? { deferReveal: true, animation: live } : { animation: undefined });
       if (live) { await molecularAnimation.refresh(); lessonFigure.animationInstalled(); }
-      if (typeof syncStaticMask === 'function') await syncStaticMask();
+      // Every figure change drops the last close-up's mask; a site close-up
+      // framed now draws only the residues around its focus.
+      site = typeof closeUpSite === 'function' ? closeUpSite(value, { frame, visibility, towardEye: facing?.view?.toEye ?? facing?.towardEye }) : undefined;
+      if (typeof setCloseUpMask === 'function' && setCloseUpMask(site?.hidden)) await paintVisibilityLayers();
+      else if (typeof syncStaticMask === 'function') await syncStaticMask();
       applyInspectionTransform();
     });
     recordCost('lesson-figure-stage', { stage: 'install', outcome: 'completed', elapsedMs: Math.round(now() - began) });
     recordCost('lesson-figure', { ...lessonFigure.snapshot(), cleared: !value, sourceSha256: state.sourceSha256 });
     if (value && frame && !wearerPlacement.holdsPlacement()) {
+      // A selection the wearer or an agent made outlives the chapter's
+      // framing, as it does in a chapter without a figure. Only a selection
+      // a lesson made is cleared.
+      const kept = typeof lessonSelection === 'undefined' || lessonSelection === null ? [...(state.selectionKeys ?? [])] : [];
       const entryFrame = typeof initialFigureFrame === 'undefined' || value.focus ? undefined : initialFigureFrame;
       const mode = canvas.xr.isPresenting.value ? 'xr' : 'desktop';
       // Only the initial figure of a source-owned interchangeable composite
       // solves a seat. Re-entry, Back and future figure swaps keep its view.
       if (entryFrame?.fitted[mode]) return snapshot();
       const keys = value.focus ? selection.rows.filter(row => value.focus.some(target => figureTargetMatchesRow(target, row))).map(row => row.key) : [];
+      // A close-up whose chapter hides chains of the source is held in the
+      // lens with the chains it shows (the tour passes that visibility only
+      // for such a chapter); every other figure keeps the whole source.
+      const hidden = value.focus && visibility?.hiddenChains?.length
+        ? new Set(hiddenRowKeys(selection.rows, { hiddenChains: visibility.hiddenChains })) : undefined;
+      // A site close-up is held with the residues it still draws.
+      const shown = site?.kept.length ? site.kept
+        : hidden ? selection.rows.filter(row => !hidden.has(row.key)).map(row => row.key) : [];
+      const ghost = shown.length ? molecularAnimation.selectionSphere(selection.toLoci(shown)) : undefined;
+      if (site) recordCost('closeup-site', { radius: value.contextRadius, kept: site.kept.length, hidden: site.hidden.length });
       const framedAt = now();
       recordCost('lesson-figure-stage', { stage: 'framing', outcome: 'started' });
-      await focusSelection({ selectionKeys: keys, wholeStructure: !value.focus, framing: 'fill',
-        ...(entryFrame ? { motionFrame: { target: entryFrame.target } } : {}),
-        minTargetFraction: value.focus ? .15 : 0, liftEmphasis: false, elevationDegrees: 0, lessonSelection: true });
+      try {
+        await focusSelection({ selectionKeys: keys, wholeStructure: !value.focus, framing: 'fill', ...(ghost ? { ghost } : {}),
+          ...(entryFrame ? { motionFrame: { target: entryFrame.target } } : {}), ...(facing ? { facing } : {}),
+          minTargetFraction: value.focus ? .15 : 0, liftEmphasis: false, elevationDegrees: 0, lessonSelection: true });
+      } catch (error) {
+        // An unframed site never stays cut down at the previous seat.
+        if (site && setCloseUpMask()) await inspectionMutation(() => paintVisibilityLayers()).catch(() => {});
+        throw error;
+      }
       if (entryFrame && !wearerPlacement.holdsPlacement()) entryFrame.fitted[mode] = true;
       recordCost('lesson-figure-stage', { stage: 'framing', outcome: 'completed', elapsedMs: Math.round(now() - framedAt) });
       // Framing uses selection for its target, but contact labels own the readout.
       const clearedAt = now();
       recordCost('lesson-figure-stage', { stage: 'clear-selection', outcome: 'started' });
-      await select([]);
+      await select(kept);
       recordCost('lesson-figure-stage', { stage: 'clear-selection', outcome: 'completed', elapsedMs: Math.round(now() - clearedAt) });
     }
     return snapshot();
@@ -8818,10 +9313,23 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // GPU density meshes advertise the entire grid cell as their bounding
     // sphere. Use the measured contour that focusSelection already frames;
     // empty grid corners must not push the chapter away from its glass.
-    const spheres = typeof volume !== 'undefined' && volume
-      ? [{ center: Array.from(sphere.center), radius: sphere.radius, kind: 'drawn' }]
+    const drawnBalls = typeof volume !== 'undefined' && volume
+      ? [{ center: Array.from(sphere.center), radius: sphere.radius }]
       : visibleChapterSpheres(scientificRepresentations(true).filter(repr => !moving.has(repr))
-        .flatMap(repr => repr.renderObjects ?? []), transform, { minimumAlpha: allDrawn ? 0 : .2 }).map(sphere => ({ ...sphere, kind: 'drawn' }));
+        .flatMap(repr => repr.renderObjects ?? []), transform, { minimumAlpha: allDrawn ? 0 : .2 });
+    // A chapter that spins without end is seen at every angle of its spin, so
+    // its drawn parts count at every angle, turned about render up through the
+    // stage centre as the spin turns them. Counted at the authored angle alone,
+    // CRISPR's DNA end turned through a menu proven clear of it.
+    const spins = typeof chapterSpinning === 'function' && chapterSpinning();
+    const swept = spins ? sweptChapterField(drawnBalls, Array.from(Vec3.transformDirection(Vec3(), Vec3.create(0, 1, 0), inverse)),
+      Array.from(pivotCenter()), JSON.stringify(scientificRepresentations(true).flatMap(repr => repr.renderObjects ?? []).map(object => {
+        const values = object.values ?? {};
+        return [object.id, object.type, object.state?.visible, object.state?.alphaFactor, values.uAlpha?.ref.value,
+          values.tTransparency?.ref.version, values.aPosition?.ref.version, values.tPositionGroup?.ref.version,
+          values.tSize?.ref.version, values.uSize?.ref.value, values.uSizeFactor?.ref.value, values.instanceCount?.ref.value];
+      }))) : undefined;
+    const spheres = swept ? [...swept] : drawnBalls.map(sphere => ({ ...sphere, kind: 'drawn' }));
     if (animated) spheres.unshift({ center: Array.from(animated.center), radius: animated.radius, kind: 'motion' });
     const annotations = new Set([...(typeof lessonFigure === 'undefined' ? [] : lessonFigure.annotations?.() ?? []),
       ...(typeof molecularAnimation === 'undefined' ? [] : molecularAnimation.representations?.() ?? []),
@@ -8885,11 +9393,12 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const center = Array.from(spheres[0].center);
     // A drawn chapter holds a ball per atom, too many to spread as arguments.
     const radius = spheres.reduce((most, bound) => Math.max(most, Vec3.distance(center, bound.center) + bound.radius), -Infinity);
-    return { center, radius, spheres, ...(animated ? {} : { still: true }) };
+    return { center, radius, spheres, ...(swept && spheres.length === swept.length ? { sweptKey: swept.key } : {}), ...(animated ? {} : { still: true }) };
   }
 
   // What the chapter field counted, in room metres, for the record ring.
   function chapterFieldSummary(bounds) {
+    // One snapshot for the whole summary: a drawn field holds a ball per atom.
     const scale = inspectionSnapshot().placement.scale, cameraScale = canvas.camera.scale;
     const metres = value => Math.round(value * scale * cameraScale * 1000) / 1000;
     const summary = { radius: metres(bounds.radius) };
@@ -8900,7 +9409,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return summary;
   }
 
-  async function clearChapterMenu({ points, glass, statusGlass = [], currentPoints = points, currentGlass = glass, isCurrent, relocationCandidates = () => [], chapterCardCandidates = () => [], lesson = false }) {
+  async function clearChapterMenu({ points, glass, statusGlass = [], currentPoints = points, currentGlass = glass, isCurrent, menuHeld = () => false, relocationCandidates = () => [], chapterCardCandidates = () => [], lesson = false }) {
     if (!canvas.xr.isPresenting.value || !latestRoomPlacementPose || !isCurrent()) return;
     // The live grab transform differs from the saved pose. A chapter preview
     // redraws the toolbar during that grab too: refusing this shared path
@@ -8909,8 +9418,57 @@ export async function createViewer({ canvas: element, container, onSelection = (
     if (interactionActive()) return { unmeasured: true };
     const bounds = chapterFieldBounds(undefined, { still: true, drawn: true });
     if (!bounds) return;
+    // A spin's field stands still while the chapter turns (`sweptChapterField`).
+    // A redraw of the same glass on the same placement, from a head within a
+    // centimetre, takes that proof again instead of scanning every seat: the
+    // scan held the Quest's frames for over 400 ms per redraw.
+    const spinProof = bounds.sweptKey ? { key: JSON.stringify([bounds.sweptKey, inspectionSnapshot().placement, wearerPlacement.holdsPlacement(),
+      lesson, points, glass, statusGlass, currentPoints, currentGlass, latestRoomPlacementPose.renderFromRoom]),
+      head: Array.from(latestRoomPlacementPose.headInRoom) } : undefined;
+    // A spin's seat is written once the toolbar has drawn it (`committed`): a
+    // drag can take the menu after the proof and discard that draw.
+    const seated = record => !!spinProof && /^(menu-relocated|chapter-card-seated|chapter-card-kept)$/.test(record?.reason);
+    const receipt = (answer, record) => seated(record) && answer ? { ...answer, committed: () => recordManipulation('chapter-field', record) } : answer;
+    if (spinProof && lastSpinProof?.key === spinProof.key && spinProof.head.every((v, i) => Math.abs(v - lastSpinProof.head[i]) < .01)) {
+      const record = lastSpinProof.record && { ...lastSpinProof.record, reused: true };
+      if (record && !seated(record)) recordManipulation('chapter-field', record);
+      return receipt(lastSpinProof.answer, record);
+    }
+    // Otherwise its scan runs in slices of about 12 ms, the first one ending
+    // once its field is built, with a headset frame between them, so the
+    // headset keeps drawing while a landing is proven: one whole scan held its
+    // frames for 600 ms to over a second, and 40 ms slices still left a 344 ms
+    // gap. A proof that outlives what it proves (a newer redraw, a drag that
+    // takes the menu, the headset session, the source, the tracking sample or
+    // the placement) ends
+    // cancelled, never as clearance: the toolbar keeps its drawn glass and
+    // proves the new state.
+    const proven = spinProof && JSON.stringify(inspectionSnapshot().placement);
+    const session = canvas.webgl?.xr?.session, source = typeof sourceRecord === 'undefined' ? undefined : sourceRecord, cancelled = { cancelled: true };
+    const about = () => isCurrent() && !menuHeld() && canvas.xr.isPresenting.value && canvas.webgl?.xr?.session === session && !!latestRoomPlacementPose
+      && (typeof sourceRecord === 'undefined' || sourceRecord === source) && JSON.stringify(inspectionSnapshot().placement) === proven;
+    let sliceStarted = -Infinity;
+    const sliced = async () => {
+      if (now() - sliceStarted < 12) return true;
+      // A headset frame is drawn before the next slice: a timer alone let the
+      // browser run the next slice first, and frames still waited 110 to 190
+      // ms. A frame that does not come within 100 ms does not hold the scan.
+      await new Promise(resolve => {
+        const session = canvas.webgl?.xr?.session;
+        if (!session?.requestAnimationFrame) { setTimeout(resolve, 0); return; }
+        const late = setTimeout(resolve, 100);
+        session.requestAnimationFrame(() => setTimeout(() => { clearTimeout(late); resolve(); }, 0));
+      });
+      sliceStarted = now();
+      return about();
+    };
+    let decision;
+    const answer = await (async recordManipulation => {
+    // A spin whose faint parts add nothing sweeps the same field for its
+    // status line: that one field and its projections serve both.
     let statusBounds;
-    const statusField = () => statusBounds ??= chapterFieldBounds(undefined, { still: true, drawn: true, allDrawn: true }) ?? bounds;
+    const statusField = () => statusBounds ??= (field => field?.sweptKey && field.sweptKey === bounds.sweptKey ? bounds : field)(
+      chapterFieldBounds(undefined, { still: true, drawn: true, allDrawn: true })) ?? bounds;
     const sphere = loadedSphere(), before = inspectionSnapshot().placement, held = wearerPlacement.holdsPlacement();
     // A field that stays where it is, still or held, is measured as seen. So
     // is a lesson's: its level move searches seats rather than solving the
@@ -8947,6 +9505,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const apart = seat => !glassPlatesOverlapInViews({ plates: seat.glass, views: options.views, renderFromRoom: options.renderFromRoom });
     const clearsStatus = (points, views = options.views) => !points?.length || !!fitChapterField({ ...options, bounds: statusField(),
       views, menuPoints: points, menuGlass: [points], keepPlacement: true, allowOffscreen: true });
+    if (spinProof && !await sliced()) return cancelled;
     const seen = inView(currentPoints, currentGlass);
     if (clears(points, undefined, glass) && clearsStatus(statusGlass) && (!seen || fullyInView(points, glass))
       && !glassPlatesOverlapInViews({ plates: glass, views: options.views, renderFromRoom: options.renderFromRoom })) return;
@@ -8954,9 +9513,11 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // even when the old room seat has left the wearer's gaze.
     const statusVariants = seats => [...seats, ...seats.filter(seat => seat.statusless).map(seat =>
       ({ ...seat, ...seat.statusless, id: `${seat.id}-statusless`, statusGlass: [], statusless: undefined, statusAside: true }))];
+    if (spinProof && !await sliced()) return cancelled;
     const candidates = statusVariants(relocationCandidates(latestRoomPlacementPose)).filter(seat => fullyInView(seat.points, seat.glass) && apart(seat));
     // The held structure owns its pose. Fold the controls and prove the
     // independent card in both the turned measurement eyes and current eyes.
+    if (spinProof && !await sliced()) return cancelled;
     const cards = statusVariants(chapterCardCandidates(latestRoomPlacementPose)).filter(seat => fullyInView(seat.points, seat.glass) && apart(seat));
     const relocates = seat => clears(seat.points, seat.views, seat.glass) && clearsStatus(seat.statusGlass, seat.views);
     const seatsCard = seat => relocates(seat) && clears(seat.points, options.views, seat.glass) && clearsStatus(seat.statusGlass);
@@ -8967,7 +9528,13 @@ export async function createViewer({ canvas: element, container, onSelection = (
       ...candidates.filter(seat => (seat.beside === true) === beside && below(seat) === bottom && (seat.statusAside === true) === aside).map(seat => [seat, false]),
       ...cards.filter(seat => (seat.beside === true) === beside && below(seat) === bottom && (seat.statusAside === true) === aside).map(seat => [seat, true])])))
       : [...candidates.map(seat => [seat, false]), ...cards.map(seat => [seat, true])];
-    const [found, card] = order.find(([seat, card]) => card ? seatsCard(seat) : relocates(seat)) ?? [];
+    let found, card;
+    if (spinProof) {
+      for (const [seat, isCard] of order) {
+        if (!await sliced()) return cancelled;
+        if (isCard ? seatsCard(seat) : relocates(seat)) { [found, card] = [seat, isCard]; break; }
+      }
+    } else [found, card] = order.find(([seat, card]) => card ? seatsCard(seat) : relocates(seat)) ?? [];
     if (found && !card) {
       recordManipulation('chapter-field', { reason: 'menu-relocated', seat: found.id, parked: found.parked === true });
       return { menuRelocation: found };
@@ -9018,6 +9585,15 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // A lesson chapter has its one try, found or not: a card page or status
     // line drawn later in it keeps the view the wearer has.
     if (lesson && seats.length && !held && !bounds.still && !moved && !fitted && latched && opened !== undefined) menuClearanceMovedFor = opened;
+    // Before glass outside a lesson folds or hides: the heights a lesson's own
+    // controls take. Offered only here, after every other seat and move has
+    // failed, so no seat chosen before changes.
+    const higher = !fitted && !lesson ? statusVariants(relocationCandidates({ ...latestRoomPlacementPose, lessonHeights: true }))
+      .filter(seat => fullyInView(seat.points, seat.glass) && apart(seat)).find(relocates) : undefined;
+    if (higher) {
+      recordManipulation('chapter-field', { reason: 'menu-relocated', seat: higher.id, parked: false, height: 'lesson' });
+      return { menuRelocation: higher };
+    }
     if (!fitted) {
       // Nothing clears and nothing nearby may move. Outside a lesson no glass
       // that covers the chapter is admitted: the menu folds, or hides when it
@@ -9027,9 +9603,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
       // touch a moving part beat having neither. A menu redraw never fails a
       // chapter. Glass no eye can measure (behind the wearer) is left as it
       // is: drawn glass stays, hidden glass stays hidden.
-      // This fallback is synchronous. All candidates and the diagnostic
-      // breakdown see the same field, so project it once per measured eye.
-      // Nothing is retained for the next draw, pose or placement.
+      // All candidates and the diagnostic breakdown see the same field, so
+      // project it once per measured eye. It is synchronous except for a
+      // spinning chapter's slices, which end if the placement moves. Nothing
+      // is retained for the next draw, pose or placement.
       const scorers = new Map();
       const obstruction = (query, field = bounds) => {
         let score = scorers.get(field);
@@ -9038,27 +9615,41 @@ export async function createViewer({ canvas: element, container, onSelection = (
       };
       const { area: overlap, part, plate, box, menu } = obstruction(options);
       const round = values => values?.map(v => Math.round(v * 1e3) / 1e3);
-      const covers = (seat, field = bounds) => obstruction({ menuPoints: seat.points,
-        menuGlass: seat.glass, views: seat.views ?? options.views }, field).area;
+      const covers = (seat, field = bounds, any = false) => obstruction({ menuPoints: seat.points,
+        menuGlass: seat.glass, views: seat.views ?? options.views, any }, field).area;
       // Glass over a name plate puts text on text, for the whole chapter where the
       // plate stands still and wherever a moving one passes, which no render
       // order keeps readable: a seat whose glass crosses none wins. Next keep
       // the status clear of the molecule, retaining complete lesson glass.
-      // Other menus may use their one-line or status-aside variants. Then the
-      // full caption card, the top band, the compact menu, the most status
-      // lines, and the least covered.
+      // Other menus may use their one-line or status-aside variants. Then a
+      // card that keeps its caption in whole sentences: a one-line card that
+      // covers less but reads `Pink and green heads trade…`, then `the lead,
+      // hand over hand.`, loses to one a line taller. Then the seat that
+      // covers least of the chapter, so a short or bottom card that clears
+      // the molecule beats a full card on it; then the full caption card, the
+      // top band, the compact menu and the most status lines.
       const named = { ...bounds, spheres: (bounds.spheres ?? []).filter(sphere => sphere.kind === 'plate' && sphere.quad) };
-      const statusCovers = seat => (seat.statusGlass?.length ? covers({ ...seat, points: seat.statusGlass, glass: [seat.statusGlass] }, statusField()) : 0) > 0;
+      const statusCovers = (seat, any) => (seat.statusGlass?.length ? covers({ ...seat, points: seat.statusGlass, glass: [seat.statusGlass] }, statusField(), any) : 0) > 0;
       const rank = seat => (seat.band === 'bottom' ? 2 : 0) + (seat.compact && !seat.beside ? 0 : 1);
       const earlier = (a, b) => { const i = a.findIndex((v, k) => v !== b[k]); return i >= 0 && a[i] < b[i]; };
-      // A lesson card of the title and one paged caption line is offered
-      // here only: wherever a full card clears, or a level move makes room
-      // for one, the caption stays whole.
+      // A lesson card of the title and one paged caption line (more where
+      // one line would split a sentence) is offered here only: wherever a
+      // full card clears, or a level move makes room for one, the caption
+      // stays whole.
+      if (spinProof && !await sliced()) return cancelled;
+      // The status line's field is built in a slice of its own.
+      if (spinProof && lesson) { statusField(); if (!await sliced()) return cancelled; }
       const shortCards = lesson ? statusVariants(chapterCardCandidates({ ...latestRoomPlacementPose, shortCard: true }))
         .filter(seat => seat.shortCard && fullyInView(seat.points, seat.glass) && apart(seat)) : [];
       let kept;
       if (lesson) for (const seat of [...cards, ...shortCards]) {
-        const status = statusCovers(seat);
+        if (spinProof && !await sliced()) return cancelled;
+        // Against a spin's whole turn, a status line covered at all is known
+        // from the first part that covers it, and with no name plate to cross
+        // such a seat loses to a kept one whose line is clear: its card and
+        // controls are not measured.
+        const status = statusCovers(seat, !!spinProof);
+        if (spinProof && status && kept && !kept.order[1] && !named.spheres.length) continue;
         for (const [shown, lines] of [[seat, seat.statusAside ? 2 : seat.glance ? 1 : 0]]) {
           // A shared blocked caption can dominate the maximum overlap of
           // every seat. Rank the lesson controls on their own, so that tie
@@ -9066,34 +9657,39 @@ export async function createViewer({ canvas: element, container, onSelection = (
           const controls = shown.stableLesson && shown.glass?.[1];
           const controlCover = controls ? covers({ ...shown, points: controls, glass: [controls] }) : 0;
           const order = [named.spheres.length && covers(shown, named) > 0 ? 1 : 0, shown === seat && status ? 1 : 0, controlCover,
-            shown.shortCard ? 1 : 0, rank(shown), lines, covers(shown)];
+            shown.splitsSentence ? 1 : 0, covers(shown), shown.shortCard ? 1 : 0, rank(shown), lines];
           if (!kept || earlier(order, kept.order)) kept = { seat: shown, order };
         }
+      }
+      // Each seat this draw tested (a lesson's are its card seats), measured
+      // by each of its own plates alone, card/menu/status, with the kind of
+      // part its worst plate meets: `id band:card/menu/status:kind`. A worst
+      // pair alone named the card every seat shares and hid the seat's own.
+      // A spinning chapter leaves this out, and its record has no `seats`:
+      // each plate of each seat is a scan of its whole turn.
+      const tested = [];
+      for (const seat of spinProof ? [] : lesson ? cards : candidates) {
+        if (spinProof && !await sliced()) return cancelled;
+        const areas = (seat.glass?.length ? seat.glass : [seat.points]).map(plate =>
+          obstruction({ menuPoints: plate, menuGlass: [plate], views: seat.views ?? options.views }));
+        const worst = areas.reduce((a, b) => b.area > a.area ? b : a, { area: 0 });
+        tested.push(`${seat.id}${seat.band ? ` ${seat.band}` : ''}:`
+          + areas.map(({ area }) => Number.isFinite(area) ? Math.round(area * 1e4) / 1e4 : 'unmeasured').join('/')
+          + (worst.area > 0 ? `:${(bounds.spheres ?? [bounds])[worst.part]?.kind ?? 'field'}` : ''));
       }
       recordManipulation('chapter-field', { reason: kept ? 'chapter-card-kept' : Number.isFinite(overlap) ? 'menu-obstructed' : 'menu-unmeasured', held,
         ...(kept ? { seat: kept.seat.id, band: kept.seat.band, crossesPlates: kept.order[0] === 1,
           status: kept.seat.statusAside ? 'aside' : !kept.seat.statusGlass?.length ? 'none' : kept.seat.glance ? 'one' : 'three',
           controlsCovered: Math.round(kept.order[2] * 1e4) / 1e4,
-          ...(kept.seat.shortCard ? { shortCard: true } : {}),
-          covered: Number.isFinite(kept.order[6]) ? Math.round(kept.order[6] * 1e4) / 1e4 : null } : {}),
+          ...(kept.seat.shortCard ? { shortCard: true, captionLines: kept.seat.panel?.readoutLineBudget - 1 } : {}),
+          ...(kept.seat.splitsSentence ? { splitsSentence: true } : {}),
+          covered: Number.isFinite(kept.order[4]) ? Math.round(kept.order[4] * 1e4) / 1e4 : null } : {}),
         ...(moved ? { moved: true } : {}),
         still: bounds.still === true, overlap: Number.isFinite(overlap) ? Math.round(overlap * 1e4) / 1e4 : null,
         // The worst pair, in screen units: which part of the field, which plate.
         ...(Number.isFinite(overlap) && part !== undefined ? { blocker: { kind: (bounds.spheres ?? [bounds])[part]?.kind ?? null, part, plate,
           box: round(box), menu: round(menu) } } : {}),
-        // Each seat this draw tested (a lesson's are its card seats), measured
-        // by each of its own plates alone, card/menu/status, with the kind of
-        // part its worst plate meets: `id band:card/menu/status:kind`. A worst
-        // pair alone named the card every seat shares and hid the seat's own.
-        seats: (lesson ? cards : candidates).map(seat => {
-          const areas = (seat.glass?.length ? seat.glass : [seat.points]).map(plate =>
-            obstruction({ menuPoints: plate, menuGlass: [plate], views: seat.views ?? options.views }));
-          const worst = areas.reduce((a, b) => b.area > a.area ? b : a, { area: 0 });
-          return `${seat.id}${seat.band ? ` ${seat.band}` : ''}:`
-            + areas.map(({ area }) => Number.isFinite(area) ? Math.round(area * 1e4) / 1e4 : 'unmeasured').join('/')
-            + (worst.area > 0 ? `:${(bounds.spheres ?? [bounds])[worst.part]?.kind ?? 'field'}` : '');
-        }),
-        bounds: chapterFieldSummary(bounds) });
+        ...(spinProof ? {} : { seats: tested }), bounds: chapterFieldSummary(bounds) });
       if (kept) return { chapterCardSeat: kept.seat, kept: true };
       return Number.isFinite(overlap) ? { obstructed: true } : { unmeasured: true };
     }
@@ -9112,6 +9708,13 @@ export async function createViewer({ canvas: element, container, onSelection = (
     if (busy) apply();
     else await inspectionMutation(apply, { animationInstalled: true, mutationOrigin: 'automatic-clearance' });
     return cardSeat ? { chapterCardSeat: cardSeat } : menuRelocation ? { menuRelocation } : undefined;
+    })((kind, detail) => {
+      if (kind === 'chapter-field') decision = detail;
+      return kind === 'chapter-field' && seated(detail) ? undefined : recordManipulation(kind, detail);
+    });
+    if (spinProof && !about()) return cancelled;
+    if (spinProof) lastSpinProof = { ...spinProof, answer, record: decision };
+    return receipt(answer, decision);
   }
 
   function modelledFocusKeys(keys) {
@@ -9122,7 +9725,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
 
   async function focusSelection({ selectionKeys, framing = 'context', minTargetFraction = 0, wholeStructure = false,
     enclosure, elevationDegrees, liftEmphasis = true, marksSelection = true, durationMs = LESSON_FRAMING_TRAVEL_MS, motionFrame,
-    lessonSelection = false } = {}) {
+    lessonSelection = false, ghost, facing } = {}) {
     assertReady();
     if (typeof chapterInteractionDepth !== 'undefined' && chapterInteractionDepth > 0 && wearerPlacement.holdsPlacement()) return snapshot();
     const began = now();
@@ -9161,7 +9764,19 @@ export async function createViewer({ canvas: element, container, onSelection = (
         });
         inspectionState.setPayload(inspectionPayload());
         result = snapshot();
-      } else result = await (chosen.length ? focus(chosen) : fitInspection());
+      } else {
+        // A plane view turns the camera to it; the next framed figure turns it back.
+        const before = facing && typeof desktopCameraView === 'function' ? desktopCameraView() : undefined;
+        const orient = !before ? undefined : facing.view ? desktopWorldView(facing.view)
+          : facing.back?.camera && sameDirection(before.toEye, facing.back.landedCamera?.toEye)
+            && sameDirection(before.up, facing.back.landedCamera?.up) ? facing.back.camera : undefined;
+        result = await (chosen.length ? focus(chosen, orient ? { orient } : undefined) : orient ? fitInspection(orient) : fitInspection());
+        if (facing) {
+          if (facing.view) siteViewReturn = orient ? { camera: facing.returnTo ?? before, landedCamera: orient, structure } : undefined;
+          recordCost('closeup-view', { surface: 'desktop', back: Boolean(facing.back), turned: Boolean(orient),
+            ...(facing.view ? { dashes: facing.view.dashFractions.map(value => Math.round(value * 100) / 100) } : {}) });
+        }
+      }
       stage('desktop-framing-completed');
       return result;
     }
@@ -9176,7 +9791,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
         sampleAgeMs: Math.max(0, Math.round(performance.now() - latestHeadSample)), roomPose: Boolean(latestRoomPlacementPose), sphere: Boolean(sphere) });
       throw Error('Wait for headset tracking before framing the chapter.');
     }
-    const envelope = (typeof molecularAnimation === 'undefined' ? undefined : molecularAnimation.envelope?.()) ?? sphere;
+    // `ghost`: the chains a lesson close-up shows, when its chapter hides others.
+    const envelope = ghost ?? (typeof molecularAnimation === 'undefined' ? undefined : molecularAnimation.envelope?.()) ?? sphere;
     const target = motionFrame?.target ?? (modelled.length ? molecularAnimation.selectionSphere(selection.toLoci(modelled)) : envelope);
     const focusPivot = { owner: focusOwner, source: sourceRecord, subject: visibleStage, targetCenter: Array.from(target.center) };
     const from = inspectionSnapshot().placement;
@@ -9199,12 +9815,20 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // broad face — protofilament axis across the lens, lateral neighbours
     // beside each other — instead of the arrival twist the shortest arc would
     // otherwise keep. A part chapter (a strand) keeps the plain oblique turn.
-    const turn = owedTurn && turnPoints
+    const growth = owedTurn && turnPoints
       ? obliqueGrowthTurn({ headInRoom: latestRoomPlacementPose.headInRoom,
         renderFromRoom: latestRoomPlacementPose.renderFromRoom, placement: from,
         points: turnPoints, centre: Array.from(target.center),
         ...(wholeStructure ? { azimuthDegrees: GROWTH_WALL_AZIMUTH_DEGREES } : {}) })
       : undefined;
+    // A site close-up's plane view (`siteFacing`) turns the structure the same
+    // way, eased with the travel; the next framed figure turns back to what it
+    // left, unless something else has turned the structure since.
+    const faced = growth || motionFrame || !facing ? undefined
+      : facing.view ? siteViewTurn({ ...latestRoomPlacementPose, placement: from, views: [facing.view] })
+      : facing.back?.rotation && sameRotation(from.rotation, facing.back.landed)
+        ? rotationTurn({ placement: from, rotation: facing.back.rotation }) : undefined;
+    const turn = growth ?? faced;
     // The framing is solved in the pose the tier is about to stand in, so the
     // lens band, the caption dodge and the menu clearance are all measured on
     // the silhouette the wearer will actually see rather than on the old one.
@@ -9217,7 +9841,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // so no part of it swings behind the glass or past the wearer mid-turn.
     // The presentation spin turns about the stage centre, a lesson orbit about
     // the drawn centre (`headsetTurnPivot`).
-    const chapterTurn = typeof paintingTurn === 'undefined' ? undefined : paintingTurn;
+    const chapterTurn = typeof paintingTurn === 'undefined' || paintingTurn?.glassOnly ? undefined : paintingTurn;
     const turnPivot = chapterTurn && Array.from(chapterTurn.continuous ? pivotCenter() : drawnCenter());
     const swept = points => chapterTurn ? turnSweptPoints(points, chapterTurn, { pivot: turnPivot, rotation: posed.rotation }) : points;
     // A framing is solved from the target's radius, so a floor under that
@@ -9247,6 +9871,11 @@ export async function createViewer({ canvas: element, container, onSelection = (
     const eye = [latestRoomPlacementPose.headInRoom[12], latestRoomPlacementPose.headInRoom[13],
       latestRoomPlacementPose.headInRoom[14]];
     const plateRange = pointRange(plates, eye);
+    // The half-width the solver projected for its angle, in structure units.
+    // A refit keeps it: the bounding sphere's radius stood in for it, and
+    // CRISPR's landed view was reported at 47.7 degrees where it drew 36.5.
+    const projectedHalfWidth = plan => plan.halfWidthUnits
+      ?? (plan.distance > 0 && plan.angleDegrees > 0 ? Math.tan(plan.angleDegrees * Math.PI / 360) * plan.distance / (plan.scale * plan.cameraScale) : targetRadius);
     // The plan moved by a chapter-field fit, re-measured where its target now stands.
     const refitted = (plan, fitted) => {
       const delta = fitted.translation.map((v, i) => (v - plan.translation[i]) * sphere.radius * plan.cameraScale);
@@ -9255,14 +9884,14 @@ export async function createViewer({ canvas: element, container, onSelection = (
       const targetRoom = plan.targetRoom.map((v, i) => v + roomDelta[i]);
       const distance = Vec3.distance(targetRoom, eye);
       const local = Vec3.transformMat4(Vec3(), targetRoom, Mat4.invert(Mat4(), latestRoomPlacementPose.headInRoom));
-      const enclosure = targetRadius * plan.scale * plan.cameraScale / distance;
-      return { ...plan, translation: fitted.translation, field: fitted.field, targetRoom, distance, enclosure,
+      const enclosure = targetRadius * plan.scale * plan.cameraScale / distance, halfWidthUnits = projectedHalfWidth(plan);
+      return { ...plan, translation: fitted.translation, field: fitted.field, targetRoom, distance, enclosure, halfWidthUnits,
         targetLens: [local[0] / -local[2] / Math.tan(42 * Math.PI / 180), local[1] / -local[2]],
-        angleDegrees: 2 * Math.atan(enclosure) * 180 / Math.PI };
+        angleDegrees: 2 * Math.atan(halfWidthUnits * plan.scale * plan.cameraScale / distance) * 180 / Math.PI };
     };
     const solve = (sweep, turning = Boolean(chapterTurn)) => (motionFrame ? motionFocusPlacement : focusPlacement)({ ...latestRoomPlacementPose,
       ...(motionFrame ? { previousScale: motionFrame.previousScale, growToFit: motionFrame.growToFit } : {}), cameraScale: canvas.camera.scale, center: sphere.center,
-      radius: sphere.radius, assemblyRadius: Math.max(sphere.radius, Vec3.distance(sphere.center, envelope.center) + envelope.radius),
+      radius: sphere.radius, assemblyRadius: Math.max(ghost ? 0 : sphere.radius, Vec3.distance(sphere.center, envelope.center) + envelope.radius),
       placement: posed, targetCenter: target.center, targetRadius, framing,
       // A boundary's `extrema` are the extreme points Mol* kept
       // along a fixed set of directions, so they are the cheapest honest answer
@@ -9352,7 +9981,13 @@ export async function createViewer({ canvas: element, container, onSelection = (
       const framed = chapterFieldDistance(field);
       const halfWidth = targetRadius * plan.scale * plan.cameraScale / (plan.distance ?? framed);
       const floor = motionFrame ? Math.max(1, halfWidth / Math.tan(MOTION_MIN_DEGREES * Math.PI / 360)) : Infinity;
-      chapterSizeBound = { maxDistance: framed * Math.min(1 / GLASS_MIN_SIZE_SHARE, floor) };
+      // A chapter that spins is proven against its whole turn, which few
+      // seats clear as framed, and a set-back to find one shrank CRISPR's
+      // second chapter by an eighth. Its size comes before its band: a seat
+      // in either band that clears as framed, else a move that keeps nine
+      // tenths of its size, else the seat that covers least (`clearChapterMenu`).
+      const spinning = typeof chapterSpinning === 'function' && chapterSpinning();
+      chapterSizeBound = { maxDistance: framed * Math.min(1 / (spinning ? SPIN_GLASS_MIN_SIZE_SHARE : GLASS_MIN_SIZE_SHARE), floor) };
       // The top band first. In a band, a seat that already clears the
       // chapter takes it as framed. Else the seat the shortest move clears,
       // the whole column before the compact Menu control when that costs no
@@ -9374,10 +10009,14 @@ export async function createViewer({ canvas: element, container, onSelection = (
           const seat = cardSeats.find(keeps);
           if (seat) return { seat, cost: 0 };
         }
-        for (const beside of [false, true]) for (const band of ['top', 'bottom']) {
-          const seats = cardSeats.filter(seat => (seat.beside === true) === beside && (seat.band === 'bottom' ? 'bottom' : 'top') === band)
-            .sort((a, b) => (a.statusAside === true) - (b.statusAside === true)
-              || (a.compact === true) - (b.compact === true));
+        const bands = [false, true].flatMap(beside => ['top', 'bottom'].map(band => cardSeats.filter(seat =>
+          (seat.beside === true) === beside && (seat.band === 'bottom' ? 'bottom' : 'top') === band)
+          .sort((a, b) => (a.statusAside === true) - (b.statusAside === true) || (a.compact === true) - (b.compact === true))));
+        if (spinning) for (const seats of bands) {
+          const seat = seats.find(keeps);
+          if (seat) return { seat, cost: 0 };
+        }
+        for (const seats of bands) {
           const seat = seats.find(keeps);
           if (seat) return { seat, cost: 0 };
           let best;
@@ -9387,13 +10026,18 @@ export async function createViewer({ canvas: element, container, onSelection = (
             try {
               const fit = fitChapterField({ ...glassFor(seat), clearanceOnly: true, level: true, maxDistance,
                 standoff: latestSeatStandoffMeters ?? undefined, maxMove: best?.cost });
+              // The size bound holds the field's centre, but the chapter's size
+              // is its target's distance: a move sideways and back left CRISPR's
+              // opening chapter its centre at 1.099 of the framed distance and
+              // its target at 1.124, landing it 11% smaller.
+              if (spinning && refitted(plan, fit).distance * SPIN_GLASS_MIN_SIZE_SHARE > Vec3.distance(plan.targetRoom, eye)) continue;
               if (!best || fit.field.moveCost < best.cost) best = { seat, cost: fit.field.moveCost, fit };
             } catch { continue; } // No level move within the reach and the size clears this seat.
           }
           if (best) return best;
         }
       };
-      let found = solve(chapterSizeBound.maxDistance) ?? (motionFrame ? undefined : solve(Infinity));
+      let found = solve(chapterSizeBound.maxDistance) ?? (motionFrame || spinning ? undefined : solve(Infinity));
       if (!found && volume && wholeStructure) {
         // An end-on contour can fill the lens before its enclosing sphere
         // fits beside any card. Every glass seat and permitted move has been
@@ -9413,7 +10057,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
         }
         if (largest) {
           const previousScale = plan.scale;
-          plan = refitted({ ...plan, scale: largest.scale }, { translation: plan.translation });
+          // The half-width the solver projected, measured before the shrink.
+          plan = refitted({ ...plan, halfWidthUnits: projectedHalfWidth(plan), scale: largest.scale }, { translation: plan.translation });
           found = { seat: largest.seat, cost: 0 };
           recordManipulation('chapter-field', { reason: 'contour-glass-fit', previousScale, scale: plan.scale });
         }
@@ -9484,6 +10129,12 @@ export async function createViewer({ canvas: element, container, onSelection = (
     stage('travel-completed');
     if (!await bakeGrab({ gesture: 'focus' }, { focusPivot })) return snapshot();
     stage('placement-settled');
+    if (facing && !growth && !motionFrame) {
+      if (facing.view) siteViewReturn = faced ? { rotation: facing.returnTo ?? from.rotation, landed: inspectionState.placement().rotation, structure } : undefined;
+      recordCost('closeup-view', { surface: 'headset', back: Boolean(facing.back), turnDegrees: Math.round((faced?.deltaDegrees ?? 0) * 10) / 10,
+        ms: faced?.turned ? faced.durationMs : 0, rotation: inspectionState.placement().rotation.map(value => Math.round(value * 10) / 10),
+        ...(facing.view ? { dashes: facing.view.dashFractions.map(value => Math.round(value * 100) / 100) } : {}) });
+    }
     if (glassYields && typeof clearFieldGlass === 'function') await clearFieldGlass(chapterFieldBounds());
     // `angleDegrees` is the angle the target ACTUALLY subtends
     // for the wearer, which is the number a framing is judged by and the one no
@@ -9511,7 +10162,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // `pierced` is the plate geometry the structure would draw over -- which
     // is the pixel overlap the wearer-view captures show, measured.
     // The final field proof supersedes the earlier caption/menu heuristic.
-    if (!plan.field) recordStandoff({ framing: plan.framing, plan, plates, captions, eye, plateRange, turn });
+    if (!plan.field) recordStandoff({ framing: plan.framing, plan, plates, captions, eye, plateRange, turn: growth });
     return snapshot();
   }
 
@@ -9937,9 +10588,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
       if (patches.emphasis) lessonKey.remember(nextEmphasis);
       // An explicit agent pose is the user's room intent, like a hand placement.
       // Keep it only after the compound rendered; a refused edit owns no hold.
-      if (placementChanged && canvas.xr?.isPresenting?.value && typeof settlePlacementIntent === 'function')
-        settlePlacementIntent(placementIntent, { agent: !preservePlacement, history: preservePlacement });
-      if (placementChanged && canvas.xr?.isPresenting?.value && !preservePlacement)
+      const settled = placementChanged && canvas.xr?.isPresenting?.value && typeof settlePlacementIntent === 'function'
+        ? settlePlacementIntent(placementIntent, { agent: !preservePlacement, history: preservePlacement }) : undefined;
+      // A move put back does not re-seat the menu (see placeInspection).
+      if (placementChanged && canvas.xr?.isPresenting?.value && !preservePlacement && settled !== 'returned')
         void Promise.resolve(immersiveSession?.toolbarAction?.({ kind: 'recenter-menu', reason: 'placement' })).catch(() => {});
       settledSelectionLayers = inspectionLayersIntact() ? selectionLayerStamp() : undefined;
       if (placementAdjusted) recordManipulation('outcome', { status: 'adjusted', action: 'compound',
@@ -10012,7 +10664,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
 
   function clearHeldPlatePlacement(requested, { hidden, keepWearer = false, keepClearSeat = false, allowOffscreen = false,
     recoverVisible = typeof chapterInteractionDepth !== 'undefined' && chapterInteractionDepth > 0 && !keepWearer, signal, isCurrent, kind = 'appearance',
-    announce = true, menuRetry = false, fitDeadline = now() + 30000 } = {}) {
+    announce = true, menuRetry = false, fitDeadline = now() + 30000, glassMustMove = false, fixedMenu = false } = {}) {
     const originalRequested = requested;
     const generation = state.generation, source = sourceRecord;
     const checkOwner = () => {
@@ -10066,10 +10718,10 @@ export async function createViewer({ canvas: element, container, onSelection = (
       // The figure replaces the nearly transparent source representation as
       // the illustrated subject. Explicit context layers remain visible but
       // do not turn a ligand closeup into a full-protein clearance solve.
-      objects: (figure ? [...lessonFigure.placement(),
+      objects: (figure ? noteAtomSphereMeshes([...lessonFigure.placement(),
         ...(inspectionSnapshot().appearance?.opacity > .2
           ? [representation?.obj?.data?.repr, ligandOverlay?.representation?.obj?.data?.repr] : []),
-        companionRecord?.representation?.obj?.data?.repr].filter(Boolean)
+        companionRecord?.representation?.obj?.data?.repr].filter(Boolean))
         : scientificRepresentations(true)).flatMap(repr => repr.renderObjects)
         .filter(object => object.type !== 'text').map(object => (Array.isArray(hidden) ? hidden : [hidden]).some(repr => repr?.renderObjects?.includes(object))
           ? { ...object, state: { ...object.state, visible: true } } : object), fromPlacement: presentationTransform(),
@@ -10087,7 +10739,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // silently dragging it back into the current field of view.
     const intentionalRoomPose = keepWearer && typeof wearerPlacement !== 'undefined'
       && wearerPlacement?.holdsPlacement?.() === true;
-    const menuCandidates = recoverVisible || allowOffscreen || intentionalRoomPose || glassYields
+    // `fixedMenu`: a pose proven as it stands against the menu as it stands.
+    const menuCandidates = !fixedMenu && (recoverVisible || allowOffscreen || intentionalRoomPose || glassYields)
       ? immersiveSession?.toolbarRelocationCandidates?.(pose) ?? [] : [];
     const options = { seat: requested, fit: true, restoreSaved: keepWearer, keepClearSeat, recoverVisible,
       preferMenuRelocation: typeof chapterInteractionDepth !== 'undefined' && chapterInteractionDepth > 0 && !keepWearer,
@@ -10138,7 +10791,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
           && Object.entries(changed).every(([key, value]) => key === 'menu' || !value)) {
           recordManipulation('appearance-fit', { outcome: 'retry-menu', kind, changed });
           return clearHeldPlatePlacement(originalRequested, { hidden, keepWearer, keepClearSeat, allowOffscreen, recoverVisible,
-            signal, isCurrent, kind, announce, menuRetry: true, fitDeadline });
+            signal, isCurrent, kind, announce, menuRetry: true, fitDeadline, glassMustMove, fixedMenu });
         }
         recordManipulation('appearance-fit', { outcome: 'stale', kind, changed });
         throw Object.assign(Error('The menu, placement or session changed while fitting. Kept the previous appearance.'), { code: 'FIT_STALE' });
@@ -10155,6 +10808,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
           await relocation?.rollback?.();
           throw Object.assign(Error('The placement or session changed while moving the menu. Kept the previous appearance.'), { code: 'FIT_STALE' });
         }
+        // A lesson's glass may refuse to hide and stay drawn (`kept`): then
+        // nothing left the molecule, and a caller that needs proof has none.
+        if (glassMustMove && relocation?.kept) throw Error('The menu stayed where it covers the structure.');
       }
       if (announce && ![...placementViewWaiters].some(check => check.fitKind))
         try { talkCaption?.set({ progress: '' }); } catch {}
@@ -10186,12 +10842,17 @@ export async function createViewer({ canvas: element, container, onSelection = (
       if (canvas.xr.isPresenting.value) {
         if (kind === 'appearance-recovery') {
           const reason = String(error?.message ?? error).replace(/\s*Kept the previous appearance\.?$/u, '');
+          // The put-back that follows this refusal usually draws the structure
+          // again, so the step is worded to hold whether or not it shows.
           const nextStep = canvas.webgl.isContextLost
             ? ' The structure remains hidden until the graphics context recovers.'
-            : ' The structure remains hidden. Press Reset or Fit to show it.';
-          const recoveryError = Object.assign(new Error(`${reason}${nextStep}`), error);
-          recoveryError.message = `${reason}${nextStep}`;
-          error = recoveryError;
+            : ' If the structure is not showing, press Reset or Fit.';
+          // A menu retry inside this recovery has already said the step.
+          if (!reason.endsWith(nextStep)) {
+            const recoveryError = Object.assign(new Error(`${reason}${nextStep}`), error);
+            recoveryError.message = `${reason}${nextStep}`;
+            error = recoveryError;
+          }
         }
         if (announce) try { talkCaption?.set({ progress: '', outcome: error.message
           + (kind === 'retained-pose' && typeof retainedPoseHidden !== 'undefined' && retainedPoseHidden
@@ -10211,22 +10872,67 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return checked;
   }
 
-  async function placeInspection(patch, action = 'place', { wearer = false, preservePlacement = false } = {}) {
+  /**
+   * The seat a lesson's opening chapter took in the headset, and the authored
+   * placement it stands for. On the desktop a later chapter's placement is
+   * read in the frame the opening Fit gave. In the headset a source swapped
+   * in keeps the outgoing structure's scene scale and origin, so the source's
+   * own [0, 0, 0] and scale 1 land wherever that history put them. A later
+   * chapter's authored placement is read against this seat instead: its size
+   * relative to the opening chapter's, centred where the opening sat. Only
+   * a placement that names the lesson whose opening took the seat is read
+   * this way: another lesson's chapters, and a pose restored as it stood,
+   * name none and are placed as they stand.
+   */
+  let authoredChapterFrame = null;
+  function authoredFrameKey() {
+    return { source: state.sourceSha256, session: typeof currentXrSession === 'function' ? currentXrSession() : undefined };
+  }
+  function recordAuthoredChapterFrame(authored, seat, lesson) {
+    const opening = normalizePlacement(authored ?? {}, { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 });
+    authoredChapterFrame = { ...authoredFrameKey(), lesson, authored: opening,
+      seat: { translation: [...seat.translation], scale: seat.scale } };
+  }
+  function chapterPlacementInSeat(patch, lesson) {
+    const frame = typeof authoredChapterFrame === 'undefined' ? null : authoredChapterFrame, key = authoredFrameKey();
+    if (!frame || lesson === undefined || frame.lesson !== lesson
+      || frame.source !== key.source || frame.session !== key.session) return patch;
+    const ratio = frame.seat.scale / frame.authored.scale, mapped = { ...patch };
+    if (Array.isArray(patch.translation)) mapped.translation = patch.translation.map((value, axis) =>
+      frame.seat.translation[axis] + (value - frame.authored.translation[axis]) * ratio);
+    if (Number.isFinite(patch.scale)) mapped.scale = patch.scale * ratio;
+    return mapped;
+  }
+
+  async function placeInspection(patch, action = 'place', { wearer = false, preservePlacement = false, lesson } = {}) {
     if (typeof supersedePlacementFit === 'function') await supersedePlacementFit();
     assertReady();
     normalizePlacement(patch, inspectionSnapshot().placement);
     if (action === 'tour-placement' && wearerPlacement.holdsPlacement()) return snapshot();
     cancelXrPlacementFollowup(); invalidateGesturePivot();
     const placementIntent = typeof placementIntentCheckpoint === 'function' ? placementIntentCheckpoint() : undefined;
+    // The agent putting the molecule back on the seat its chapter opened at.
+    // That seat is the chapter's, proven when the chapter drew it: it is never
+    // refused for the glass the move left behind. Nothing holds the molecule
+    // once it lands, so the glass proves itself against it and yields, as it
+    // did when the chapter opened. A menu the wearer dragged does not move
+    // for a proof, so a put-back beside it is proven like any other pose.
+    const chapterSeat = action === 'place' && !wearer && !preservePlacement && canvas.xr?.isPresenting?.value
+      && immersiveSession?.menuDraggedByWearer?.() !== true
+      && typeof agentPlacementHistory !== 'undefined' && placementIntent !== undefined
+      && agentPlacementHistory.returnsToChapterSeat(placementIntent, normalizePlacement(patch, inspectionSnapshot().placement));
     let before, placementAdjusted = false;
     const result = await inspectionMutation(async () => {
       syncInspectionPayload();
       before = inspectionSnapshot().placement;
       // Nobody holds the molecule here (a hold returned above), so the
       // chapter's authored seat applies, as on the desktop: [0, 0, 0] stands
-      // at reading distance ahead of where the wearer entered. A seat that no
-      // longer faces the wearer, after a Reset facing elsewhere, keeps the
-      // current centre through the size and rotation change.
+      // at reading distance ahead of where the wearer entered, or, once the
+      // lesson's opening chapter took a seat, where that seat stands. A seat
+      // that no longer faces the wearer, after a Reset facing elsewhere, keeps
+      // the current centre through the size and rotation change.
+      if (action === 'tour-placement' && canvas.xr?.isPresenting?.value && typeof chapterPlacementInSeat === 'function')
+        patch = chapterPlacementInSeat(patch, lesson);
       if (action === 'tour-placement' && canvas.xr?.isPresenting?.value && (typeof authoredSeatFaces !== 'function'
         || !authoredSeatFaces(normalizePlacement(patch, before).translation)))
         patch = { ...patch, translation: before.translation };
@@ -10237,7 +10943,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
       // Entry already passed the stereo solver against the upcoming toolbar.
       // The panel may not have drawn its points yet on the first XR frame.
       const explicitRoomPlacement = action === 'place';
-      const cleared = preservePlacement ? requested : wearer || explicitRoomPlacement ? await clearHeldPlatePlacement(requested, {
+      const cleared = preservePlacement || chapterSeat ? requested : wearer || explicitRoomPlacement ? await clearHeldPlatePlacement(requested, {
         keepWearer: true, allowOffscreen: true, kind: 'wearer-placement',
       }) : action === 'entry-seat' ? requested : await Promise.resolve().then(() => clearHeldPlatePlacement(requested, {
         // A figure chapter may deliberately frame a ligand within ghosted
@@ -10267,8 +10973,9 @@ export async function createViewer({ canvas: element, container, onSelection = (
     }, action === 'entry-seat' ? { mutationOrigin: 'xr-entry' } : undefined);
     // Accept the whole requested pose or refuse its menu collision. Later
     // appearance edits must not fit this intentional pose back into the gaze.
-    if (canvas.xr?.isPresenting?.value && typeof settlePlacementIntent === 'function')
-      settlePlacementIntent(placementIntent, { agent: !wearer && !preservePlacement && action === 'place', history: preservePlacement });
+    const settled = canvas.xr?.isPresenting?.value && typeof settlePlacementIntent === 'function'
+      ? settlePlacementIntent(placementIntent, { agent: !wearer && !preservePlacement && action === 'place', history: preservePlacement })
+      : undefined;
     if (placementAdjusted) recordManipulation('outcome', { status: 'adjusted', action,
       reason: 'Moved or resized the structure to clear the held menu and reply plate.' });
     // Focus framing and tour placement share one settled solve.
@@ -10289,23 +10996,45 @@ export async function createViewer({ canvas: element, container, onSelection = (
       };
       // Hold menu callbacks until the final glass is drawn. Consume its delayed
       // notification in this transaction so placement and reseating solve once.
-      if (canvas.xr?.isPresenting?.value && !wearer && !preservePlacement && action === 'place' && immersiveSession?.toolbarAction) {
+      // A move put back gives the menu its seat back, not a new one: the
+      // next chapter may seat its card, but this edit does not re-seat it.
+      if (canvas.xr?.isPresenting?.value && !wearer && !preservePlacement && action === 'place' && settled !== 'returned'
+        && immersiveSession?.toolbarAction) {
         await componentLabels.transaction(async () => {
           await Promise.resolve(immersiveSession.toolbarAction({ kind: 'recenter-menu', reason: 'placement' })).catch(() => {});
           immersiveSession?.flushMenuLayout?.();
           await relayout();
         }).catch(error => console.error(error));
+      } else if (chapterSeat && settled === 'returned' && immersiveSession?.refreshToolbar) {
+        // The glass the moves left proves itself against the chapter seat in
+        // this transaction and yields, as it does when the chapter opens, so
+        // the next command never measures glass that is still moving.
+        let unproven;
+        await componentLabels.transaction(async () => {
+          await Promise.resolve(immersiveSession.refreshToolbar()).catch(error => { unproven = error ?? Error('The menu did not redraw.'); });
+          immersiveSession?.flushMenuLayout?.();
+          await relayout();
+        }).catch(error => console.error(error));
+        // A redraw that failed proved nothing. The seat is then proven against
+        // the glass as any explicit pose is, moving the menu clear if it must,
+        // and the put-back answers success only once that proof holds.
+        if (unproven) await clearHeldPlatePlacement(inspectionSnapshot().placement, {
+          keepWearer: true, allowOffscreen: true, kind: 'wearer-placement', glassMustMove: true }).catch(error => {
+          throw Error(`The molecule is back on the chapter's seat, but the menu could not be shown clear of it. ${error?.message ?? error}`);
+        });
       } else await relayout().catch(error => console.error(error));
     }
     return result;
   }
-  async function fitInspection() {
+  /** `orient`: a site close-up's turn back, world directions the desktop camera looks from first. */
+  async function fitInspection(orient) {
     assertReady();
     if (canvas.xr?.isPresenting?.value)
       return focusSelection({ wholeStructure: true, liftEmphasis: false });
     await inspectionMutation(() => {
       syncInspectionPayload(); inspectionState.recordPayload(null, 'fit');
       if (typeof releaseWearerPlacement === 'function') releaseWearerPlacement('fit');
+      if (Array.isArray(orient?.toEye) && Array.isArray(orient?.up)) orientDesktopCamera(orient);
       const envelope = molecularAnimation.envelope();
       if (envelope) plugin.managers.camera.focusSphere(transformSphere(envelope, presentationTransform()),
         {durationMs:0, extraRadius:0, minRadius:0});
@@ -10439,12 +11168,21 @@ export async function createViewer({ canvas: element, container, onSelection = (
     // Pin the saved camera before the first tick moves it.
     const scene = liveScene();
     lessonMotionHold.hold(cameraSnapshot(scene.camera), scene);
-    const pivot = canvas.xr.isPresenting.value ? headsetTurnPivot() : undefined;
-    const next = lessonCameraMove({ position: current.position, target: current.target, up: current.up }, norm,
-      { pivot, ...(norm.kind === 'dolly' && pivot ? { dollyPivot: pivot } : {}) });
+    // A move handed back with the frame it was made in (`lessonMoveFrame`) is
+    // taken back about that centre and axis, as the camera now carries them.
+    const scale = canvas.camera.scale, presenting = canvas.xr.isPresenting.value;
+    const given = presenting && move?.frame ? lessonMoveFromFrame(current, move.frame, scale) : undefined;
+    const pivot = presenting ? given?.pivot ?? headsetTurnPivot() : undefined;
+    const turn = norm.kind === 'orbit' && given?.axis ? { ...norm, axis: given.axis } : norm;
+    const next = lessonCameraMove({ position: current.position, target: current.target, up: current.up }, turn,
+      { pivot, ...(turn.kind === 'dolly' && pivot ? { dollyPivot: pivot } : {}) });
     canvas.camera.setState(cameraSnapshot({ ...current, position: next.position, target: next.target, up: next.up }), 0);
     canvas.requestDraw();
-    return { ...snapshot(), lessonMotionApplied: true };
+    // Where this move was made, so the lesson can take it back exactly: the
+    // render-space centre (equal for the ticks of one still chapter) and that
+    // centre and axis seen from the camera the move left.
+    const frame = pivot ? lessonMoveFrame(next, pivot, turn.kind === 'orbit' ? turn.axis : undefined, scale) : undefined;
+    return { ...snapshot(), lessonMotionApplied: true, ...(pivot ? { pivot: [...pivot], pivotScale: scale, ...(frame ? { frame } : {}) } : {}) };
   }
   /**
    * The render-space point a headset turn pivots about: a chapter's turn and
@@ -10612,8 +11350,11 @@ export async function createViewer({ canvas: element, container, onSelection = (
     return true;
   }
 
+  // Save recovery. `exactPlacement`: prove the saved pose clear of the menu as
+  // both stand and refuse it otherwise, rather than moving the pose or the menu.
+  // `menuMustMove`: a menu move the fit asks for must happen, or it is refused.
   async function restoreInspection(value, { preserveCamera = false, preservePlacement = false,
-    restorePlacement = false, preservePreviewCamera = false, xrRecoveryFrame } = {}) {
+    restorePlacement = false, preservePreviewCamera = false, xrRecoveryFrame, exactPlacement = false, menuMustMove = false } = {}) {
     assertReady(); const next = validInspectionCapture(value);
     // The workspace has already admitted this peer update on its serialized
     // queue. Recheck the current capture here, then acknowledge status-only
@@ -10738,7 +11479,8 @@ export async function createViewer({ canvas: element, container, onSelection = (
         if (typeof desktopPreviewMaxDistance !== 'undefined') releaseDesktopPreviewLimit();
         desktopPreviewCamera = undefined; canvas.camera.setState(next.camera, 0);
       }
-      await applyInspectionAppearance({ preservePlacement: Boolean(placement) });
+      await applyInspectionAppearance({ preservePlacement: Boolean(placement), explicitPlacement: exactPlacement,
+        fixedMenu: exactPlacement, glassMustMove: menuMustMove });
       if (typeof syncStaticMask === 'function') await syncStaticMask();
       await molecularAnimation.restore(next.inspection.animation);
       applyInspectionTransform();
@@ -11240,12 +11982,14 @@ export async function createViewer({ canvas: element, container, onSelection = (
     supportsConcurrentPlayback: true, runChapter,
     preservesFigureFrame: () => Boolean(initialFigureFrame),
     setSourceCoordinateFrame,
+    // A size the wearer asks for by voice is held as theirs, as the menu row's is.
+    scaleForWearer: scaleInspectionForWearer,
     // Typed voice controls use the same session entry range as hands and menu.
     clampWearerScale: value => clampPlacementScale(value,
       canvas.xr.isPresenting.value ? roomEntry?.seat?.scale : undefined, inspectionState.placement().scale),
     // New-source chapter entry uses the same solver as entering XR, without
     // Reset's wearer stop or menu/orientation reset.
-    seatForEntry: () => seatStructureForEntry({ chapter: true }),
+    seatForEntry: (authored, lesson) => seatStructureForEntry({ chapter: true, authored, lesson }),
     configure: configureInspection, placementFitEvidence, place: placeInspection, fit: fitInspection, resetOrientation, recenter: recenterInspection, orbit, dolly,
     undo: undoInspection, redo: redoInspection, saveView: saveInspectionView, restoreView: restoreInspectionView,
     hover: hoverInspection, capture: completeInspectionCapture,
@@ -11322,13 +12066,16 @@ export async function createViewer({ canvas: element, container, onSelection = (
      * other chapter, such as the outgoing one's. `turn` is the turn the
      * chapter will play in the headset (render-space `axis`, the molecule's
      * signed `degrees`, `continuous` for the presentation spin), and its
-     * framing is solved for everything that turn sweeps.
+     * framing is solved for everything that turn sweeps. With `glassOnly`
+     * the turn counts for the menu's glass alone: the chapter is framed as
+     * it stands, as a lesson's opening chapter always has been.
      */
-    chapterPainting(chapterId, { turn } = {}) {
+    chapterPainting(chapterId, { turn, glassOnly = false } = {}) {
       paintingChapter = chapterId ?? undefined;
       if (chapterId !== undefined) turnHeldFor = null;
       paintingTurn = chapterId !== undefined && turn?.axis?.length === 3 && Number.isFinite(turn.degrees)
-        ? { axis: [...turn.axis], degrees: turn.degrees, continuous: turn.continuous === true } : undefined;
+        ? { axis: [...turn.axis], degrees: turn.degrees, continuous: turn.continuous === true, ...(glassOnly ? { glassOnly: true } : {}) } : undefined;
+      if (chapterId !== undefined) spinningChapter = paintingTurn?.continuous ? chapterId : null;
       if (chapterId !== undefined) menuClearanceMovedFor = null;
     },
     /** Whether chapter `chapterId` was framed as a close-up that holds its spin still. */
@@ -11343,6 +12090,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
      * answer with the reason and the chapter on it, for a diagnostic reader.
      */
     beginChapterFraming,
+    endChapterPlacement, resumeChapterPlacement,
     holdsWearerPlacement: () => wearerPlacement.holdsPlacement(),
     wearerPlacement: () => wearerPlacement.state(),
     /**
@@ -11474,6 +12222,7 @@ export async function createViewer({ canvas: element, container, onSelection = (
         return immersiveSession.refreshToolbar().catch(() => {});
       },
       placeInRoom: target => runSpatialAction({ kind: 'room-placement', target }, () => placeRoomTarget(target)),
+      exitRepaintOwed: () => exitRepaintPending, repaintAfterExit,
       spatialContext: () => canvas.xr.isPresenting.value && performance.now() - latestHeadSample < 1500 ? detached(latestHeadContext) : null,
     }) } : {}), ...(testHooks ? { testHooks } : {}) });
 }

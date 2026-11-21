@@ -1,21 +1,20 @@
 /**
  * Press Enter VR for the wearer, over the headset browser's debugger.
  *
- * On 2026-09-28 a wearer had the Stereofold page open in Quest Browser, flat,
- * and could not see the molecule. The agent had no tool that pressed Enter VR,
- * so it asked, and the wearer took the headset off to answer. When told to try,
- * it found the debugger itself and clicked the button with one
- * `Runtime.evaluate`; the page reported `presenting: true` in immersive-ar.
- * This module is that click, sent once, with a wait for the session and a
- * sentence for each way it can fail.
+ * A wearer can have the Stereofold page open in Quest Browser, flat, and not
+ * see the molecule. Without a tool that presses Enter VR, the agent has to ask,
+ * and the wearer takes the headset off to answer. One `Runtime.evaluate` over
+ * the debugger clicks the page's button, and the page reports
+ * `presenting: true` in immersive-ar. This module is that click, sent once,
+ * with a wait for the session and a sentence for each way it can fail.
  *
  * It lives apart from `headset-devtools.ts` because that module only reads.
  * This one presses the page's own entry button, the one the wearer would
  * press, and only when the page is not already presenting.
  *
  * WebXR grants a session only inside a user gesture. `Runtime.evaluate` with
- * `userGesture: true` gives the click one: Quest Browser 152 entered VR that
- * way on 2026-09-27 and again on 2026-09-28. The first entry on a new address
+ * `userGesture: true` gives the click one, and Quest Browser 152 enters VR
+ * that way. The first entry on a new address
  * stops at Quest Browser's "Allow VR" prompt, which only the wearer can
  * answer; the request waits behind it with the page in `requesting-headset`,
  * and the result says so rather than reporting a failure.

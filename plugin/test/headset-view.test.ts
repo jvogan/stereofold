@@ -1,5 +1,5 @@
-import { gzipSync } from 'node:zlib';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { deflateSync, gzipSync } from 'node:zlib';
+import { chmod, mkdir, mkdtemp, open, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -35,12 +35,8 @@ const noDevice = (): DeviceCaptureHooks => ({
   env: { PATH: '' },
 });
 
-/** An 8x6 PNG header, which is all the device path reads to report a shape. */
-const PNG = (() => {
-  const bytes = Buffer.alloc(32);
-  bytes.writeUInt32BE(0x89504e47, 0); bytes.writeUInt32BE(8, 16); bytes.writeUInt32BE(6, 20);
-  return bytes;
-})();
+/** What the fake ffmpeg writes for FRAME: a whole 8x6 PNG of the same lit level, which the device path reads in full. */
+const PNG = flatPng(8, 6, 180);
 
 /** One 8x6 `screencap` frame: header words, then lit RGBA pixels. */
 const FRAME = (() => {
@@ -48,6 +44,56 @@ const FRAME = (() => {
   header.writeUInt32LE(8, 0); header.writeUInt32LE(6, 4); header.writeUInt32LE(1, 8);
   return Buffer.concat([header, Buffer.alloc(8 * 6 * 4, 180)]);
 })();
+
+/** CRC-32 one bit at a time, for the fixtures below. */
+function crc32(bytes: Uint8Array) {
+  let crc = 0xffff_ffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? (crc >>> 1) ^ 0xedb8_8320 : crc >>> 1;
+  }
+  return (crc ^ 0xffff_ffff) >>> 0;
+}
+
+/**
+ * A valid opaque RGBA PNG of one level, as `screencap -p` writes a flat
+ * panel: unfiltered rows, one zlib stream, a real CRC on every chunk.
+ * `idat` replaces the image data, for one that does not decompress.
+ */
+function flatPng(width: number, height: number, level: number, idat?: Buffer) {
+  const chunk = (type: string, body: Buffer) => {
+    const out = Buffer.alloc(12 + body.byteLength);
+    out.writeUInt32BE(body.byteLength, 0); out.write(type, 4, 'latin1'); body.copy(out, 8);
+    out.writeUInt32BE(crc32(out.subarray(4, 8 + body.byteLength)), 8 + body.byteLength);
+    return out;
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 6;
+  const raw = Buffer.alloc((width * 4 + 1) * height, level);
+  for (let y = 0; y < height; y++) {
+    raw[y * (width * 4 + 1)] = 0;
+    for (let x = 0; x < width; x++) raw[y * (width * 4 + 1) + 1 + x * 4 + 3] = 255;
+  }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header),
+    chunk('IDAT', idat ?? deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+/**
+ * A fake `adb` with no `ffmpeg`: the headset encodes `encoded` itself, and
+ * the dark-still probes answer awake with an empty log.
+ */
+const headsetPngStub = (encoded: Buffer, calls: string[][] = []): DeviceCaptureHooks => ({
+  run: async (file, args) => {
+    calls.push([file, ...args]);
+    if (args[0] === 'devices') return { stdout: 'List of devices attached\nQUEST2\tdevice\n', stderr: '' };
+    if (args.includes('dumpsys') && args.includes('power')) return { stdout: 'mWakefulness=Awake\n', stderr: '' };
+    if (args.join(' ').includes('logcat -d -v epoch')) return { stdout: '1000\n', stderr: '' };
+    if (args.includes('-p')) return { stdout: encoded, stderr: '' };
+    return { stdout: '', stderr: '' };
+  },
+  exists: async (path: string) => path === '/opt/tools/adb',
+  env: { PATH: '/opt/tools' },
+});
 
 /** A fake `adb` and `ffmpeg`: the gzipped frame off the device, the PNG out of ffmpeg. */
 const deviceStub = (calls: string[][] = []): DeviceCaptureHooks => ({
@@ -66,7 +112,112 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xfe, 0x00, 0x04, 0x41, 0x42, 0xff, 
 const answer = (requestId: string) => ({
   requestId, status: 'captured' as const, eye: 'left' as const, width: 480, height: 533,
   mime: 'image/jpeg' as const, path: 'blit-pack-fence', frameMs: 0.42, capturedAt: 1_700_000_000_000,
-  framebufferWidth: 2016, framebufferHeight: 1120, directReadable: true, flatChecked: true, data: JPEG.toString('base64'),
+  framebufferWidth: 2016, framebufferHeight: 1120, directReadable: true, flatChecked: true, litPixels: 480 * 533,
+  data: JPEG.toString('base64'),
+});
+
+describe('snapshot file privacy', () => {
+  async function withCapture(body: (root: string, path: string, capture: (savePath?: string) => Promise<any>) => Promise<void>) {
+    const root = await mkdtemp(join(tmpdir(), 'snapshot-files-'));
+    const at = 1_700_000_000_000;
+    const path = defaultHeadsetViewPath(root, at, join, 'image/png');
+    vi.stubEnv('TMPDIR', root);
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const server = createStereoStructureServer(undefined, {
+      now: () => at, sceneServiceFile: join(root, 'scene-service.json'), headsetDevice: deviceStub(), environment: {},
+      replyAudio: { ready: false, enabled: false, describe: () => 'Reply audio is disabled.', synthesize: async () => undefined },
+    });
+    const client = new Client({ name: 'Snapshot files', version: '1' });
+    try {
+      await server.connect(b); await client.connect(a);
+      await body(root, path, async savePath => await client.callTool({
+        name: 'stereo_structure.capture_headset_view', arguments: { source: 'device', ...(savePath ? { savePath } : {}) },
+      }));
+    } finally {
+      vi.unstubAllEnvs(); await client.close(); await server.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+
+  it.each([false, true])('uses a 0700 default directory and a 0600 picture with existing directory=%s', async existing => {
+    await withCapture(async (root, path, capture) => {
+      const directory = join(root, 'stereofold-snapshots');
+      if (existing) { await mkdir(directory); await chmod(directory, 0o777); }
+      const result = await capture();
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({ captured: true, path, bytes: PNG.length, mimeType: 'image/png' });
+      expect(result.content.find((part: any) => part.type === 'image').data).toBe(PNG.toString('base64'));
+      expect((await stat(directory)).mode & 0o777).toBe(0o700);
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+      expect(await readFile(path)).toEqual(PNG);
+    });
+  });
+
+  it.each(['symlink', 'owner', 'permissions', 'file'] as const)('refuses a default snapshot directory with unsafe %s', async reason => {
+    await withCapture(async (root, _path, capture) => {
+      const directory = join(root, 'stereofold-snapshots');
+      const target = join(root, 'target');
+      if (reason === 'symlink') { await mkdir(target); await symlink(target, directory); }
+      else if (reason === 'file') await writeFile(directory, 'unchanged');
+      else { await mkdir(directory); await chmod(directory, 0o777); }
+      let restore = () => {};
+      if (reason === 'owner') {
+        const uid = process.getuid!();
+        const spy = vi.spyOn(process as { getuid: () => number }, 'getuid').mockReturnValue(uid + 1);
+        restore = () => spy.mockRestore();
+      } else if (reason === 'permissions') {
+        const handle = await open(directory, 'r');
+        const spy = vi.spyOn(Object.getPrototypeOf(handle), 'chmod').mockRejectedValue(Error('mode refused'));
+        await handle.close();
+        restore = () => spy.mockRestore();
+      }
+      try {
+        const result = await capture();
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toMatch(/snapshot directory/iu);
+        if (reason === 'symlink') expect(await readdir(target)).toEqual([]);
+        else if (reason === 'file') expect(await readFile(directory, 'utf8')).toBe('unchanged');
+        else { expect(await readdir(directory)).toEqual([]); expect((await stat(directory)).mode & 0o777).toBe(0o777); }
+      } finally { restore(); }
+    });
+  });
+
+  it.each([false, true])('never overwrites an existing default snapshot with symlink=%s', async linked => {
+    await withCapture(async (root, path, capture) => {
+      await mkdir(join(root, 'stereofold-snapshots'), { mode: 0o700 });
+      const target = linked ? join(root, 'target') : path;
+      await writeFile(target, 'unchanged');
+      if (linked) await symlink(target, path);
+      const result = await capture();
+      expect(result.isError).toBe(true);
+      expect(await readFile(target, 'utf8')).toBe('unchanged');
+    });
+  });
+
+  it('creates and replaces an explicit regular snapshot at 0600', async () => {
+    await withCapture(async (root, _path, capture) => {
+      const path = join(root, 'explicit.png');
+      expect((await capture(path)).isError).not.toBe(true);
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+      await writeFile(path, 'a previous picture longer than the new one');
+      await chmod(path, 0o666);
+      expect((await capture(path)).structuredContent.path).toBe(path);
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+      expect(await readFile(path)).toEqual(PNG);
+    });
+  });
+
+  it.each([false, true])('refuses an explicit snapshot symlink with an existing target=%s', async existing => {
+    await withCapture(async (root, _path, capture) => {
+      const target = join(root, 'target');
+      const path = join(root, 'explicit.png');
+      if (existing) await writeFile(target, 'unchanged');
+      await symlink(target, path);
+      expect((await capture(path)).isError).toBe(true);
+      if (existing) expect(await readFile(target, 'utf8')).toBe('unchanged');
+      else await expect(stat(target)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+  });
 });
 
 describe('the store that holds one headset view', () => {
@@ -387,7 +538,7 @@ describe('capture_headset_view end to end', () => {
 
       const capture = call('capture_headset_view', { savePath, waitMs: 3_000, maxWidth: 640, source: 'page' });
       const request = (await call('poll_inspection', { ...bound, panelId: companion, availability: 'ready' }))._meta[KEY].headsetViewRequest;
-      // The exact shape the headset reported at 23:10:09Z: 640 wide, 704 tall,
+      // The exact shape a headset reported: 640 wide, 704 tall,
       // off a 1728x950 layer at framebuffer scale 0.6.
       const submitted = await call('submit_headset_view', { ...bound, panelId: companion, ...answer(request.id),
         width: 640, height: 704, framebufferWidth: 1728, framebufferHeight: 950, path: 'resolve-blit-pack-fence' });
@@ -467,7 +618,7 @@ describe('capture_headset_view end to end', () => {
         arguments: { savePath: requestedJpeg, source: 'device' } }) as any;
       expect(renamed.structuredContent).toMatchObject({ captured: true, path: savePath, mimeType: 'image/png' });
       expect(renamed.content[0].text).toContain('The requested extension was changed');
-      await expect(stat(requestedJpeg)).rejects.toThrow();
+      await expect(stat(requestedJpeg)).rejects.toMatchObject({ code: 'ENOENT' });
     } finally { await client.close(); await server.close(); await rm(savePath, { force: true }); }
   });
 
@@ -485,12 +636,115 @@ describe('capture_headset_view end to end', () => {
     } finally { await client.close(); await server.close(); }
   });
 
-  // On 2026-09-24, and twice on 2026-09-28, the page answered with a
-  // black eye while `adb screencap` showed the structure in front of the
-  // wearer, and the result said `captured: true`. On the live run the page's
-  // own log for that capture read probeReadable true, probeLit false, centre
-  // pixel [0,0,0,0]. The page now checks its raw pixels before encoding and
-  // sends that same frame with `flatColor`.
+  it('hands over no black picture when the headset blanks its screen capture for a secure panel', async () => {
+    const calls: string[][] = [];
+    const black = Buffer.concat([Buffer.from([8, 0, 0, 0, 6, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]), Buffer.alloc(8 * 6 * 4)]);
+    const device: DeviceCaptureHooks = {
+      run: async (file, args) => {
+        calls.push([file, ...args]);
+        if (file.endsWith('ffmpeg')) return { stdout: PNG, stderr: '' };
+        if (args[0] === 'devices') return { stdout: 'List of devices attached\nQUEST2\tdevice\n', stderr: '' };
+        if (args.includes('dumpsys') && args.includes('power')) return { stdout: 'mWakefulness=Awake\n', stderr: '' };
+        if (args.join(' ').includes('logcat -d -v epoch')) {
+          return { stdout: '1763322000\n1763321999.4   812   830 W ScreenCapture: captureDisplay: secure layer detected, producing black frame\n', stderr: '' };
+        }
+        return { stdout: gzipSync(black), stderr: '' };
+      },
+      exists: async (path: string) => path === '/opt/tools/adb' || path === '/opt/tools/ffmpeg',
+      env: { PATH: '/opt/tools' },
+    };
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const server = createStereoStructureServer(undefined, { sceneServiceFile: sceneServiceFile(), headsetDevice: device, environment: {} });
+    const client = new Client({ name: 'Headset view blanked test', version: '1' });
+    await server.connect(b); await client.connect(a);
+    const savePath = join(tmpdir(), `stereofold-blanked-test-${process.pid}.png`);
+    try {
+      const result = await client.callTool({ name: 'stereo_structure.capture_headset_view',
+        arguments: { savePath, source: 'device' } }) as any;
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({ captured: false, source: 'device', reason: 'device_unavailable', still: 'black' });
+      expect(result.structuredContent.detail).toMatch(/^The still is almost entirely black \(0 of 48 pixels lit\)/);
+      expect(result.structuredContent.detail).toMatch(/says "secure layer detected", which suggests the system blocked this capture/);
+      expect(result.structuredContent.detail).not.toMatch(/on purpose/);
+      expect(result.content.find((part: any) => part.type === 'image')).toBeUndefined();
+      expect(result.content[0].text).toMatch(/The device could not take a still: .*Nothing was saved\./);
+      await expect(stat(savePath)).rejects.toMatchObject({ code: 'ENOENT' });
+      // The black frame is never encoded, and nothing is pressed on the headset.
+      expect(calls.some(call => call[0]!.endsWith('ffmpeg'))).toBe(false);
+      expect(JSON.stringify(calls)).not.toMatch(/keyevent|input |am start|force-stop/u);
+    } finally { await client.close(); await server.close(); await rm(savePath, { force: true }); }
+  });
+
+  describe('a device still that is refused leaves nothing behind', () => {
+    async function refuse(device: DeviceCaptureHooks) {
+      const bridge = await mkdtemp(join(tmpdir(), 'stereofold-refused-bridge-'));
+      const [a, b] = InMemoryTransport.createLinkedPair();
+      const server = createStereoStructureServer(undefined, { sceneServiceFile: sceneServiceFile(), headsetDevice: device, environment: { STEREOFOLD_BRIDGE_DIR: bridge } });
+      const client = new Client({ name: 'Headset view refused test', version: '1' });
+      await server.connect(b); await client.connect(a);
+      const savePath = join(tmpdir(), `stereofold-refused-test-${process.pid}-${randomUUID()}.png`);
+      try {
+        const result = await client.callTool({ name: 'stereo_structure.capture_headset_view', arguments: { savePath, source: 'device' } }) as any;
+        expect(result.isError).not.toBe(true);
+        expect(result.content.find((part: any) => part.type === 'image')).toBeUndefined();
+        await expect(stat(savePath)).rejects.toMatchObject({ code: 'ENOENT' });
+        // Nothing reaches the bridge either.
+        expect(await readdir(bridge)).toEqual([]);
+        return result;
+      } finally { await client.close(); await server.close(); await rm(savePath, { force: true }); await rm(bridge, { recursive: true, force: true }); }
+    }
+
+    it('refuses a black PNG the headset encoded when this Mac has no ffmpeg', async () => {
+      const calls: string[][] = [];
+      const result = await refuse(headsetPngStub(flatPng(32, 16, 0), calls));
+      expect(result.structuredContent).toMatchObject({ captured: false, source: 'device', reason: 'device_unavailable', still: 'black' });
+      expect(result.content[0].text).toMatch(/^The device could not take a still: The still is almost entirely black \(0 of 512 pixels lit\)/);
+      // Only the headset's own encode was asked for: no raw pull without ffmpeg.
+      expect(calls.filter(call => call.includes('exec-out')).map(call => call.at(-1))).toEqual(['-p']);
+    });
+
+    it('refuses a PNG it cannot decode as unverified, not as black', async () => {
+      const result = await refuse(headsetPngStub(flatPng(32, 16, 200, Buffer.from('this is not deflate data at all'))));
+      expect(result.structuredContent).toMatchObject({ captured: false, source: 'device', reason: 'device_unavailable', still: 'unverified' });
+      expect(result.structuredContent.detail).toMatch(/^Could not verify the still: the PNG the headset encoded has image data that does not decompress/);
+      expect(result.structuredContent.detail).not.toMatch(/black/);
+    });
+  });
+
+  it('hands over a still lit over only a small area, with what its pixels cannot tell', async () => {
+    const savePath = join(tmpdir(), `stereofold-dim-test-${process.pid}.png`);
+    // 400x300 black with a 30x30 lit square: 0.75% of the pixels.
+    const stride = 400 * 4 + 1;
+    const raw = Buffer.alloc(stride * 300);
+    for (let y = 0; y < 300; y++) for (let x = 0; x < 400; x++) {
+      const at = y * stride + 1 + x * 4, on = x >= 100 && x < 130 && y >= 100 && y < 130 ? 220 : 0;
+      raw[at] = on; raw[at + 1] = on; raw[at + 2] = on; raw[at + 3] = 255;
+    }
+    const dim = flatPng(400, 300, 0, deflateSync(raw));
+    const bridge = await mkdtemp(join(tmpdir(), 'stereofold-dim-bridge-'));
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const server = createStereoStructureServer(undefined, { sceneServiceFile: sceneServiceFile(), headsetDevice: headsetPngStub(dim), environment: { STEREOFOLD_BRIDGE_DIR: bridge } });
+    const client = new Client({ name: 'Headset view dim test', version: '1' });
+    await server.connect(b); await client.connect(a);
+    try {
+      const result = await client.callTool({ name: 'stereo_structure.capture_headset_view', arguments: { savePath, source: 'device' } }) as any;
+      expect(result.structuredContent).toMatchObject({ captured: true, source: 'device', path: savePath, width: 400, height: 300, still: 'dim' });
+      expect(result.structuredContent.stillNote).toMatch(/^Almost all of this still is black: 0\.75% of its pixels are lit \(900 of 120,000\)\./);
+      expect(result.content[0].text).toContain(result.structuredContent.stillNote);
+      expect(result.content.find((part: any) => part.type === 'image')).toBeDefined();
+      expect(await readFile(savePath)).toEqual(dim);
+      // A reader of the bridge files gets the same warning.
+      expect(result.structuredContent.bridge).toMatchObject({ directory: bridge, file: 'headset-view.png', still: 'dim' });
+      const record = JSON.parse(await readFile(join(bridge, 'headset-view.json'), 'utf8'));
+      expect(record).toMatchObject({ source: 'device', width: 400, height: 300, still: 'dim', stillNote: result.structuredContent.stillNote });
+    } finally { await client.close(); await server.close(); await rm(savePath, { force: true }); await rm(bridge, { recursive: true, force: true }); }
+  });
+
+  // The page can answer with a black eye while `adb screencap` shows the
+  // structure in front of the wearer. The page's own log for such a capture
+  // reads probeReadable true, probeLit false, centre pixel [0,0,0,0]. The page
+  // reads every pixel before encoding and sends that same frame with no lit
+  // pixel and `flatColor`, and the result must not say `captured: true`.
   describe('a page frame that shows no structure', () => {
     /** One session with a companion panel; `upload` is what the page answers with. */
     async function captureWith(device: DeviceCaptureHooks, upload: Record<string, unknown>, args: Record<string, unknown>, viewerPath?:string) {
@@ -522,7 +776,8 @@ describe('capture_headset_view end to end', () => {
     }
 
     /** The live frame, as the new page sends it. */
-    const LIVE = { width: 640, height: 704, directReadable: true, probeLit: false, flatChecked: true, flatColor: '#000000' };
+    const LIVE = { width: 640, height: 704, directReadable: true, probeLit: false, flatChecked: true, flatColor: '#000000', litPixels: 0 };
+    const LIVE_DETAIL = "the page's frame was almost entirely black (0 of 450,560 pixels lit), and its centre pixel read empty";
 
     it('treats the live black frame (probeReadable true, probeLit false) as a failed page capture and takes the device view', async () => {
       const savePath = join(tmpdir(), `stereofold-unlit-test-${process.pid}.png`);
@@ -530,8 +785,8 @@ describe('capture_headset_view end to end', () => {
         const result = await captureWith(deviceStub(), LIVE, { savePath });
         expect(result.isError).not.toBe(true);
         expect(result.structuredContent).toMatchObject({ captured: true, source: 'device', mimeType: 'image/png' });
-        expect(result.structuredContent.pageDetail).toBe("the page's frame was one flat colour, #000000, and its centre pixel read empty");
-        expect(result.content[0].text).toContain('The in-page capture was tried first and said: the page\'s frame was one flat colour, #000000');
+        expect(result.structuredContent.pageDetail).toBe(LIVE_DETAIL);
+        expect(result.content[0].text).toContain(`The in-page capture was tried first and said: ${LIVE_DETAIL}.`);
         expect(await readFile(savePath)).toEqual(PNG);
       } finally { await rm(savePath, { force: true }); }
     });
@@ -540,14 +795,14 @@ describe('capture_headset_view end to end', () => {
       const result = await captureWith(noDevice(), LIVE, {});
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ captured: false, source: 'device', reason: 'device_unavailable' });
-      expect(result.content[0].text).toMatch(/^Neither source produced a still\. The page said: the page's frame was one flat colour, #000000, and its centre pixel read empty\. The device said: No adb was found/u);
+      expect(result.content[0].text.startsWith(`Neither source produced a still. The page said: ${LIVE_DETAIL}. The device said: No adb was found`)).toBe(true);
       expect(result.content.some((part: any) => part.type === 'image')).toBe(false);
     });
 
     it('names the colour and the probe, and saves nothing, when only the page was asked', async () => {
       const result = await captureWith(noDevice(), LIVE, { source: 'page' });
-      expect(result.structuredContent).toMatchObject({ captured: false, source: 'page', reason: 'unlit_frame',
-        flatColor: '#000000', probeLit: false });
+      expect(result.structuredContent).toMatchObject({ captured: false, source: 'page', reason: 'unlit_frame', still: 'black',
+        flatColor: '#000000', probeLit: false, detail: LIVE_DETAIL });
       expect(result.content.some((part: any) => part.type === 'image')).toBe(false);
       expect(result.content[0].text).toContain('source "device"');
     });
@@ -560,12 +815,73 @@ describe('capture_headset_view end to end', () => {
       expect(result.content[0].text).toContain('Its centre pixel read empty');
     });
 
-    it('refuses an older page upload with no evidence that the flat check ran', async () => {
+    it('says when a still lacks the controls because they are on layers of their own', async () => {
+      const whole = await captureWith(noDevice(), { path: 'blit-pack-fence+controls' }, { source: 'page' });
+      expect(whole.structuredContent).toMatchObject({ captured: true, source: 'page', readPath: 'blit-pack-fence+controls' });
+      expect(whole.content[0].text).not.toContain('layers of their own');
+      const bare = await captureWith(noDevice(), { path: 'blit-pack-fence+no-controls' }, { source: 'page' });
+      expect(bare.structuredContent).toMatchObject({ captured: true, source: 'page', readPath: 'blit-pack-fence+no-controls' });
+      expect(bare.content[0].text).toContain('could not be added to this image, so it shows the molecule alone');
+      // A page that draws its controls in the molecule's pass says nothing about layers.
+      const stock = await captureWith(noDevice(), {}, { source: 'page' });
+      expect(stock.content[0].text).not.toContain('layers of their own');
+    });
+
+        it('refuses an older page upload with no evidence that the flat check ran', async () => {
       const page = await captureWith(noDevice(), { flatChecked: false }, { source: 'page' });
       expect(page.structuredContent).toMatchObject({ captured: false, source: 'page', reason: 'frame_unverified' });
       expect(page.content[0].text).toContain('did not report that it checked');
       const auto = await captureWith(deviceStub(), { flatChecked: false }, { source: 'auto' });
       expect(auto.structuredContent).toMatchObject({ captured: true, source: 'device', mimeType: 'image/png' });
+    });
+
+    // The page before this check read every seventh pixel and sent no count.
+    // A frame black apart from a few of those pixels passed it as a picture.
+    it('refuses a page upload that checked a sample rather than every pixel', async () => {
+      const sampled = await captureWith(noDevice(), { litPixels: undefined }, { source: 'page' });
+      expect(sampled.structuredContent).toMatchObject({ captured: false, source: 'page', reason: 'frame_unverified', still: 'unverified',
+        detail: 'the page did not report that it checked every pixel of the frame' });
+      expect(sampled.content.some((part: any) => part.type === 'image')).toBe(false);
+      // A count the frame cannot hold is no count at all.
+      const impossible = await captureWith(noDevice(), { litPixels: 480 * 533 + 1 }, { source: 'page' });
+      expect(impossible.structuredContent).toMatchObject({ captured: false, reason: 'frame_unverified' });
+    });
+
+    it('refuses a page frame black apart from a few pixels, by the rule a device still is judged by', async () => {
+      // Nine lit pixels: a sparse sample can land on all of them, and nothing else is drawn.
+      const nine = await captureWith(noDevice(), { width: 640, height: 704, litPixels: 9 }, { source: 'page' });
+      expect(nine.structuredContent).toMatchObject({ captured: false, source: 'page', reason: 'unlit_frame', still: 'black',
+        detail: "the page's frame was almost entirely black (9 of 450,560 pixels lit)" });
+      expect(nine.structuredContent).not.toHaveProperty('flatColor');
+      expect(nine.content[0].text).toBe("The page's frame was not saved as the wearer's view: the page's frame was almost entirely black "
+        + '(9 of 450,560 pixels lit). Either the structure is outside the wearer\'s left eye, or the page read the frame before drawing it. '
+        + 'Ask again with source "device" to see what the wearer sees.');
+      // Auto asks the device instead, and says what the page said.
+      const auto = await captureWith(deviceStub(), { width: 640, height: 704, litPixels: 45 }, {});
+      expect(auto.structuredContent).toMatchObject({ captured: true, source: 'device',
+        pageDetail: "the page's frame was almost entirely black (45 of 450,560 pixels lit)" });
+    });
+
+    it('hands over a page frame lit over less than one percent, with what its pixels cannot tell', async () => {
+      // A thin structure: 2,112 of 450,560 pixels, 0.47%.
+      const result = await captureWith(noDevice(), { width: 640, height: 704, litPixels: 2_112 }, { source: 'page' });
+      expect(result.structuredContent).toMatchObject({ captured: true, source: 'page', width: 640, height: 704, still: 'dim' });
+      expect(result.structuredContent.stillNote).toBe('Almost all of this still is black: 0.47% of its pixels are lit (2,112 of 450,560). '
+        + 'The pixels cannot tell a structure that is small, far away or mostly outside the wearer\'s left eye from a frame read before '
+        + 'the structure was drawn. If the wearer should be seeing more than this, ask again, or ask with source "device" to see the whole display.');
+      expect(result.content[0].text).toContain(result.structuredContent.stillNote);
+      expect(result.content.some((part: any) => part.type === 'image')).toBe(true);
+      // At one percent and above no note is added.
+      const lit = await captureWith(noDevice(), { width: 640, height: 704, litPixels: 4_506 }, { source: 'page' });
+      expect(lit.structuredContent).toMatchObject({ captured: true, source: 'page' });
+      expect(lit.structuredContent).not.toHaveProperty('stillNote');
+    });
+
+    it('refuses a page frame of one flat colour that is not black, and names the colour', async () => {
+      const background = await captureWith(noDevice(), { width: 640, height: 704, litPixels: 450_560, flatColor: '#192734' }, { source: 'page' });
+      expect(background.structuredContent).toMatchObject({ captured: false, source: 'page', reason: 'unlit_frame', flatColor: '#192734',
+        detail: "the page's frame was one flat colour, #192734" });
+      expect(background.structuredContent).not.toHaveProperty('still');
     });
 
     it('names an outdated page when its frame lacks the flat check', async () => {
@@ -589,7 +905,7 @@ describe('capture_headset_view end to end', () => {
         expect(result.structuredContent).toMatchObject({ captured: true, path: actual, mimeType: 'image/jpeg' });
         expect(result.content[0].text).toContain('The requested extension was changed');
         expect(await readFile(actual)).toEqual(JPEG);
-        await expect(stat(requested)).rejects.toThrow();
+        await expect(stat(requested)).rejects.toMatchObject({ code: 'ENOENT' });
       } finally { await rm(actual, { force: true }); }
     });
   });
@@ -609,6 +925,9 @@ describe('capture_headset_view end to end', () => {
       expect(record).toMatchObject({ file: 'headset-view.png', mediaType: 'image/png', source: 'device',
         width: 8, height: 6, bytes: PNG.byteLength, views: [{ eye: 'none', x: 0, y: 0, width: 8, height: 6 }] });
       expect(record.sha256).toBe(createHash('sha256').update(PNG).digest('hex'));
+      // A lit still carries no warning.
+      expect(record).not.toHaveProperty('still');
+      expect(record).not.toHaveProperty('stillNote');
       // Nothing that identifies a capability may reach a directory the
       // assistant reads.
       expect(JSON.stringify(record)).not.toMatch(/token|bearer/i);

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { judgeStill, type StillLight } from './headset-view-device.js';
 
 /**
  * The Mac's eye on the headset.
@@ -71,9 +72,11 @@ export const headsetViewFrameShape = {
   framebufferWidth: z.number().int().nonnegative().max(16_384).optional(),
   framebufferHeight: z.number().int().nonnegative().max(16_384).optional(),
   directReadable: z.boolean().optional(),
-  /** Present when every sampled pixel of the eye read back as this one colour. */
+  /** Present when every pixel of the eye read back as this one colour. */
   flatColor: z.string().regex(/^#[0-9a-f]{6}$/u).optional(),
   flatChecked: z.boolean().optional(),
+  /** How many of the eye's pixels are lit as the JPEG shows them, every pixel read. */
+  litPixels: z.number().int().nonnegative().max(HEADSET_VIEW_MAX_WIDTH * HEADSET_VIEW_MAX_HEIGHT).optional(),
   /** Whether the eye's centre pixel, read straight off the layer in the same frame, held anything. */
   probeLit: z.boolean().optional(),
   data: z.string().min(4).max(HEADSET_VIEW_MAX_BASE64).regex(/^[A-Za-z0-9+/]*={0,2}$/u, 'Expected base64.').optional(),
@@ -125,10 +128,12 @@ export type HeadsetViewFrame = {
   directReadable: boolean;
   /**
    * The one colour the whole eye showed, when it showed only one. Such a frame
-   * is never reported as a capture; see `flatColor` in xr-snapshot.mjs.
+   * is never reported as a capture; see `eyeLight` in xr-snapshot.mjs.
    */
   flatColor?: string;
   flatChecked?: boolean;
+  /** The page's count of lit pixels over the whole eye; see `pageFrameLight`. */
+  litPixels?: number;
   /** The page's centre-pixel probe for this frame: false is `[0,0,0,0]` there. */
   probeLit?: boolean;
   framebuffer: { width: number; height: number };
@@ -252,6 +257,7 @@ export function createHeadsetViewStore({ now = Date.now, ttlMs = HEADSET_VIEW_RE
         directReadable: input.directReadable === true,
         ...(typeof input.flatColor === 'string' && /^#[0-9a-f]{6}$/u.test(input.flatColor) ? { flatColor: input.flatColor } : {}),
         ...(input.flatChecked === true ? { flatChecked: true } : {}),
+        ...(Number.isSafeInteger(input.litPixels) && (input.litPixels as number) >= 0 ? { litPixels: input.litPixels as number } : {}),
         ...(typeof input.probeLit === 'boolean' ? { probeLit: input.probeLit } : {}),
         framebuffer: { width: Number(input.framebufferWidth) || 0, height: Number(input.framebufferHeight) || 0 },
         capturedAt: Number(input.capturedAt) || now(),
@@ -301,26 +307,60 @@ export function createHeadsetViewStore({ now = Date.now, ttlMs = HEADSET_VIEW_RE
   };
 }
 
+type PageFrameCheck = Pick<HeadsetViewFrame, 'flatChecked' | 'flatColor' | 'probeLit' | 'directReadable' | 'width' | 'height' | 'litPixels'>;
+
+/** The page's count over its whole frame, or nothing when it sent none that fits the frame. */
+export function pageFrameLight(frame: Pick<HeadsetViewFrame, 'width' | 'height' | 'litPixels'>): StillLight | undefined {
+  const pixels = frame.width * frame.height, lit = frame.litPixels;
+  if (!(pixels > 0) || lit === undefined || !Number.isSafeInteger(lit) || lit < 0 || lit > pixels) return undefined;
+  return { pixels, lit };
+}
+
 /**
  * Why a page frame is not the wearer's view, or undefined when it is.
  *
- * On the live Quest run of 2026-09-28, with frames near 72 fps, the page
- * answered with an all-black JPEG that its own log described as
- * `probeReadable: true, probeLit: false`, centre pixel `[0,0,0,0]`, and the
- * Mac called it `captured: true`. The page ships in the same build as this
- * server and checks the raw pixels before it encodes them, so its `flatColor`
- * is the one test: a frame that carries it is never the wearer's view. The
- * centre probe is reported beside it and decides nothing, because a
- * passthrough eye with the structure off to one side reads an empty centre too.
+ * On a Quest 2 with frames near 72 fps, the page can answer with an all-black
+ * JPEG that its own log describes as `probeReadable: true, probeLit: false`,
+ * centre pixel `[0,0,0,0]`, which the Mac must not call `captured: true`. The
+ * page ships in the same build as this
+ * server and reads every pixel before it encodes them, so its count is judged
+ * here by the rule a device still is judged by: almost no lit pixel is refused
+ * as black. A frame of one flat colour that is not black is the background
+ * alone and is refused too. A frame without the count was not checked and is
+ * never the wearer's view. The centre probe is reported beside it and decides
+ * nothing, because a passthrough eye with the structure off to one side reads
+ * an empty centre too.
  */
-export function unlitPageFrame(frame: Pick<HeadsetViewFrame, 'flatChecked' | 'flatColor' | 'probeLit' | 'directReadable'>):
-{ reason: string; color?: string } | undefined {
-  if (frame.flatChecked !== true) return { reason: 'the page did not report that it checked the frame for a flat colour' };
+export function unlitPageFrame(frame: PageFrameCheck):
+{ reason: string; color?: string; still?: 'black' | 'unverified' } | undefined {
+  const light = pageFrameLight(frame);
+  if (frame.flatChecked !== true || !light) return { still: 'unverified', reason: 'the page did not report that it checked every pixel of the frame' };
+  const emptyCentre = frame.directReadable && frame.probeLit === false ? ', and its centre pixel read empty' : '';
+  const color = frame.flatColor ? { color: frame.flatColor } : {};
+  if (judgeStill(light) === 'black') {
+    return { still: 'black', ...color, reason: `the page's frame was almost entirely black (${counted(light.lit)} of ${counted(light.pixels)} pixels lit)${emptyCentre}` };
+  }
   if (!frame.flatColor) return undefined;
-  const emptyCentre = frame.directReadable && frame.probeLit === false;
-  return { color: frame.flatColor,
-    reason: `the page's frame was one flat colour, ${frame.flatColor}${emptyCentre ? ', and its centre pixel read empty' : ''}` };
+  return { color: frame.flatColor, reason: `the page's frame was one flat colour, ${frame.flatColor}${emptyCentre}` };
 }
+
+/**
+ * The note on a page frame lit over less than one percent, which is handed over.
+ *
+ * A structure that is small, far away or mostly outside the left eye and a
+ * frame read before the structure was drawn can be the same pixels, so this
+ * says what is uncertain instead of choosing, in the words a device still uses.
+ */
+export function dimPageFrameNote(frame: Pick<HeadsetViewFrame, 'width' | 'height' | 'litPixels'>): string | undefined {
+  const light = pageFrameLight(frame);
+  if (!light || judgeStill(light) !== 'dim') return undefined;
+  return `Almost all of this still is black: ${Number((100 * light.lit / light.pixels).toPrecision(2))}% of its pixels are lit `
+    + `(${counted(light.lit)} of ${counted(light.pixels)}). The pixels cannot tell a structure that is small, far away or mostly outside `
+    + 'the wearer\'s left eye from a frame read before the structure was drawn. If the wearer should be seeing more than this, ask again, '
+    + 'or ask with source "device" to see the whole display.';
+}
+
+const counted = (value: number) => value.toLocaleString('en-US');
 
 /** Where a capture is written when the caller names no path. */
 export function defaultHeadsetViewPath(tmpdir: string, at: number, join: (...parts: string[]) => string,

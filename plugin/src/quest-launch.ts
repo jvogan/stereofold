@@ -417,10 +417,18 @@ export const WAKE_SETTLE_MS = 8_000;
 const WAKE_SETTLE_POLL_MS = 1_000;
 /**
  * How long a sleeping headset gets to report `Awake` after the wake key. An
- * unworn Quest 2 on a desk read `Awake` within 0.5 s (2026-09-28).
+ * unworn Quest 2 on a desk reads `Awake` within 0.5 s.
  */
 export const WAKE_WAIT_MS = 3_000;
 const WAKE_POLL_MS = 250;
+/**
+ * How long a cold start gives Quest Browser, started with no link, to list
+ * its debugger socket before the link goes out the way it always has. A
+ * Quest 2 four seconds after a force-stop listed it 2.1 to 2.4 s after the
+ * start, and a link sent at that moment opened a tab three times out of three.
+ */
+const BROWSER_START_MS = 10_000;
+const BROWSER_START_POLL_MS = 250;
 /** Why nothing was sent to a headset that stayed asleep. */
 export const ASLEEP_MESSAGE = 'The headset is asleep and did not wake, and Quest Browser drops a page sent to a '
   + 'sleeping headset, so this Mac sent nothing. Press the headset\'s power button or put it on, then ask to launch again.';
@@ -432,6 +440,9 @@ export const GUARDIAN_BLOCKED_MESSAGE = 'Meta\'s "Finding position in room" scre
 /** The same screen, seen only once the intent had gone out. */
 export const GUARDIAN_AFTER_LAUNCH_MESSAGE = 'Meta\'s "Finding position in room" screen came up on the headset after the '
   + `launch was sent, and Quest Browser does not receive the page behind it. ${GUARDIAN_FIX}`;
+/** The same screen after a cold start that started Quest Browser first, when it may have come up before the link. */
+export const GUARDIAN_DURING_LAUNCH_MESSAGE = 'Meta\'s "Finding position in room" screen came up on the headset during the '
+  + `launch, and Quest Browser does not receive the page behind it. ${GUARDIAN_FIX}`;
 
 const RUN_TIMEOUT_MS = 15_000;
 const MAX_OUTPUT_BYTES = 64 * 1024;
@@ -579,6 +590,74 @@ async function wakeHeadset(shell: HeadsetShell, headset: HeadsetState, waitMs: n
   return read;
 }
 
+/** `work`, or undefined once `ms` has passed without an answer. */
+function within<T>(work: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([work, new Promise<undefined>(resolve => { timer = setTimeout(() => resolve(undefined), Math.max(0, ms)); })])
+    .finally(() => clearTimeout(timer));
+}
+
+/**
+ * Start Quest Browser with no link and wait, for at most `limitMs`, until its
+ * debugger socket is listed. On a Quest 2, Quest Browser started by a VIEW
+ * intent drops the link in it and opens no tab, while a link sent once the
+ * debugger is up opens at once.
+ *
+ * Every read is cut off at the limit, which is kept on the monotonic clock so
+ * a wall clock set back cannot stretch it. A failed start ends the wait at
+ * once. After a good start only a listed socket ends it before the limit:
+ * any other answer, a failed read included, is read again after a pause. The
+ * link then goes out the way a cold start always has.
+ */
+async function startQuestBrowser(shell: HeadsetShell, limitMs: number): Promise<void> {
+  const until = performance.now() + limitMs;
+  // `grep -c` prints how many lines name the socket and exits 0, or prints 0
+  // and exits 1 while there are none. Only exit 0 with a count above 0 shows
+  // the browser up; anything else, a rejected read included, does not yet.
+  const listed = async () => {
+    try {
+      const counted = await shell(['grep', '-cw', '@chrome_devtools_remote', '/proc/net/unix']);
+      const text = String(counted.stdout ?? '').trim();
+      return counted.code === 0 && /^\d+$/.test(text) && Number(text) > 0;
+    } catch { return false; }
+  };
+  try {
+    const started = await within(shell(['am', 'start', '-n', `${QUEST_BROWSER_PACKAGE}/.OculusLauncherActivity`]), until - performance.now());
+    if (!started || started.code !== 0 || /^Error|Exception/im.test(`${started.stdout}\n${started.stderr}`)) return;
+    while (performance.now() < until) {
+      const up = await within(listed(), until - performance.now());
+      // Up, or still unanswered at the limit.
+      if (up !== false) return;
+      await pause(Math.min(BROWSER_START_POLL_MS, Math.max(0, until - performance.now())));
+    }
+  } catch { /* The link goes out as before. */ }
+}
+
+/**
+ * Read the headset and stop where a page sent now would not land: asleep and
+ * not woken by the wake key, or Meta's boundary screen up, now or within
+ * `settleMs` of the last wake. A read that cannot tell lets the launch go on.
+ */
+async function readyHeadset(shell: HeadsetShell, wakeMs: number, settleMs: number): Promise<{ headset: HeadsetState; stop?: OpenResult }> {
+  let headset = await readHeadsetState(shell, QUEST_BROWSER_PACKAGE);
+  // Quest Browser drops a VIEW intent that reaches a sleeping headset, and adb
+  // still reports that it started: the wearer
+  // then puts the headset on to no page. Wake it first; the boundary-screen
+  // watch below then covers the seconds after that wake.
+  if (headset.display && headset.display !== 'Awake' && headset.guardianDialog !== true) {
+    headset = await wakeHeadset(shell, headset, wakeMs);
+    // A wake read that finds the boundary screen gets the boundary answer below.
+    if (headset.guardianDialog !== true && headset.display !== 'Awake')
+      return { headset, stop: { opened: false, blocked: 'asleep', headset, message: `  ${ASLEEP_MESSAGE}` } };
+  }
+  if (headset.guardianDialog === true)
+    return { headset, stop: { opened: false, blocked: 'guardian-dialog', headset, message: `  ${GUARDIAN_BLOCKED_MESSAGE}` } };
+  if (await boundaryScreenAfterWake(shell, headset, settleMs))
+    return { headset, stop: { opened: false, blocked: 'guardian-dialog', headset: { ...headset, guardianDialog: true },
+      message: `  ${GUARDIAN_BLOCKED_MESSAGE}` } };
+  return { headset };
+}
+
 /**
  * The step after an adb launch, as the launch message words it. The server
  * removes it when the headset shows a certificate warning, because the page
@@ -618,20 +697,9 @@ export async function openOnQuest({ url, adb, run = defaultRunner, environment =
   if (!device) return { opened: false, message: `  ${problem}; open the address in Quest Browser.` };
   const selectedRun: Runner = (binary, args) => run(binary, ['-s', device.serial, ...args]);
   const shell = (args: readonly string[]) => selectedRun(command, ['shell', ...args]);
-  let headset = await readHeadsetState(shell, QUEST_BROWSER_PACKAGE);
-  // Quest Browser drops a VIEW intent that reaches a sleeping headset, and adb
-  // still reports that it started (2026-09-28, Quest 2 on a desk): the wearer
-  // then puts the headset on to no page. Wake it first; the boundary-screen
-  // watch below then covers the seconds after that wake.
-  if (headset.display && headset.display !== 'Awake' && headset.guardianDialog !== true) {
-    headset = await wakeHeadset(shell, headset, wakeMs);
-    if (headset.display !== 'Awake') return { opened: false, blocked: 'asleep', headset, message: `  ${ASLEEP_MESSAGE}` };
-  }
-  if (headset.guardianDialog === true)
-    return { opened: false, blocked: 'guardian-dialog', headset, message: `  ${GUARDIAN_BLOCKED_MESSAGE}` };
-  if (await boundaryScreenAfterWake(shell, headset, settleMs))
-    return { opened: false, blocked: 'guardian-dialog', headset: { ...headset, guardianDialog: true },
-      message: `  ${GUARDIAN_BLOCKED_MESSAGE}` };
+  const ready = await readyHeadset(shell, wakeMs, settleMs);
+  if (ready.stop) return ready.stop;
+  const { headset } = ready;
   const chosen: QuestDevice = { adb: command, serial: device.serial, run };
   // A browser that is not running has no debugger to ask yet, and the intent
   // is what starts it, so its tabs are swept after the intent instead.
@@ -642,6 +710,13 @@ export async function openOnQuest({ url, adb, run = defaultRunner, environment =
   // Name Quest Browser when the headset has it, so the wearer never meets a
   // chooser and the page always lands in the browser holding its grants.
   const installed = await hasPackage(selectedRun, command, QUEST_BROWSER_PACKAGE);
+  // A link that starts Quest Browser is dropped, so a cold start with tab
+  // steps starts it with no link and waits for its debugger first. The
+  // headset is not read again: the link then goes out once, as it always
+  // has, and the boundary check after it still catches a screen that came
+  // up during the wait.
+  const startedFirst = Boolean(coldStart && tabs && installed);
+  if (startedFirst) await startQuestBrowser(shell, BROWSER_START_MS);
   const args = viewIntentArgs(url, installed ? { browserPackage: QUEST_BROWSER_PACKAGE } : {});
   const started = await selectedRun(command, args);
   // `am start` reports a failed intent on stdout with exit status 0, so the
@@ -652,7 +727,7 @@ export async function openOnQuest({ url, adb, run = defaultRunner, environment =
   if (recheckMs > 0) await pause(recheckMs);
   if (await guardianDialogShowing(shell) === true)
     return { opened: false, blocked: 'guardian-dialog', headset, ...(before ? { tabHygiene: before } : {}),
-      message: `  ${GUARDIAN_AFTER_LAUNCH_MESSAGE}` };
+      message: `  ${startedFirst ? GUARDIAN_DURING_LAUNCH_MESSAGE : GUARDIAN_AFTER_LAUNCH_MESSAGE}` };
   const hygiene = coldStart && tabs?.restored ? await tabs.restored(chosen) : before;
   // adb acknowledged the intent; it does not confirm a loaded headset page.
   const next = enterVrStep(headset.worn);

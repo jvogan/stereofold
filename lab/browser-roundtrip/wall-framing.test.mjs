@@ -1,9 +1,9 @@
 /**
  * The microtubule wall tier's framing, held on the DRAWN frame.
  *
- * A vision review of the Quest 2 wall captures (build 8a5a11c, the
- * same framing code as this file's base) left two residuals, and both are one
- * defect: every lens rule was granted on the PRE-ROTATION rectangle — the eye's
+ * Quest 2 captures of the wall tier, taken with the framing code this file
+ * replaced, showed two residuals with one cause: every lens rule was granted on
+ * the PRE-ROTATION rectangle — the eye's
  * axis-aligned extent about the subject's centre, divided by one seat depth —
  * while the wearer sees the perspective projection of the rotated, placed
  * points, whose near corners divide by a shorter depth than the far ones.

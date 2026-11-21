@@ -131,12 +131,11 @@ const BINDER_GALLERY_FILES = [
   'demos/binder-gallery/upstream/toxins.csv',
   'skills/molecular-presentation/references/binder-gallery.md',
 ] as const;
-// Frozen extended-gallery assets: all ten batches, their source originals and
-// provenance. This list is audited source, never expanded from an artifact's
-// manifest or directory contents at packaging time.
-const BINDER_EXTENDED_FILES = [
+// The extended gallery and the catalog it is drawn from: the published 17
+// again, then one representative pairing for each other assayed design, in
+// ten bounded batches. The same audited boundary as the 17.
+const BINDER_GALLERY_EXTENDED_FILES = [
   'demos/binder-gallery/catalog.json',
-  'demos/binder-gallery/upstream/in_silico_scores.csv',
   'demos/binder-gallery/extended/README.md',
   'demos/binder-gallery/extended/batch-01/gallery.cif',
   'demos/binder-gallery/extended/batch-01/lesson.json',
@@ -366,20 +365,20 @@ const BINDER_EXTENDED_FILES = [
   'demos/binder-gallery/extended/upstream/structures/fe18e4b2/fe18e4b2_esmfold2-aah1.pdb',
   'demos/binder-gallery/extended/upstream/structures/fe345fb0/fe345fb0_esmfold2-cn2.pdb',
   'demos/binder-gallery/extended/upstream/structures/ff7c1df6/ff7c1df6_esmfold2-cn2.pdb',
+  'demos/binder-gallery/upstream/in_silico_scores.csv',
 ] as const;
 const BUNDLED_DEMO_FILES = new Map<string, readonly string[]>([
   ['binder-gallery/gallery.cif', BINDER_GALLERY_FILES],
-  ['binder-gallery/extended/batch-01/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-02/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-03/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-04/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-05/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-06/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-07/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-08/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-09/gallery.cif', BINDER_EXTENDED_FILES],
-  ['binder-gallery/extended/batch-10/gallery.cif', BINDER_EXTENDED_FILES],
-
+  ['binder-gallery/extended/batch-01/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-02/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-03/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-04/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-05/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-06/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-07/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-08/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-09/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
+  ['binder-gallery/extended/batch-10/gallery.cif', [...BINDER_GALLERY_FILES, ...BINDER_GALLERY_EXTENDED_FILES]],
 ]);
 
 // Exact recipient paths from the audited share tree. Extensions alone are not
@@ -399,7 +398,7 @@ const ALLOWED_ARTIFACT_FILES = new Set<string>([
 
   ...REQUIRED_FILES,
   ...BINDER_GALLERY_FILES,
-  ...BINDER_EXTENDED_FILES,
+  ...BINDER_GALLERY_EXTENDED_FILES,
   'demos/README.md',
   'demos/atp-synthase-rotor/figure-recipe.json',
   'demos/atp-synthase-rotor/figure.json',
@@ -409,6 +408,8 @@ const ALLOWED_ARTIFACT_FILES = new Set<string>([
   'demos/atp-synthase-rotor/motion.json',
   'demos/atp-synthase.json',
   'demos/crispr-cas9.json',
+  'demos/daraxonrasib-assembly/motion-recipe.json',
+  'demos/daraxonrasib-assembly/motion.json',
   'demos/daraxonrasib.json',
   'demos/glucose-transporter.json',
   'demos/hemoglobin-switch/figure-recipe.json',

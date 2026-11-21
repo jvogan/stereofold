@@ -8,7 +8,7 @@ import { workbenchFailureCaption, WORKBENCH_OPENED_CAPTION } from './xr-manipula
 import { announceWorkbenchTransfer, beginWorkbenchHandoff, WORKBENCH_TRANSFER_CAPTION as HEADSET_WORKBENCH_CAPTION } from './workbench-handoff.mjs';
 import { QUEST_EXIT_BANNER_KEY, noteQuestExitBanner } from './quest-exit-banner.mjs';
 
-// Acceptance 3, sequence 7: #803 host refusal, #804 status, #806 false applied,
+// A recorded sequence: #803 host refusal, #804 status, #806 false applied,
 // #808 caption. Execute the page branch, not a stub of its return contract.
 const reason = 'The filament tier has no atom coordinates. Switch to an atomic tier, then open Mol* again.';
 const line = 'Filament tier has no atoms. Switch to an atomic tier.';
@@ -92,7 +92,7 @@ test('a successful Mol* handoff still records applied and schedules navigation',
   } finally { h.runner.dispose(); }
 });
 
-// Acceptance 5, sequence 7: #57/#59 status and #61 speech promised an
+// Another recorded sequence: #57/#59 status and #61 speech promised an
 // opening before #68 refused it. Keep the host pending to expose both routes.
 for (const route of ['voice', 'toolbar']) {
   for (const opened of [false, true]) {

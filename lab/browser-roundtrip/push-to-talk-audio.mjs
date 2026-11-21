@@ -1,31 +1,29 @@
 import { assistantStatus } from './assistant-status.mjs';
 import { recordLoopStage } from './loop-timing.mjs';
 /**
- * Stream the Quest microphone to the Mac while the grip is held.
+ * Stream the Quest microphone to the Mac while a talk press is held.
  *
- * Version 2 of headset push-to-talk. Version 1 sent only a grip edge and the
- * Mac ran a shell command the user had exported, which meant the wearer had
- * to be within earshot of the Mac's own microphone. This module records the
- * headset microphone instead and posts it in one-second Opus chunks through
- * the same authenticated JSON `/tool` route every other companion action
- * uses, so the wearer can be anywhere on the network.
+ * This module records the headset microphone and posts it in one-second Opus
+ * chunks through the same authenticated JSON `/tool` route every other
+ * companion action uses, so the wearer can be anywhere on the network and the
+ * Mac's own microphone is not involved.
  *
  * Four properties are deliberate:
  *
- * - Recording starts from the grip's own user gesture and stops when the grip
- *   is released. There is no open microphone between presses; the MediaStream
+ * - Recording starts from the talk press's own user gesture and stops when the
+ *   press is released. There is no open microphone between presses; the MediaStream
  *   is kept, but no recorder runs on it.
  * - Chunks are bounded well below the 2 MiB transport cap. A one-second Opus
  *   chunk is a few kilobytes; the splitter exists for the pathological case,
  *   not the normal one.
- * - An utterance is capped at sixty seconds. A grip held by a controller that
+ * - An utterance is capped at sixty seconds. A button held by a controller that
  *   fell asleep cannot record indefinitely.
  * - Nothing here synthesizes a keystroke. The Mac transcribes locally and the
  *   text is delivered as text.
  *
  * State is published through a small emitter rather than written to the
  * toolbar, so another in-headset indicator can subscribe without this module
- * or the grip binding changing. `pushToTalkAudioEvents()` reaches the same
+ * or the push-to-talk binding changing. `pushToTalkAudioEvents()` reaches the same
  * emitter from anywhere on the page.
  */
 
@@ -50,12 +48,12 @@ export const PUSH_TO_TALK_AUDIO_MAX_DURATION_MS = 60_000;
  */
 export const PUSH_TO_TALK_AUDIO_DEFAULT_MAX_DURATION_MS = 20_000;
 /**
- * Shorter than this, with no speech on the meter, is a tapped grip.
+ * Shorter than this, with no speech on the meter, is a tapped talk button.
  *
  * It changes no upload and no bound: the recording is still delivered and
  * still transcribed. It only decides which of two empty answers the wearer is
  * given, because "no speech was recognized" reads as a broken microphone when
- * the real problem is that the grip was let go after a third of a second.
+ * the real problem is that the button was let go after a third of a second.
  */
 export const PUSH_TO_TALK_MIN_UTTERANCE_MS = 700;
 /** Silence this long, after speech was actually heard, ends the utterance. */
@@ -181,7 +179,7 @@ export function createPushToTalkAudioEvents() {
   };
 }
 
-/** The page-wide emitter and sender, so the grip binding needs no new argument. */
+/** The page-wide emitter and sender, so the push-to-talk binding needs no new argument. */
 const sharedEvents = createPushToTalkAudioEvents();
 let registeredAudioSender;
 
@@ -296,9 +294,24 @@ export function releasePushToTalkMicrophone() {
   primedStream = undefined; primedState = 'idle'; primedMessage = undefined;
 }
 
+/** What a press says when the host has no voice route for this microphone. */
+export const PUSH_TO_TALK_VOICE_OFF_MESSAGE = 'Headset voice is off for this session.';
+
+let microphoneOff = () => false;
+
+/**
+ * The companion page says here whether the host has no voice route that would
+ * use this microphone. Enter VR asks for no microphone then, so a press inside
+ * VR would make the first request, which Quest cannot show a prompt for. While
+ * the reader answers true, a press is refused before any microphone opens.
+ */
+export function setPushToTalkMicrophoneOff(reader) {
+  microphoneOff = typeof reader === 'function' ? reader : () => false;
+}
+
 /**
  * The companion page registers its authenticated tool caller once. Registering
- * it is also the opt-in: with no sender, the grip never opens a microphone.
+ * it is also the opt-in: with no sender, a talk press never opens a microphone.
  */
 export function setPushToTalkAudioSender(send) {
   registeredAudioSender = typeof send === 'function' ? send : undefined;
@@ -446,6 +459,11 @@ export function createPushToTalkAudio({
    * can read instead of hanging with the menu lit.
    */
   async function ensureStream() {
+    // The host would refuse this audio, and with no grant parked a fresh
+    // request from inside VR cannot be answered.
+    let off = false;
+    try { off = microphoneOff() === true; } catch { /* An unreadable answer leaves the microphone as it was. */ }
+    if (off) { recordVoiceDiagnostic('voice-mic-source', { source: 'voice-off' }); throw Error(PUSH_TO_TALK_VOICE_OFF_MESSAGE); }
     // Which of the three branches a press took is the single most useful fact
     // in the log when voice fails on hardware: reusing the grant is the
     // healthy path, and a fresh request from inside an immersive session is
@@ -615,7 +633,7 @@ export function createPushToTalkAudio({
       const transcript = transcriptFromResult(session.result);
       if (!transcript) {
         // Separate the two ways a press comes back empty. A press too short to
-        // hold a sentence is a grip that was tapped, and telling the wearer to
+        // hold a sentence is a talk button that was tapped, and telling the wearer to
         // hold it is the only useful thing to say; anything longer really was
         // heard as silence. The meter's own answer outranks the clock, because a
         // wearer who spoke one word did speak.
@@ -623,7 +641,7 @@ export function createPushToTalkAudio({
         const tapped = !session.heardSpeech && durationMs < PUSH_TO_TALK_MIN_UTTERANCE_MS;
         if (tapped) recordVoiceDiagnostic('voice-too-short', { utteranceId: session.utteranceId, durationMs });
         emit({ state: 'heard', utteranceId: session.utteranceId, text: '',
-          message: tapped ? 'Hold the grip while you speak.' : "Didn't catch that. Please speak again." });
+          message: tapped ? 'Hold the button while you speak.' : "Didn't catch that. Please speak again." });
         return undefined;
       }
       recordLoopStage('transcript-received', { utteranceId: session.utteranceId });
@@ -660,7 +678,7 @@ export function createPushToTalkAudio({
      */
     level() { return active?.live ? meter?.read() : undefined; },
 
-    /** Begin one utterance. Safe to call from the grip's squeezestart handler. */
+    /** Begin one utterance. Safe to call from a talk press's own gesture handler. */
     async start() {
       if (disposed) throw Error('This push-to-talk recorder was disposed.');
       if (active) return active.utteranceId;
@@ -818,7 +836,7 @@ export function createPushToTalkAudio({
 }
 
 /**
- * Build the streamer the grip binding uses, or `undefined` when the page has
+ * Build the streamer the push-to-talk binding uses, or `undefined` when the page has
  * registered no sender. Returning `undefined` is the whole opt-in mechanism:
  * a companion that never calls `setPushToTalkAudioSender` never records.
  */

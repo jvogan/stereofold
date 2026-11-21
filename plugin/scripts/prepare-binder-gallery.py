@@ -50,14 +50,39 @@ DEFAULT_ROOT = Path(__file__).resolve().parents[1] / 'demos/binder-gallery'
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
+# The largest pinned upstream file is structures/INDEX.csv at 341,801 bytes,
+# and the extended gallery's structures are under 200,000 bytes each (it
+# reads through this helper too), so nothing published comes near the bound.
+MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024
+
+def read_bounded(response, limit=MAX_DOWNLOAD_BYTES):
+    """The whole body, refused as soon as it passes `limit` bytes."""
+    declared = response.headers.get('Content-Length')
+    if declared and declared.isdigit() and int(declared) > limit:
+        raise ValueError(f'Download exceeds {limit} bytes')
+    chunks, size = [], 0
+    while True:
+        chunk = response.read(min(1 << 20, limit + 1 - size))
+        if not chunk:
+            return b''.join(chunks)
+        size += len(chunk)
+        if size > limit:
+            raise ValueError(f'Download exceeds {limit} bytes')
+        chunks.append(chunk)
+
 def fetch_file(root, name, fetch=False):
     path = root / 'upstream' / name
     if not path.exists():
         if not fetch:
             raise FileNotFoundError(f'{path}: run with --fetch to retrieve this pinned public file')
-        path.parent.mkdir(parents=True, exist_ok=True)
         with urllib.request.urlopen(BASE + name, timeout=60) as response:
-            path.write_bytes(response.read())
+            data = read_bounded(response)
+        # Verified before anything is written, so a changed or substituted
+        # file never lands in the upstream tree.
+        if PINNED_SHA256.get(name) is None or sha(data) != PINNED_SHA256[name]:
+            raise ValueError(f'Pinned upstream digest mismatch: {name}')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
     expected = PINNED_SHA256.get(name)
     if expected is None or sha(path.read_bytes()) != expected:
         raise ValueError(f'Pinned upstream digest mismatch: {name}')

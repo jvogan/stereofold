@@ -221,14 +221,12 @@ describe('spatial control geometry', () => {
   });
 
   /**
-   * The wearer, in the headset on build c1ef5f4: "The menu is appearing like
-   * I'm behind the menu, like I didn't even know where I am."
-   *
-   * The seat was built straight from the head matrix, pitch and roll included,
-   * and a wearer looking down at a structure got a panel pitched down with
-   * them and seated below their level gaze. From a level head that is a sheet
-   * seen from above with its glyphs raked away. The seat takes their eye
-   * height and their yaw now, and nothing else.
+   * A seat built straight from the head matrix, pitch and roll included, gives
+   * a wearer looking down at a structure a panel pitched down with them and
+   * seated below their level gaze. From a level head that panel is a sheet
+   * seen from above with its glyphs raked away, and the wearer seems to stand
+   * behind the menu. The seat takes the wearer's eye height and yaw, and
+   * nothing else.
    */
   it('seats the panel on the wearer\'s yaw alone, whatever their head is doing', () => {
     const level = createToolbarPanel({ rows, head: { ...head, matrix: headMatrix(35, 0, 0) } });
@@ -479,7 +477,7 @@ describe('spatial control geometry', () => {
   });
 
   it('leaves no dead band between two stacked rows', () => {
-    // The first Quest 2 session could not press rows at all. Glyph-sized
+    // A Quest 2 session could not press rows at all. Glyph-sized
     // targets left more gap than target between two rows, and a ray that
     // landed in the gap did nothing and showed nothing.
     const panel = createToolbarPanel({rows,head});
@@ -554,7 +552,7 @@ describe('spatial control geometry', () => {
   });
 
   it('gives the caption block its own plate, wider than the controls and clear of them', () => {
-    // Unbacked text floating over the room is what the first Quest 2 session
+    // Unbacked text floating over the room is what a Quest 2 session
     // called a fake word thing, and the caption was the last of it.
     const panel = createToolbarPanel({ rows, head, readout: Array.from({ length: 8 }, (_, index) => ({ text: `Caption line ${index}` })) });
     const controls = local(panel, panel.backing.point), caption = local(panel, panel.captionBacking.point);
@@ -581,8 +579,8 @@ describe('spatial control geometry', () => {
   });
 
   /**
-   * The 12:06 headset frame: the caption glass ran off the top of the eye and
-   * the wearer read a sentence with its first four lines missing.
+   * In a recorded headset frame the caption glass ran off the top of the eye
+   * and the wearer read a sentence with its first four lines missing.
    *
    * The eye is 90 degrees vertically, which is what `EMULATED_DEVICE` in
    * `plugin/scripts/xr-gate.ts` measures with and a little under what a Quest 3

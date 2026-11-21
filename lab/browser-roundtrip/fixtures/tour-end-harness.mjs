@@ -22,9 +22,10 @@ export function tourEndHarness({ xr = true } = {}) {
   globalThis.window = { addEventListener() {} };
   const records = createDiagnosticsBuffer();
   globalThis.__stereofoldDiagnostics = records;
-  let painted = { parts: [], origin: 'resting' }, appearance = {}, placement = { scale: 1 };
-  const restores = [], spoken = [], statuses = [];
-  const capture = () => structuredClone({ painted, appearance, placement });
+  let painted = { parts: [], origin: 'resting' }, appearance = {}, placement = { scale: 1 }, figure;
+  const restores = [], spoken = [], statuses = [], figures = [];
+  // A drawn figure rides the capture the way the viewer's does.
+  const capture = () => structuredClone({ painted, appearance, placement, ...(figure ? { inspection: { lessonFigure: figure } } : {}) });
   const snapshot = () => ({ ready: true, sourceSha256: 'same', xrPresenting: xr,
     inspection: { appearance, placement } });
   const emphasize = async value => { painted = structuredClone(value); };
@@ -41,9 +42,11 @@ export function tourEndHarness({ xr = true } = {}) {
       emphasize, clearLessonEmphasis: context.clearLessonEmphasis,
       setMotion: async () => {}, fit: async () => {}, resetOrientation: async () => {},
       orbit: async () => {}, dolly: async () => {},
+      setLessonFigure: async (value, options) => { figures.push({ value, options }); figure = structuredClone(value); },
       restore: async (saved, options) => {
         restores.push(options);
         ({ painted, appearance, placement } = structuredClone(saved));
+        figure = structuredClone(saved.inspection?.lessonFigure);
         painted.origin = lessonResting.noteRestoredKey(painted, painted.origin) ?? painted.origin;
       },
     } } };
@@ -55,7 +58,7 @@ export function tourEndHarness({ xr = true } = {}) {
   const dispatchDone = player => vm.runInNewContext(
     `(async () => { ${source.slice(doneStart, doneEnd)} })()`,
     { action: { kind: 'tour-done' }, spatialTour: player });
-  return { workspace, after: element(), records, restores, spoken, statuses, capture,
+  return { workspace, after: element(), records, restores, spoken, statuses, figures, capture,
     aside: line => spoken.push(line), dispatchDone,
     install: tour => lessonResting.install({ emphasis: tour.steps[0]?.emphasis,
       componentLabels: tour.steps[0]?.appearance?.componentLabels === true }),

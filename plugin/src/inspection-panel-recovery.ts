@@ -155,6 +155,42 @@ export function saveFailureRecovery(input: {
   return { action: 'retry', delayMs: SAVE_ERROR_FIRST_DELAY_MS * 2 ** (attempt - 1) };
 }
 
+/** The wait before each of a desktop panel's own retries; one entry per attempt. */
+export const DESKTOP_RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 40_000] as const;
+
+/**
+ * Whether a desktop panel presses its own Retry, and after how long.
+ *
+ * `showProblem` sets `blocked`, and a blocked panel follows neither a newer
+ * saved view nor a new source. One failed host request therefore left a
+ * visible Mac panel on an old lesson for the rest of a session while the
+ * headset followed every change an agent made. A desktop panel now presses
+ * its own Load saved view or Retry (`armDesktopRetry` in inspector.ts picks
+ * which), after a growing wait, and stops after the last one: the banner and
+ * its buttons then stay for the person.
+ *
+ * A save the host refused keeps its button when the person has touched the
+ * panel since it last stood clean on the host's scene (`untouched` false):
+ * that work is theirs. A save that never reached the host is recovered, and
+ * so is one refused from a panel nobody touched, whose unsaved state is only
+ * the lesson's own drawing. A failed load is tried again only when the
+ * request never arrived or the source moved on while it was being delivered
+ * (`sourceMoved`); a source the viewer itself refused would fail the same way
+ * again. `attempt` counts presses since the panel last showed the host's
+ * scene.
+ */
+export function desktopProblemRetry(input: {
+  kind: 'save' | 'poll' | 'reconnect' | 'delivery' | 'confirmation' | 'loading';
+  attempt: number; transportFailure: boolean; sourceRefused: boolean; untouched: boolean;
+  loadFailure: boolean; sourceMoved: boolean;
+}): { retry: true; delayMs: number } | { retry: false } {
+  if (input.sourceRefused) return { retry: false };
+  if (input.loadFailure && !input.transportFailure && !input.sourceMoved) return { retry: false };
+  if (input.kind === 'save' && !input.transportFailure && !input.untouched) return { retry: false };
+  const delayMs = Number.isInteger(input.attempt) && input.attempt >= 0 ? DESKTOP_RETRY_DELAYS_MS[input.attempt] : undefined;
+  return delayMs === undefined ? { retry: false } : { retry: true, delayMs };
+}
+
 export type ConfirmRecovery = { action: 'retry'; delayMs: number } | { action: 'drop' } | { action: 'block' };
 
 /** How many times a headset panel re-sends a confirmation before dropping it. */

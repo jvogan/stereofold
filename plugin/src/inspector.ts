@@ -1,5 +1,5 @@
 import { lessonEntryCameraScene } from './lesson-entry-camera.js';
-import { lessonSourceInitialization } from './lesson-source-initialization.js';
+import { lessonSourceInitialization, lessonSourceLoadsHidden } from './lesson-source-initialization.js';
 import { molecularLessonToTour } from './molecular-lesson-tour.js';
 import { lessonRestingState } from './tour-player.js';
 // @ts-ignore Shared JavaScript menu status store.
@@ -40,7 +40,7 @@ import type { JourneySaveClaim } from './inspection-contract.js';
 import { findInspectionCanvas, recordInspectionCanvas, downloadInspectionRecording } from './inspection-recording.js';
 import { createPanelNarrator } from './panel-narration.js';
 import { applyTourCommand, tourHeartbeat, createPanelTourController } from './inspection-tour-client.js';
-import { confirmFailureRecovery, followsSourceTransition, panelAvailability, saveFailureRecovery, staleHudWaiting } from './inspection-panel-recovery.js';
+import { confirmFailureRecovery, desktopProblemRetry, followsSourceTransition, panelAvailability, SAVE_RELOAD_INTERVAL_MS, saveFailureRecovery, staleHudWaiting } from './inspection-panel-recovery.js';
 import { createSaveRetryAdmission } from './inspection-save-retry.js';
 import {
   applyRendererTabClose, decideRendererTabClose, isRendererHeartbeatFailure, tabIsHostOpened,
@@ -63,8 +63,10 @@ import { executeInspectionVoiceAction } from './inspection-voice-actions.js';
 // The compound line the host names and this page speaks, shared
 // so the two can never say different things about one change.
 import { compoundConfirmation, scopedStyleConfirmation } from './inspection-operation-words.js';
-import { enterImmersiveWithFallback } from './xr-entry-fallback.js';
+import { enterImmersiveWithFallback, XR_SCENE_CHANGING_COPY } from './xr-entry-fallback.js';
+import { HEADSET_PROMPT_WAITING_COPY, microphoneNoticeCopy, microphonePromptHoldsEntry, microphoneRefusedAfter, refuseCaptureWhileVoiceOff, talkCaptureClosed, watchMicrophonePermission, type MicrophoneNotice } from './xr-entry-microphone.js';
 import { createPollBackoff } from './inspection-poll-backoff.js';
+import { createLiveViewCapture } from './live-view-capture.js';
 // @ts-ignore Browser helper shared with the headset runtime.
 import { isAppleSafariXr } from '../../lab/browser-roundtrip/xr-session-request.mjs';
 // @ts-ignore Shared JavaScript device classification. The
@@ -74,6 +76,8 @@ import { deviceClass } from '../../lab/browser-roundtrip/input-capabilities.mjs'
 import { armXrReentryTap, readXrReentry, xrReentryEntryView } from './xr-reentry-hint.js';
 // @ts-ignore Shared browser microphone interaction, also used by the XR toolbar.
 import { createVoiceInteraction } from '../../lab/browser-roundtrip/voice-interaction.mjs';
+// @ts-ignore Shared JavaScript microphone capture for the Talk control.
+import { createVoiceCapture } from '../../lab/browser-roundtrip/voice-capture.mjs';
 // @ts-ignore Shared immersive status sink; safe when no headset is presenting.
 import { showHeadsetCaption } from '../../lab/browser-roundtrip/xr-manipulate.mjs';
 // @ts-ignore Shared JavaScript grip push-to-talk module.
@@ -96,7 +100,7 @@ import { entryFallbackCopy } from '../../lab/browser-roundtrip/xr-session-reques
 // viewer.
 import { createDetailedViewAvailability, DETAILED_VIEW_UNREACHABLE_CAPTION } from '../../lab/browser-roundtrip/workbench-handoff.mjs';
 // @ts-ignore Shared JavaScript headset microphone streamer.
-import { setPushToTalkAudioSender, primePushToTalkMicrophone } from '../../lab/browser-roundtrip/push-to-talk-audio.mjs';
+import { setPushToTalkAudioSender, setPushToTalkMicrophoneOff, primePushToTalkMicrophone, pushToTalkMicrophoneState } from '../../lab/browser-roundtrip/push-to-talk-audio.mjs';
 // @ts-ignore Shared JavaScript headset view capture.
 import { setHeadsetViewSender, requestHeadsetViewCapture } from '../../lab/browser-roundtrip/xr-snapshot.mjs';
 // @ts-ignore Shared JavaScript headset diagnostics ring buffer.
@@ -153,7 +157,7 @@ async function registerComparisonSources(sources:any[]|undefined, sessionId:stri
 }
 const PRIVATE_KEY = 'stereo_structure/inspection';
 document.body.dataset.inspectorBuild = VIEWER_BUILD_PLACEHOLDER;
-const app = new App({name:'Stereofold Inspector',version:'0.1.22'},{},{autoResize:false});
+const app = new App({name:'Stereofold Inspector',version:'0.1.23'},{},{autoResize:false});
 const isCompanion=(window as any).__STEREOFOLD_COMPANION__===true;
 if(isCompanion) {
   installHeadsetDiagnostics().begin();
@@ -231,8 +235,34 @@ let saving:Promise<void> = Promise.resolve(), rendering:Promise<void> = Promise.
 const saveRetryAdmission=createSaveRetryAdmission();
 // The newer host build this page should reload into, and whether the host takes `pageBuild`.
 let pendingHostBuild:unknown, hostTakesPageBuild=true;
+// Whether any voice route on the host would use this page's microphone, from
+// the companion's attach answer and heartbeat. Undefined until a host says,
+// and with a host too old to say, which keeps every microphone ask as it was.
+let hostVoiceCapture:boolean|undefined;
+// The host's report that the person started this share with --no-ptt: no
+// press opens the microphone then, wherever the page is. Set by any beat that
+// carries it, cleared only by a successful attach that does not.
+let hostMicrophoneRefused=false;
 let latestToken=0, epoch:string|undefined, requestedId:string|undefined;
 let panelId:string|undefined, savedScene:any, remote=false, pendingReceipt:any;
+/**
+ * The live view (`show_live_view`): a desktop panel posts a small JPEG of its
+ * canvas while its poll answer asks for one. A headset page never does. The
+ * call goes straight to the host rather than through `call`, because a
+ * picture is not a scene answer and must not touch history or model context.
+ */
+const liveViewCapture=isCompanion?undefined:createLiveViewCapture({
+  canvas3d:()=>workspace?.viewer?.plugin?.canvas3d,
+  canvas:()=>document.querySelector<HTMLCanvasElement>('#scene > canvas') ?? undefined,
+  // The binding is read with the pixels, so a picture never travels under a newer source.
+  context:()=>!closed && binding && panelId ? {...expected(),panelId} : undefined,
+  paused:()=>closed || loading || remote || document.visibilityState==='hidden',
+  submit:async(picture,context)=>{
+    if(closed) throw Error('The panel is closed.');
+    const result=await app.callServerTool({name:'stereo_structure.submit_live_view',arguments:{...context,...picture}});
+    if(result.isError || (result.structuredContent as any)?.accepted!==true) throw Error('The host did not take the live view picture.');
+  },
+});
 let pendingReceiptFields:string[]|undefined;
 let attaching:{generation:number;promise:Promise<void>}|undefined;
 let attachRetryAt=0;
@@ -688,6 +718,102 @@ function showProblem(text:string, retryKind:ProblemRetryKind='save', error?:unkn
     document.querySelector('.canvas-caption > span')!.textContent='STRUCTURE NOT LOADED';
     workspace.setStatus('Structure not loaded. See the session message above.',true);
   }
+  if(!isCompanion) armDesktopRetry(error);
+}
+/**
+ * The desktop panel's own recovery. See `desktopProblemRetry`. A failure arms
+ * one wait; failures that repeat during it change what the press will do, not
+ * when, and the count moves only when a press is made. A poll that finds the
+ * panel showing the host's current scene starts the count again, and so does
+ * a new source on the host: an agent opening lesson after lesson faster than
+ * this panel draws them is a new chance each time, not the same failure.
+ *
+ * When the wait ends the decision is made again, inside the rendering queue,
+ * so a person's own Retry or Load saved view queued first has already run.
+ * A panel nobody has touched presses Load saved view. A panel that finished
+ * drawing one lesson after an agent had opened the next registers with the
+ * old source, the host refuses it, and Retry would only send that
+ * registration again; loading the saved view draws the current source and
+ * registers with it. Its unsaved state, if any, is the lesson's own drawing,
+ * which the host refuses once another panel has moved on. A person's input,
+ * an unconfirmed command and a failed load of another session keep Retry.
+ *
+ * Every trusted pointer, key, wheel, click, input and change event on the
+ * page counts as the person's input, whatever it touched; a held pointer or a
+ * focused text field is an edit still in progress. `desktopCleanInput` is the
+ * count when the panel last stood quiet on the host's saved scene with
+ * nothing unsaved.
+ */
+let desktopRetryAttempt=0, desktopRetryTimer:ReturnType<typeof setTimeout>|undefined, desktopRetryError:unknown, desktopRetrySource:unknown;
+let desktopInput=0, desktopCleanInput=0, desktopLastInputAt=0;
+const DESKTOP_QUIET_MS=5_000;
+/** Pointers the person is holding down: a drag or a slider not yet let go. */
+const desktopHeldPointers=new Set<number>();
+if(!isCompanion) {
+  // Trusted events only: this page's own `.click()` is not the person. A click
+  // and a change also count, because assistive input can activate a control
+  // without a pointer or key event first.
+  for(const type of ['pointerdown','keydown','wheel','click','input','change'] as const)
+    document.addEventListener(type,event=>{
+      if(!event.isTrusted) return;
+      desktopInput++; desktopLastInputAt=Date.now();
+      if(type==='pointerdown') desktopHeldPointers.add((event as PointerEvent).pointerId);
+    },{capture:true,passive:true});
+  for(const type of ['pointerup','pointercancel'] as const)
+    document.addEventListener(type,event=>{desktopHeldPointers.delete((event as PointerEvent).pointerId);desktopLastInputAt=Date.now();},{capture:true,passive:true});
+}
+/** The person is mid-edit: holding a pointer down, or typing in a field that has not been left. */
+function desktopPersonEditing() {
+  const active=document.activeElement as HTMLElement|null;
+  return desktopHeldPointers.size>0 || Boolean(active && (active.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/u.test(active.tagName)));
+}
+function desktopRetryDecision() {
+  // A load's own words are kept in `loadErrorDetails` when the loading sentence replaces them.
+  const detail=retryHydrationId ? loadErrorDetails : '';
+  return desktopProblemRetry({kind:problemRetryKind,attempt:desktopRetryAttempt,
+    transportFailure:isRendererHeartbeatFailure(desktopRetryError) || (Boolean(detail) && isRendererHeartbeatFailure(detail)),
+    sourceRefused:Boolean(failedSourceLoad && retryHydrationId===failedSourceLoad.sessionId),untouched:desktopInput===desktopCleanInput,
+    loadFailure:Boolean(retryHydrationId),sourceMoved:sourceMovedDuringDelivery(desktopRetryError) || (Boolean(detail) && sourceMovedDuringDelivery(detail))});
+}
+/**
+ * A load cut short because the host's source moved on: the chunk reader's own
+ * check, or the host's refusal of a chunk read, which always asks the reader
+ * to start again from the current descriptor.
+ */
+function sourceMovedDuringDelivery(error:unknown) {
+  return (error as {code?:unknown}|undefined)?.code==='source_changed_during_delivery'
+    || /\bstart again\.?$/u.test(thrownErrorMessage(error));
+}
+function armDesktopRetry(error:unknown) {
+  desktopRetryError=error;
+  if(desktopRetryTimer!==undefined) return;
+  const decision=desktopRetryDecision();
+  if(!decision.retry) return;
+  desktopRetryTimer=setTimeout(()=>{
+    rendering=rendering.then(()=>{
+      desktopRetryTimer=undefined;
+      if(closed || notice.hidden || connectionNotice) return;
+      // A hydration still drawing ends in its own result, and a person mid-edit
+      // finishes first; look again after either.
+      if(loading || reloading || desktopPersonEditing()) { armDesktopRetry(desktopRetryError); return; }
+      if(!desktopRetryDecision().retry) return;
+      const press=!retryHydrationId && desktopInput===desktopCleanInput && !pendingReceipt && !reload.hidden ? reload : retry;
+      if(press.hidden || press.disabled) return;
+      desktopRetryAttempt++;
+      const loadFor=retryHydrationId;
+      press.click();
+      // A press that neither cleared the banner nor failed again, such as a
+      // hydration that waits for the headset to finish its chapter, arms the
+      // next wait itself; a new failure has already armed it. Retry loading
+      // hides the banner first, so a load that ended without drawing puts the
+      // banner and its buttons back.
+      rendering=rendering.then(()=>{
+        if(closed || connectionNotice || desktopRetryTimer!==undefined) return;
+        if(!notice.hidden) armDesktopRetry(desktopRetryError);
+        else if(loadFor && retryHydrationId===loadFor) showProblem(problemMessage('loading',desktopRetryError),'loading',desktopRetryError);
+      });
+    });
+  },decision.delayMs);
 }
 // Keep the flat-page notice separately from the caption's bounded warning.
 let connectionRecoveryLine='';
@@ -797,6 +923,14 @@ async function call(name:string,args:Record<string,unknown>,journeyOwned=false) 
       throw Object.assign(new Error(failure),staleVoiceClaim?{code:'STALE_VOICE_CLAIM'}:staleAttach?{code:'inspection_attach_stale'}:{});
     }
     if(beat && isCompanion) pendingHostBuild=(result as any)?.structuredContent?.outdatedHostBuild;
+    if(beat && isCompanion && typeof (result as any)?.structuredContent?.voiceCapture==='boolean') hostVoiceCapture=(result as any).structuredContent.voiceCapture;
+    // get_inspection counts too: the companion builds Enter VR only after its
+    // own get_inspection answered, so a lost first attach cannot leave Enter
+    // VR asking for a microphone the person refused.
+    if(isCompanion && (beat || name==='get_inspection')) hostMicrophoneRefused=microphoneRefusedAfter(hostMicrophoneRefused,result,name==='attach_inspection');
+    // A host that refuses the microphone has no voice route, so Enter VR and
+    // resume ask for none even before the first beat reports voiceCapture.
+    if(isCompanion && hostMicrophoneRefused) hostVoiceCapture=false;
     if(name==='acknowledge_experience_step' && tourCommandContext)tourCommandReceipt=(result as any)?.structuredContent?.command;
     publishModelContext(result);
     // Every inspection answer carries the host's own report of
@@ -853,7 +987,7 @@ function callStatus(error:unknown) {
   return typeof status==='number' && Number.isFinite(status) ? status : null;
 }
 function scheduleSave() {
-  if(loading || remote || closed || reloading || failedSourceLoad || !binding || !workspace?.snapshot().ready) return;
+  if(loading || remote || closed || reloading || followRecovery || failedSourceLoad || !binding || !workspace?.snapshot().ready) return;
   dirty=true; edits++;
   workspace?.syncSceneHistory?.();
   if(timer) clearTimeout(timer);
@@ -866,6 +1000,30 @@ function scheduleLessonSave() {
   if(JSON.stringify(workspace.capture())!==JSON.stringify(savedScene)) scheduleSave();
 }
 let saveAttempts=0, lastAutoReload=0, reloading=false;
+/**
+ * A headset page that could not follow a newer saved view, until a hydration
+ * has installed the host's saved view. Until then the page writes nothing to
+ * the host, answers `unsaved`, and asks for the saved view again on each beat,
+ * at most once per `SAVE_RELOAD_INTERVAL_MS`. A deferred or failed hydration
+ * leaves it set; only `noteSavedViewInstalled` clears it.
+ */
+let followRecovery=false;
+/**
+ * The panel a recovery hydration keeps registered while it draws the saved
+ * view, in place of the detach an ordinary hydration makes. Every headset
+ * recovery draws this way: catching up with a newer saved view, a refused save
+ * (`reloadSharedView`), and a viewer or lesson that could not be put back
+ * (`reloadSavedScene`). A detach there told the host the page was loading a
+ * new structure, so every command was refused as "no panel yet" for as long
+ * as a heavy lesson took to draw again on a Quest. While the page is
+ * behind, the host keeps listing the headset page (`unsaved`) and refuses a
+ * headset command instead of drawing it on the Mac. The page answers
+ * `unsaved` until the hydration's attach has replaced this panel, so no
+ * command is claimed into the panel being retired.
+ */
+let recoveryPanel:string|undefined;
+/** Saved maps that failed to draw in a row while `followRecovery` held. */
+let followMapFailures=0;
 /** Whether every scene change chained on `rendering` so far has settled. */
 async function renderingSettled() {
   const tail=rendering;
@@ -902,6 +1060,27 @@ async function reloadPendingCompanion() {
   },sessionStorage,()=>location.reload());
 }
 /**
+ * The flat page's repaint an XR exit still owes, at a quiet moment.
+ *
+ * Leaving immersion while the viewer was still finishing a change leaves it
+ * owing the flat page its rebuild (`repaintAfterExit` in viewer.mjs), or the
+ * page keeps paint meant for the headset. Started by the viewer the moment it
+ * went idle, that rebuild could land between a command's draw and its
+ * receipt, or between two steps of a chapter, and refuse the rest as busy. It
+ * waits here for no command, hydration, chapter step or receipt to be in
+ * hand, then runs on the rendering chain, so a command that arrives meanwhile
+ * waits for it.
+ */
+async function repaintAfterExitWhenQuiet() {
+  const xr=workspace?.viewer.xr;
+  if(!isCompanion || closed || xr?.exitRepaintOwed?.()!==true) return;
+  const quiet=()=>!closed && !remote && !loading && !reloading && !attaching && !experiencePreparing && !pendingReceipt
+    && !tourPlayer?.getState().navigating && !experiencePlayer?.getState().navigating;
+  if(!quiet() || !await renderingSettled() || !quiet()) return;
+  rendering=rendering.then(async()=>{ if(quiet()) await xr.repaintAfterExit?.(); })
+    .catch(error=>{recordHeadsetEvent('page-error',{operation:'exit-repaint',message:thrownErrorMessage(error).slice(0,200)});});
+}
+/**
  * A refused save on a headset panel has no reachable button.
  *
  * `showProblem` sets `blocked`, and a blocked panel answers `unsaved`, which
@@ -915,22 +1094,58 @@ function recoverSave(kind:'busy'|'conflict'|'error', problem:string) {
   if(experiencePreparing) throw Error(problem);
   saveAttempts++;
   const recovery=saveFailureRecovery({kind,companion:isCompanion,attempt:saveAttempts,msSinceReload:Date.now()-lastAutoReload});
+  recordHeadsetEvent('save-recovery',{kind,action:recovery.action,attempt:saveAttempts});
   if(recovery.action==='retry') {
     saveRetryAdmission.defer(binding,generation,recovery.delayMs);
     timer=setTimeout(()=>{void save(undefined,true);},recovery.delayMs); return;
   }
   if(recovery.action==='reload') {
-    const id=binding?.sessionId;
     if(reloading) return;
-    if(id) {
-      lastAutoReload=Date.now(); saveAttempts=0; dirty=false; reloading=true;
-      outcome.textContent='This session changed elsewhere; showing the saved view.';
-      rendering=rendering.then(async()=>{await hydrate(id);}).catch(error=>showProblem(problemMessage('loading',error),'loading',error))
-        .finally(()=>{reloading=false;});
-      return;
-    }
+    if(reloadSharedView()) return;
   }
   showProblem(problemMessage('save',problem),'save',problem);
+}
+/**
+ * Show the host's saved view without a button: what a headset page does when
+ * its save conflicts, and when it cannot follow a newer saved view. Nothing is
+ * written to the host. The presenting camera is kept, as in any hydration.
+ */
+function reloadSharedView() {
+  const id=binding?.sessionId;
+  if(!id || reloading) return false;
+  lastAutoReload=Date.now(); saveAttempts=0; dirty=false; reloading=true;
+  outcome.textContent='This session changed elsewhere; showing the saved view.';
+  rendering=rendering.then(async()=>{await hydrate(id,undefined,undefined,{keepPanel:true,keepRoomPose:true});}).catch(error=>{
+    // A headset page has no reachable Retry: blocking it left it answering
+    // `unsaved` for good, so the agent could not reach it. It stays
+    // unblocked; its next save conflicts and reloads again, one reload per
+    // `SAVE_RELOAD_INTERVAL_MS`, or it follows a newer saved view.
+    if(!isCompanion) { showProblem(problemMessage('loading',error),'loading',error); return; }
+    recordHeadsetEvent('save-recovery',{kind:'conflict',action:'reload-failed',message:thrownErrorMessage(error).slice(0,200)});
+  }).finally(()=>{reloading=false;});
+  return true;
+}
+/**
+ * Ask for the host's saved view while `followRecovery` holds, spaced like the
+ * save-conflict reload. A hydration that defers to another panel's journey or
+ * fails leaves the fence up for the next beat; neither blocks the page.
+ */
+function retryFollowRecovery() {
+  const id=binding?.sessionId;
+  if(!followRecovery || !id || reloading || closed || Date.now()-lastAutoReload<SAVE_RELOAD_INTERVAL_MS) return;
+  lastAutoReload=Date.now(); saveAttempts=0; dirty=false; reloading=true;
+  outcome.textContent='This session changed elsewhere; showing the saved view.';
+  rendering=rendering.then(async()=>{
+    await hydrate(id);
+    if(followRecovery) recordHeadsetEvent('shared-follow',{outcome:'reload-deferred'});
+  }).catch(error=>{recordHeadsetEvent('shared-follow',{outcome:'reload-failed',message:thrownErrorMessage(error).slice(0,200)});})
+    .finally(()=>{reloading=false;});
+}
+/** A hydration installed the host's saved view and adopted its revisions. */
+function noteSavedViewInstalled(revision:unknown) {
+  if(!followRecovery) return;
+  followRecovery=false; followMapFailures=0;
+  recordHeadsetEvent('shared-follow',{outcome:'reloaded',revision});
 }
 /**
  * Draw the host's saved scene again when this page cannot put its own back.
@@ -948,7 +1163,7 @@ function reloadSavedScene(reason:string) {
   const redraw=workspace?.snapshot().status==='error';
   recordHeadsetEvent('viewer-recovery',{phase:'reload',reason,redraw});
   rendering=rendering.then(async()=>{
-    await hydrate(id,undefined,undefined,{restoreExactScene:true,redraw});
+    await hydrate(id,undefined,undefined,{restoreExactScene:true,redraw,keepPanel:true});
     recordHeadsetEvent('viewer-recovery',{phase:'reloaded',reason});
   }).catch(error=>{
     recordHeadsetEvent('viewer-recovery',{phase:'reload-failed',reason,message:thrownErrorMessage(error).slice(0,200)});
@@ -1009,14 +1224,16 @@ async function recoverViewerError() {
   if(reloadSavedScene('viewer-error'))
     rendering=rendering.then(()=>{ if(workspace?.snapshot().status!=='error') viewerErrorRecovery=undefined; });
 }
-function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneration?:number, onReferenceOnly?:()=>void) {
+function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneration?:number, hydrationWaitMs?:number, onReferenceOnly?:()=>void) {
   // A 250 ms poll must not clear the slower retry timer or recapture the scene.
   // Only background callers may skip. An awaited scene/receipt checkpoint,
   // journey rollback or explicit Retry must perform its real save or fail.
-  if(automatic && saveRetryAdmission.delay(binding,generation)>0) return Promise.resolve();
+  if(automatic && saveRetryAdmission.delay(binding,generation)>0) return Promise.resolve(undefined);
   if(timer) clearTimeout(timer);
+  /** What the host answered; `saved` only once it accepted the scene. */
+  let answer:'saved'|'conflict'|'busy'|'error'|undefined;
   const commit=async()=>{
-    if(!dirty || blocked || loading || remote || !binding || closed || !workspace.snapshot().ready) return;
+    if(!dirty || blocked || loading || remote || followRecovery || !binding || closed || !workspace.snapshot().ready) return;
     // A preceding queued save may have failed since this one was requested.
     if(automatic && saveRetryAdmission.delay(binding,generation)>0) return;
     // A timer must not save between a chapter's operations; the beat retries.
@@ -1025,16 +1242,14 @@ function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneratio
     /**
      * THE CAPTURE BELONGS INSIDE THIS TRY.
      *
-     * `workspace.capture()` refuses a scene it cannot identify, and it used to
-     * be read on the line above the try. Its throw went to the outer
-     * `.catch(error=>showProblem(...))`, which sets `blocked` unconditionally —
-     * so a capture refusal skipped `recoverSave` entirely, wedged the panel on
-     * every surface including a headset with no reachable button, and the
-     * `attach()` guarded on `!blocked` never ran. That is how the first hardware
-     * density run spent ninety seconds waiting for a panel nothing had
-     * registered (maptier7's report, "LEFT FOR A FRESH LANE" item B). A capture
-     * refusal is now the same kind of failure as a refused save, and takes the
-     * same recovery.
+     * `workspace.capture()` refuses a scene it cannot identify. Read above the
+     * try, its throw would reach the outer `.catch(error=>showProblem(...))`,
+     * which sets `blocked` unconditionally: a capture refusal would skip
+     * `recoverSave`, wedge the panel on every surface including a headset with
+     * no reachable button, and stop the `attach()` guarded on `!blocked` from
+     * running, so a density capture could wait ninety seconds for a panel that
+     * was never registered. Inside the try, a capture refusal is the same kind
+     * of failure as a refused save, and takes the same recovery.
      */
     try {
       const scene=workspace.capture();
@@ -1044,10 +1259,10 @@ function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneratio
       if(generation!==ownGeneration || closed) return;
       const next=response.structuredContent as any;
       if(next?.busy) {
-        outcome.textContent='Waiting for the current command before saving your edit';
+        answer='busy'; outcome.textContent='Waiting for the current command before saving your edit';
         recoverSave('busy','The current command never finished. Your visible work is unsaved.');return;
       }
-      if(next?.conflict) { recoverSave('conflict','This session changed in another panel. Your visible work is unsaved. Load the saved view to continue.'); return; }
+      if(next?.conflict) { answer='conflict'; recoverSave('conflict','This session changed in another panel. Your visible work is unsaved. Load the saved view to continue.'); return; }
       if(next?.referenceOnly && hydrationGeneration!==undefined && onReferenceOnly) {
         binding={...binding,...next};savedScene=scene;
         dirty=edits!==edit || (workspace.snapshot().ready && JSON.stringify(workspace.capture())!==JSON.stringify(scene));
@@ -1057,12 +1272,12 @@ function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneratio
       }
       if(next?.referenceOnly) throw Error(next.reason);
       if(!next?.saved) throw Error('The server did not confirm the save.');
-      saveAttempts=0;
+      saveAttempts=0; answer='saved';
       saveRetryAdmission.reset(binding,generation);
       binding={...binding,...next}; savedScene=scene;
       dirty=edits!==edit || (workspace.snapshot().ready && JSON.stringify(workspace.capture())!==JSON.stringify(scene));
       if(!dirty) workspace.setStatus('Current view saved to this session');
-    } catch(error) { recordHeadsetEvent('page-error',{operation:'save',message:thrownErrorMessage(error)});if(generation===ownGeneration) recoverSave('error','Could not save your work. Your visible work is unsaved.'); }
+    } catch(error) { answer='error'; recordHeadsetEvent('page-error',{operation:'save',message:thrownErrorMessage(error)});if(generation===ownGeneration) recoverSave('error','Could not save your work. Your visible work is unsaved.'); }
   };
   saving=saving.then(async()=>hydrationGeneration===undefined ? commit() : await waitForPanelRender({
     // Lesson notifications can start menu-clearance work after installation
@@ -1070,6 +1285,7 @@ function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneratio
     // skip its save and try attaching a source the host has never saved.
     ready:()=>workspace.snapshot().ready,
     current:()=>!closed && generation===hydrationGeneration,
+    waitMs:hydrationWaitMs,maxWaitMs:hydrationWaitMs,
     onReady:()=>{
       // Mark and capture in the same ready turn, inside the save queue. The
       // ordinary debounce intentionally ignores mutations during hydration.
@@ -1085,7 +1301,7 @@ function save(journeySave?:JourneySaveClaim, automatic=false, hydrationGeneratio
   const result=saving;
   saving=saving.catch(()=>{});
   void result.finally(()=>workspace?.syncSceneHistory?.()).catch(()=>{});
-  return result;
+  return result.then(()=>answer);
 }
 /**
  * The trace `growStructure` opened, handed to the hydrate that
@@ -1122,9 +1338,22 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
   attachRecoveryAttempt?:number;checkpointRestore?:(hydrationGeneration:number)=>void;
   admitRestore?:(hydrationGeneration:number)=>void;
   /** Draw the same source again: a viewer left in `error` cannot restore over itself. */
-  redraw?:boolean}={}) {
+  redraw?:boolean;
+  /**
+   * A headset page drawing the host's saved view again to recover keeps its
+   * panel registered instead of detaching (`recoveryPanel`).
+   */
+  keepPanel?:boolean;
+  /**
+   * A presenting page reloading after its save was refused is never left with
+   * the structure hidden: when no fit clears the saved pose of the menu, it
+   * keeps the pose it drew if that clears, else moves the menu.
+   */
+  keepRoomPose?:boolean}={}) {
   let releaseHostLoad:(()=>void)|undefined;
   let releaseSourcePresentation:(()=>void)|undefined;
+  /** The panel this hydration kept registered in place of a detach (`recoveryPanel`). */
+  let keptPanel:string|undefined;
   try {
   // Poll admission can precede a newer journey. Read its actual ownership
   // before stopping players, detaching, or drawing a chapter for another panel.
@@ -1192,6 +1421,11 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
   let defaultToLesson:boolean|undefined;
   let experienceAcknowledgementNeeded=false;
   let passiveSavedRestore=false;
+  /** A save recovery left a pose the host has not saved; save it before attaching. */
+  let unsavedRoomPose=false;
+  /** A fit the solver answered by refusing the pose: not a timeout, cancel, missing helper or moved menu. */
+  const poseRefused=(error:unknown)=>(error as {fitRefusal?:unknown})?.fitRefusal===true && (error as {fitUnanswered?:unknown}).fitUnanswered!==true
+    && !['FIT_STALE','FIT_CANCELLED'].includes(String((error as {code?:unknown}).code));
   let densityReferenceOnly=false, densityReferencePreview=false;
   let supersededJourney=false;
   let completion:any, completionReceipt:{status:'rendered';message?:string}|undefined;
@@ -1199,8 +1433,13 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
   // Stop before the host read so the legacy player cannot repaint during a
   // restore. Hydration can reuse loaded geometry as well as replace a source.
   loading=true; pendingReceipt=undefined; pendingReceiptFields=undefined;
-  if(priorLessonOnScreen || (response?._meta?.[PRIVATE_KEY] as any)?.customTour)
-    releaseSourcePresentation=panelTour?.beginSourceTransition();
+  const incoming=response?._meta?.[PRIVATE_KEY] as any;
+  // A different demo opened by name over a lesson on screen opens as it does
+  // with none on screen, so its opening size does not follow the lesson before.
+  const opensOther=priorLessonOnScreen && Boolean(incoming?.lessonStart) && typeof incoming?.customTour?.id==='string'
+    && incoming.customTour.id!==priorTour?.selectedId;
+  if(priorLessonOnScreen || incoming?.customTour)
+    releaseSourcePresentation=panelTour?.beginSourceTransition(opensOther);
   tourPlayer?.stop('Tour stopped while the inspection is restored.',{restoreResting:false,
     preserveContinuation:Boolean(options.autoplayContinuation)});
   experiencePlayer?.setRendering(true);
@@ -1258,6 +1497,9 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     options.admitRestore?.(ownGeneration);
     if((journeySave && panelId===journeySave.panelId) || sourceReplacement) {experienceSourceChanged=false;}
     else if(experienceSourceChanged) {panelId=undefined;delete document.body.dataset.panelId;experienceSourceChanged=false;}
+    // Every recovery redraw keeps its panel, and so does a refresh nested
+    // inside the recovery's attach.
+    else if(isCompanion && (followRecovery || options.keepPanel || recoveryPanel!==undefined) && panelId) recoveryPanel=keptPanel=panelId;
     else await detach('loading');
     const catalog=await trace.phase('parsed',(async()=>{
       const decoded=await decodeInspectionCatalog(data.catalogWire ?? data.catalog,{isCurrent:()=>!closed && generation===ownGeneration});
@@ -1381,7 +1623,28 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
       sceneToken:typeof data.sourceToken==='string'?data.sourceToken.slice(0,8):null});
     if(same && data.scene) {
       options.admitRestore?.(ownGeneration);
-      if(JSON.stringify(workspace.capture())!==JSON.stringify(data.scene) || restoreExactScene) await trace.phase('built',workspace.restore(data.scene,{preserveCamera:workspace.snapshot().xrPresenting===true,...(restoreExactScene?{restorePlacement:true,preservePreviewCamera:true,xrRecoveryFrame:options.xrRecoveryFrame}:{})}));
+      // Reloading after a refused save in the headset never hides the
+      // structure or draws it through the menu. The saved pose first, fitted
+      // clear of the menu as any restore is; when no fit clears it, the pose
+      // this page drew, proven clear against the rebuilt geometry as it stands;
+      // else the saved pose seated as a chapter seats it, which may move the
+      // menu and must have moved it. A fit that never answered is not retried: the next would wait as long.
+      const restoreRoomPose=async()=>{
+        const drawn=workspace.capture()?.inspection?.placement;
+        const tries=[()=>workspace.restore(data.scene,{preserveCamera:true}),
+          ...(drawn && JSON.stringify(drawn)!==JSON.stringify(data.scene.inspection?.placement)?[()=>workspace.restore(
+            {...data.scene,inspection:{...data.scene.inspection,placement:drawn}},{preserveCamera:true,exactPlacement:true})]:[])];
+        for(const attempt of tries) {
+          try { return await attempt(); }
+          catch(error) { if(!poseRefused(error)) throw error; }
+        }
+        const chapter=workspace.viewer?.inspection, seat=()=>workspace.restore(data.scene,{preserveCamera:true,menuMustMove:true});
+        return chapter?.runChapter ? chapter.runChapter(seat) : seat();
+      };
+      if(JSON.stringify(workspace.capture())!==JSON.stringify(data.scene) || restoreExactScene) await trace.phase('built',
+        options.keepRoomPose && !restoreExactScene && workspace.snapshot().xrPresenting===true ? restoreRoomPose().then(()=>{
+          unsavedRoomPose=JSON.stringify(workspace.capture()?.inspection?.placement)!==JSON.stringify(data.scene.inspection?.placement); })
+          : workspace.restore(data.scene,{preserveCamera:workspace.snapshot().xrPresenting===true,...(restoreExactScene?{restorePlacement:true,preservePreviewCamera:true,xrRecoveryFrame:options.xrRecoveryFrame}:{})}));
       else await trace.phase('built');
       structureRendered=true;
     } else {
@@ -1413,6 +1676,10 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
           // the headset page keeps its own heading.
           const heading:StructureHeading=density||isCompanion?{}:await readStructureHeading(data.structureText).catch(()=>({}));
           options.admitRestore?.(ownGeneration);
+          // A headset keeps its camera as the room frame across the swap, so
+          // the turns a lesson made there, or left partway, would turn the
+          // new structure too.
+          if(swappedSource) await tourPlayer?.settleTurn?.();
           await workspace.loadSource({id:'session',
             ...(density?{map:density.map,contour:density.contour}:{cif:data.structureText}),sha256:loadedSha256,catalog,pdbId:data.pdbId,
             ...(visible?{visible}:{}),title:stage?`${stage.title} `:panelCustomTour?.title ? `${panelCustomTour.title} ` : `${heading.name ?? 'Molecular structure'} `,code:data.pdbId ?? heading.code ?? 'mmCIF',caption:densityReferencePreview?'REFERENCE COORDINATES':stage?.title ?? panelCustomTour?.title ?? (data.pdbId ? `PUBLIC STRUCTURE / ${data.pdbId}` : 'SESSION STRUCTURE')},
@@ -1447,6 +1714,12 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
         })());
       } catch(error) {
         if(!density) throw error;
+        // A page catching up with the saved view has not installed it when
+        // the map fails to draw: it keeps its binding and drawing, stays
+        // fenced, and the next beat asks again. A second failure in a row is
+        // the failed map below: the page pairs with the session it has, says
+        // once that the map did not draw, and stops asking.
+        if(followRecovery && ++followMapFailures<2) throw error;
         mapDrawFailure=error instanceof Error?error:Error(String(error));
       }
       if(!isCompanion && !mapDrawFailure) console.debug('[stereofold:timing] mac-first-frame', {at:Date.now()});
@@ -1529,7 +1802,7 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     // otherwise healthy panel. Transition owners still prove their own save.
     experienceAcknowledgementNeeded=Boolean(experience && (!data.scene || (!experience.applied && !supersededJourney) || journeySave || tourCommandContext));
     passiveSavedRestore=densityReferenceOnly || Boolean(hasSavedHostScene && data.scene && !journeySave && !tourCommandContext && !experiencePreparing
-      && !sourceReplacement && completion?.status!=='pending' && (!experience || experience.applied || supersededJourney));
+      && !sourceReplacement && !unsavedRoomPose && completion?.status!=='pending' && (!experience || experience.applied || supersededJourney));
     if(mapDrawFailure) await trace.phase('placed');
     else await abortableSwapPhase(trace,'placed',signal=>placeLessonScene(workspace,{
       ...(panelCustomTour?{tour:panelCustomTour}:{}),
@@ -1576,11 +1849,18 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
         // An explicit source entry keeps the installer's animation framing,
         // but must also apply the authored placement, view and chapter motion.
         // Only a plain open defers to a journey's own chapter.
-        if(canStartLesson && !data.scene && (data.lessonStart || !experience)) {
+        // A tier grown after the wearer put its lesson away opens no chapter:
+        // `openGrownTier` paints its key after the save and leaves the
+        // structure where the wearer placed it. A source that loaded hidden
+        // behind its opening chapter's figure has nothing else drawn, so it
+        // still opens that chapter, silently and at rest.
+        const grownAtRest=swappedSource && !initialOpen && !priorLessonOnScreen && !data.lessonStart
+          && !lessonSourceLoadsHidden(panelCustomTour,{density:Boolean(data.density)});
+        if(canStartLesson && !data.scene && !grownAtRest && (data.lessonStart || !experience)) {
           if(data.lessonStart) await tourPlayer?.installLesson(panelCustomTour,data.lessonStart,undefined,'entry');
           else {
             // A tier grown under a lesson on screen continues it, spoken and
-            // at its pace; every other open is a silent resting chapter. A map
+            // at its pace; a fresh open is a silent resting chapter. A map
             // opening waits for its tracked entry seat so its chapter can frame.
             const grown=swappedSource ? grownTierIntent({presenting:workspace.snapshot().xrPresenting===true,
               hasChapters:true,lessonOnScreen:priorLessonOnScreen,
@@ -1597,7 +1877,12 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
         }
       }
       if(closed || generation!==ownGeneration) return;
-      if(data.scene?.inspection?.lessonPlayback) { tourPlayer?.restorePlayback(data.scene,{waitForXrEntry:isCompanion}); restoredLessonPlayback=true; }
+      // A headset camera is brought to the restored chapter's turn before the
+      // cursor is adopted, so the save below holds the two together.
+      if(data.scene?.inspection?.lessonPlayback) { await tourPlayer?.restorePlayback(data.scene,{waitForXrEntry:isCompanion}); restoredLessonPlayback=true; }
+      // A restore with no lesson in it puts the lesson away: hand the camera
+      // back in the frame the lesson found.
+      else if(!restoredLessonPlayback) await tourPlayer?.settleTurn?.();
       installedLesson=panelCustomTour;
       if(panelCustomTour?.steps?.length)grownLesson=panelCustomTour;
       if(data.lessonStart && canStartLesson) recordHeadsetEvent('demo-load',{phase:'lesson-started',elapsedMs:Date.now()-lessonStartedAt});
@@ -1613,6 +1898,11 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     if(data.namedViews) noteNamedViews(data.namedViews);
     handoffSource=parseNativeStructureViewerHandoff(data.nativeStructureViewerHandoff);handoffFeedback='';handoffPending=false;handoffVersion++;syncHandoff();
     savedScene=data.scene; blocked=false; dirty=false; connectionNotice=false;retry.hidden=false;notice.hidden=true; reload.hidden=false; document.body.dataset.sessionId=id;
+    if(!mapDrawFailure) noteSavedViewInstalled(data.inspectionRevision);
+    else if(followRecovery) {
+      followRecovery=false; followMapFailures=0;
+      recordHeadsetEvent('shared-follow',{outcome:'map-failed',revision:data.inspectionRevision});
+    }
     experienceView=mapDrawFailure?undefined:experience;
     if(data.experienceCatalog)experiencePlayer?.setCatalog(data.experienceCatalog);
     experiencePlayer?.setSubject(workspace.viewer.xr?.getSubject?.() ?? {pdbId:data.pdbId,sourceSha256:loadedSha256,assembly:catalog.assemblyId,modelNumber:workspace.snapshot().modelNumber});
@@ -1631,8 +1921,17 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     // claim the previous view is restored before that recovery has happened.
     if(!journeySave || !structureRendered) showHeadsetCaption(structureRendered
       ? 'Could not update the view. Try again.'
+      // A refused fit hides the structure in a presenting session
+      // (`hideRetainedPose` in viewer.mjs), so the previous view is not shown.
+      // Only a pose the solver refused is the menu's doing; a fit that never
+      // answered (timed out, cancelled, no helper, the menu moved) is not. A
+      // re-check after the menu moved (`recoverablePlacement`) leaves it hidden too.
       : workspace.snapshot().ready
-        ? 'Structure load failed. Your previous view is still shown.'
+        ? (error as {fitRefusal?:unknown})?.fitRefusal===true || (error as {recoverablePlacement?:unknown})?.recoverablePlacement===true
+          ? poseRefused(error)
+            ? 'The view could not be placed clear of the menu. If the structure is not showing, press Reset or Fit.'
+            : 'Could not restore the view. If the structure is not showing, press Reset or Fit.'
+          : 'Structure load failed. Your previous view is still shown.'
         : 'Structure load failed. Use Retry loading on the page.');
     failSourceLoadOutcome(loadErrorDetails);
     if(sourceFailureBinding && !closed && generation===ownGeneration) {
@@ -1661,12 +1960,25 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
     trace.skip('saved','Restored an already saved view without publishing a new edit.');
   } else {
     // Initial views and transition owners still publish their actual drawing.
+    // Menu clearance (up to 30 s) or a heavy Quest rebuild can keep the viewer
+    // busy after the load resolves, so the save waits as long as the host
+    // budgets this source to load, draw and save, not a command's 15 s.
+    const budget=Number(response?._meta?.[PRIVATE_KEY]?.renderBudgetMs);
+    const hydrationWaitMs=Number.isFinite(budget)?budget:undefined;
     scheduleSave();
     if(densityReferencePreview) {
-      await save(journeySave,false,ownGeneration,()=>{densityReferenceOnly=true;});
+      await save(journeySave,false,ownGeneration,hydrationWaitMs,()=>{densityReferenceOnly=true;});
       if(densityReferenceOnly)trace.skip('saved','Reference coordinates did not replace the shared density map.');
       else await trace.phase('saved');
-    } else await trace.phase('saved',save(journeySave,false,ownGeneration));
+    } else await trace.phase('saved',save(journeySave,false,ownGeneration,hydrationWaitMs).then(answer=>{
+      // `saved` means the host accepted this scene. Anything else is recorded
+      // as what it was: a conflict means the session moved on (another panel
+      // saved, or a newer source); an error may have lost the host's answer.
+      if(answer!=='saved') throw Object.assign(Error(answer==='conflict'
+        ? 'Not saved: the session moved on before this save arrived (a newer revision or source).'
+        : answer==='error' ? 'This save could not be confirmed: its answer did not reach this page.'
+          : answer==='busy' ? 'Not saved yet: the host was finishing a command; the save is retried.' : 'This page did not send its save.'),{unsaved:true});
+    })).catch(error=>{ if((error as {unsaved?:unknown})?.unsaved!==true) throw error; });
   }
   if(closed || generation!==ownGeneration)return;
   if(!dirty && !blocked) {
@@ -1723,7 +2035,7 @@ async function hydrate(id:string,provided?:any,journeySave?:JourneySaveClaim,opt
       options.autoplayContinuation ? options.autoplayContinuation() : priorAutoplay,initialOpen,options.continuationNarration);
   }
   return completionReceipt;
-  } finally { releaseSourcePresentation?.(); releaseHostLoad?.(); }
+  } finally { releaseSourcePresentation?.(); releaseHostLoad?.(); if(keptPanel!==undefined && recoveryPanel===keptPanel) recoveryPanel=undefined; }
 }
 /**
  * Tell the wearer the map did not draw, once, in one sentence.
@@ -1789,6 +2101,8 @@ async function openGrownTier(lesson:{id:string;steps:readonly TourStep[]}|undefi
 async function navigateExperience(experienceId:string,stepIndex:number,loadedSourceOnly=false,finish=false) {
   const run=async()=>{
     await save();
+    // A page catching up with the saved view neither steps nor reports ready.
+    if(followRecovery || recoveryPanel!==undefined) throw Error('This view is catching up with the saved view. Try again in a moment.');
     if(!binding || dirty || blocked || loading || workspace.snapshot().interactionActive)throw Error('Finish the current edit before changing scenes.');
     if(!panelId)await attach();
     if(!panelId)throw Error('The viewer is not connected.');
@@ -1919,7 +2233,10 @@ function placementOnlyWork() {
  */
 function liveAvailability() {
   const snapshot=workspace.snapshot();
-  return panelAvailability({blocked,dirty,ready:snapshot.ready,interactionActive:snapshot.interactionActive,
+  // A page waiting for the saved view answers `unsaved`: it is behind, and the
+  // host and the agent CLI refuse a headset command then rather than hand it
+  // to the Mac's panel, which they would do for a behind `busy` page.
+  return panelAvailability({blocked:blocked || followRecovery || recoveryPanel!==undefined,dirty,ready:snapshot.ready,interactionActive:snapshot.interactionActive,
     // A grab, stick nudge or entry seat is a save in flight that a waiting
     // command follows, not work it could overwrite.
     placementOnly:dirty && !blocked && placementOnlyWork(),
@@ -2110,7 +2427,7 @@ async function reconcileExperience(provided?:any,previous=experiencePlayer?.getS
   const response=provided??await call('get_inspection',{sessionId:sent.sessionId,...HYDRATION_TRANSPORT});
   const data=response?._meta?.[PRIVATE_KEY], next=data?.experience as ExperienceView|undefined;
   const admit=()=>{
-    if(!owner || closed || generation!==ownGeneration || panelId!==owner || dirty || blocked || loading
+    if(!owner || closed || generation!==ownGeneration || panelId!==owner || dirty || blocked || loading || followRecovery
       || workspace.snapshot().interactionActive || !data?.scene
       || data.serverEpoch!==sent.serverEpoch || data.sourceToken!==sent.sourceToken
       || data.stateRevision!==sent.baseStateRevision || data.inspectionRevision!==sent.baseInspectionRevision
@@ -2324,7 +2641,13 @@ async function confirmReceipt(receipt:any, fields:string[]=pendingReceiptFields?
   }
   binding={...binding,...next}; if(commitScene)savedScene=receipt.scene;
   showOutcome({...next.command,fields});
-  if(commitScene)dirty=JSON.stringify(workspace.capture())!==JSON.stringify(receipt.scene);
+  // The host has saved this scene. A viewer still finishing it (a chapter's
+  // menu clearance or animation install) refuses a capture for a moment; that
+  // is not a failed command, and the next beat compares the scene again.
+  if(commitScene) {
+    try { dirty=JSON.stringify(workspace.capture())!==JSON.stringify(receipt.scene); }
+    catch(error) { if((error as any)?.code!=='viewer_busy') throw error; dirty=false; }
+  }
   blocked=false; notice.hidden=true;
   if(fields.includes('lesson'))tourPlayer?.confirmLessonInstallation();
   return next.command;
@@ -2530,8 +2853,6 @@ async function speakNarration(line:string) {
   }
 }
 async function receive(delivery:any, sent:any, ownGeneration:number) {
-  let releaseHostLoad:(()=>void)|undefined;
-  try {
   // An inspection command lands on top of the running lesson.
   //
   // Every remote command used to pause the tour before it was applied, which
@@ -2547,11 +2868,14 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
   const base={...sent,panelId:delivery.panelId,commandId:delivery.commandId,claimToken:delivery.claimToken};
   delete base.animation;delete base.availability;delete base.spatialContext;delete base.tourState;delete base.experience;delete base.xrStartup;
   let drew=false,settledSuperseded=false,recoveryFailed=false;
+  /** The host confirmed this command `rendered`: it saved the scene drawn here. */
+  let confirmedRendered=false;
   let activeDelivery=delivery;
   // The scene a lesson start, chapter change or lesson install was admitted
   // on, and the lesson installed then. Any failure after admission puts that
-  // scene back before the page replies, while `remote` still holds every save,
-  // so half a chapter is never left on screen or saved as the wearer's work.
+  // scene back before the page lets go of the command, while `remote` still
+  // holds every save, so half a chapter is never left on screen or saved as
+  // the wearer's work.
   let checkpoint:any, checkpointAt=Infinity, checkpointDraws=0, lessonBefore:any, reloadPending=false;
   const lessonCommand=delivery.change.kind==='lesson' || delivery.change.kind==='tour';
   const receivedAt=performance.now(), entryInteraction=localInteractionSerial;
@@ -2632,13 +2956,18 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
     try {
       // Nothing the failed command scheduled may draw over the checkpoint.
       player?.pause(reason,{preserveMolecularPlayback:true});
-      const shown=putBackTarget();
-      if(shows(shown)) { if(shown!==checkpoint) dirty=true; return true; }
-      // Let an in-flight frame land and a hand leave the structure. A viewer
-      // left in `error` cannot become ready, so it does not wait for that.
-      await waitForPanelRender({ready:()=>!workspace.snapshot().interactionActive
+      // Compare only a settled viewer. A viewer still finishing a change
+      // refuses its capture, and that refusal is not a mismatch: a step the
+      // player deferred before drawing used to fail this comparison, restore,
+      // fail it again on the restore's own work, and redraw the whole saved
+      // view. Let an in-flight frame land and a hand leave the structure; a
+      // viewer left in `error` cannot become ready, so it does not wait for that.
+      const settled=()=>waitForPanelRender({ready:()=>!workspace.snapshot().interactionActive
           && (workspace.snapshot().ready || workspace.snapshot().status==='error'),
         current:()=>!closed && generation===ownGeneration && panelId===delivery.panelId});
+      await settled();
+      const shown=putBackTarget();
+      if(shows(shown)) { if(shown!==checkpoint) dirty=true; return true; }
       const target:any={};
       let keptWearerEdits=false;
       const lessonReplaced=delivery.change.kind==='lesson' && installedLesson!==lessonBefore;
@@ -2660,6 +2989,7 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
         }
         await player?.restorePlayback(scene);
       });
+      await settled();
       const restored=shows(target);
       // The wearer's kept edits are theirs to save once the command lets go.
       if(restored && keptWearerEdits) dirty=true;
@@ -2721,9 +3051,6 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
     return [installedLesson,...TOURS].find(entry=>entry?.id===state.selectedId)?.steps[state.step];
   };
   try {
-    if(delivery.change.kind==='lesson') {
-      releaseHostLoad=await workspace.viewer.prepareHostLoad?.();
-    }
     await settleRender();
     // A ready heartbeat can be overtaken by a wake/entry save. Release only
     // this unadmitted claim; the host compares the saved inputs before it
@@ -2827,6 +3154,7 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
         installedLesson=tour;
         await confirmReceipt({...base,scene,...(localInteractionSerial!==lessonInteraction?{wearerPlacement:true}:{}),
           tourState:tourHeartbeat(panelTour),animation:workspace.snapshot().animation??null},['lesson']);
+        confirmedRendered=true;
       },delivery.change.patch.frame);
     } else if(delivery.change.kind==='tour') {
       await admit();
@@ -2877,6 +3205,7 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
         }
         throw error;
       }
+      confirmedRendered=true;
       speakRemoteConfirmation(delivery.change,appliedTour,narrationGeneration!==narrationBefore,delivery);
     } else await workspace.applyRemote(delivery.change,admit,async function confirm(scene:any,applied:any):Promise<any> {drew=true;
       // The one thing the rendered scene cannot carry. A
@@ -2933,13 +3262,45 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
       },delivery.historyAction?{preservePlacement:true}:{});
   } catch(error) {
     // A lesson command that failed after admission puts its checkpoint back
-    // before anything replies. A receipt that was sent and then lost is the
-    // exception: the host may have kept it, so the page retries it below.
+    // while `remote` still holds every save and delivery. A receipt that was
+    // sent and then lost is the exception: the host may have kept it, so the
+    // page retries it below.
     let putBack:boolean|undefined;
-    if(ownsCheckpoint() && !(drew && pendingReceipt))
-      putBack=await putBackOrReload((error as any).code==='superseded'
+    // A chapter the host already confirmed `rendered` is the saved scene. A
+    // viewer call that then finds the viewer still finishing that chapter
+    // ("A molecular change is still rendering.") is not a failed lesson:
+    // putting the previous chapter back showed the wearer the old chapter and
+    // then redrew the saved one over it, refusing commands meanwhile.
+    const busyAfterRendered=confirmedRendered && ((error as any)?.code==='viewer_busy'
+      || thrownErrorMessage(error).startsWith('A molecular change is still rendering'));
+    const code=(error as any).code;
+    // A command that failed before its receipt (`drew` is still false) is
+    // answered first, then put back. The put-back waits for a settled viewer
+    // before its restore and again after it, fifteen seconds each, and for
+    // all of that the caller read the command as still rendering. The host
+    // saved nothing of it, and this page answers busy and saves nothing until
+    // the put-back is done.
+    const refusedUndrawn=!drew && !busyAfterRendered && code!=='rollback_failed' && code!=='superseded' && code!=='local_save_deferred';
+    let refusalLost:{error:unknown}|undefined;
+    if(refusedUndrawn) {
+      // Preserve geometry admission as a typed refusal and carry its complete
+      // actionable sentence; display paging is separate from this receipt.
+      // A transient named-view capture refusal (stale head tracking or a held
+      // grip) rides as `capture_refused` with its actionable sentence, so the
+      // receipt reads as a refusal to retry rather than a rendering fault.
+      const refusal=inspectionFailureReceipt(error);
+      try {
+        const rejected=await confirmReceipt({...base,...refusal},[]);
+        settledSuperseded=settledSuperseded || ['cancelled','superseded'].includes(rejected?.status);
+      } catch(lost) { refusalLost={error:lost}; }
+    }
+    if(ownsCheckpoint() && !(drew && pendingReceipt) && !busyAfterRendered)
+      putBack=await putBackOrReload(code==='superseded'
         ? 'The earlier tour request was cancelled.' : 'The lesson could not be drawn, so your view was put back.');
-    if((error as any).code==='rollback_failed') {
+    if(busyAfterRendered) {
+      recordHeadsetEvent('command-phase',{commandId:delivery.commandId,phase:'viewer-busy-after-rendered',
+        message:thrownErrorMessage(error).slice(0,200)});
+    } else if(code==='rollback_failed') {
       // A failed undo rebuild does not own later commands. Restore the saved
       // revision once through the ordinary workspace path, then release the
       // claim only after that frame. Persistent failure keeps local work dirty
@@ -2968,18 +3329,14 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
       // the save timer has committed the wearer's placement.
       scheduleSave();
     } else if(!drew) {
-      // Preserve geometry admission as a typed refusal and carry its complete
-      // actionable sentence; display paging is separate from this receipt.
-      const refusal=inspectionFailureReceipt(error);
-      // A transient named-view capture refusal (stale
-      // head tracking or a held grip) rides as `capture_refused` with its
-      // actionable sentence, so the receipt reads as a refusal to retry
-      // rather than a rendering fault.
-      try {
-        const rejected=await confirmReceipt({...base,...refusal},[]);
-        settledSuperseded=settledSuperseded || ['cancelled','superseded'].includes(rejected?.status);
+      // Answered above, before the put-back. A refusal that did not arrive is
+      // retried once the checkpoint is back.
+      if(refusalLost) {
+        const recovered=await recoverConfirmation(refusalLost.error,' Retry confirmation to release the failed command; the command will not be rendered again.',ownGeneration);
+        // A newer request replaced this one while its answer was lost: the
+        // host releases the replaced command once this page says it has settled.
+        settledSuperseded=settledSuperseded || ['cancelled','superseded'].includes(recovered?.status);
       }
-      catch(error) { await recoverConfirmation(error,' Retry confirmation to release the failed command; the command will not be rendered again.',ownGeneration); }
     } else if(putBack!==undefined) {
       // The host answered and refused the drawn lesson. Its checkpoint is back,
       // so only an entry seat or a following local edit is left to save.
@@ -3022,7 +3379,6 @@ async function receive(delivery:any, sent:any, ownGeneration:number) {
     if(drew && !pendingReceipt && !closed && generation===ownGeneration && panelId===delivery.panelId)
       await busyBeat(ownGeneration);
   }
-  } finally { releaseHostLoad?.(); }
 }
 /**
  * The beat that keeps running while a command renders.
@@ -3106,7 +3462,7 @@ async function busyBeat(ownGeneration:number, forceBusy=false) {
   const receiptBeat=!isCompanion?desktopReceiptBeat:undefined;
   const recovery=failedSourceLoad && failedSourceLoad.sessionId===binding.sessionId && retryHydrationId===binding.sessionId
     && !forceBusy && !remote && !loading;
-  const availability=recovery?'ready' as const:receiptBeat?'ready' as const:busy?'busy' as const:liveAvailability();
+  const availability=recovery?'ready' as const:receiptBeat?'ready' as const:followRecovery || recoveryPanel!==undefined?'unsaved' as const:busy?'busy' as const:liveAvailability();
   // A journey's `tourState` is inactive for its whole
   // run, so `experience` is the only thing on the beat that says an authored
   // lesson is playing and which chapter it just drew. The host needs it to
@@ -3158,10 +3514,11 @@ async function busyBeat(ownGeneration:number, forceBusy=false) {
     // Everything else in the answer — a source transition, a shared scene, a
     // saved-scene revision, a re-attachment — belongs to `poll`, which owns the
     // renderer. The short-lived queue re-offers anything skipped here.
-    // A lesson may be admitted on a busy input beat: receive() retires that
-    // gesture before drawing. Keep the host's claim on the same renderer queue
-    // rather than dropping it merely because the wearer was still holding on.
-    const delivery=availability==='ready' || privateState?.delivery?.change?.kind==='lesson'?privateState?.delivery:undefined;
+    // Only a panel that advertised `ready` may take a command, and the answer
+    // to that question is the word this beat actually sent. The host applies
+    // the same rule; agreeing with it here is what keeps a command from being
+    // claimed into a page that is unsaved, blocked, or being dragged.
+    const delivery=availability==='ready'?privateState?.delivery:undefined;
     // Start the command, do not wait for it.
     if(delivery) rendering=rendering.then(()=>receivePollDelivery(response,sent,ownGeneration))
       .catch(error=>{if(!closed)showProblem(problemMessage('delivery',error),'delivery',error);});
@@ -3220,7 +3577,8 @@ async function poll() {
     // reach the Mac. `loading` used to return here without sending anything,
     // which is how a re-hydrating headset disappeared from the Mac's panel list.
     if(remote || loading) { await busyBeat(generation,true); return; }
-    if(experiencePreparing) { await busyBeat(generation); return; }
+    if(experiencePreparing || recoveryPanel!==undefined) { await busyBeat(generation); return; }
+    retryFollowRecovery();
     const pollGeneration=generation;
     const snapshot=workspace.snapshot();
     // The beat below still reports this panel busy while it redraws or reloads.
@@ -3292,7 +3650,7 @@ async function poll() {
     clearConnectionProblem();
     noteRendererHeartbeat(true,(response._meta?.[PRIVATE_KEY] as any)?.closeRendererTab===true);
     const data=response.structuredContent as any;
-    if(data?.superseded===true) { closed=true; activePreviewRecording?.abort(); if(pollTimer!==undefined)clearTimeout(pollTimer); workspace.setStatus('This page was replaced by another tab on this headset.'); return; }
+    if(data?.superseded===true) { closed=true; activePreviewRecording?.abort(); liveViewCapture?.stop(); if(pollTimer!==undefined)clearTimeout(pollTimer); workspace.setStatus('This page was replaced by another tab on this headset.'); return; }
     // Handle capture before any hydration or other slow/early-return path.
     // A changed source must first complete its own hydration and new request.
     const captureRequest=(response._meta?.[PRIVATE_KEY] as any)?.headsetViewRequest;
@@ -3301,10 +3659,13 @@ async function poll() {
     showOutcome(data?.outcome);
     retireStaleHud(data?.outcome);
     const sourceChanged=data?.sourceToken!==binding.sourceToken || data?.serverEpoch!==binding.serverEpoch;
+    // A new source on the host is a new situation for the desktop panel's own recovery.
+    if(!isCompanion && data?.sourceToken!==desktopRetrySource) { desktopRetrySource=data?.sourceToken; desktopRetryAttempt=0; }
     const experienceChanged=Boolean(data?.experience
       ? !experienceView || data.experience.id!==experienceView.definition.id || data.experience.revision!==experienceView.revision || data.experience.stepIndex!==experienceView.stepIndex
       : experiencePlayer?.getState().active);
     const privateState=response._meta?.[PRIVATE_KEY] as any;
+    liveViewCapture?.update(data?.sourceToken===binding?.sourceToken && data?.serverEpoch===binding?.serverEpoch ? privateState?.liveViewRequest : undefined);
     await registerPollState(response,sent.sessionId);
     // The heartbeat is the only place the page ever learns
     // that an agent is on the Mac. Recorded before anything below can return
@@ -3366,7 +3727,7 @@ async function poll() {
     // The host can offer the last saved scene to a returning desktop after
     // Stop closes headset sharing. Its private snapshot remains authoritative;
     // the same local-edit and source guards apply while the listener is closed.
-    const followable=(data?.shared || !isCompanion) && privateState?.scene && !dirty && !blocked && !remote && !workspace.snapshot().interactionActive
+    const followable=(data?.shared || !isCompanion) && privateState?.scene && !dirty && !blocked && !remote && !followRecovery && !workspace.snapshot().interactionActive
       && !paused && privateState.scene.sourceSha256===workspace.snapshot().sourceSha256;
     // A scene minted before a server-epoch rotation carries a catalog this
     // panel no longer holds, so an epoch change reloads instead of merging.
@@ -3388,13 +3749,15 @@ async function poll() {
       tourPlayer?.pause('A shared inspection update paused your tour.',{preserveMolecularPlayback:true});
       const ownEdits=edits, ownRevision=binding.inspectionRevision;
       remote=true;
+      let refusedFollow=false;
       try {
         const restored=await workspace.restoreShared(privateState.scene,()=>{
           if(generation!==ownGeneration || edits!==ownEdits || dirty || blocked || loading
             || data.serverEpoch!==binding.serverEpoch
             || data.sourceToken!==binding.sourceToken || data.stateRevision!==binding.stateRevision
             || binding.inspectionRevision!==ownRevision
-            || JSON.stringify(workspace.capture())!==JSON.stringify(savedScene)) throw Error('Local work changed before the shared view arrived.');
+            || JSON.stringify(workspace.capture())!==JSON.stringify(savedScene))
+            throw Object.assign(Error('Local work changed before the shared view arrived.'),{code:'local_changed'});
           validatePlayback();
         },workspace.snapshot().xrPresenting===true,false,async(scene:any)=>{
           if(lessonChanged) {
@@ -3407,7 +3770,24 @@ async function poll() {
         binding={...binding,...data};savedScene=restored;
         outcome.textContent=`Shared view shown · revision ${data.inspectionRevision}`;
         showOutcome(data.outcome);
+      } catch(error) {
+        // The follow was refused: the page changed what it shows (the seat VR
+        // entry gave the structure while the restore waited, or the wearer's
+        // own edit), or its revisions moved meanwhile. A headset page has no
+        // reachable Retry, and blocking it there left it unsaved and behind for
+        // the rest of the session. Saving its view could replace a newer one
+        // another panel saved. It holds every write and reloads the host's
+        // saved view until one is installed (`followRecovery`); a wearer's edit
+        // made during the follow is replaced by that view.
+        if(!isCompanion || (error as {code?:unknown})?.code!=='local_changed') throw error;
+        recordHeadsetEvent('shared-follow',{outcome:'refused-reload',fromRevision:ownRevision,toRevision:data.inspectionRevision});
+        refusedFollow=true;
       } finally {remote=false;}
+      // Say `unsaved` at once: the beat this poll sent said `ready`, and the
+      // host must not pick the Mac's panel while the reload starts.
+      // A beat already in flight said `busy` at the old revision; this one
+      // follows it.
+      if(refusedFollow) { followRecovery=true; await beatCompletion; await busyBeat(ownGeneration); retryFollowRecovery(); return; }
     }
     // A refused source still belongs to this connected transition owner. Keep
     // its identity and heartbeat so Retry can finish the same handoff. It is
@@ -3423,6 +3803,13 @@ async function poll() {
       // page that cannot draw keeps its panel ID and does neither; the first
       // beat it sends awake is answered `attached:false` again and recovers.
       if(paused) return;
+      // Re-registering below draws the new source and saves its first scene.
+      // While another page is still drawing that source the first save is
+      // its own: taking it first refuses that page's save, and a headset page
+      // then reloads a view it did not draw. The host asks this page to wait
+      // only while that page is registered and has saved nothing, and never
+      // past the load's lease; this page keeps its ID and asks again.
+      if(sourceChanged && privateState?.awaitSourceOwner===true) return;
       panelId=undefined;delete document.body.dataset.panelId;
       document.querySelector('[data-panel-label]')?.remove();document.querySelector('.app-header .brand')?.removeAttribute('title');
       // A clean, expired panel has now caught up before re-registration.
@@ -3435,6 +3822,15 @@ async function poll() {
         else await attach();
       }
       return;
+    }
+    // This panel shows the host's current scene, so its own Retry count starts again.
+    if(!isCompanion && !blocked && notice.hidden && !sourceChanged && data?.inspectionRevision===binding.inspectionRevision) {
+      desktopRetryAttempt=0;
+      // A person's input during this beat, or work not yet saved, stays theirs.
+      let saved=false;
+      try { saved=workspace.serializeCapture()===JSON.stringify(savedScene); } catch { /* unidentifiable work stays the person's */ }
+      if(!dirty && saved && !workspace.snapshot().interactionActive && !desktopPersonEditing()
+        && Date.now()-desktopLastInputAt>=DESKTOP_QUIET_MS) desktopCleanInput=desktopInput;
     }
     const delivery=privateState?.delivery;
     // Start the command, do not wait for it.
@@ -3462,6 +3858,8 @@ async function poll() {
 }
 // The pending update is checked on its own clock, apart from the beat.
 if(isCompanion) setInterval(()=>{ void reloadPendingCompanion(); },1000);
+// The flat repaint an XR exit still owes waits for a quiet moment on its own clock too.
+if(isCompanion) setInterval(()=>{ void repaintAfterExitWhenQuiet(); },1000);
 reload.addEventListener('click',()=>{
   const id=binding?.sessionId ?? requestedId; if(!id) return;
   rendering=rendering.then(async()=>{await saving; await hydrate(id);})
@@ -3538,12 +3936,16 @@ async function boot() {
     await updateDiagnostics();const diagnosticsTimer=setInterval(()=>{void updateDiagnostics();},3000);
     window.addEventListener('pagehide',()=>clearInterval(diagnosticsTimer),{once:true});
     companionCall=createCompanionClient();
-    // The immersive session binds the controller grip; it reaches the desktop
-    // through this page's authenticated tool route and nothing else.
+    // The immersive session binds push-to-talk to A or X; it reaches the
+    // desktop through this page's authenticated tool route and nothing else.
     setPushToTalkSender((state:'down'|'up')=>call('push_to_talk',{state}));
-    // Version 2 sends the microphone itself. Registering this sender is the
-    // opt-in: without it the grip binding never opens a microphone.
+    // This sender carries the microphone audio. Registering it is the opt-in:
+    // without it the push-to-talk binding never opens a microphone.
     setPushToTalkAudioSender((args:Record<string,unknown>)=>call('push_to_talk_audio',{...args,panelId}));
+    // With no voice route on the host, Enter VR asked for no microphone, so a
+    // talk press inside VR must not make the first request: Quest cannot show
+    // its prompt there and the press would hang.
+    setPushToTalkMicrophoneOff(()=>hostVoiceCapture===false);
     // The answer to a capture the Mac armed on the heartbeat.
     if(isCompanion)setHeadsetViewSender(sendHeadsetViewCapture);
   }
@@ -3715,11 +4117,18 @@ async function boot() {
      * `rendered`.
      *
      * The wearer keeps every voice signal they had. The menu's Talk row reads
-     * `Listening…`/`Answering…` off this same state, the grip binding writes
+     * `Listening…`/`Answering…` off this same state, the talk button binding writes
      * its own microphone lines to the status row, and the reply is both spoken
      * and drawn by the caption sink. The plate is the agent's channel.
      */
-    voiceInteraction=createVoiceInteraction({begin:beginVoiceRequest,send:sendVoiceRequest,onState:(state:string,message:string)=>{
+    // The Talk control asks for the microphone on each press. Inside VR with no
+    // voice route on the host, Enter VR asked for none, so that request would
+    // be the first and Quest could not show its prompt; the press is refused
+    // instead. On the flat page a prompt can be answered, so it is unchanged,
+    // unless the person started the share with --no-ptt: then every press is
+    // refused before the microphone opens.
+    voiceInteraction=createVoiceInteraction({capture:refuseCaptureWhileVoiceOff(createVoiceCapture(),()=>talkCaptureClosed({voiceCapture:hostVoiceCapture,microphoneRefused:hostMicrophoneRefused},()=>workspace.snapshot().xrPresenting===true)),
+      begin:beginVoiceRequest,send:sendVoiceRequest,onState:(state:string,message:string)=>{
       voiceState=state;
       assistantStatus.update({microphone:state});
       if(state==='error' || message.startsWith('Audio reply unavailable:')) {
@@ -4184,7 +4593,28 @@ async function boot() {
     refresh.addEventListener('click',()=>location.reload());
     let xrSyncSequence=0;
     let xrPending=false, xrProblem='', entryWatchdog:ReturnType<typeof setTimeout>|undefined;
-    let xrEntryAttempt:{presented:boolean;exited:boolean}|undefined;
+    let xrEntryAttempt:{presented:boolean;exited:boolean;microphoneUndecided?:boolean;awaitsPrompt?:boolean}|undefined;
+    // What to do next when an entry is held up by the microphone prompt that
+    // the press opened, or by a scene that was still changing for as long as
+    // the press could wait. Not a failure, so it never shows the reload button.
+    // Kept as a kind, not a sentence, so the line is re-read against the
+    // permission each time it is drawn (`microphoneNoticeCopy`). `headset` is
+    // the browser's own headset-access prompt, drawn while that permission
+    // still reads `prompt`.
+    let xrNotice:MicrophoneNotice|'scene'|'headset'='';
+    // Read before a press, never during one: the press may not await anything
+    // before its session request (`xr-entry-microphone.ts`). Safari is never
+    // asked for the microphone on Enter VR, so it has nothing to read.
+    // A permission change redraws a microphone sentence at once, so a prompt
+    // the wearer has answered is not still asked about. The headset-access
+    // permission is read the same way where the browser names it; Safari has
+    // its own prompt deadline and sentence.
+    const microphonePermission=isAppleSafariXr(navigator)?undefined:watchMicrophonePermission(navigator,()=>{if(xrNotice)void syncXr();}),
+      headsetPermission=isAppleSafariXr(navigator)?undefined:watchMicrophonePermission(navigator,()=>{if(xrNotice)void syncXr();},'xr-spatial-tracking');
+    // Whether the microphone prompt an Enter VR press opened is what holds
+    // that press's entry up, still unanswered.
+    const microphonePromptHolds=(attempt:{presented:boolean;microphoneUndecided?:boolean})=>microphonePromptHoldsEntry({undecidedAtPress:attempt.microphoneUndecided,
+      presented:attempt.presented,permission:microphonePermission?.state(),microphone:pushToTalkMicrophoneState(),reloadRequired:workspace.viewer.xr.startup?.()?.reloadRequired});
     // True while the next tap on the page background is the way
     // back into VR. `syncXr` rewrites the status line every two seconds, so the
     // arming below cannot simply set it once.
@@ -4211,8 +4641,8 @@ async function boot() {
         entryClicks=Math.min(65535,entryClicks+1);trustedClick=event.isTrusted;
         disarmReentry?.();
         // Invoke entry directly from this gesture; do not await another RPC.
-        const attempt={presented:false,exited:false};xrEntryAttempt=attempt;
-        xrPending=true;xrProblem='';note.dataset.state='starting';note.textContent='Entering headset view…';
+        const attempt={presented:false,exited:false,microphoneUndecided:microphonePermission?.state()==='prompt',awaitsPrompt:false};xrEntryAttempt=attempt;
+        xrPending=true;xrProblem='';xrNotice='';note.dataset.state='starting';note.textContent='Entering headset view…';
         refresh.hidden=true;options.open=false;
         for(const control of enterButtons)control.disabled=true;
         const requested=mode==='immersive-ar'&&!arSupported?'immersive-vr':mode;
@@ -4224,6 +4654,20 @@ async function boot() {
           if(phase==='requesting-headset'&&isAppleSafariXr(navigator)) {
             note.textContent='Choose Allow in Safari’s prompt to open the headset view.';return;
           }
+          // The request may be waiting on the microphone prompt this press
+          // opened. The request deadline still applies, and a page left needing
+          // a reload shows the failure then.
+          if(phase==='requesting-headset'&&microphonePromptHolds(attempt)) {
+            xrNotice='waiting';note.textContent=microphoneNoticeCopy(xrNotice,microphonePermission?.state(),pushToTalkMicrophoneState());return;
+          }
+          // A request made expecting a browser prompt has the prompt deadline,
+          // so it is not a failure yet: a headset-access prompt the permission
+          // says is up is named, and otherwise the line keeps asking the wearer
+          // to check for one. A request it outlives shows the failure then.
+          if(phase==='requesting-headset'&&attempt.awaitsPrompt) {
+            if(headsetPermission?.state()==='prompt'){xrNotice='headset';note.textContent=HEADSET_PROMPT_WAITING_COPY;}
+            return;
+          }
           xrProblem=phase==='requesting-headset'
             ? `The headset hasn’t accepted the ${requested==='immersive-ar'?'passthrough':'VR'} request. Reload to try again.`
             : phase==='preparing-menu'
@@ -4234,19 +4678,46 @@ async function boot() {
         // Ask for the microphone here, in 2D, while a prompt can still be
         // drawn: Quest cannot show one over an immersive session, so a first
         // request made from a talk press inside VR never gets answered. The
-        // grant is parked with its tracks disabled until a press.
-        if(isCompanion && !isAppleSafariXr(navigator)) void primePushToTalkMicrophone();
+        // grant is parked with its tracks disabled until a press. Only a voice
+        // route will use it, so a host that reports none is not asked for it;
+        // one that has not reported yet is.
+        const priming=isCompanion && !isAppleSafariXr(navigator) && hostVoiceCapture!==false ? primePushToTalkMicrophone() : undefined;
         // Keep headset admission isolated at the trusted gesture boundary.
-        // Talk/grip owns audio activation when the wearer requests voice.
+        // The talk press owns audio activation when the wearer requests voice.
         // A Quest that reports AR support can still reject the AR request, so
         // plain VR is tried once inside this same gesture before the wearer is
         // handed an error they can only answer by pressing Enter again.
         const enterPromise=enterImmersiveWithFallback(m=>{
           if(xrEntryAttempt!==attempt || attempt.presented)return Promise.reject(Error('The headset entry was interrupted.'));
-          return workspace.viewer.xr.enter(m as typeof requested);
-        },requested,()=>{if(xrEntryAttempt===attempt && !attempt.presented)note.textContent='Passthrough refused; opening plain VR…';});
+          // Read from cached states, never awaited: the microphone request this
+          // press made is still unanswered with the permission undecided, or the
+          // headset-access permission reads `prompt`. The browser is then
+          // expected to hold the request behind its prompt, and the viewer
+          // gives it the prompt deadline. Otherwise the request is today's.
+          attempt.awaitsPrompt=microphonePromptHolds(attempt) || headsetPermission?.state()==='prompt';
+          return attempt.awaitsPrompt ? workspace.viewer.xr.enter(m as typeof requested,{awaitsPrompt:true}) : workspace.viewer.xr.enter(m as typeof requested);
+        },requested,()=>{if(xrEntryAttempt===attempt && !attempt.presented)note.textContent='Passthrough refused; opening plain VR…';},
+        // A press that lands while the scene is changing waits for it, inside
+        // this press's activation, instead of being refused (`xr-entry-fallback.ts`).
+        {ready:()=>workspace.viewer.readiness?.().ready===true});
+        // A dismissed prompt leaves the permission undecided, so no permission
+        // change redraws a sentence about it: the microphone request settling
+        // does. Attached after the session request, so the press makes no
+        // call before that request that it did not make before.
+        void priming?.then(()=>{if(xrNotice)void syncXr();});
         void enterPromise
-          .catch((error:Error)=>{if(xrEntryAttempt!==attempt || (attempt.exited && !workspace.viewer.xr.startup?.()?.reloadRequired))return;recordHeadsetEvent('page-error',{operation:'enter-headset',message:thrownErrorMessage(error)});xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
+          .catch((error:Error)=>{if(xrEntryAttempt!==attempt || (attempt.exited && !workspace.viewer.xr.startup?.()?.reloadRequired))return;
+            // The scene was still changing when the wait ran out, so no session
+            // was requested: nothing is broken, and the next press can enter.
+            // A watchdog that fired while a hidden page stalled the wait wrote a
+            // reload sentence for this same attempt; it no longer applies.
+            if((error as {notReady?:unknown})?.notReady===true){recordHeadsetEvent('page-error',{operation:'enter-headset',message:thrownErrorMessage(error)});clearTimeout(entryWatchdog);xrProblem='';refresh.hidden=true;xrNotice='scene';return;}
+            // Quest Browser refuses the session request made in the same press
+            // that opened its microphone prompt, and accepts the next press.
+            const microphonePrompt=microphonePromptHolds(attempt);
+            recordHeadsetEvent('page-error',{operation:'enter-headset',message:thrownErrorMessage(error),...(microphonePrompt?{microphonePrompt:true}:{})});
+            if(microphonePrompt){xrNotice='refused';return;}
+            xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
           .finally(()=>{if(xrEntryAttempt!==attempt)return;clearTimeout(entryWatchdog);xrEntryAttempt=undefined;xrPending=false;void syncXr();});
       });enterButtons.push(button);
       if(mode==='immersive-ar') {button.dataset.primary='true';entryActions.append(button);}
@@ -4275,14 +4746,17 @@ async function boot() {
       // This click is the activation the switch could not have. Spend it on the
       // request itself and await nothing before it.
       const attempt={presented:false,exited:false};xrEntryAttempt=attempt;
-      xrPending=true;xrProblem='';resumeButton.disabled=true;
+      xrPending=true;xrProblem='';xrNotice='';resumeButton.disabled=true;
       note.dataset.state='starting';note.textContent='Entering headset view…';refresh.hidden=true;
-      if(isCompanion && !isAppleSafariXr(navigator)) void primePushToTalkMicrophone();
+      if(isCompanion && !isAppleSafariXr(navigator) && hostVoiceCapture!==false) void primePushToTalkMicrophone();
       void enterImmersiveWithFallback(m=>{
         if(xrEntryAttempt!==attempt || attempt.presented)return Promise.reject(Error('The headset entry was interrupted.'));
         return workspace.viewer.xr.enter(m);
-      },mode,()=>{if(xrEntryAttempt===attempt && !attempt.presented)note.textContent='Passthrough refused; opening plain VR…';})
-        .catch((error:Error)=>{if(xrEntryAttempt!==attempt || (attempt.exited && !workspace.viewer.xr.startup?.()?.reloadRequired))return;recordHeadsetEvent('page-error',{operation:'resume-headset',message:thrownErrorMessage(error)});xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
+      },mode,()=>{if(xrEntryAttempt===attempt && !attempt.presented)note.textContent='Passthrough refused; opening plain VR…';},
+      {ready:()=>workspace.viewer.readiness?.().ready===true})
+        .catch((error:Error)=>{if(xrEntryAttempt!==attempt || (attempt.exited && !workspace.viewer.xr.startup?.()?.reloadRequired))return;recordHeadsetEvent('page-error',{operation:'resume-headset',message:thrownErrorMessage(error)});
+          if((error as {notReady?:unknown})?.notReady===true){xrProblem='';refresh.hidden=true;xrNotice='scene';return;}
+          xrProblem='Could not open the headset view. Try again.';refresh.hidden=false;})
         .finally(()=>{if(xrEntryAttempt!==attempt)return;xrEntryAttempt=undefined;xrPending=false;resumeButton.disabled=false;void syncXr();});
     });
     const leave=document.createElement('button');leave.type='button';leave.dataset.leaveXr='';leave.textContent='Leave headset view';leave.disabled=true;
@@ -4302,6 +4776,13 @@ async function boot() {
     const diagnostics=document.querySelector('.companion-diagnostics');
     if(diagnostics)optionsBody.append(diagnostics);
     controls.append(options,refresh,note);document.querySelector('#app')!.append(controls);
+    // A headset view the page had to close itself says why (`xr-layers.mjs`),
+    // and this is the flat page the wearer is dropped back to.
+    globalThis.addEventListener('stereofold-xr-problem',event=>{
+      const message=(event as CustomEvent<{message?:unknown}>).detail?.message;
+      if(closed || typeof message!=='string' || !message)return;
+      xrProblem=message.slice(0,240);refresh.hidden=false;void syncXr();
+    });
     // Top of the page, above the preview and the entry row, because a wearer
     // who has just been dropped out of immersion looks at the top first.
     document.querySelector('#app')!.prepend(resume);
@@ -4313,6 +4794,7 @@ async function boot() {
       const presenting=workspace.snapshot().xrPresenting;
       // Any session at all, however it started, has spent the shortcut.
       if(presenting)disarmReentry?.();
+      if(presenting)xrNotice='';
       updateVoiceUi();
       recording.hidden=presenting;
       if(!presenting){hudSignature='';hudWaitingSince=0;}
@@ -4359,7 +4841,7 @@ async function boot() {
       leave.disabled=entryBusy || !presenting;
       leave.hidden=!presenting;
       note.dataset.state=xrProblem?'error':entryBusy?'starting':presenting?'active':'connected';
-      note.textContent=xrProblem || (!presenting && startup?.phase==='idle' && startup.pending===true?'Closing headset view…':entryBusy?'Opening headset view — check for a permission prompt.'
+      note.textContent=xrProblem || (xrNotice==='scene'?XR_SCENE_CHANGING_COPY:xrNotice==='headset'?(headsetPermission?.state()==='prompt'?HEADSET_PROMPT_WAITING_COPY:''):xrNotice?microphoneNoticeCopy(xrNotice,microphonePermission?.state(),pushToTalkMicrophoneState()):'') || (!presenting && startup?.phase==='idle' && startup.pending===true?'Closing headset view…':entryBusy?'Opening headset view — check for a permission prompt.'
         :pendingEntry?entryFallbackCopy(pendingEntry.mode).caption:presenting?'Headset view open. Use the floating menu to control the tour.':capabilities.vr===null&&capabilities.ar===null?'Ready to try headset entry. Enter VR opens passthrough wherever the browser supports it.':capabilities.ar?'Enter VR opens the headset view with passthrough. Enter plain VR, under More options, opens the opaque room.':capabilities.vr?'This browser reports no passthrough, so Enter VR opens the opaque headset view.':'Preview ready. Open this page on your headset, then choose Enter VR.');
       // While one tap is the way back into VR, that is the only
       // thing this line has to say. Nothing overrides a problem or a pending
@@ -4460,7 +4942,7 @@ async function boot() {
   }
   armPoll();
   if(!isCompanion)window.addEventListener('resize',size);
-  window.addEventListener('pagehide',()=>{closed=true;activePreviewRecording?.abort();generation++;if(timer)clearTimeout(timer);if(pollTimer)clearTimeout(pollTimer);
+  window.addEventListener('pagehide',()=>{closed=true;activePreviewRecording?.abort();liveViewCapture?.stop();generation++;if(timer)clearTimeout(timer);if(pollTimer)clearTimeout(pollTimer);
     // Browser navigation can hide the companion before its Exit handler runs.
     // Join the viewer's session teardown while detaching the Mac transport.
     void workspace?.viewer.xr?.end().catch(()=>{});

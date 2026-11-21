@@ -75,7 +75,7 @@
    }
   ],
   "sourceSha256": "49703c8f862f27414d4016543c227d20193dbeac5ec8ac26ff358acb21bfdb0b",
-  "note": "The coordinates are the prepared composite kinesin-walk-flipbook, built from kinesin-walk/flipbook-recipe.json: the walking model of the motion lesson posed at seven moments of its walk (0, 0.8, 2.5, 3.4, 4.3, 6.0 and 7.0 s), each body moved by one rigid transform, on four 5SYF tubulin dimers. Deposited: 5SYF assembly chains A-14 with A and B-14 with B, four tubulin dimers of one protofilament (Kellogg et al. 2017); 8RHB, a microtubule-bound head with AMP-PNP and its neck linker docked through E334 (Atherton et al. 2025), whose AMP-PNP stands in for ATP and ADP·Pi; 9L7M, a nucleotide-free bound head resolved to T324 (Makino et al. 2025); 1BG2, the ADP head, as the free head (Kull et al. 1996); 3KIN chains B and D, residues 339-370, the rat neck coiled coil (Kozielski et al. 1997), whose 339 is human 337. Modelled, from motion-model.cif: each neck linker is four rigid pieces that share their end residues, three in 8RHB's docked geometry and one with modelled L335-T336, joined from the head's residue 324 to the coil's first residue. Rigid pieces preserve their internal backbone geometry; shared CA joints stay within 1.5 A, apart from the 1 ms deposited-copy swaps, and linker span is at most 42 A. The stalk is an idealised poly-Ala coiled coil. Bound heads sit where superposing their own tubulin on the lattice puts them. The coil sits over the docked head, as EMD-8546 suggests (Liu et al. 2017), and turns half a turn each step and back the next, so it never winds up. The walk follows the ATP-waiting order; at high ATP, ATP can bind before the rear head lets go (Mickolajczyk et al. 2015). Where the free head waits is debated (Mori et al. 2007; Isojima et al. 2016); here it waits beside and behind the bound head, then passes it on the right. Head states change by swapping deposited structures; the free head's path, the linker paths and the timing are illustrative. Rice et al. 1999 show the linker docking on ATP binding, and Yildiz et al. 2004 the hand-over-hand step."
+  "note": "The coordinates are the prepared composite kinesin-walk-flipbook, built from kinesin-walk/flipbook-recipe.json: the walking model of the motion lesson posed at seven moments of its walk (0, 0.8, 2.5, 3.4, 4.3, 6.0 and 7.0 s), each body moved by one rigid transform, on four 5SYF tubulin dimers. Deposited: 5SYF assembly chains A-14 with A and B-14 with B, four tubulin dimers of one protofilament (Kellogg et al. 2017); 8RHB, a microtubule-bound head with AMP-PNP and its neck linker docked through E334 (Atherton et al. 2025), whose AMP-PNP stands in for ATP and ADP·Pi; 9L7M, a nucleotide-free bound head resolved to T324 (Makino et al. 2025); 1BG2, the ADP head, as the free head (Kull et al. 1996); 3KIN chains B and D, residues 339-370, the rat neck coiled coil (Kozielski et al. 1997), whose 339 is human 337. Modelled, from motion-model.cif: each neck linker is four rigid pieces that share their end residues, three in 8RHB's docked geometry and one with modelled L335-T336, joined from the head's residue 324 to the coil's first residue. Rigid pieces preserve their internal backbone geometry; shared CA joints stay within 1.5 A, apart from the 1 ms deposited-copy swaps, and linker span is at most 42 A. The stalk is an idealised poly-Ala coiled coil. Bound heads sit where superposing their own tubulin on the lattice puts them. The coil sits over the docked head, as EMD-8546 suggests (Liu et al. 2017), and turns half a turn each step, the same way both times. The walk follows the ATP-waiting order; at high ATP, ATP can bind before the rear head lets go (Mickolajczyk et al. 2015). Where the free head waits is debated (Mori et al. 2007; Isojima et al. 2016); here it waits beside and behind the bound head, then passes it on the right. Head states change by swapping deposited structures; the free head's path, the linker paths and the timing are illustrative. Rice et al. 1999 show the linker docking on ATP binding, and Yildiz et al. 2004 the hand-over-hand step."
  },
  "chapters": [
   {
@@ -331,7 +331,7 @@
   {
    "id": "both-bound",
    "title": "Both heads bound",
-   "caption": "Pink head 1 holds an ATP analogue; green head 2 is empty. The heads sit on sites 8.2 nm apart. Pale linker residues and the stalk are modelled.",
+   "caption": "Pink head 1 holds ADP·Pi, shown by the ATP analogue AMP-PNP; green head 2 is empty. The heads sit on sites 8.2 nm apart. Pale linker residues and the stalk are modelled.",
    "durationSeconds": 10,
    "changes": [
     {
@@ -2404,7 +2404,7 @@
   {
    "id": "step-two",
    "title": "Head 2 lands ahead",
-   "caption": "Head 2 binds 8.2 nm ahead of head 1. Each head moved 16.3 nm, and the motor moved about 8.2 nm for each ATP (Yildiz et al. 2004).",
+   "caption": "Head 2 binds 8.2 nm ahead of head 1. Each head moved 16.3 nm (Yildiz et al. 2004), and the motor moved about 8.2 nm for each ATP (Schnitzer and Block 1997).",
    "durationSeconds": 10,
    "changes": [
     {

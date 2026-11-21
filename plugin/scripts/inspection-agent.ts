@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { assertAgentRequest, busyPanelRefusal, commandReceiptOf, describeCommandOutcome, describeSource, fillAgentArguments, isPanelSurface,
   isPreDispatchRefusal, isReceiptPending, needsInspectionState, panelOnSurface, sceneSettled, sentAfterBlurNote,
-  shouldWaitOutBlur, TOOLS_ACCEPTING_UTTERANCE_ID, PANEL_BLUR_POLL_MS, PANEL_SURFACES,
+  shouldWaitOutBlur, TOOLS_ACCEPTING_UTTERANCE_ID, PANEL_BLUR_POLL_MS, PANEL_SURFACES, COMPANION_CATCH_UP_WAIT_MS, COMPANION_LOADING_MESSAGE, companionCatchingUp,
   type CommandReceipt, type InspectionStateSummary, type PanelSummary, type PanelSurface } from './agent-arguments.js';
 import { agentText, callLocalAgent, readControlState, waitForHostRequested, type AgentResult, type ControlState } from './local-agent.js';
 
@@ -266,20 +266,40 @@ export function describeSceneSettled(input: { settled: boolean; waitedMs: number
  * headset and watching nothing happen.
  */
 export async function bindArguments(state: ControlState, name: string, requested: Record<string, unknown>, request = callLocalAgent):
-  Promise<{ arguments: Record<string, unknown>; filled: string[]; waitedMs: number }> {
+  Promise<{ arguments: Record<string, unknown>; filled: string[]; waitedMs: number; reloaded?: true }> {
   if (!needsInspectionState(name, requested)) return { arguments: requested, filled: [], waitedMs: 0 };
   let waitedMs = 0;
+  /** The refusal a wait for the wearer's headset page started from. */
+  let awaitedHeadset: unknown;
   for (;;) {
     const reading = await request(state, 'get_inspection_state');
     const summary: InspectionStateSummary = reading.structuredContent ?? {};
-    const chosen = fillAgentArguments(name, requested, summary);
+    let chosen: ReturnType<typeof fillAgentArguments>;
+    try { chosen = fillAgentArguments(name, requested, summary); }
+    catch (error) {
+      // A headset page drawing its structure again comes back in seconds.
+      const refusal = error instanceof Error ? error.message : '';
+      if ((refusal !== COMPANION_LOADING_MESSAGE && !refusal.startsWith('No panel is ready for a command right now'))
+        || !companionCatchingUp(summary) || waitedMs >= COMPANION_CATCH_UP_WAIT_MS) throw error;
+      awaitedHeadset = error;
+      await sleep(PANEL_BLUR_POLL_MS);
+      waitedMs += PANEL_BLUR_POLL_MS;
+      continue;
+    }
+    // A wait for the wearer's page ends on that page or the full viewer, never
+    // on the Mac's panel because the headset page dropped out meanwhile.
+    // The host's own source recovery owner is the exception it names.
+    if (awaitedHeadset !== undefined && chosen.arguments.panelId !== undefined
+      && !(name === 'replace_inspection_source' && summary.sourceRecovery?.ready && chosen.arguments.panelId === summary.sourceRecovery.panelId)
+      && !['companion', 'detailed'].includes(String((summary.panels ?? []).find(panel => panel.panelId === chosen.arguments.panelId)?.surface)))
+      throw awaitedHeadset;
     if (!shouldWaitOutBlur({ blurred: chosen.blurred === true, waitedMs })) {
       // A system dialog can outlast the wait; diagnose the selected panel from
       // this final state read without changing the wait or dispatch decision.
       if (chosen.blurred === true) throw Error(busyPanelRefusal(
         (summary.panels ?? []).filter(panel => panel.panelId === chosen.arguments.panelId),
         `companion busy for ${(waitedMs / 1000).toFixed(1)} s`));
-      return { arguments: chosen.arguments, filled: chosen.filled, waitedMs };
+      return { arguments: chosen.arguments, filled: chosen.filled, waitedMs, ...(awaitedHeadset !== undefined ? { reloaded: true as const } : {}) };
     }
     await sleep(PANEL_BLUR_POLL_MS);
     waitedMs += PANEL_BLUR_POLL_MS;
@@ -365,6 +385,8 @@ export type AgentCallOutcome = {
   arguments: Record<string, unknown>;
   filled: string[];
   blurWaitedMs: number;
+  /** The wait was for a headset page drawing its structure again. */
+  headsetReloaded?: true;
   receipt?: CommandReceipt;
   receiptWaitedMs: number;
   receiptTimedOut: boolean;
@@ -579,7 +601,7 @@ async function sendBoundAgentCall(state: ControlState, call: AgentCall, wait:Rec
       ?? sourceRenderReceiptOf(structured) ?? receipt;
   }
 
-  return { result, arguments: bound.arguments, filled: bound.filled, blurWaitedMs: bound.waitedMs,
+  return { result, arguments: bound.arguments, filled: bound.filled, blurWaitedMs: bound.waitedMs, ...(bound.reloaded ? { headsetReloaded: true as const } : {}),
     ...(receipt ? { receipt } : {}), receiptWaitedMs, receiptTimedOut,
     ...(typeof bound.arguments.panelId === 'string' ? { panelId: bound.arguments.panelId } : {}),
     ...(utterance ? { utterance } : {}), ...(scene ? { scene } : {}) };
@@ -609,7 +631,7 @@ export async function main(argv: string[], wait: ReceiptWait = { pollMs: RECEIPT
   if (invocation.json) { console.log(JSON.stringify(outcome.result)); return; }
   const text = name === 'get_inspection_state' ? stateSummary(outcome.result) : agentText(outcome.result) || `${name} returned no text.`;
   const trailer = [
-    outcome.blurWaitedMs > 0 ? sentAfterBlurNote(outcome.blurWaitedMs) : '',
+    outcome.blurWaitedMs > 0 ? sentAfterBlurNote(outcome.blurWaitedMs, outcome.headsetReloaded === true) : '',
     // `get_inspection_state` already prints the receipt in its own summary;
     // adding this line under it prints the same command twice, at two ages.
     name === 'get_inspection_state' ? ''

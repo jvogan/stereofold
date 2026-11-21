@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { describe, it, expect, vi } from 'vitest';
+import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+
+// Every removal still reaches the file system; the spy records what was asked
+// for, so a test can tell a refused deletion from one never attempted.
+vi.mock('node:fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, rm: vi.fn(actual.rm) };
+});
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { renderReplySpeech, HEADSET_REPLY_RENDER_CONCURRENCY } from '../src/reply-speech-render.js';
@@ -227,6 +234,50 @@ describe('the cache of recently spoken lines', () => {
       // triggered the sweep survives.
       expect(await readdir(root)).toHaveLength(1);
       expect(await cache.get(keys[3]!)).toBeUndefined();
+    });
+  });
+
+  it('deletes an expired clip when it is read without another write', async () => {
+    await withCacheRoot(async root => {
+      let at = 1_700_000_000_000;
+      const cache = createReplyVoiceCache({ root, maxAgeMs: 60_000, now: () => at });
+      const key = cache.key(['expired']);
+      await cache.put(key, clip('marin'));
+      at += 60_000;
+      expect(await cache.get(key)).toBeUndefined();
+      expect(await readdir(root)).toEqual([]);
+    });
+  });
+
+  it('sweeps expired clips on the first read while preserving fresh clips', async () => {
+    await withCacheRoot(async root => {
+      const at = 1_700_000_000_000;
+      const cache = createReplyVoiceCache({ root, maxAgeMs: 60_000, now: () => at });
+      const stale = cache.key(['stale']), fresh = cache.key(['fresh']);
+      await mkdir(root, { recursive: true });
+      await writeFile(join(root, `${stale}.json`), JSON.stringify({ at: at - 60_000, clip: clip('marin') }));
+      await writeFile(join(root, `${fresh}.json`), JSON.stringify({ at, clip: clip('marin') }));
+      expect(await cache.get(fresh)).toEqual(clip('marin'));
+      expect(await readdir(root)).toEqual([`${fresh}.json`]);
+    });
+  });
+
+  it('treats expired clips as misses even when deletion is refused', async () => {
+    await withCacheRoot(async root => {
+      let at = 1_700_000_000_000;
+      const cache = createReplyVoiceCache({ root, maxAgeMs: 60_000, now: () => at });
+      const key = cache.key(['expired']);
+      await cache.put(key, clip('marin'));
+      at += 60_000;
+      await chmod(root, 0o500);
+      try {
+        vi.mocked(rm).mockClear();
+        await expect(cache.get(key)).resolves.toBeUndefined();
+        expect(vi.mocked(rm)).toHaveBeenCalledWith(join(root, `${key}.json`), { force: true });
+        expect(await readdir(root)).toEqual([`${key}.json`]);
+        const restarted = createReplyVoiceCache({ root, maxAgeMs: 60_000, now: () => at });
+        await expect(restarted.get(key)).resolves.toBeUndefined();
+      } finally { await chmod(root, 0o700); }
     });
   });
 

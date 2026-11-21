@@ -19,6 +19,8 @@ export const MAX_PLATE_OFFSET_EM = 2;
 export const PLATE_STANDOFF_ANGSTROM = 3;
 // Selections wider than this anchor on the surface that faces the wearer.
 export const SURFACE_ANCHOR_RADIUS = 6;
+// How far the default room seat puts a structure from the wearer's eyes.
+export const DEFAULT_SEAT_METRES = 4.6;
 // Re-pick the facing anchor only after the view turns this far around it.
 const ANCHOR_HYSTERESIS = Math.cos(20 * Math.PI / 180);
 export const immersivePlateOffset = (authored, gain, em, maxOffsetEm = MAX_PLATE_OFFSET_EM) =>
@@ -67,7 +69,7 @@ export function facingAnchorIndex(anchors, direction) {
 }
 
 const annotations = new WeakMap();
-export function registerImmersiveAnnotation(repr, { size = 1, radius = 0, stroke = false, minDiameter = .004, length = 0, anchors, maxOffsetEm = MAX_PLATE_OFFSET_EM, desktopSizePx, placement, anchorKey } = {}) {
+export function registerImmersiveAnnotation(repr, { size = 1, radius = 0, stroke = false, minDiameter = .004, dashLength = 0, length = 0, anchors, maxOffsetEm = MAX_PLATE_OFFSET_EM, desktopSizePx, placement, anchorKey, headsetOffset } = {}) {
   // Opt in only lesson plates (including distance and moving tether text).
   // Renderable state is shared with Mol*'s renderer; molecular strokes and UI
   // keep their ordinary depth handling. Reapply after a geometry replacement.
@@ -79,12 +81,21 @@ export function registerImmersiveAnnotation(repr, { size = 1, radius = 0, stroke
     mark();
     repr.updated.subscribe(mark);
   }
-  annotations.set(repr, { size, radius, stroke, minDiameter, length, anchors, maxOffsetEm, desktopSizePx, placement, anchorKey, anchorIndex: -1, anchorDirection: Vec3(),
-    anchorInverse: Mat4(), anchorMatrixVersion: -1, cameraScale: NaN, matrixVersion: -1 });
+  annotations.set(repr, { size, radius, stroke, minDiameter, dashLength, length, anchors, maxOffsetEm, desktopSizePx, placement, anchorKey, headsetOffset, anchorIndex: -1, anchorDirection: Vec3(),
+    anchorInverse: Mat4(), anchorMatrixVersion: -1, cameraScale: NaN, matrixVersion: -1, floor: NaN });
   return repr;
 }
+// The authored offset the headset draws: a lesson plate may rest elsewhere in
+// XR than on the desktop, axis by axis (headsetOffsetX/Y), under the same cap.
+const headsetPlateOffset = (repr, meta, axis) => meta?.headsetOffset?.[axis] ?? repr.props[axis ? "offsetY" : "offsetX"];
 export const annotationOutsideFigure = repr => annotations.get(repr)?.placement === 'outside-figure';
-export const annotationAnchorKey = repr => annotations.get(repr)?.anchorKey;
+// The key under which an exterior plate's first seat is kept for its role. A
+// headset offset starts the seat search elsewhere, so it is part of the key.
+export const annotationAnchorKey = repr => {
+  const meta = annotations.get(repr), offset = meta?.headsetOffset;
+  return meta?.anchorKey === undefined || !offset?.some(value => value !== undefined) ? meta?.anchorKey
+    : JSON.stringify([meta.anchorKey, offset]);
+};
 export const annotationOffsetCap = repr => annotations.get(repr)?.maxOffsetEm ?? MAX_PLATE_OFFSET_EM;
 export const annotationDesktopSize = repr => annotations.get(repr)?.desktopSizePx;
 export const annotationRadius = repr => annotations.get(repr)?.radius ?? 0;
@@ -102,8 +113,8 @@ export function annotationFieldBounds(repr, object, cameraScale, placementScale)
   let reach = 0;
   for (let i = 0; i < mapping.length; i += 2) reach = Math.max(reach, Math.hypot(mapping[i], mapping[i + 1]));
   const em = EM * getMaxSize(v) * font;
-  const x = meta ? immersivePlateOffset(repr.props.offsetX, gain, em, meta.maxOffsetEm) : v.uOffsetX?.ref.value ?? 0;
-  const y = meta ? immersivePlateOffset(repr.props.offsetY, gain, em, meta.maxOffsetEm) : v.uOffsetY?.ref.value ?? 0;
+  const x = meta ? immersivePlateOffset(headsetPlateOffset(repr, meta, 0), gain, em, meta.maxOffsetEm) : v.uOffsetX?.ref.value ?? 0;
+  const y = meta ? immersivePlateOffset(headsetPlateOffset(repr, meta, 1), gain, em, meta.maxOffsetEm) : v.uOffsetY?.ref.value ?? 0;
   const z = meta ? immersivePlateStandoff(meta.radius, placementScale, gain) : v.uOffsetZ?.ref.value ?? 0;
   // `radius` covers the plate wherever its stand-off pushes it, and a facing
   // anchor can sit anywhere on the selection's surface (`anchorReach` from
@@ -162,6 +173,27 @@ function setUniform(cell, value) {
   ValueCell.update(cell, value);
   return true;
 }
+const strokeCentre = Vec3();
+/**
+ * The least room diameter of a stroke, in metres. A dashed stroke that names
+ * its `dashLength` (source units) is never held wider than its dashes are
+ * long, so a close-up's short dashes stay dashes, nor thinner than the angle
+ * `minDiameter` spans at the default seat, measured from the wearer's eye; a
+ * long line's long dashes keep `minDiameter`. Sizing without an eye (a motion
+ * pose update) keeps the last angle measured, `minDiameter` before the first.
+ */
+export function strokeFloorMetres(meta, values, eye, scale) {
+  if (!(meta?.dashLength > 0)) return meta?.minDiameter ?? 0;
+  if (eye) {
+    Vec3.transformMat4(strokeCentre, values.invariantBoundingSphere.ref.value.center, values.matrix.ref.value);
+    const metres = Vec3.distance(strokeCentre, eye) * scale;
+    const angle = metres > 0 ? meta.minDiameter * Math.min(1, metres / DEFAULT_SEAT_METRES) : NaN;
+    // The angle follows the wearer only past a 5% change, also for motion sizing.
+    if (angle > 0 && !(Math.abs(angle - meta.eyeFloor) <= .05 * meta.eyeFloor)) meta.eyeFloor = angle;
+  }
+  const dash = meta.dashLength * scale * cylinderRadiusScale(values.matrix.ref.value);
+  return Math.min(meta.minDiameter, Math.max(meta.eyeFloor ?? meta.minDiameter, dash));
+}
 /** `eye` is the wearer's eye in source coordinates; omit it to keep anchors. */
 export function sizeImmersiveAnnotation(repr, canvas, eye) {
   const meta = annotations.get(repr), scale = canvas?.camera?.scale;
@@ -176,7 +208,10 @@ export function sizeImmersiveAnnotation(repr, canvas, eye) {
     // A paused connector still responds to camera turns. Reuse the settled
     // uniforms and bounds when its projected normal has not changed.
     if (caption?.automatic) placeTetherCaption(caption, canvas.camera, getMaxSize(v) * 6 * meta.size * gain);
+    // An eye-relative floor changes only past a 5% change in eye distance.
+    const floor = meta.stroke ? strokeFloorMetres(meta, v, eye, scale) : 0;
     if (meta.cameraScale === scale && meta.matrixVersion === v.matrix.ref.version
+      && (!meta.stroke || Math.abs(floor - meta.floor) <= .05 * meta.floor)
       && (!caption?.automatic || (Math.abs(v.uOffsetX.ref.value - caption.x) < 1e-6
         && Math.abs(v.uOffsetY.ref.value - caption.y) < 1e-6))) continue;
     const placement = Mat4.getMaxScaleOnAxis(v.matrix.ref.value);
@@ -185,7 +220,8 @@ export function sizeImmersiveAnnotation(repr, canvas, eye) {
       // a longitudinally stretched tether keeps the upstream radius behavior.
       const radiusScale = cylinderRadiusScale(v.matrix.ref.value);
       const strokeRadius = getMaxSize(v);
-      if (setUniform(v.uSizeFactor, Math.max(repr.props.sizeFactor ?? 1, meta.length / (300 * strokeRadius), meta.minDiameter / (2 * strokeRadius * scale * radiusScale)))) changed = true;
+      if (setUniform(v.uSizeFactor, Math.max(repr.props.sizeFactor ?? 1, meta.length / (300 * strokeRadius), floor / (2 * strokeRadius * scale * radiusScale)))) changed = true;
+      meta.floor = floor;
       updatePlacementBounds(repr, objects);
       const sphere = v.boundingSphere.ref.value;
       sphere.radius += strokeRadius * v.uSizeFactor.ref.value * radiusScale;
@@ -196,8 +232,8 @@ export function sizeImmersiveAnnotation(repr, canvas, eye) {
       // independently of glyph size; otherwise the opaque fold slices plates.
       if (setUniform(v.uOffsetZ, immersivePlateStandoff(meta.radius, placement, gain))) changed = true;
       const em = EM * getMaxSize(v) * v.uSizeFactor.ref.value;
-      if (setUniform(v.uOffsetX, caption?.automatic ? caption.x : immersivePlateOffset(repr.props.offsetX, gain, em, meta.maxOffsetEm))) changed = true;
-      if (setUniform(v.uOffsetY, caption?.automatic ? caption.y : immersivePlateOffset(repr.props.offsetY, gain, em, meta.maxOffsetEm))) changed = true;
+      if (setUniform(v.uOffsetX, caption?.automatic ? caption.x : immersivePlateOffset(headsetPlateOffset(repr, meta, 0), gain, em, meta.maxOffsetEm))) changed = true;
+      if (setUniform(v.uOffsetY, caption?.automatic ? caption.y : immersivePlateOffset(headsetPlateOffset(repr, meta, 1), gain, em, meta.maxOffsetEm))) changed = true;
       // Bounds must include the enlarged eye-facing plate at its stand-off.
       // The glyph quad ignores aTransform rotation and scale. Expand the
       // repaired anchor bounds conservatively without touching source bounds.

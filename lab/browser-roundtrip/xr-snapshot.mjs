@@ -26,6 +26,8 @@
  * the authenticated route the page already holds.
  */
 
+import { getXrLayerStack } from './xr-layers.mjs';
+
 /** Width the eye is downscaled to before it is read back. */
 export const HEADSET_VIEW_DEFAULT_WIDTH = 480;
 export const HEADSET_VIEW_MIN_WIDTH = 160;
@@ -277,7 +279,40 @@ function leftViewport(layer, pose) {
   if (!view) return undefined;
   const viewport = layer.getViewport(view);
   if (!viewport || !(viewport.width > 0) || !(viewport.height > 0)) return undefined;
-  return { eye: view.eye ?? 'none', x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height };
+  return { eye: view.eye ?? 'none', x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height, view };
+}
+
+/**
+ * Add the controls to a still, when they are on XR layers of their own.
+ *
+ * With a layer stack (`xr-layers.mjs`, behind `?xrLayers=1`) the base layer
+ * holds the molecule alone: the menu and captions are drawn into layers the
+ * compositor puts above it, so a still read from the base layer shows a scene
+ * with no menu. The stack's painters draw those layers over the still, which
+ * is the small target, not the wearer's frame. They draw with the renderer,
+ * whose state cache has to agree with GL, so the scissor test and colour mask
+ * this capture borrowed are handed back for the call and taken again after.
+ *
+ * `undefined` without a stack or with nothing on a layer of its own, and then
+ * no GL call is made here at all. Otherwise whether the controls are in the
+ * still.
+ */
+function paintLayers(gl, session, previous, still) {
+  let stack;
+  try { stack = getXrLayerStack(session); } catch { stack = null; }
+  if (typeof stack?.paintCapture !== 'function') return undefined;
+  const mask = previous.colorMask ?? [true, true, true, true];
+  if (previous.scissor) gl.enable(gl.SCISSOR_TEST);
+  gl.colorMask(mask[0], mask[1], mask[2], mask[3]);
+  let painted, raised = false;
+  try { painted = stack.paintCapture(still); }
+  finally {
+    if (previous.scissor) gl.disable(gl.SCISSOR_TEST);
+    gl.colorMask(true, true, true, true);
+    // An error a painter raised is its own, not the read that follows.
+    while (gl.getError() !== gl.NO_ERROR) raised = true;
+  }
+  return painted === undefined ? undefined : painted && !raised;
 }
 
 function ensureTarget(gl, width, height) {
@@ -355,8 +390,8 @@ function releaseTargetOnly(gl) {
  * some runtimes allocate the swapchain image without a CPU transfer bit. Ask
  * the device on every capture instead of trusting either report, and carry the
  * answer into the log and the upload so a hardware run explains itself. The
- * pixel is the eye's centre: `[0,0,0,0]` there is what the black stills of
- * 2026-09-24 and 2026-09-28 read, and also what a passthrough eye with the
+ * pixel is the eye's centre: `[0,0,0,0]` there is what a black still reads,
+ * and also what a passthrough eye with the
  * structure off to one side reads, so the Mac reports it and decides nothing by it.
  *
  * The read goes into a four-byte pack buffer, not a typed array. A synchronous
@@ -399,11 +434,11 @@ function settleProbe(gl) {
  * after each XR callback, and acts only when a capture is armed and the
  * callback it follows drew this frame.
  *
- * `drawn` is the fix for the black stills of 2026-09-24 and 2026-09-28: a
- * byte-identical black 640x704 eye while `adb screencap` showed the structure.
- * The viewer's observer follows every XR callback, the frame-rate watcher's
- * runs before Mol*'s in each frame, and the capture was taken there, from an
- * opaque framebuffer the runtime had cleared and Mol* had not drawn into yet.
+ * `drawn` prevents black stills: a byte-identical black 640x704 eye while
+ * `adb screencap` shows the structure. The viewer's observer follows every XR
+ * callback, and the frame-rate watcher's runs before Mol*'s in each frame, so
+ * a capture taken there reads an opaque framebuffer the runtime has cleared
+ * and Mol* has not drawn into yet.
  * `undefined` means the caller cannot tell, and keeps the older behaviour.
  */
 export function xrSnapshotFrame({ frame, space, session, gl, drawn }) {
@@ -475,6 +510,10 @@ export function xrSnapshotFrame({ frame, space, session, gl, drawn }) {
       if (resolveError !== gl.NO_ERROR) throw Error(`The eye blit failed with WebGL error ${resolveError}.`);
       path = 'resolve-blit-pack-fence';
     }
+    // The path says whether controls on layers of their own made it into the
+    // still, so a still without them is never taken for a scene without a menu.
+    const controls = paintLayers(gl, session, previous, { view: viewport.view, framebuffer: target.framebuffer, width, height });
+    if (controls !== undefined) path += controls ? '+controls' : '+no-controls';
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, target.framebuffer);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, target.pack);
     gl.pixelStorei(gl.PACK_ALIGNMENT, 1);
@@ -521,29 +560,102 @@ function restore(gl, previous) {
 
 /** How far, per channel out of 255, a pixel may differ and still count as the same colour. */
 export const HEADSET_VIEW_FLAT_TOLERANCE = 2;
+/**
+ * A pixel is lit when its brightest channel, as the JPEG shows it, reaches
+ * this out of 255. The Mac judges a device still by the same floor: levels 1
+ * to 3 are encoder rounding on an empty frame, and anything from 4 up is drawn,
+ * however dark.
+ */
+export const HEADSET_VIEW_LIT_FLOOR = 4;
 
 /**
- * The one colour every sampled pixel shows, or undefined for a real picture.
+ * Every pixel of the eye, read once: how many are lit, and the one colour they
+ * all show when they show only one.
  *
- * A single-colour eye is not a view of anything the agent can use. Black is a
- * framebuffer read before the structure was drawn, or a passthrough layer with
- * nothing in front of the wearer; the scene background alone is an eye with no
- * part of the structure in it. The Mac reports either as no capture rather than
- * as the wearer's view. Colours are read as the JPEG shows them, over black, so
- * a transparent passthrough pixel counts as black. Every `step`th pixel is
- * read: a 640x704 eye is about 64 thousand reads, on the window timer.
+ * The Mac judges the count by the rule it applies to a device still. An eye
+ * with almost no lit pixel is a framebuffer read before the structure was
+ * drawn, or a passthrough layer with nothing in front of the wearer, and is not
+ * reported as the wearer's view; one lit over less than one percent is handed
+ * over with a note. A single-colour eye that is not black is the scene
+ * background alone, with no part of the structure in it, and is refused too.
+ * Nothing is sampled: a sample can step over a thin structure, or land on the
+ * few lit pixels of an otherwise black frame.
+ *
+ * Colours are read as the JPEG shows them, over black, so a transparent
+ * passthrough pixel is black whatever colour it carries. A run of identical
+ * pixels, which is most of any eye, costs one comparison a pixel. It runs on
+ * the window timer, never in the XR frame. Measured on a Mac: about 1 ms for
+ * the largest eye the page reads (640x704) and 5 ms for a whole native Quest 2
+ * eye (1832x1920); the slowest case, a frame within two levels of one colour
+ * everywhere but never twice the same, about 3 ms and 22 ms.
  */
-export function flatColor(pixels, step = 7) {
-  if (!pixels || pixels.length < 4) return undefined;
-  const shown = (offset, channel) => Math.round(pixels[offset + channel] * pixels[offset + 3] / 255);
-  const red = shown(0, 0), green = shown(0, 1), blue = shown(0, 2);
-  for (let offset = step * 4; offset + 3 < pixels.length; offset += step * 4) {
-    if (Math.abs(shown(offset, 0) - red) > HEADSET_VIEW_FLAT_TOLERANCE
-      || Math.abs(shown(offset, 1) - green) > HEADSET_VIEW_FLAT_TOLERANCE
-      || Math.abs(shown(offset, 2) - blue) > HEADSET_VIEW_FLAT_TOLERANCE) return undefined;
-  }
-  return `#${[red, green, blue].map(value => value.toString(16).padStart(2, '0')).join('')}`;
+export function eyeLight(pixels) {
+  const count = pixels ? Math.floor(pixels.length / 4) : 0;
+  if (!count) return { pixels: 0, lit: 0 };
+  const red = shownChannel(pixels[0], pixels[3]), green = shownChannel(pixels[1], pixels[3]), blue = shownChannel(pixels[2], pixels[3]);
+  const { lit, flat } = pixels.byteOffset % 4 === 0 && LITTLE_ENDIAN
+    ? countWords(new Uint32Array(pixels.buffer, pixels.byteOffset, count), red, green, blue)
+    : countBytes(pixels, count, red, green, blue);
+  return { pixels: count, lit,
+    ...(flat ? { flatColor: `#${[red, green, blue].map(value => value.toString(16).padStart(2, '0')).join('')}` } : {}) };
 }
+
+const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+/** The floor as one mask over a word's three colour bytes: any bit set means a channel reaches it. */
+const LIT_MASK = ((0x100 - HEADSET_VIEW_LIT_FLOOR) & 0xff) * 0x01_01_01;
+if ((HEADSET_VIEW_LIT_FLOOR & (HEADSET_VIEW_LIT_FLOOR - 1)) !== 0) throw Error('The lit floor has to be a power of two.');
+
+/** One channel as a JPEG shows it over black. */
+const shownChannel = (value, alpha) => (alpha === 255 ? value : alpha === 0 ? 0 : Math.round(value * alpha / 255));
+const near = (value, reference) => (value > reference ? value - reference : reference - value) <= HEADSET_VIEW_FLAT_TOLERANCE;
+/** Lit as shown: the brightest channel, rounded as the flat check rounds it, reaches the floor. */
+const litShown = (r, g, b, alpha) => shownChannel(r > g ? (r > b ? r : b) : (g > b ? g : b), alpha) >= HEADSET_VIEW_LIT_FLOOR;
+
+/** Whether one RGBA word is lit as shown. An opaque pixel needs no arithmetic at all. */
+const litWord = word => {
+  const alpha = word >>> 24;
+  if (alpha === 255) return (word & LIT_MASK) !== 0 ? 1 : 0;
+  return alpha === 0 ? 0 : litShown(word & 0xff, (word >>> 8) & 0xff, (word >>> 16) & 0xff, alpha) ? 1 : 0;
+};
+
+/**
+ * RGBA a word at a time on a little-endian host. While every pixel so far is
+ * one colour each new one is also compared with the first; from the first that
+ * differs, only the count is left to do.
+ */
+function countWords(words, red, green, blue) {
+  let lit = 0, previous = -1, previousLit = 0, index = 0;
+  for (; index < words.length; index++) {
+    const word = words[index];
+    // Most of an eye is runs of one colour: equal words are equal pixels.
+    if (word === previous) { lit += previousLit; continue; }
+    const alpha = word >>> 24;
+    if (!(near(shownChannel(word & 0xff, alpha), red) && near(shownChannel((word >>> 8) & 0xff, alpha), green)
+      && near(shownChannel((word >>> 16) & 0xff, alpha), blue))) break;
+    previous = word; previousLit = litWord(word); lit += previousLit;
+  }
+  const flat = index === words.length;
+  for (; index < words.length; index++) {
+    const word = words[index];
+    if (word !== previous) { previous = word; previousLit = litWord(word); }
+    lit += previousLit;
+  }
+  return { lit, flat };
+}
+
+/** The same count a byte at a time, for a view that is not word-aligned. */
+function countBytes(pixels, count, red, green, blue) {
+  let lit = 0, flat = true;
+  for (let offset = 0, end = count * 4; offset < end; offset += 4) {
+    const r = pixels[offset], g = pixels[offset + 1], b = pixels[offset + 2], alpha = pixels[offset + 3];
+    if (litShown(r, g, b, alpha)) lit += 1;
+    if (flat && !(near(shownChannel(r, alpha), red) && near(shownChannel(g, alpha), green) && near(shownChannel(b, alpha), blue))) flat = false;
+  }
+  return { lit, flat };
+}
+
+/** The one colour every pixel of the eye shows, or undefined for a real picture. */
+export function flatColor(pixels) { return eyeLight(pixels).flatColor; }
 
 /**
  * Everything after the fence runs on a window timer, never on the XR clock. A
@@ -571,7 +683,11 @@ function schedulePackPoll(gl) {
       gl.deleteSync(resources.sync); resources.sync = undefined;
       settleProbe(gl);
     } catch (error) { fail(id, error?.message ?? 'The packed pixels could not be read.'); return; }
-    pending.flatColor = flatColor(pixels);
+    const checking = now();
+    const light = eyeLight(pixels);
+    pending.checkMs = Math.round((now() - checking) * 100) / 100;
+    pending.litPixels = light.lit;
+    pending.flatColor = light.flatColor;
     pending.flatChecked = true;
     pending.phase = 'encoding';
     const capture = pending;
@@ -746,15 +862,17 @@ function deliver(id, encoded) {
   if (!send) { fail(id, 'No authenticated sender is registered.'); return; }
   if (held.timer !== undefined) clearTimeout(held.timer);
   pending = undefined;
-  // A frame the probe read as unlit is still uploaded, with `probeLit`, and a
-  // single-colour one says so in `flatColor`: the Mac then reports the colour
-  // and takes the device view, rather than calling a flat rectangle the
-  // wearer's.
+  // Every frame is uploaded with its lit-pixel count, and a single-colour one
+  // says so in `flatColor`, as is one the probe read as unlit, with `probeLit`.
+  // The Mac judges the count, and refuses an almost entirely black or flat
+  // frame as the wearer's view and takes the device view instead.
   record('xr-snapshot', { requestId: id, ok: true, path: held.path, frameMs: held.frameMs,
     width: held.width, height: held.height, eye: held.eye, bytes: encoded.byteLength,
-    probeReadable: probe?.readable ?? null, probeLit: probe?.lit ?? null, flatColor: held.flatColor ?? null });
+    probeReadable: probe?.readable ?? null, probeLit: probe?.lit ?? null, flatColor: held.flatColor ?? null,
+    litPixels: held.litPixels ?? null, checkMs: held.checkMs ?? null });
   retainTerminalCapture(held, { requestId: id, status: 'captured', eye: held.eye,
     width: held.width, height: held.height, flatChecked: held.flatChecked === true,
+    ...(Number.isSafeInteger(held.litPixels) ? { litPixels: held.litPixels } : {}),
     ...(held.flatColor ? { flatColor: held.flatColor } : {}),
     ...(typeof probe?.lit === 'boolean' ? { probeLit: probe.lit } : {}),
     mime: HEADSET_VIEW_MIME, frameMs: held.frameMs, capturedAt: held.capturedAt, path: held.path,

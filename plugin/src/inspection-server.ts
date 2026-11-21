@@ -1,4 +1,5 @@
 import { readBundledLesson, resolveBundledDemo } from './bundled-demo.js';
+import { demoNameForMessage } from './demo-names.js';
 import { measurementTargetSchema, measureAtoms } from './inspection-measure.js';
 import { TOOL_SET_VERSION, registerTextTool as registerHostTool } from './tool-text-state.js';
 import { prepareCompositeSchema, type createPreparedCompositeStore } from './prepared-composite.js';
@@ -24,6 +25,8 @@ import { createAssistantOwnership, handoverLine, normalizeAssistantLabel } from 
 import { LocalSceneService, UTTERANCE_BOUND_TOOLS } from './scene-service.js';
 import { headsetHostCommand, loopbackListenDenied } from './headset-host-guidance.js';
 import { registerInspectionVoiceTools, type VoiceIntentAcknowledgement } from './inspection-voice.js';
+import { oauthTalkRouteAvailable } from './oauth-voice-transcription.js';
+import { headsetMicrophoneOff } from './ptt-launch-options.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getStructureInputSchema, sessionIdSchema } from './schemas.js';
 import { inspectInputSchema, syncInspectionSchema, validateScene, INSPECTION_RESOURCE_URI, PRIVATE_INSPECTION_META_KEY, type InspectionScene,
@@ -56,8 +59,9 @@ import { captureRequestReferent, createRequestReferentStore, createReferentKeySt
   SceneHistory, undoChangeFor, redoChangeFor, resolveScopedAppearance, type SceneHistorySurface } from './inspection-operation.js';
 import { compoundConfirmation, scopedStyleConfirmation, NOTHING_TO_UNDO, UNDO_CONFIRMATION } from './inspection-operation-words.js';
 import { readAddressedDemoFile } from './addressed-demo-cache.js';
-import { DEMO_INDEX_PATH, DEMO_TIER_BY_DEVICE, demoCoordinatePath, createGrowthCaptionMailbox, growthConfirmation, growthStageOfLesson,
-  growthStages, readGrowthIndex, resolveGrowthTarget, stageSize, QUEST2_ATOM_SITE_CEILING } from './molecular-growth.js';
+import { DEMO_INDEX_PATH, demoCoordinatePath, createGrowthCaptionMailbox, growthConfirmation, growthStageOfLesson,
+  growthDeviceTier, growthStages, isHeadsetDeviceClass, openedOnQuest2, readGrowthIndex, resolveGrowthTarget, stageSize, QUEST2_ATOM_SITE_CEILING } from './molecular-growth.js';
+import { bindOpenedPanel, createPanelPairings, endPanelPairings, forgetPanelPairing, mayHoldPanel, movePanelPairing } from './panel-pairing.js';
 import { ensureGrowthCoordinates, growthRecoveryCommand } from './growth-coordinates.js';
 import { PANEL_BUSY_MESSAGE } from './command-in-flight.js';
 import { InspectionCompanionHttp } from './inspection-companion-http.js';
@@ -75,9 +79,10 @@ import type { HeadsetCaptionSegment } from './headset-captions.js';
 import { renderReplySpeech } from './reply-speech-render.js';
 import { replyAudioFromEnv } from './headset-voice-provider.js';
 import { createHeadsetDiagnosticsStore, readHeadsetLogSchema, formatDiagnosticLine, salvageDiagnosticEntries, READ_HEADSET_LOG_DEFAULT_LIMIT, type ReadHeadsetLogInput } from './headset-diagnostics.js';
-import { createHeadsetViewStore, captureHeadsetViewSchema, defaultHeadsetViewPath, headsetViewFrameShape, unlitPageFrame,
+import { createHeadsetViewStore, captureHeadsetViewSchema, defaultHeadsetViewPath, dimPageFrameNote, headsetViewFrameShape, unlitPageFrame,
   HEADSET_VIEW_DEFAULT_WIDTH, HEADSET_VIEW_MAX_WIDTH, HEADSET_VIEW_WAIT_MS, type CaptureHeadsetViewInput } from './headset-view.js';
 import { detailedViewHandoff } from './detailed-view-contract.js';
+import { canonicalBase64, createLiveViewState, jpegSize, LIVE_VIEW_CLOSE_DRAIN_MS, LIVE_VIEW_INTERVAL_MS, LIVE_VIEW_MAX_BYTES, liveViewFrameShape, liveViewPath, liveViewText, readLiveViewOwner, replaceLiveViewFile, showLiveViewSchema, sweepLiveViewFolder, writeLiveViewOwner, type LiveViewCheck, type LiveViewOwner, type LiveViewSeams, type LiveViewSuperseded } from './live-view.js';
 import { detailedViewImport } from './detailed-view-import.js';
 import { detailedViewAddress } from './detailed-view-page.js';
 import { detailedViewReturn, detailedViewReturnSchema, stayedInMolstar } from './detailed-view-return.js';
@@ -85,26 +90,27 @@ import { detailedSelectionFrom, detailedSelectionSchema, detailedViewSummary, is
   DETAILED_SELECTION_KEYS_SHOWN, DETAILED_SURFACE, type DetailedSelection } from './detailed-view-session.js';
 import { readDetailedViewSnapshotFile } from './detailed-view-file.js';
 import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { captureDeviceView, DEVICE_ADB_TIMEOUT_MS, forceStopHeadsetBrowser, headsetBrowserHealth, resolveAdbTarget, spawnDeviceRunner,
   type DeviceCaptureHooks, type HeadsetBrowserHealth } from './headset-view-device.js';
 import { readHeadsetDebugging } from './headset-readiness.js';
 // The one press the server sends the headset browser.
 import { enterHeadsetVr } from './headset-enter-vr.js';
-import { DEVTOOLS_DEFAULT_PORT, DEVTOOLS_PORT_ENV_KEY, devtoolsPort, formatConsoleLine, forwardArguments, nodeDevtoolsTransport, readHeadsetBrowser, summarizeReading, withOwnedDevtoolsForward, type DevtoolsTransport } from './headset-devtools.js';
+import { DEVTOOLS_DEFAULT_PORT, DEVTOOLS_PORT_ENV_KEY, devtoolsPort, formatConsoleLine, forwardLeftOpenBy, nodeDevtoolsTransport, readHeadsetBrowser, summarizeReading, withOwnedDevtoolsForward, type DevtoolsTransport } from './headset-devtools.js';
 import { sweepLaunchTabs, sweepRestoredTabs, tabLiveness, type StripSweep } from './headset-tabs.js';
 import { describeCertificateWarning, readCertificateWarning, type CertificateWarning } from './headset-certificate.js';
 // One size-aware formula for how long a panel gets to draw.
 import { panelWaitMs, PANEL_SAVE_WAIT } from '../scripts/panel-wait.js';
 import { writeBridgeHeadsetView, type BridgeHeadsetViewInput } from './headset-bridge.js';
-import { QuestLink } from './inspection-quest-link.js';
+import { QuestLink, type QuestLinkOptions } from './inspection-quest-link.js';
 import { LanCompanion, CLIENT_ACTIVE_MS, shareMaxLifetimeMs, listLanAddresses, type ShareNotice } from './inspection-lan.js';
 import { attemptLocalOpen, enterVrStep, resolveHeadsetLaunch, launchCompanion, launchFailure, resolveOpener, type LaunchAttempt, type LaunchReport, type LaunchTabs, type Opener, type QuestDevice, type Runner } from './quest-launch.js';
 import { readInspectionDensityFile, readInspectionFile } from './inspection-file.js';
 import { pushToTalkFromEnv, type PushToTalk } from './push-to-talk.js';
 import { pushToTalkAudioSchema, pollVoiceTranscriptsSchema, listenVoiceSchema, LISTEN_VOICE_DEFAULT_SECONDS,
-  PTT_POLL_MAX_WAIT_MS, pushToTalkTranscriberFromEnv,
+  PTT_POLL_MAX_WAIT_MS, PUSH_TO_TALK_TRANSCRIBE_ENV, pushToTalkTranscriberFromEnv,
   type PushToTalkTranscriber } from './push-to-talk-transcribe.js';
 import { createSpeechSceneReader, MAX_REMEMBERED_ENTRY_CODES } from './speech-vocabulary.js';
 import { z } from 'zod';
@@ -132,7 +138,8 @@ type ExperienceRuntime = { experience:MolecularExperience; revision:number; step
   acknowledgements:Map<string,{revision:number;stepIndex:number;sourceToken:string}> };
 type ExperienceCompletion = { token:string; experienceId:string; revision:number; stepIndex:number;
   status:'pending'|'rendered'; savedRevision?:number };
-type TransitionTarget = { panelId:string; expiresAt:number };
+/** `claimed`: the owner has polled while able to draw, so it may be hydrating. */
+type TransitionTarget = { panelId:string; expiresAt:number; claimed?:boolean };
 /**
  * The density map a volume tier is drawn from.
  *
@@ -198,15 +205,19 @@ type Attachment = { initialSourceAdvisories?:Map<string,SourceRenderReceipt>; so
 type LaunchHooks = { platform?:string; environment?:NodeJS.ProcessEnv; opener?:string; launch?:Opener; run?:Runner; find?:()=>string|undefined; recheckMs?:number; clipboardSpawn?:Parameters<typeof launchCompanion>[0]['clipboardSpawn'] };
 /** A slow safety read catches expiry and attachment replacement without receipt events. */
 const COMMAND_WAIT_SAFETY_POLL_MS = 1_000;
+/** How long a Talk route found unavailable is reported so before it is looked up again. */
+const TALK_ROUTE_RECHECK_MS = 5_000;
 /** The follow-up a queued command's sentence asks for, which a call that waited has already done. */
 const RECEIPT_ADVICE = /\s*(?:Check get_inspection_state with this commandId for its rendered receipt\.|Say that only once the receipt says rendered: check get_inspection_state with this commandId\.)/gu;
 type Hooks = { serverEpoch:string; htmlPath:string; open:(input:unknown)=>Promise<any>;
-  current:(sessionId:string)=>{structureCache?:Cache; stateRevision:number}; now?:()=>number; pushToTalk?:PushToTalk; transcriber?:PushToTalkTranscriber;
+  current:(sessionId:string)=>{structureCache?:Cache; stateRevision:number; sourceRevision?:number}; now?:()=>number; pushToTalk?:PushToTalk; transcriber?:PushToTalkTranscriber;
   /** Whether a session is still held, asked without counting as a use of it; the panel host sweeps its page keys with it. */
   live?:(sessionId:string)=>boolean;
   /** Who to tell when the store drops a session, by expiry or for capacity. */
   sessionEnded?:(listener:(sessionId:string)=>void)=>void;
-  voice?: { transcribe?: VoiceTranscriber; acknowledge?: (message:string)=>Promise<{wavBase64:string}> };
+  voice?: { transcribe?: VoiceTranscriber; acknowledge?: (message:string)=>Promise<{wavBase64:string}>;
+    /** Test seam for whether the Talk route can start; production looks for its helpers. */
+    talkRoute?: ()=>boolean };
   /** Test seam; production renders headset reply audio with macOS `say` and ffmpeg. */
   replyAudio?:ReplyAudioSynthesizer;
   /** Test seam for the adb screencap still. Unset, the real `adb` and `ffmpeg` are used. */
@@ -215,7 +226,13 @@ type Hooks = { serverEpoch:string; htmlPath:string; open:(input:unknown)=>Promis
   headsetDevtools?:DevtoolsTransport;
   /** Where `STEREOFOLD_BRIDGE_DIR` is read from. Unset, this process's environment. */
   environment?:NodeJS.ProcessEnv;
+  /** The live view file. Unset, `live-view.jpg` beside this server's scene service record. */
+  liveViewPath?:string;
+  /** Test seams for the live view: a pause once a picture's bytes are written (a new frame or a repair), and word of each check of the file. */
+  liveView?:LiveViewSeams;
   questLaunch?:LaunchHooks;
+  /** Test seam for the public relay's cloudflared process. Unset, the installed binary runs. */
+  questLink?:QuestLinkOptions;
   /**
    * The one shared scene on this Mac, if the host made one.
    * Unset, this server keeps a private service that publishes nothing until
@@ -508,12 +525,36 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // when the panel list has dropped it for silence.
     const paused=data.attachment.shared && WEARER_FIRST_TOOLS.has(tool)
       ? data.attachment.commands.pausedWearerPanel(b) : undefined;
-    if(paused) return paused;
+    // A new source is drawn once and followed by every other page, the
+    // headset included when it wakes. While the wearer's page is paused or
+    // was dropped for silence, a page that can draw now takes the load, so a
+    // headset nobody is wearing never holds the Mac on the old structure. With
+    // no such page, the load waits for the headset as before.
     const failedPanel=data.attachment.sourceContinuation?.panelId;
-    if(tool==='replace_inspection_source' && failedPanel && failedSourceOwnerReady(data,failedPanel)) return failedPanel;
-    const panels=data.attachment.commands.summary(b).panels
+    const recovering=tool==='replace_inspection_source' && failedPanel && failedSourceOwnerReady(data,failedPanel);
+    if(tool==='replace_inspection_source' && !recovering) {
+      const wearer=data.attachment.commands.wearerPage(b);
+      const drawing=wearer.state==='paused' || wearer.state==='unknown' ? data.attachment.commands.drawingPanel(b) : undefined;
+      if(drawing) return drawing;
+    }
+    if(paused) return paused;
+    if(recovering) return failedPanel;
+    const listed=data.attachment.commands.summary(b).panels;
+    const panels=listed
       .filter(panel=>panel.current && (WEARER_FIRST_TOOLS.has(tool) || panel.availability!=='unsaved') && panel.surface!=='detailed');
     const wearer=data.attachment.commands.wearerPage(b);
+    // A headset page behind the saved revision with unsaved work of its own is
+    // not current, yet it is the view the wearer is in. This Mac's panel does
+    // not take a wearer's command in its place: a render there is not seen.
+    if(WEARER_FIRST_TOOLS.has(tool) && !panels.some(entry=>isWearerSurface(entry.surface))
+      && listed.some(entry=>entry.panelId===wearer.panelId && !entry.current && entry.availability==='unsaved'))
+      throw Error('The headset page is behind the saved view with unsaved work of its own (companion unsaved), so this change was not sent to it, '
+        +'and this Mac\'s panel did not take it in its place: the wearer would not see it there. Read get_inspection_state and try again.');
+    // A headset page that detached to draw its structure again has not gone:
+    // the wearer is still in front of it, and a render on the Mac is not seen.
+    if(WEARER_FIRST_TOOLS.has(tool) && !panels.some(entry=>isWearerSurface(entry.surface)) && data.attachment.commands.companionLoading())
+      throw Error('The headset page is drawing this structure again and has no panel yet, so this change was not sent to it, '
+        +'and this Mac\'s panel did not take it in its place: the wearer would not see it there. Wait a few seconds and try again.');
     const panel=panels.find(entry=>entry.panelId===wearer.panelId) ?? panels.find(entry=>isWearerSurface(entry.surface)) ?? panels.find(entry=>entry.surface==='desktop') ?? panels[0];
     // On a headset share the usual cause is a headset page still loading
     // while the Mac tab is behind Meta's Web Launch page. Reconnecting would
@@ -875,10 +916,95 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     },
   });
   const expectedHostBuild=()=>companion.servedBuildId===undefined?hostBuild:companion.servedBuildId;
-  const questLink=new QuestLink();
-  const panelLanClients=new Map<string,string>();
-  const lan=new LanCompanion({sessionMaxLifetimeMs:shareMaxLifetimeMs(),now:hooks.now,
-    onPanelHeartbeat:(clientId,panelId)=>{panelLanClients.set(panelId,clientId);}});
+  const questLink=new QuestLink(hooks.questLink);
+  // The relay is one per Mac, and a new relay replaces the last one. Only the
+  // session that opened the current relay may end it, so stopping or moving
+  // one session's share never cuts off another session's link.
+  let questLinkOwner:string|undefined;
+  const closeOwnedQuestLink=async(sessionId:string)=>{
+    if(questLinkOwner!==sessionId) return;
+    questLinkOwner=undefined;
+    await questLink.close();
+  };
+  // A session that ends, by eviction or expiry, takes its relay with it rather
+  // than leaving the public page and cloudflared up until the relay's timer.
+  hooks.sessionEnded?.(id=>{void closeOwnedQuestLink(id).catch(()=>undefined);});
+  // Sessions shared over loopback, and the companion origin the headset opens
+  // through `adb reverse`. An automatic headset-browser read may consider a
+  // tab on that origin only while such a share stands.
+  const loopbackShares=new Map<string,string>();
+  /** The private Wi-Fi pairing each headset panel is on (`holders`), and the pairing that opened it. */
+  const panelPairings=createPanelPairings(), panelLanClients=panelPairings.holders;
+  /**
+   * The device class each headset panel of a session reported on entering
+   * XR, by panel id. The host keeps a bounded log per panel, so the report
+   * itself does not last; the class does, for a grow that names no device.
+   * A re-attach under a new panel id (every grow does one) carries it over.
+   * Only known classes are kept, for at most `REPORTED_PANEL_CLASS_LIMIT`
+   * panels in each of the `REPORTED_SESSION_LIMIT` most recent sessions, and
+   * a session's entry goes when the session ends.
+   */
+  const reportedPanelClasses=new Map<string,Map<string,string>>();
+  const REPORTED_PANEL_CLASS_LIMIT=16, REPORTED_SESSION_LIMIT=32;
+  const noteReportedClass=(sessionId:string,panelId:string,deviceClass:string)=>{
+    const panels=reportedPanelClasses.get(sessionId)??new Map<string,string>();
+    panels.delete(panelId); panels.set(panelId,deviceClass);
+    while(panels.size>REPORTED_PANEL_CLASS_LIMIT) panels.delete(panels.keys().next().value!);
+    reportedPanelClasses.delete(sessionId); reportedPanelClasses.set(sessionId,panels);
+    while(reportedPanelClasses.size>REPORTED_SESSION_LIMIT) reportedPanelClasses.delete(reportedPanelClasses.keys().next().value!);
+  };
+  /** Each session's current command registry, for the LAN listener's synchronous hooks. */
+  const sessionCommands=new Map<string,Attachment['commands']>();
+  hooks.sessionEnded?.(id=>{sessionCommands.delete(id);});
+  const PAIRING_ENDED='The headset page lost its private Wi-Fi pairing, so it can no longer check in. Reconnect the headset with open_companion.';
+  const lan:LanCompanion=new LanCompanion({sessionMaxLifetimeMs:shareMaxLifetimeMs(),now:hooks.now,
+    // A beat can only move a panel back to the pairing that opened it, or to
+    // a later pairing of that remembered headset, and a beat the Mac refuses
+    // puts it back. Put back onto a pairing that ended meanwhile, the panel
+    // goes as that pairing's panels did.
+    onPanelHeartbeat:(clientId,panelId)=>{
+      const sessionId=lanOwner?.sessionId, commands=sessionId===undefined?undefined:sessionCommands.get(sessionId);
+      const client=lan.status()?.clients.find(paired=>paired.id===clientId);
+      const settle=commands && client ? movePanelPairing(panelPairings,client,panelId,id=>commands.remembersPanel(id)) : undefined;
+      if(!settle || sessionId===undefined) return;
+      const paired=pairedClients();
+      return status=>{
+        const restored=settle(status===200);
+        if(restored!==undefined && paired.has(restored) && !pairedClients().has(restored)) return retireUnpairedPanels(sessionId,[panelId]);
+      };
+    },
+    onPanelOpened:(client,panelId,replacedPanelId)=>{
+      // Panel ids are the Mac's own UUIDs, so the session that lists this one issued it.
+      const sessionId=[...sessionCommands].find(([,commands])=>commands.remembersPanel(panelId))?.[0];
+      if(sessionId===undefined) return;
+      const commands=sessionCommands.get(sessionId)!, remembers=(id:string)=>commands.remembersPanel(id);
+      // An attach that kept the id of the panel it replaced goes on with that
+      // panel: like a beat, it can only move it to a pairing that may hold it.
+      const kept=panelId===replacedPanelId;
+      if(lan.status()?.clients.some(paired=>paired.id===client.id)) {
+        if(kept) movePanelPairing(panelPairings,client,panelId,remembers)?.(true);
+        else bindOpenedPanel(panelPairings,client,panelId,remembers);
+        return;
+      }
+      // The pairing ended while the Mac was answering this attach. The page
+      // can never beat for the panel it was issued, so it goes now, as the
+      // rest of that pairing's panels did.
+      if(kept && !mayHoldPanel(panelPairings,client,panelId)) return;
+      return retireUnpairedPanels(sessionId,[panelId]);
+    }});
+  /**
+   * Retire panels whose page lost its pairing, outside the request that
+   * ended it. A panel a live pairing holds by then is that pairing's, and stays.
+   */
+  async function retireUnpairedPanels(sessionId:string,panelIds:string[]) {
+    let data:Awaited<ReturnType<typeof current>>;
+    try { data=await current(sessionId); } catch { return; /* A session that ended or changed source has no such panel left. */ }
+    const paired=pairedClients();
+    const unpaired=panelIds.filter(panelId=>!paired.has(panelLanClients.get(panelId)??''));
+    for(const panelId of unpaired) forgetPanelPairing(panelPairings,panelId);
+    try { data.attachment.commands.retireUnreachablePanels(unpaired,binding(sessionId,data),PAIRING_ENDED); }
+    catch { /* The source changed under this call: the panels went with it. */ }
+  }
   function reconcilePairedPanels(data:Awaited<ReturnType<typeof current>>, b:InspectionBinding) {
     const clients=new Map(lan.status()?.clients.map(client=>[client.id,client.deviceId??client.id]));
     const devices=new Map<string,string>();
@@ -886,6 +1012,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       const device=clients.get(clientId);if(device)devices.set(panelId,device);
     }
     data.attachment.commands.retireDuplicatePanels(devices,b);
+  }
+  /** The ids of the clients paired over this Mac's private Wi-Fi share now. */
+  const pairedClients=()=>new Set(lan.status()?.clients.map(client=>client.id)??[]);
+  /**
+   * Retire the panels of pages whose pairing ended since `before` was read:
+   * a revoked client, a forgotten headset, a closed share. Their bearer is
+   * gone, so they cannot check in again (`retireUnreachablePanels`).
+   */
+  function retireEndedPairings(before:ReadonlySet<string>,data:Awaited<ReturnType<typeof current>>,b:InspectionBinding) {
+    data.attachment.commands.retireUnreachablePanels(endPanelPairings(panelPairings,before,pairedClients()),b,PAIRING_ENDED);
   }
   /**
    * Where the wearer was when the current request began.
@@ -1317,6 +1453,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // caption queue and the diagnostics store it rides the same heartbeat and
   // holds no molecular state, so it is created once per server.
   const headsetView=createHeadsetViewStore({now:hooks.now});
+  // The picture `show_live_view` keeps current; fed by at most one session of this server.
+  const liveView=createLiveViewState({now:hooks.now});
   // Both the headset heartbeat and readiness require recent polling plus an
   // admitted action/reply for a claimed utterance. A printer cannot prove this,
   // and neither can a turn the agent began itself: nobody asked for it.
@@ -1408,6 +1546,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     }
     catch(error) {releaseFailedDispatch();return {mode,opened:false,reason:'failed',message:`Could not put the page on the headset: ${(error as Error).message} The address and pairing code in this result still work by hand.`}; }
   }
+  /** The headset the last adb launch swept, for later debugger reads to forward to. */
+  let launchDebugger:QuestDevice|undefined;
   /**
    * Leave exactly one viewer tab open for this share.
    *
@@ -1417,33 +1557,43 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    * older tabs may still be open. A hygiene step must never be the reason a
    * wearer cannot get a page. The port is forwarded with the adb binary and
    * serial the launch chose, so the sweep reads the headset the intent goes to.
+   *
+   * A forward to the debugger lets any process on this Mac drive the headset
+   * browser while it stands, so each sweep opens its own on a fresh port and
+   * removes it when the sweep ends, whatever the outcome. A forward adb
+   * refused was never made and is not removed; nothing else's is touched.
    */
   function viewerTabs(companionUrl:string):LaunchTabs {
-    const port=devtoolsPort(captureEnvironment());
     const transport=hooks.headsetDevtools??nodeDevtoolsTransport();
     const expectedOrigin=(()=>{try { return new URL(companionUrl).origin; } catch { return undefined; }})();
-    const forward=(device:QuestDevice)=>async()=>{
-      try { return (await device.run(device.adb,forwardArguments(device.serial,port))).code===0; } catch { return false; }
+    // A forward the sweep could not remove is named in the launch note, with
+    // the command that removes it.
+    const sweptWith=async<T>(device:QuestDevice,sweep:(port:number,forward:()=>Promise<boolean>)=>Promise<T>):Promise<{swept:T;left:string}>=>{
+      launchDebugger=device;
+      let thrown:string|undefined;
+      const owned=await withOwnedDevtoolsForward({adb:device.adb,serial:device.serial,
+        run:(adb,args)=>device.run(adb,args),action:port=>sweep(port,async()=>true)}).catch((error:unknown)=>{thrown=forwardLeftOpenBy(error);return undefined;});
+      return owned?.ok?{swept:owned.value,left:owned.cleanupWarning?` ${owned.cleanupWarning}`:''}:{swept:await sweep(0,async()=>false),left:thrown?` ${thrown}`:''};
     };
     const strip=(swept?:StripSweep)=>swept?{enumerated:swept.enumerated,stranded:swept.stranded.length,closed:swept.closed.length,
       ...(swept.reason?{reason:swept.reason}:{})}:{enumerated:false,stranded:0,closed:0,reason:'the strip was not read after the cold start'};
     return {
       before:async device=>{
-        const swept=await sweepLaunchTabs({transport,port,...(expectedOrigin===undefined?{}:{expectedOrigin}),
+        const {swept,left}=await sweptWith(device,(port,forward)=>sweepLaunchTabs({transport,port,...(expectedOrigin===undefined?{}:{expectedOrigin}),
           // The session this Mac is sharing right now. A viewer tab publishes the
           // session it hydrated on `document.body.dataset.sessionId`, so a tab
           // naming a different one is a page from a share this host has replaced.
           // Nothing is concluded when either side names nothing.
           ...(lanOwner?.sessionId?{expectedSessionId:lanOwner.sessionId}:{}),
-          forward:forward(device)});
-        return {probed:swept.probed,closed:swept.closed,launch:swept.launch,note:swept.note,
+          forward}));
+        return {probed:swept.probed,closed:swept.closed,launch:swept.launch,note:`${swept.note}${left}`,
           ...(swept.keep?{keep:swept.keep}:{}),strip:strip(swept.strip),
           tabs:swept.readings.map(reading=>({id:reading.id,liveness:tabLiveness(reading)}))};
       },
       // Nothing on another origin is ever closed, so without one there is nothing to sweep.
       ...(expectedOrigin===undefined?{}:{restored:async(device:QuestDevice)=>{
-        const swept=await sweepRestoredTabs({transport,port,expectedOrigin,forward:forward(device)});
-        return {probed:swept.answered,closed:swept.closed,launch:true,note:swept.note,
+        const {swept,left}=await sweptWith(device,(port,forward)=>sweepRestoredTabs({transport,port,expectedOrigin,forward}));
+        return {probed:swept.answered,closed:swept.closed,launch:true,note:`${swept.note}${left}`,
           ...(swept.keep?{keep:swept.keep}:{}),strip:strip(swept.strip),
           tabs:swept.listed.map(id=>({id,liveness:id===swept.keep?'opened':'restored'}))};
       }}),
@@ -1455,14 +1605,34 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    *
    * Best effort and read-only. A Mac with no cable, a port nobody forwarded
    * and a headset showing the page all come back as `undefined`, and the
-   * caller keeps its own sentence.
+   * caller keeps its own sentence. `left` is a sentence, with a leading
+   * space, naming a debugger forward adb could not remove, or empty.
    */
-  async function headsetCertificateWarning(shareUrl:string,worn?:boolean,fingerprint?:string):Promise<CertificateWarning|undefined> {
+  async function headsetCertificateWarning(shareUrl:string,worn?:boolean,fingerprint?:string):Promise<{warning?:CertificateWarning;left:string}> {
     let expectedOrigin:string;
-    try { expectedOrigin=new URL(shareUrl).origin; } catch { return undefined; }
-    const reading=await readCertificateWarning(hooks.headsetDevtools??nodeDevtoolsTransport(),{port:devtoolsPort(captureEnvironment()),
-      expectedOrigin,...(worn===undefined?{}:{worn}),...(fingerprint?{fingerprint}:{})}).catch(()=>undefined);
-    return reading?.read?reading.warning:undefined;
+    try { expectedOrigin=new URL(shareUrl).origin; } catch { return {left:''}; }
+    let thrown:string|undefined;
+    const reading=await overOwnForward(port=>readCertificateWarning(hooks.headsetDevtools??nodeDevtoolsTransport(),{port,
+      expectedOrigin,...(worn===undefined?{}:{worn}),...(fingerprint?{fingerprint}:{})}),devtoolsPort(captureEnvironment()))
+      .catch((error:unknown)=>{thrown=forwardLeftOpenBy(error);return undefined;});
+    const left=reading?.cleanupWarning?` ${reading.cleanupWarning}`:thrown?` ${thrown}`:'';
+    return reading?.value.read && reading.value.warning?{warning:reading.value.warning,left}:{left};
+  }
+  /**
+   * Run one debugger read over a forward of its own, opened through the adb
+   * and serial the last launch swept with and removed when the read ends. No
+   * launch leaves a forward standing, so with no launch device known, or a
+   * forward adb refused, the read goes to the configured port, where only a
+   * forward the person opened themselves can answer.
+   */
+  async function overOwnForward<T>(action:(port:number)=>Promise<T>,configured:number):Promise<{value:T;cleanupWarning?:string}> {
+    const device=launchDebugger;
+    if(device) {
+      const owned=await withOwnedDevtoolsForward({adb:device.adb,serial:device.serial,run:(adb,args)=>device.run(adb,args),action});
+      // A forward adb could not remove is handed back for the caller to report.
+      if(owned.ok) return {value:owned.value,...(owned.cleanupWarning?{cleanupWarning:owned.cleanupWarning}:{})};
+    }
+    return {value:await action(configured)};
   }
   /**
    * Put a page this Mac serves on this Mac's own screen: the detailed view, or
@@ -1520,7 +1690,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // Used command IDs likewise survive cache replacement, without retaining
   // old commands or scenes, so a late retry cannot become a new edit.
   const sessionLibraries=new Map<string,{views:InspectionViews;comparisonAssets:Map<string,ComparisonAsset>;commandIds:Set<string>}>();
-  hooks.sessionEnded?.(id=>{sessionLibraries.delete(id);sharedSessions.delete(id);});
+  hooks.sessionEnded?.(id=>{sessionLibraries.delete(id);sharedSessions.delete(id);reportedPanelClasses.delete(id);});
   const sourceHandoffs=new WeakMap<Cache,NonNullable<Attachment['sourceContinuation']> &
     Pick<Attachment,'customTour'|'lessonManifest'|'lessonStart'|'density'|'sourceOperation'>>();
   const voiceSourceBySession = new Map<string,string>();
@@ -1547,8 +1717,27 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         undo.panelId=panelId;
       }
       setTransitionTarget(attachment,panelId);
+    } else if(target.panelId!==panelId && !target.claimed) {
+      // A source load whose owner is a paused headset page that has not
+      // started it passes to the first page that can draw it now. A page that
+      // was paused on every beat since the load committed has not begun
+      // hydrating, so two pages never draw the same first scene. The headset
+      // follows the saved scene when it wakes. A spoken request stays with
+      // the page it was spoken on.
+      const continuation=attachment.sourceContinuation, previous=continuation?.previous;
+      if(continuation && previous && continuation.panelId===target.panelId && !continuation.utteranceId
+        && !attachment.scene && !attachment.experienceRollback && attachment.sourceRenderWait && !attachment.sourceRenderWait.settled()
+        && attachment.commands.cannotDraw(target.panelId) && attachment.commands.canDraw(panelId,previous)) {
+        attachment.commands.transferSourceLoad(target.panelId,panelId);
+        continuation.panelId=panelId;
+        setTransitionTarget(attachment,panelId);
+      }
     }
-    return attachment.transitionTarget?.panelId===panelId;
+    const owner=attachment.transitionTarget;
+    // The owner's own beat while it can draw is the beat that starts its
+    // hydration; from then on the load is its own.
+    if(owner?.panelId===panelId && !attachment.commands.cannotDraw(panelId)) owner.claimed=true;
+    return owner?.panelId===panelId;
   };
   /** A source digest is learned from the first accepted public stage, then held stable for this server lifetime. */
   const verifiedExperienceSources = new Map<string,{sha256:string;byteLength:number}>();
@@ -1581,10 +1770,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
    * inspection they load into may be the one on a wearer's headset, and a new
    * cache means a new attachment with a new sourceToken, which `current()`
    * reads as an unauthorized retarget of a LAN capability and answers by
-   * retiring the listener. That ended a 4HHB share thirteen
-   * seconds into a dress rehearsal: the wearer kept the old scene, the plate
-   * read "Link to the Mac lost", and the assistant was told hasStructure:true
-   * with nothing in the answer about the share.
+   * retiring the listener. Unhandled, that ends a live share: the wearer
+   * keeps the old scene, the plate reads "Link to the Mac lost", and the
+   * assistant is told hasStructure:true with nothing in the answer about the
+   * share.
    *
    * This is the controlled transition `replace_inspection_source` takes,
    * reduced to what a legacy caller can supply. The retarget is authorized, the
@@ -1702,6 +1891,22 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const pageOutdated=Boolean(expectedHostBuild() && page.panelId
       && data.attachment.commands.surfaceOf(page.panelId)==='companion'
       && data.attachment.commands.pageBuildOf(page.panelId)!==expectedHostBuild());
+    // A headset page that checks in without a paired Wi-Fi share (the USB
+    // route), or one still catching up with a newer structure or revision, is
+    // attached all the same. Saying no page is attached, or to reconnect,
+    // contradicts `state` beside it and sends the agent to replace a page the
+    // wearer is looking at. Only a headset page counts: the full Mol* viewer
+    // may be open on this Mac after the headset page left.
+    const pageAttached=page.panelId!==undefined && data.attachment.commands.surfaceOf(page.panelId)==='companion'
+      && (page.state==='page-open' || page.state==='entering-vr' || page.state==='in-vr');
+    const attachedNote=()=>`A headset page is attached and ${page.state==='in-vr'?'in VR':page.state==='entering-vr'?'starting VR':'open'}, `
+      +(panel
+        ?'but not over a paired private Wi-Fi share, so wearer.linked is false. A rendered receipt on that headset panel is what '
+          +'its page drew; a rendered receipt on this Mac’s panel is not the wearer’s view.'
+        :'but it has not drawn this structure at the current revision yet, so a rendered receipt now describes this Mac’s own panel '
+          +'and not the wearer’s view. Read get_inspection_state again in a few seconds until wearer.panel is true, and do not '
+          +'reconnect while the page is attached; if it stays false for 60 seconds, read manage_companion action="status".')
+      +(page.state==='in-vr'?'':' Confirm wearer.state is "in-vr" before reporting anything as seen.');
     return {linked:share&&panel,shareOpen,share,panel,state:page.state,
       ...(pageOutdated?{pageOutdated:true}:{}),
       ...(page.checkedInAt===undefined?{}:{checkedInAt:page.checkedInAt}),
@@ -1714,6 +1919,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           +(page.state==='page-open'?' The page is open and waiting for the wearer to press Enter VR.'
             :page.state==='entering-vr'?' The page has started the immersive view and has not drawn a frame the wearer can see yet: '
               +'the view is still starting, or a headset dialog is in front of it.':'')
+        :pageAttached?attachedNote()
         :`No wearer is linked to this inspection: ${missing}. A rendered receipt here describes this Mac’s own panel `
           +'and not the wearer’s view, and say_to_headset cannot reach them. '
           +recovery+' Confirm wearer.state is "in-vr" before reporting anything as seen.'};
@@ -1853,6 +2059,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           // coordinates and keeps the message it always had.
           const detail=error instanceof Error?error.message:'';
           if(requestedAssemblyId && /^Assembly /u.test(detail)) throw Error(`${detail} Open the entry without an assembly, or name one it declares.`);
+          // A catalog too large to decode is refused during extraction with the
+          // same reason the transport below gives, not as unreadable coordinates.
+          if(/^Structure and sequence catalog exceeds /u.test(detail)) throw error;
           throw Error('The structure could not be read as supported mmCIF. Use a PDB ID or a complete mmCIF coordinate file.');
         }
         if(experience) {
@@ -1928,6 +2137,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       void lan.close().catch(() => {});
     }
     const data={ cache, attachment, stateRevision:latest.stateRevision };
+    sessionCommands.set(id,attachment.commands);
     // An edit queued for a headset page that has since paused is
     // saved before any call reads or changes the inspection. The first call
     // after the page froze may come long after the queue's deadline, and it
@@ -2047,6 +2257,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     return selected?receipts.get(selected.panelId):undefined;
   }
   const joinedHeadsetRoute = 'For a bundled demo in a joined session use one call: replace_inspection_source({sessionId,demo:"atp-synthase-rotor",stage:"motion"}). It loads verified cached coordinates, installs and starts the lesson, and waits up to 40 s (waitForRenderMs:0 returns at once). If the wait ends first, the demo is still drawing: poll get_inspection_state with its commandId; do not report failure or reload. When a headset session is joined, make any new scene or lesson there: prepare_composite (or use a source) -> replace_inspection_source with the joined sessionId -> install_lesson. Keep the headset connection; do not ask a handoff question. Create a new session only when nothing is joined or the user explicitly asks for a separate scene. ';
+  /** What a demo load opened, in the words an agent reports: id, stage and title. */
+  const openedDemoSentence=(demo:{name:string;asked:string;title?:string;stage?:string;stageTitle?:string})=>
+    `Demo ${demo.name}${demo.stage?`, stage ${demo.stage}`:''}: ${demo.stageTitle??demo.title??demo.name}`
+    +`${demo.asked===demo.name?'':` (asked as "${demoNameForMessage(demo.asked)}")`}.`;
   function result(id:string, data:Awaited<ReturnType<typeof current>>, extra:Record<string,unknown> = {}, text?:string) {
     const hasProvidedModelContext=Object.prototype.hasOwnProperty.call(extra,'modelContext');
     const {modelContext:providedModelContext,...publicExtra}=extra;
@@ -3447,6 +3661,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const panelId=data.attachment.commands.attach({...input,renderedSourceSha256,...(consumedSource?{replacesPanelId:undefined}:{})},b,
       Boolean(input.journeySave || savedSource || resumeJourney));
     binding(input.sessionId,data);
+    const carried=input.replacesPanelId?reportedPanelClasses.get(input.sessionId)?.get(input.replacesPanelId):undefined;
+    if(carried) noteReportedClass(input.sessionId,panelId,carried);
     // Correlate the attached ID with the selected transition owner only after
     // the rendered scene has saved and attach passed.
     if(!consumedSource && input.replacesPanelId && input.replacesPanelId===data.attachment.transitionTarget?.panelId) {
@@ -3491,7 +3707,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     }
     const readiness=await panelReadiness(data,input.sessionId);
     const build=expectedHostBuild();
-    const attached=result(input.sessionId,data,{panelId,...(input.surface==='companion' && build && input.pageBuild!==build?{outdatedHostBuild:build}:{}),...(readiness?{readiness}:{})});
+    const attached=result(input.sessionId,data,{panelId,...(input.surface==='companion' && build && input.pageBuild!==build?{outdatedHostBuild:build}:{}),...(readiness?{readiness}:{}),
+      ...(input.surface==='companion'?{voiceCapture:voiceCapture()}:{}),...(microphoneOff?{microphoneRefused:true}:{})});
     return resumeJourney?{...attached,_meta:{[PRIVATE_INSPECTION_META_KEY]:{journeySave:{panelId,rollbackToken:undo!.token}}}}:attached;
   });
   privateTool('stereo_structure.poll_inspection',{
@@ -3526,6 +3743,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       a.commands.holdSourceRecovery(input.panelId,a.sourceFailureReadyAt===undefined?undefined:a.sourceFailureReadyAt+10_000);
     }
     const {delivery,...state}=a.commands.poll(input,b) as any;
+    // A beat the host does not know the panel of ties no pairing to it.
+    if(!a.commands.remembersPanel(input.panelId)) forgetPanelPairing(panelPairings,input.panelId);
     reconcilePairedPanels(data,b);
     if(delivery) {
       const historyAction=a.history.isUndo(delivery.commandId)?'undo':a.history.isRedo(delivery.commandId)?'redo':undefined;
@@ -3557,24 +3776,45 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // The headset's log rides the return leg of its own heartbeat. The page
     // keeps sending an entry until the sequence it is acknowledged at moves
     // past it, so a dropped beat costs a repeat rather than the entry.
-    const diagnosticsAck=input.diagnostics?diagnostics.ingest(input.panelId,salvageDiagnosticEntries(input.diagnostics.entries)).ack:undefined;
+    const salvaged=input.diagnostics?salvageDiagnosticEntries(input.diagnostics.entries):undefined;
+    const diagnosticsAck=salvaged?diagnostics.ingest(input.panelId,salvaged).ack:undefined;
+    if(wearerPage && salvaged) for(const entry of salvaged) {
+      const reported=entry.kind==='session-start'?(entry.detail as Record<string,unknown>|undefined)?.deviceClass:undefined;
+      if(isHeadsetDeviceClass(reported)) noteReportedClass(input.sessionId,input.panelId,reported);
+    }
     // `capture_headset_view` arms a request here. Only a companion page draws
     // an immersive frame, so only a companion panel is offered one.
     const headsetViewRequest=wearerSurface==='companion' && input.serverEpoch===b.serverEpoch && input.sourceToken===b.sourceToken
       ?headsetView.claim(input.panelId,{sessionId:input.sessionId,sourceToken:b.sourceToken,serverEpoch:b.serverEpoch}):undefined;
+    // `show_live_view` asks every desktop panel of the session; a headset page never.
+    const liveViewRequest=wearerSurface==='desktop' && input.serverEpoch===b.serverEpoch && input.sourceToken===b.sourceToken
+      ?liveView.request(input.sessionId):undefined;
+    // While the session feeds the file, its desktop panel's poll is when this server checks the file is still its picture.
+    if(liveViewRequest) checkLiveViewSoon();
     const returningDesktop=a.followStoppedShare && wearerSurface==='desktop' && state.attached===true && input.availability==='ready';
     const canFollow=(a.shared || returningDesktop) && input.serverEpoch===b.serverEpoch && input.sourceToken===b.sourceToken
       && input.baseStateRevision===b.stateRevision && input.baseInspectionRevision<b.inspectionRevision;
     const readiness=await panelReadiness(data,input.sessionId);
     const build=expectedHostBuild();
     const transitionTarget=transitionTargetFor(a,input.panelId,b),undo=a.experienceRollback;
+    // A panel dropped for silence would otherwise draw the new source and save
+    // its first scene at once, and that save refuses the save of the page that
+    // is still drawing it. It waits while that page is registered, has started
+    // the load and has saved nothing, and never past the load's lease.
+    const owner=a.transitionTarget;
+    const awaitSourceOwner=state.attached===false && !transitionTarget && owner?.claimed===true && !a.scene
+      && transitionNow()<owner.expiresAt && a.commands.surfaceOf(owner.panelId)!==undefined;
     const journeySave=transitionTarget && state.attached===true && undo && undo.panelId===input.panelId
       && undo.expectedStateRevision===b.stateRevision && undo.expectedInspectionRevision===b.inspectionRevision
       && !a.commands.hasPending(b)?{panelId:input.panelId,rollbackToken:undo.token}:undefined;
     return {...result(input.sessionId,data,{...state,outcome:a.commands.latestOutcome(b,input.panelId),
-      ...(wearerSurface==='companion' && build && input.pageBuild!==build?{outdatedHostBuild:build}:{}),...(readiness?{readiness}:{})}),
+      ...(wearerSurface==='companion' && build && input.pageBuild!==build?{outdatedHostBuild:build}:{}),...(readiness?{readiness}:{}),
+      ...(wearerSurface==='companion'?{voiceCapture:voiceCapture()}:{}),
+      // Every beat, whatever the panel: a page whose panel expired is still
+      // on a host whose person said no to the microphone.
+      ...(microphoneOff?{microphoneRefused:true}:{})}),
       _meta:{[PRIVATE_INSPECTION_META_KEY]:{delivery,comparisonSources:comparisonPayloads(a,delivery,canFollow?a.scene:undefined),transitionTarget,
-        ...(journeySave?{journeySave}:{}),
+        ...(journeySave?{journeySave}:{}),...(awaitSourceOwner?{awaitSourceOwner:true}:{}),
         // The one field that tells a wearer anyone is
         // there. It is always present, so a page can tell "no agent" from an
         // older host that does not report at all.
@@ -3587,6 +3827,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         ...(growthCaption ? {growthCaption}:{}),
         ...(diagnosticsAck!==undefined ? {diagnosticsAck}:{}),
         ...(headsetViewRequest ? {headsetViewRequest}:{}),
+        ...(liveViewRequest ? {liveViewRequest}:{}),
       }}};
   });
   async function validateVoiceBinding(input:any) {
@@ -3624,6 +3865,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const panel=data.attachment.commands.summary(now).panels.find(panel=>panel.panelId===input.panelId);
     if(!isWearerSurface(panel?.surface)) throw Error('Headset speech requires a current headset page.');
   }
+  /**
+   * The person started this share with --no-ptt (HEADSET_MICROPHONE_OFF_ENV).
+   * No route may then record the headset microphone: the Talk row's audio is
+   * refused with the sentence the page already shows for a voice route that is
+   * off, push-to-talk transcription is off whatever else turned it on, and the
+   * companion is told no route uses its microphone and, with
+   * `microphoneRefused`, that the person said no, so it opens none even on
+   * the flat page.
+   */
+  const microphoneOff=headsetMicrophoneOff(hooks.environment ?? process.env);
   voice=registerInspectionVoiceTools(privateTool,{validate:validateVoiceBinding,validateCompanion:validateCompanionVoiceBinding,
     validateNarration:validateNarrationVoiceBinding,now:hooks.now,privateMeta:privateUi,
     /**
@@ -3651,7 +3902,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       return referentKeys.compact(referents.capture(request.sessionId,captureRequestReferent({
         sourceToken:data.attachment.sourceToken,scene:data.attachment.scene,at:(hooks.now??Date.now)()})));
     },
-    ...hooks.voice});
+    ...hooks.voice,
+    ...(microphoneOff?{captureRefusal:'Voice unavailable. Use the menu controls instead.'}:{})});
   type DesktopVoiceClaimReceipt=VoiceIntentAcknowledgement & {sessionId:string;sourceToken:string;createdAt:number};
   const voiceDesktopClaims=new Map<string,DesktopVoiceClaimReceipt>();
   const voiceNow=hooks.now ?? Date.now;
@@ -3702,7 +3954,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // separate source-bound voice_command route registered above.
   const pushToTalk = hooks.pushToTalk ?? pushToTalkFromEnv();
   privateTool('stereo_structure.push_to_talk',{
-    title:'Signal a headset push-to-talk grip',description:'App-only edge report from an immersive companion. state=down when the wearer squeezes the bound controller grip and state=up when they release it. Each event runs at most one shell command the user exported on this machine, in STEREOFOLD_PTT_DOWN and STEREOFOLD_PTT_UP; this repository ships neither. No request field reaches a command and this edge itself contains no audio. Authenticated microphone capture, when the wearer grants browser permission, uses the separate voice_command route. A host started without --ptt records nothing and reports disabled. The down edge also captures what the wearer meant by "this" at that moment: the selected residues, plus the part named in the optional pointing field. It comes back as referent, so a request answered seconds later still acts on what they were on when they started speaking.',
+    title:'Signal a headset push-to-talk press',description:'App-only edge report from an immersive companion. state=down when a talk press starts (A or X held, or the menu\'s Talk row) and state=up when it ends. Each event runs at most one shell command the user exported on this machine, in STEREOFOLD_PTT_DOWN and STEREOFOLD_PTT_UP; this repository ships neither. No request field reaches a command and this edge itself contains no audio. Authenticated microphone capture, when the wearer grants browser permission, uses the separate voice_command route. A host started without --ptt records nothing and reports disabled. The down edge also captures what the wearer meant by "this" at that moment: the selected residues, plus the part named in the optional pointing field. It comes back as referent, so a request answered seconds later still acts on what they were on when they started speaking.',
     inputSchema:pushToTalkSchema,annotations:{...mutation,idempotentHint:false},_meta:privateUi,
   },async input=>{
     // Resolve the session first so an expired capability never runs anything.
@@ -3721,7 +3973,31 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // Version 2 of push-to-talk: the grip streams the headset microphone here in
   // one-second Opus chunks, whisper-cpp transcribes them on this Mac, and the
   // text is delivered as text. Nothing on this route synthesizes a keystroke.
-  const transcriber = hooks.transcriber ?? pushToTalkTranscriberFromEnv();
+  const transcriber = microphoneOff ? pushToTalkTranscriberFromEnv({ ...process.env, [PUSH_TO_TALK_TRANSCRIBE_ENV]: '0' })
+    : hooks.transcriber ?? pushToTalkTranscriberFromEnv();
+  /**
+   * Whether any voice route on this host would use the headset page's
+   * microphone: push-to-talk transcription when it is on, or the Talk row's
+   * OAuth route when it can start here. The companion asks for the microphone
+   * on Enter VR only for these routes, so `false` must mean neither can run.
+   * The Talk route's helpers are looked up at the first beat that asks, never
+   * at registration. An available route is kept for this process. An
+   * unavailable one is looked up again at most once every five seconds, since
+   * the transcription script finds its helper afresh on each request and a
+   * helper installed while the host runs must reach the page without a
+   * restart; heartbeats come several times a second, and each lookup reads
+   * the config file and walks PATH.
+   */
+  let talkRouteAvailable: boolean | undefined, talkRouteCheckedAt = 0;
+  const voiceCapture = () => {
+    if (microphoneOff) return false;
+    if (transcriber.enabled || talkRouteAvailable) return true;
+    const at = (hooks.now ?? Date.now)();
+    if (talkRouteAvailable === false && at >= talkRouteCheckedAt && at - talkRouteCheckedAt < TALK_ROUTE_RECHECK_MS) return false;
+    talkRouteCheckedAt = at;
+    talkRouteAvailable = (() => { try { return (hooks.voice?.talkRoute ?? oauthTalkRouteAvailable)(); } catch { return true; } })();
+    return talkRouteAvailable;
+  };
   let channelSession: string | undefined, channelTimer: ReturnType<typeof setInterval> | undefined;
   let channelBusy = false, channelClosed = false;
   const channel = createHeadsetChannel({queue: transcriber.transcripts,
@@ -3820,7 +4096,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     recentEntryCodes.length = Math.min(recentEntryCodes.length, MAX_REMEMBERED_ENTRY_CODES);
   };
   privateTool('stereo_structure.push_to_talk_audio',{
-    title:'Stream headset microphone audio for local transcription',description:'App-only audio chunk from an immersive companion while the wearer holds the push-to-talk grip. Each call carries one base64 Opus chunk of one utterance, identified by utteranceId and ordered by seq; the call with final=true closes the utterance. The audio is assembled, decoded and transcribed on this machine, by Apple\'s on-device recognizer or by whisper-cpp, and then deleted; no audio leaves the Mac and no keystroke is synthesized. The final call returns the transcript. A host with no transcriber turned on reports disabled: the standalone launcher turns it on with --ptt, and every other host sets STEREOFOLD_PTT_TRANSCRIBE=1 in the MCP server environment.',
+    title:'Stream headset microphone audio for local transcription',description:'App-only audio chunk from an immersive companion while the wearer holds a talk press. Each call carries one base64 Opus chunk of one utterance, identified by utteranceId and ordered by seq; the call with final=true closes the utterance. The audio is assembled, decoded and transcribed on this machine, by Apple\'s on-device recognizer or by whisper-cpp, and then deleted; no audio leaves the Mac and no keystroke is synthesized. The final call returns the transcript. A host with no transcriber turned on reports disabled: the standalone launcher turns it on with --ptt, and every other host sets STEREOFOLD_PTT_TRANSCRIBE=1 in the MCP server environment.',
     inputSchema:pushToTalkAudioSchema,annotations:{...mutation,idempotentHint:false},_meta:privateUi,
   },async input=>{
     // Resolve the session first so an expired capability never reaches a file.
@@ -4488,14 +4764,15 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     if(!directory || !isAbsolute(directory)) return undefined;
     try {
       const record=await writeBridgeHeadsetView(directory,{...still,at:new Date(still.at).toISOString()});
-      return {directory,file:record.file,mediaType:record.mediaType,source:record.source,sha256:record.sha256};
+      return {directory,file:record.file,mediaType:record.mediaType,source:record.source,sha256:record.sha256,
+        ...(record.still?{still:record.still}:{})};
     } catch(error) {
       return {directory,error:(error instanceof Error?error.message:String(error)).slice(0,200)};
     }
   }
   registerAppTool(server,'stereo_structure.capture_headset_view',{
     title:'See what the headset wearer sees',
-    description:'Save one headset still on this Mac to check the structure, spatial menu or tour. source="auto" (default) tries the page, then the device. Pass sessionId to limit the page request to that inspection and its current source; without it, the first companion page may answer. Page results name the actual session, panel and source. A device still is the physical display and is not session-bound, including an auto fallback. page: the companion page posts one downscaled left eye from the live immersive frame. It needs a page in immersion and costs the wearer about a millisecond of one frame. A page frame without proof of its flat-colour check, or one found flat, is never reported as captured; auto then asks the device. maxWidth 160-640 (default 480); quality 0.3-0.95 (default 0.6); waitMs 500-10000 (default 4000) before falling back. device: reads the headset\'s composited display over adb, both eyes with the room, the spatial menu and system UI. It is silent, sends no input, costs no frames and works outside immersion. It needs Developer Mode, one USB pairing and adb on this Mac, and takes about 1 s over USB or 4.5 s over Wi-Fi. maxWidth up to 2048 (default 1600; menu text is unreadable below about 1000). savePath must be an absolute .jpg, .jpeg or .png path; the saved extension changes if needed to match the actual JPEG or PNG bytes, and the result gives the real path and MIME type. Without a path the file goes to the system temporary directory. A headset out of immersion, a Mac with no adb, or a headset asleep or off the wearer\'s head returns a plain explanation rather than an error. The result names the source that made the image. A device capture also reports browser: "anr" means Quest Browser\'s "isn\'t responding" dialog is up, which dims the view every ten seconds and pauses tours; manage_companion action="recover-browser" clears it. "unknown" means this Mac has no debugging cable. The image stays on this Mac and carries no coordinates, tokens or pairing material.',
+    description:'Save one headset still on this Mac to check the structure, spatial menu or tour. source="auto" (default) tries the page, then the device. Pass sessionId to limit the page request to that inspection and its current source; without it, the first companion page may answer. Page results name the actual session, panel and source. A device still is the physical display and is not session-bound, including an auto fallback. page: the companion page posts one downscaled left eye from the live immersive frame. It needs a page in immersion and costs the wearer about a millisecond of one frame. A page frame not checked pixel by pixel, almost entirely black, or one flat colour is never reported as captured; auto then asks the device. One under 1% lit comes with a note. maxWidth 160-640 (default 480); quality 0.3-0.95 (default 0.6); waitMs 500-10000 (default 4000) before falling back. device: reads the headset\'s composited display over adb, both eyes with the room, the spatial menu and system UI. It is silent, sends no input, costs no frames and works outside immersion. It needs Developer Mode, one USB pairing and adb on this Mac, and takes about 1 s over USB or 4.5 s over Wi-Fi. maxWidth up to 2048 (default 1600; menu text is unreadable below about 1000). savePath must be an absolute .jpg, .jpeg or .png path; the saved extension changes if needed to match the actual JPEG or PNG bytes, and the result gives the real path and MIME type. Without a path the file goes to the system temporary directory. A headset out of immersion, a Mac with no adb, or a headset asleep or off the wearer\'s head returns a plain explanation rather than an error. The result names the source that made the image. A device capture also reports browser: "anr" means Quest Browser\'s "isn\'t responding" dialog is up, which dims the view every ten seconds and pauses tours; manage_companion action="recover-browser" clears it. "unknown" means this Mac has no debugging cable. The image stays on this Mac and carries no coordinates, tokens or pairing material.',
     inputSchema:captureHeadsetViewSchema,annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false},_meta:{},
   },async(input:CaptureHeadsetViewInput)=>{
     await hostBuildReady;
@@ -4508,9 +4785,39 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       const at=captureNow();
       const path=savePath ? savePath.replace(/\.(?:jpe?g|png)$/iu, mimeType==='image/png'?'.png':'.jpg')
         : defaultHeadsetViewPath(tmpdir(),at,(...parts)=>resolvePath(...parts),mimeType);
-      await mkdir(dirname(path),{recursive:true});
-      await writeFile(path,bytes);
-      const published=await publishHeadsetView({bytes,mediaType:mimeType,source,at,...shape});
+      const directory=dirname(path);
+      if(savePath) await mkdir(directory,{recursive:true});
+      else {
+        await mkdir(directory,{recursive:true,mode:0o700}).catch(()=>{
+          throw Error('Snapshot directory could not be created as a private directory.');
+        });
+        const handle=await open(directory,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW).catch(()=>{
+          throw Error('Snapshot directory must be a real directory, not a symlink, and accessible to the running user.');
+        });
+        try {
+          const info=await handle.stat();
+          if(!info.isDirectory() || info.uid!==process.getuid?.())
+            throw Error('Snapshot directory must be owned by the running user.');
+          await handle.chmod(0o700).catch(()=>{throw Error('Snapshot directory permissions could not be restricted to 0700.');});
+          if(((await handle.stat()).mode&0o7777)!==0o700)
+            throw Error('Snapshot directory permissions must be 0700.');
+        } finally { await handle.close(); }
+      }
+      const file=await open(path,constants.O_WRONLY|constants.O_CREAT|constants.O_NOFOLLOW|constants.O_NONBLOCK
+        |(savePath?0:constants.O_EXCL),0o600).catch(()=>{
+        throw Error(savePath?'Snapshot file could not be opened without following a symlink.'
+          :'Snapshot file must be new; an existing file or symlink cannot be overwritten.');
+      });
+      try {
+        if(!(await file.stat()).isFile()) throw Error('Snapshot file must be a regular file.');
+        await file.chmod(0o600);
+        if(((await file.stat()).mode&0o7777)!==0o600) throw Error('Snapshot file permissions must be 0600.');
+        if(savePath) await file.truncate(0);
+        await file.writeFile(bytes);
+      } finally { await file.close(); }
+      // A dim still's note goes to the bridge too, so a reader of the files is warned like the caller.
+      const dim=extra.still==='dim' && typeof extra.stillNote==='string'?{still:'dim' as const,stillNote:extra.stillNote}:{};
+      const published=await publishHeadsetView({bytes,mediaType:mimeType,source,at,...shape,...dim});
       return {path,at,published,structured:{captured:true,path,source,mimeType,bytes:bytes.byteLength,
         width:shape.width,height:shape.height,...extra,...(published?{bridge:published}:{})}};
     };
@@ -4534,26 +4841,30 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         content:[{type:'text' as const,text:outcome.reason}],
         structuredContent:{captured:false,source:'page',reason:outcome.code,detail:outcome.reason},
       };
-      // A page frame of one flat colour is never `captured`. On
-      // 2026-09-24, and twice on 2026-09-28, the page returned a black eye
-      // while adb showed the structure in front of the wearer. See
-      // `unlitPageFrame`. The device, which composites the room and both eyes,
-      // is asked instead. The centre probe is reported, never decisive.
+      // A page frame that is almost entirely black, or one flat colour, is
+      // never `captured`: a page can return a black eye while the device shows
+      // the structure in front of the wearer. See `unlitPageFrame`. The device,
+      // which composites the room and both eyes, is asked instead. The centre probe is reported, never decisive.
       const unlit=outcome?.ok?unlitPageFrame(outcome.frame):undefined;
       if(outcome?.ok && !unlit) {
         const frame=outcome.frame;
         const view={eye:frame.eye,x:0,y:0,width:frame.width,height:frame.height};
+        // A frame lit over only a small area is handed over with what its pixels cannot settle, as a device still is.
+        const note=dimPageFrameNote(frame);
         const done=await captured(frame.data,'image/jpeg','page',{width:frame.width,height:frame.height,views:[view]},
           {sessionBound:true,sessionId:frame.sessionId,panelId:frame.panelId,sourceToken:frame.sourceToken,serverEpoch:frame.serverEpoch,
             eye:frame.eye,frameMs:frame.frameMs,readPath:frame.path,directReadable:frame.directReadable,
-            ...(frame.probeLit!==undefined?{probeLit:frame.probeLit}:{}),framebuffer:frame.framebuffer,capturedAt:frame.capturedAt});
+            ...(frame.probeLit!==undefined?{probeLit:frame.probeLit}:{}),framebuffer:frame.framebuffer,capturedAt:frame.capturedAt,
+            ...(note?{still:'dim',stillNote:note}:{})});
         const centre=frame.directReadable && frame.probeLit===false?' Its centre pixel read empty, so the structure is off the centre of the left eye.':'';
-        return {content:[{type:'text' as const,text:`Headset ${frame.eye} eye, ${frame.width}x${frame.height}, ${frame.bytes} bytes, saved to ${done.path} as image/jpeg.${savePath && done.path!==savePath?' The requested extension was changed to match the JPEG bytes.':''} The page spent ${frame.frameMs} ms inside the immersive frame taking it.${centre}${done.published?' Published to the Claude Science bridge.':''}`},
+        // With the controls on XR layers of their own the page paints them over the eye it read, and names the read path for it.
+        const controls=frame.path.endsWith('+no-controls')?' The menu and captions are drawn on layers of their own and could not be added to this image, so it shows the molecule alone; ask again with source "device" to see them.':'';
+        return {content:[{type:'text' as const,text:`Headset ${frame.eye} eye, ${frame.width}x${frame.height}, ${frame.bytes} bytes, saved to ${done.path} as image/jpeg.${savePath && done.path!==savePath?' The requested extension was changed to match the JPEG bytes.':''} The page spent ${frame.frameMs} ms inside the immersive frame taking it.${note?` ${note}`:''}${centre}${controls}${done.published?' Published to the Claude Science bridge.':''}`},
           {type:'image' as const,data:frame.data.toString('base64'),mimeType:'image/jpeg' as const}],
           structuredContent:done.structured};
       }
       let outdatedFrame:string|undefined;
-      if(unlit && !unlit.color && outcome?.ok && expectedHostBuild()) {
+      if(unlit?.still==='unverified' && outcome?.ok && expectedHostBuild()) {
         try {
           const commands=(await current(outcome.frame.sessionId)).attachment.commands, sent=commands.pageBuildOf(outcome.frame.panelId);
           if(commands.surfaceOf(outcome.frame.panelId)==='companion' && sent!==expectedHostBuild()) outdatedFrame=outdatedPageNote(sent);
@@ -4562,10 +4873,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       pageReason=unlit ? unlit.reason+(outdatedFrame?`. ${outdatedFrame}`:'')
         : outcome && !outcome.ok ? outcome.reason : 'no companion page answered within the wait';
       if(wanted==='page') return {content:[{type:'text' as const,text:unlit
-        ? `The page's frame was not saved as the wearer's view: ${pageReason.replace(/[.!?]+$/u,'')}. ${unlit.color?'Either the structure is outside the wearer\'s left eye, or the page read the frame before drawing it. ':''}Ask again with source "device" to see what the wearer sees.`
+        ? `The page's frame was not saved as the wearer's view: ${pageReason.replace(/[.!?]+$/u,'')}. ${unlit.still!=='unverified'?'Either the structure is outside the wearer\'s left eye, or the page read the frame before drawing it. ':''}Ask again with source "device" to see what the wearer sees.`
         : `The page could not take a snapshot: ${pageReason}. Open the companion page on the headset and enter immersion, then ask again.`}],
-        structuredContent:{captured:false,source:'page',reason:unlit?unlit.color?'unlit_frame':'frame_unverified':outcome?'capture_failed':'no_answer',detail:pageReason,
-          ...(unlit?{flatColor:unlit.color}:{}),...(outcome?.ok && outcome.frame.probeLit!==undefined?{probeLit:outcome.frame.probeLit}:{})}};
+        structuredContent:{captured:false,source:'page',reason:unlit?unlit.still==='unverified'?'frame_unverified':'unlit_frame':outcome?'capture_failed':'no_answer',detail:pageReason,
+          ...(unlit?.still?{still:unlit.still}:{}),...(unlit?.color?{flatColor:unlit.color}:{}),...(outcome?.ok && outcome.frame.probeLit!==undefined?{probeLit:outcome.frame.probeLit}:{})}};
     }
 
     // The headset's own composited display buffer, over a debugging
@@ -4588,14 +4899,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         : `The device could not take a still: ${device.reason}`;
       return {content:[{type:'text' as const,text:health.browser==='anr'?`${text} ${healthLine}`:text}],
         structuredContent:{captured:false,source:'device',reason:'device_unavailable',detail:device.reason,browser,
-          ...(pageReason?{pageDetail:pageReason}:{})}};
+          ...(device.still?{still:device.still}:{}),...(pageReason?{pageDetail:pageReason}:{})}};
     }
     const done=await captured(device.bytes,device.mimeType,'device',
       {width:device.width,height:device.height,views:[{eye:'none',x:0,y:0,width:device.width,height:device.height}]},
       // The serial is deliberately left out: over Wi-Fi adb it is the headset's
       // address on the local network, and nothing here needs it.
-      {sessionBound:false,eye:'none',deviceMs:device.ms,deviceWire:device.wire,browser,...(pageReason?{pageDetail:pageReason}:{})});
-    return {content:[{type:'text' as const,text:`Headset display buffer, both eyes with passthrough, ${device.width}x${device.height}, ${device.bytes.byteLength} bytes, saved to ${done.path} as ${device.mimeType} in ${device.ms} ms.${savePath && done.path!==savePath?' The requested extension was changed to match the image bytes.':''}${pageReason?` The in-page capture was tried first and said: ${pageReason}.`:''}${health.browser==='anr'?` ${healthLine}`:''}${done.published?' Published to the Claude Science bridge.':''}`},
+      {sessionBound:false,eye:'none',deviceMs:device.ms,deviceWire:device.wire,browser,...(pageReason?{pageDetail:pageReason}:{}),
+        // A still lit over only a small area is handed over with what its pixels cannot settle.
+        ...(device.note?{still:'dim',stillNote:device.note}:{})});
+    return {content:[{type:'text' as const,text:`Headset display buffer, both eyes with passthrough, ${device.width}x${device.height}, ${device.bytes.byteLength} bytes, saved to ${done.path} as ${device.mimeType} in ${device.ms} ms.${device.note?` ${device.note}`:''}${savePath && done.path!==savePath?' The requested extension was changed to match the image bytes.':''}${pageReason?` The in-page capture was tried first and said: ${pageReason}.`:''}${health.browser==='anr'?` ${healthLine}`:''}${done.published?' Published to the Claude Science bridge.':''}`},
       {type:'image' as const,data:device.bytes.toString('base64'),mimeType:device.mimeType}],
       structuredContent:done.structured};
   });
@@ -4605,30 +4918,62 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   // allowlists: the Mac can question the headset's browser, never the reverse.
   registerAppTool(server,'stereo_structure.read_headset_browser',{
     title:'Read the headset browser\'s own state and console',
-    description:'Ask Quest Browser\'s debugger what the page is actually doing, over the same adb cable the device capture uses. Returns the page it is on, whether the document is visible, whether WebXR is available, whether an immersive session is running and in which blend mode, the last tour, voice and toolbar diagnostics the page recorded, which debug hooks are installed, and the console: everything the page has logged since it loaded, plus uncaught exceptions and the network and security failures the page never logged itself, which is where a blocked mixed-content fetch or a refused certificate on the LAN host shows up. Use it when a still shows something wrong and you need the reason, when the wearer says a control did nothing, or when a command was refused and you cannot tell whether the page ever saw it. It reads and never writes: it does not navigate, click, reload, speak, or call any page hook that changes what the wearer sees, and it costs the wearer no frames. It needs Developer Mode, one USB pairing, adb on this Mac, and `adb forward tcp:<port> localabstract:chrome_devtools_remote` already run; without those it returns a plain sentence naming what was missing rather than an error. One limit is worth knowing: Quest Browser freezes every tab that is not the one the wearer is looking at, and a frozen tab accepts the connection and then answers nothing, so this reports the visible tab or says the tab is asleep. Quest Browser\'s certificate warning in front of the share is reported as certificateWarning, with the steps for the person. target names one tab by id or by part of its address when the wearer has more than one open. consoleMs (200-5000, default 1200) is how long to collect the replayed console backlog. Page addresses, pairing fragments, page keys, bearer tokens and inline data URIs are redacted out of everything this returns.',
+    description:'Ask Quest Browser\'s debugger what the page is actually doing, over the same adb cable the device capture uses. Returns the page it is on, whether the document is visible, whether WebXR is available, whether an immersive session is running and in which blend mode, the last tour, voice and toolbar diagnostics the page recorded, which debug hooks are installed, and the console: everything the page has logged since it loaded, plus uncaught exceptions and the network and security failures the page never logged itself, which is where a blocked mixed-content fetch or a refused certificate on the LAN host shows up. Use it when a still shows something wrong and you need the reason, when the wearer says a control did nothing, or when a command was refused and you cannot tell whether the page ever saw it. It reads and never writes: it does not navigate, click, reload, speak, or call any page hook that changes what the wearer sees, and it costs the wearer no frames. It needs Developer Mode, one USB pairing, adb on this Mac, and either an adb launch from this host (each read then opens its own forward and removes it) or `adb forward tcp:<port> localabstract:chrome_devtools_remote` already run; without those it returns a plain sentence naming what was missing rather than an error. One limit is worth knowing: Quest Browser freezes every tab that is not the one the wearer is looking at, and a frozen tab accepts the connection and then answers nothing, so this reports the visible tab or says the tab is asleep. Quest Browser\'s certificate warning in front of the share is reported as certificateWarning, with the steps for the person. target names one tab by id or by part of its address when the wearer has more than one open. consoleMs (200-5000, default 1200) is how long to collect the replayed console backlog. Page addresses, pairing fragments, page keys, bearer tokens and inline data URIs are redacted out of everything this returns.',
     inputSchema:{
-      target:z.string().min(1).max(200).optional().describe('One tab, by debugger id or by part of its address. Omitted, the Stereofold tab the wearer is looking at.'),
+      target:z.string().min(1).max(200).optional().describe('One tab, by debugger id or by part of its address. Omitted, the tab of this Mac\'s open headset share that the wearer is looking at; with no share open, name a tab or nothing is read.'),
       consoleMs:z.number().int().min(200).max(5_000).optional().describe('How long to collect the replayed console backlog, in milliseconds. Default 1200.'),
       port:z.number().int().min(1).max(65_535).optional().describe(`The forwarded loopback port. Default ${DEVTOOLS_PORT_ENV_KEY} or ${DEVTOOLS_DEFAULT_PORT}.`),
     },
     annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:false,openWorldHint:false},_meta:{},
   },async(input:{target?:string;consoleMs?:number;port?:number})=>{
-    const port=input.port ?? devtoolsPort(captureEnvironment());
+    const configured=input.port ?? devtoolsPort(captureEnvironment());
+    // A named port is read as named. Otherwise the read forwards for itself
+    // after an adb launch, because the launch leaves no forward standing.
+    if(input.port!==undefined) return await readBrowserAt(input,configured,configured);
+    const {value:read,cleanupWarning}=await overOwnForward(port=>readBrowserAt(input,port,configured),configured);
+    // The forward this read opened and could not remove stays reachable from
+    // this Mac, so the result names it and the command that removes it.
+    if(!cleanupWarning) return read;
+    const [first,...rest]=read.content;
+    return {...read,content:[{...first!,text:`${first!.text}\n${cleanupWarning}`},...rest],
+      structuredContent:{...read.structuredContent,cleanupWarning}};
+  });
+  async function readBrowserAt(input:{target?:string;consoleMs?:number},port:number,configured:number) {
     const transport=hooks.headsetDevtools ?? nodeDevtoolsTransport();
     // The certificate warning carries no Stereofold title,
     // so the page picker never chooses its tab. It is looked for on its own,
-    // fenced to this Mac's share when one is open.
+    // and only in front of the Wi-Fi share's own address: the share is the one
+    // transport with a certificate the headset does not trust. With no Wi-Fi
+    // share there is no warning of this Mac's to find, and no tab is probed.
     const share=lan.status();
     const shareOrigin=(()=>{try { return share?new URL(share.url).origin:undefined; } catch { return undefined; }})();
     const certificateOf=async()=>{
-      const found=await readCertificateWarning(transport,{port,...(shareOrigin?{expectedOrigin:shareOrigin}:{}),
+      if(!shareOrigin) return undefined;
+      const found=await readCertificateWarning(transport,{port,expectedOrigin:shareOrigin,
         ...(share?.fingerprint?{fingerprint:share.fingerprint}:{})}).catch(()=>undefined);
       return found?.read?found.warning:undefined;
     };
+    // Any site can serve `/viewer` under a Stereofold title, so only the origin
+    // of an address this Mac is serving to a headset right now makes a tab this
+    // product's: the Wi-Fi share, the public relay, or the loopback companion
+    // the headset reaches through `adb reverse`. With none open, an automatic
+    // read has nothing to tell the tabs apart by and reads none; a named target
+    // is the caller's own choice and is read as named.
+    const servedOrigins=[...new Set([shareOrigin,questLink.origin,...loopbackShares.values()]
+      .filter((origin):origin is string=>origin!==undefined))];
+    if(!input.target && !servedOrigins.length) {
+      const certificate=await certificateOf();
+      if(certificate) return {content:[{type:'text' as const,text:describeCertificateWarning(certificate)}],
+        structuredContent:{read:false,port,reason:'no share is open',certificateWarning:certificate}};
+      const reason='No headset share is open on this Mac, so no tab can be told apart from another site\'s page with the same address and title.';
+      return {content:[{type:'text' as const,text:`The headset browser was not read: ${reason} Share to the headset first, or name the tab with target (its debugger id or part of its address).`}],
+        structuredContent:{read:false,port,reason}};
+    }
     let reading;
     try {
       reading=await readHeadsetBrowser(transport,
-        {port,...(input.target?{wanted:input.target}:{}),...(input.consoleMs!==undefined?{consoleMs:input.consoleMs}:{})});
+        {port,...(input.target?{wanted:input.target}:{}),...(servedOrigins.length?{expectedOrigin:servedOrigins}:{}),
+          ...(input.consoleMs!==undefined?{consoleMs:input.consoleMs}:{})});
     } catch(error) {
       // Every way this fails is an ordinary state a reader fixes in seconds —
       // the cable out, Developer Mode off, the tunnel not forwarded, the tab
@@ -4637,7 +4982,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       const certificate=await certificateOf();
       if(certificate) return {content:[{type:'text' as const,text:describeCertificateWarning(certificate)}],
         structuredContent:{read:false,port,reason,certificateWarning:certificate}};
-      return {content:[{type:'text' as const,text:`The headset browser could not be read: ${reason} Check that the headset is attached, Developer Mode is on, and \`adb forward tcp:${port} localabstract:chrome_devtools_remote\` has been run.`}],
+      return {content:[{type:'text' as const,text:`The headset browser could not be read: ${reason} Check that the headset is attached, Developer Mode is on, and \`adb forward tcp:${configured} localabstract:chrome_devtools_remote\` has been run.`}],
         structuredContent:{read:false,port,reason}};
     }
     const certificate=await certificateOf();
@@ -4650,7 +4995,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       structuredContent:{read:true,port,target:reading.target,state:reading.state,
         ...(reading.stateReason?{stateReason:reading.stateReason}:{}),console:reading.console,
         ...(certificate?{certificateWarning:certificate}:{})}};
-  });
+  }
   privateTool('stereo_structure.detach_inspection',{
     title:'Detach an inspection panel',description:'App-only retirement of one panel capability. Pending commands are never retargeted. Idle panels expire after ten seconds without a heartbeat; a claimed render has a bounded two-minute completion window. reason "detailed-view" says this headset page is sending its own tab to the full Mol* viewer, and reason "loading" says it is about to load a structure and will register again once that has rendered and saved, so a later command can name where the wearer went or what the page is doing instead of printing desktop instructions. reason "hidden" is a desktop tab the browser hid; it detaches only a desktop panel of a session shared with a headset, and otherwise answers detached false.',
     inputSchema:pollInspectionSchema.omit({availability:true,spatialContext:true,xrStartup:true})
@@ -4863,7 +5208,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const task=pendingCompanionWork.get(id);
     if(task) {task.cancelled=true;task.closedByManager=closedByManager;if(task.expiry) clearTimeout(task.expiry);pendingCompanionWork.delete(id);}
   }
-  hooks.sessionEnded?.(id=>forgetCompanionWork(id));
+  hooks.sessionEnded?.(id=>{forgetCompanionWork(id);loopbackShares.delete(id);});
   registerAppTool(server,'stereo_structure.open_companion',{
     title:'Connect this inspection to a browser or headset',
     description:'Share the session already open on the laptop by passing its sessionId here. When joining another host\'s session, call continue_session first and reuse its sessionId; replace its source only for a requested different structure. If no session exists, or the user explicitly wants a new or separate session, call inspect and pass the new sessionId here. For Meta Quest use {connection:"lan",headset:"meta",launch:"auto",waitForHeadsetMs:20000}; auto uses an authorized USB or remembered Wi-Fi Quest when discovery succeeds, otherwise Meta Web Launch; for Apple Vision Pro use {connection:"lan",headset:"apple",launch:"auto"}. The first call opens a Mac inspector when needed. A current authenticated headset page on the same share is reused without another launch, including a paused page; headsetPage.reused carries its actual state. Use manage_companion action="launch" for an explicit fresh launch. If drawing, sharing, or launching takes longer than this call can wait, sharePending is returned: call open_companion again with the same arguments. The same operation continues, including the draw\'s full render budget. A saved scene is shared over private Wi-Fi HTTPS; the result includes the LAN address, pairing details and launch outcome. With launch="adb", waitForHeadsetMs:20000 can confirm whether the headset page drew. For adb, allow 60 seconds for page progress. For Web Launch or Safari handoff, check state every 5–10 seconds until pairing or pairingExpiresAt; do not send a competing pairing while human prompts are pending. After a reported failure or expiry, diagnose with manage_companion action="status" and follow recovery instructions. With Web Launch the wearer presses Open. If headsetPage.certificateWarning is present, give its instruction before any Enter VR step. launch="none" only prints the address; launch requires connection="lan". The binding fields are optional; left out, the host uses current values.',
@@ -4933,6 +5278,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         // tunnel connections, so every return path must reject a replaced source.
         if(binding(input.sessionId,data).sourceToken!==b.sourceToken)
           throw Error('The structure changed while connecting. Try again.');
+        if(input.connection!=='loopback') loopbackShares.delete(input.sessionId);
         if(input.connection==='lan') {
           // The LAN listener is one host-wide resource. Letting a second session
           // reuse it would clear the first session's paired clients and move
@@ -4946,8 +5292,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           await ensureActive();
           const previousHeadset=lanOwner?.sessionId===input.sessionId?lanOwner.headset:undefined;
           const previousShare=lanOwner?.sessionId===input.sessionId && lanOwner.sourceToken===b.sourceToken?lan.status():undefined;
+          // A listener opened on another address or capability ends the old pairings.
+          const pairedBefore=pairedClients();
           const local=await lan.open({url:link.url,host:input.lanHost,port:input.lanPort});
           try {await ensureActive();} catch(error) {if(!active.closedByManager) await lan.close();throw error;}
+          retireEndedPairings(pairedBefore,data,b);
           lanOwner={sessionId:input.sessionId,sourceToken:b.sourceToken,
             headset:input.headset==='auto'?previousHeadset??'auto':input.headset};
           markShared(input.sessionId,data.attachment,true);
@@ -5026,7 +5375,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           // warning's steps then come first, and the launch sentence loses its
           // Enter VR step, because the page with that button has not loaded.
           const worn=launched.headset?.worn;
-          const certificate=drew||launched.headset===undefined?undefined:await headsetCertificateWarning(local.url,worn,local.fingerprint);
+          const probe=drew||launched.headset===undefined?{left:''}:await headsetCertificateWarning(local.url,worn,local.fingerprint);
+          const certificate=probe.warning;
           await ensureActive();
           data=await current(input.sessionId);
           // Attaching is what the page did, and all this answer
@@ -5038,11 +5388,12 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
               :page.state==='paused'?wearerPausedNote(page)
               :`It is waiting for Enter VR. Tell the person once to tap Enter VR, then ${WEARER_WAIT}`);
           return answer({companion:{...local,connection:'lan'},launch:launched,headsetPage:{drew,waitedMs,...(certificate?{certificateWarning:certificate}:{})}},
-            certificate?`${describeCertificateWarning(certificate)} ${launched.message.replace(` · ${enterVrStep(worn)}.`,'.')} `
+            (certificate?`${describeCertificateWarning(certificate)} ${launched.message.replace(` · ${enterVrStep(worn)}.`,'.')} `
               +`The headset page did not attach and draw within ${seconds} s. Once the user has chosen Proceed, read get_inspection_state for wearer.state before calling anything shown.`
             :`${launched.message} `+(drew?opened
               :`The headset page did not attach and draw within ${seconds} s. Check that the headset is awake, on this Mac's Wi-Fi, and showing the page in its browser; `
-                +'companion.url and companion.pairingCode in this result still work by hand. Read get_inspection_state for wearer.state before calling anything shown.'));
+                +'companion.url and companion.pairingCode in this result still work by hand. Read get_inspection_state for wearer.state before calling anything shown.'))
+            +probe.left);
         }
         if(input.connection==='https') {
           // Choosing another transport must retire this session's own LAN listener.
@@ -5050,6 +5401,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           // no longer sharing over it.
           if(lanOwner?.sessionId===input.sessionId) {await lan.close();lanOwner=undefined;}
           await ensureActive();
+          questLinkOwner=input.sessionId;
           const secure=await questLink.open(link);
           // Source replacement while the relay starts must not publish a stale link.
           try {
@@ -5067,8 +5419,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           const launch=new URL('https://www.oculus.com/open_url/');launch.searchParams.set('url',secure.url);
           return answer({companion:{...secure,connection:'https',webLaunchUrl:launch.href}});
         }
-        // Loopback is also a transport switch: retire this session's LAN listener.
+        // Loopback is also a transport switch: retire this session's LAN listener
+        // and its public relay, whose old link would otherwise keep serving.
         if(lanOwner?.sessionId===input.sessionId) {await lan.close();lanOwner=undefined;}
+        await closeOwnedQuestLink(input.sessionId);
         await ensureActive();
         markShared(input.sessionId,data.attachment,true);
         // Discovery uses the scene service's local bearer and owner checks;
@@ -5076,6 +5430,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         scene.noteSession(input.sessionId);
         await scene.offer().catch(()=>false);
         await ensureActive();
+        // The companion answers only Host 127.0.0.1, so that is the origin of
+        // its tab on the headset, not localhost.
+        loopbackShares.set(input.sessionId,`http://127.0.0.1:${link.port}`);
         return answer({companion:{...link,connection:'loopback',adbReverse:`adb reverse tcp:${link.port} tcp:${link.port}`}});
       })().then(answer=>({answer}),error=>({error}));
       pendingCompanionWork.set(input.sessionId,task);
@@ -5187,6 +5544,27 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     };
   }
 
+  /**
+   * The device classes this session's headset pages report, for a grow whose
+   * caller named no device. For each headset panel still registered: the
+   * class it (or the panel it replaced) reported on entering XR, kept after
+   * XR ends, else its live log. Then the pairing User-Agent class of each LAN
+   * page in use within `CLIENT_ACTIVE_MS`, newest first. A page that closed
+   * and expired no longer counts. A desktop-only session reports none.
+   */
+  function sessionHeadsetClasses(sessionId:string,panels:ReadonlyArray<{panelId:string;surface:string}>):string[] {
+    const classes:string[]=[];
+    const kept=reportedPanelClasses.get(sessionId);
+    for(const panel of panels) if(panel.surface!=='desktop') {
+      const reported=kept?.get(panel.panelId)??reportedPanelDeviceClass(new Set([panel.panelId]));
+      if(isHeadsetDeviceClass(reported)) classes.push(reported);
+    }
+    const live=lanOwner?.sessionId===sessionId?lan.status():undefined;
+    for(const client of [...(live?.clients??[])].sort((x,y)=>y.lastUsedAt.localeCompare(x.lastUsedAt)))
+      if(presenceNow()-Date.parse(client.lastUsedAt)<CLIENT_ACTIVE_MS) classes.push(client.deviceClass);
+    return classes;
+  }
+
   function reportedPanelDeviceClass(relevantPanels:ReadonlySet<string>):string|null|undefined {
     let reported:string|undefined;
     if(relevantPanels.size) {
@@ -5209,8 +5587,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     live:ReturnType<typeof lan.status>,at=presenceNow()):ReadinessFacts['share'] {
     if(!live || lanOwner?.sessionId!==sessionId) return undefined;
     const currentPanels=new Set(panels.filter(panel=>panel.current&&panel.surface==='companion').map(panel=>panel.panelId));
-    const pairedIds=new Set(live.clients.map(client=>client.id));
-    for(const [panelId,clientId] of panelLanClients) if(!pairedIds.has(clientId)) panelLanClients.delete(panelId);
+    // Only reads: a holder whose pairing just ended stays until the request
+    // that ended it has retired its panels, and pruning keeps the map small.
     const peers=[...live.clients].sort((a,b)=>b.lastUsedAt.localeCompare(a.lastUsedAt)||b.createdAt.localeCompare(a.createdAt))
       .map(client=>{
         const pairedPanels=[...panelLanClients].filter(([,clientId])=>clientId===client.id).map(([id])=>id);
@@ -5352,6 +5730,157 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       readiness,...((input.waitForSceneMs??0)>0?{sceneSaved}:{})}},
       `Inspector panel for this session: ${link.url}\n${opening}Leave that tab open: it is the renderer. ${next}`);
   });
+  // The live view: a picture of a desktop panel, kept in one file that a host
+  // pane able to show local files can display beside the chat. The latest start
+  // owns the file (see live-view.ts); `landLiveView` says what that guarantees.
+  const liveViewFile=()=>hooks.liveViewPath ?? liveViewPath(scene.path);
+  // Pictures being written and checks running, which shutdown waits for.
+  const liveViewWork=new Set<Promise<unknown>>();
+  const trackLiveView=<T,>(work:Promise<T>):Promise<T>=>{
+    liveViewWork.add(work);
+    void work.finally(()=>liveViewWork.delete(work)).catch(()=>undefined);
+    return work;
+  };
+  let liveViewClosing=false, liveViewChecking=false, liveViewCheckedAt=-Infinity;
+  type LiveViewSource={cache:unknown;revision:number|undefined};
+  /** The session's source as a picture is drawn from it: every source change moves the cache, the revision, or both. */
+  const liveViewSource=(sessionId:string):LiveViewSource=>{
+    const session=hooks.current(sessionId);
+    return {cache:session.structureCache,revision:session.sourceRevision};
+  };
+  const supersededBy=(owner:LiveViewOwner|undefined):LiveViewSuperseded=>
+    !owner?'owner-gone':owner.serverEpoch===hooks.serverEpoch?'another-session':'another-host';
+  /** The owner record as it stands; the session of this server feeding the file stops if the record no longer names its claim. */
+  const reconcileLiveView=(path:string)=>{
+    const owner=readLiveViewOwner(path), feeding=liveView.feeding();
+    if(feeding && owner?.claim!==feeding.claim) liveView.supersede(feeding.claim,supersededBy(owner));
+    return owner;
+  };
+  /**
+   * The one step that lands a picture, a new frame or a repair. It is
+   * synchronous, so nothing else in this server (a start, a stop, a session's
+   * end, shutdown, a source change) comes between its checks and the rename.
+   * There is no lock between servers that share the folder. Across them this
+   * is what holds, and no more: the latest start owns the file; a server that
+   * another start supersedes between this step's read of the owner record and
+   * its rename can land at most one late picture; and the owner replaces that
+   * picture with its own last one at its next check of the file
+   * (`checkLiveView`), made when its desktop panel polls: within about a
+   * second while that panel is open, once the owner has landed a picture.
+   */
+  const landLiveView=(sessionId:string,claim:string,source:LiveViewSource,publish:()=>void)=>{
+    if(liveViewClosing || liveView.feeding()?.claim!==claim) return 'stopped' as const;
+    const now=liveViewSource(sessionId);
+    if(now.cache!==source.cache || now.revision!==source.revision) return 'source-changed' as const;
+    const owner=readLiveViewOwner(liveViewFile());
+    if(owner?.claim!==claim) { liveView.supersede(claim,supersededBy(owner)); return 'taken-over' as const; }
+    publish();
+    return 'landed' as const;
+  };
+  /**
+   * The owner's check of the file. If the file is not the picture this server
+   * last landed, it lands that picture again through `landLiveView`, which
+   * writes only while the owner record names this server's claim and
+   * otherwise stops this session. Only the owner named in the record repairs,
+   * so two servers never fight over the file.
+   */
+  const checkLiveView=async():Promise<LiveViewCheck>=>{
+    const feeding=liveView.feeding(), written=liveView.written(), path=liveViewFile();
+    if(!feeding || !written || liveViewClosing) return 'skipped';
+    if((await readFile(path).catch(()=>undefined))?.equals(written.bytes)) return 'same';
+    // A newer picture landing meanwhile settles the file as well as this would.
+    const landed=await replaceLiveViewFile(path,written.bytes,publish=>liveView.written()!==written?'stopped' as const
+      :landLiveView(feeding.sessionId,feeding.claim,written.source as LiveViewSource,publish),hooks.liveView?.written);
+    return landed==='landed'?'repaired':landed==='taken-over'?'superseded':'skipped';
+  };
+  /** A desktop panel of the feeding session polled: check the file, at most once an interval and one check at a time. */
+  const checkLiveViewSoon=()=>{
+    const at=(hooks.now ?? Date.now)();
+    if(liveViewChecking || at-liveViewCheckedAt<LIVE_VIEW_INTERVAL_MS) return;
+    liveViewChecking=true; liveViewCheckedAt=at;
+    void trackLiveView(checkLiveView().catch(()=>'skipped' as const)
+      .then(outcome=>{ liveViewChecking=false; hooks.liveView?.checked?.(outcome); }));
+  };
+  hooks.sessionEnded?.(id=>{ liveView.end(id); });
+  // Shutdown refuses new starts and stops feeding at once, then waits a
+  // bounded time for pictures being written; any that finish later never land.
+  const closeLiveView=async()=>{
+    liveViewClosing=true;
+    const feeding=liveView.feeding();
+    if(feeding) liveView.end(feeding.sessionId);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    await Promise.race([Promise.allSettled([...liveViewWork]),new Promise(resolve=>{ timer=setTimeout(resolve,LIVE_VIEW_CLOSE_DRAIN_MS); })]);
+    clearTimeout(timer);
+  };
+  const closeBeforeLiveView=server.close.bind(server);
+  server.close=async()=>{await closeLiveView();await closeBeforeLiveView();};
+  const oncloseBeforeLiveView=server.server.onclose;
+  server.server.onclose=()=>{void closeLiveView();oncloseBeforeLiveView?.();};
+  registerAppTool(server,'stereo_structure.show_live_view',{
+    title:'Keep a live picture of the view for the host to show',
+    description:'Keep a picture of what this Mac currently shows for this session in one local JPEG file, replaced about once a second while the scene draws, so a host that can show a local file beside the chat (Claude Science: Files, This computer) can display the current view and keep it current without further requests. Use it when the person asks to see the view, the scene or the headset here, in the app or beside the chat. The picture comes from this session\'s desktop panel on this Mac (same structure, chapter, colors and labels as the headset, from the desktop camera), which must be open and visible. The result names the file and says whether a picture has arrived; pass that path to the person with the one step it gives. action="stop" stops replacing the file; action="status" reports it. The latest start owns the file: a session whose live view another start replaced has stopped, says so in its status, and feeds the file again only after a new start. The file holds pixels only: no coordinates, tokens or pairing material.',
+    inputSchema:showLiveViewSchema,annotations:{...mutation,idempotentHint:true},_meta:{},
+  },async(input:{sessionId:string;action?:'start'|'stop'|'status'})=>{
+    const data=await current(input.sessionId);
+    const action=input.action ?? 'start', path=liveViewFile();
+    // From here on nothing is awaited: the start, the stop and the answer are one synchronous step.
+    const answer=()=>{
+      const owner=reconcileLiveView(path), feeding=liveView.feeding();
+      const status=liveView.status(input.sessionId), frame=status.frame;
+      const otherHost=!status.active && owner!==undefined && owner.serverEpoch!==hooks.serverEpoch;
+      const otherSession=!status.active && feeding!==undefined;
+      return result(input.sessionId,data,{liveView:{path,active:status.active,...(status.superseded?{superseded:status.superseded}:{}),
+        ...(frame?{lastFrame:{at:new Date(frame.at).toISOString(),width:frame.width,height:frame.height,bytes:frame.bytes}}:{})}},
+        liveViewText({path,action,active:status.active,...(frame?{frame}:{}),...(status.superseded?{superseded:status.superseded}:{}),
+          now:(hooks.now ?? Date.now)(),otherSession,otherHost}));
+    };
+    if(action==='stop') liveView.end(input.sessionId);
+    if(action!=='start') return answer();
+    if(liveViewClosing) throw Error('This Stereofold server is shutting down, so its live view cannot start.');
+    // A source that changed while this was read is refused here, before anything is armed.
+    binding(input.sessionId,data);
+    const claim=randomUUID();
+    writeLiveViewOwner(path,{claim,serverEpoch:hooks.serverEpoch,pid:process.pid});
+    liveView.arm(input.sessionId,claim);
+    void sweepLiveViewFolder(path);
+    try { return answer(); } catch(error) { liveView.end(input.sessionId); throw error; }
+  });
+  // The panel's half of the live view. It answers only a request armed for this
+  // session, only from a desktop panel on the current source, and it writes a
+  // JPEG of the declared size and nothing else. The frame is reserved before
+  // its bytes are written, and lands only through `landLiveView`, after its
+  // claim and its place in order are checked in that same synchronous step.
+  privateTool('stereo_structure.submit_live_view',{
+    title:'Deliver one live view picture',description:'App-only answer to a live view request on the desktop heartbeat. Carries one base64 JPEG of the panel\'s canvas. Refused unless show_live_view is running for this session and the caller is its current desktop panel.',
+    inputSchema:inspectionBindingSchema.extend({panelId:z.string().uuid(),...liveViewFrameShape}),annotations:{...mutation,idempotentHint:false},_meta:privateUi,
+  },async input=>{
+    const data=await current(input.sessionId), b=binding(input.sessionId,data);
+    if(input.serverEpoch!==b.serverEpoch || input.sourceToken!==b.sourceToken)
+      throw Error('The picture belongs to a changed view.');
+    // Read in the same synchronous stretch as the binding check.
+    const source=liveViewSource(input.sessionId);
+    if(data.attachment.commands.surfaceOf(input.panelId)!=='desktop')
+      throw Error('Only a current desktop panel can deliver the live view.');
+    const bytes=canonicalBase64(input.image), size=bytes?jpegSize(bytes):undefined;
+    if(!bytes || bytes.byteLength>LIVE_VIEW_MAX_BYTES || !size || size.width!==input.width || size.height!==input.height)
+      throw Error('The live view picture must be a JPEG of the declared size.');
+    const admission=liveView.admit(input.sessionId,input.panelId);
+    if('reason' in admission) return {structuredContent:{accepted:false,reason:admission.reason}};
+    const token=admission.token;
+    const outcome=await trackLiveView(replaceLiveViewFile(liveViewFile(),bytes,publish=>{
+      const refusal=liveView.refusal(token);
+      if(refusal) return refusal;
+      const landed=landLiveView(input.sessionId,token.claim,source,publish);
+      if(landed!=='landed') return landed;
+      liveView.commit(token,{width:input.width,height:input.height,bytes:bytes.byteLength,panelId:input.panelId},{bytes,source});
+      return 'accepted' as const;
+    },hooks.liveView?.written)
+      // A picture the disk refuses is dropped; the next one tries again.
+      .catch(()=>'failed' as const));
+    return outcome==='accepted'
+      ?{structuredContent:{accepted:true,bytes:bytes.byteLength}}
+      :{structuredContent:{accepted:false,reason:outcome}};
+  });
   registerAppTool(server,'stereo_structure.get_readiness',{
     title:'Check headset microphone readiness',
     description:'Read this host\'s readiness for an optional headset-microphone conversation as six capabilities, each ok, missing or not-checked, with an actionable next step. structure means a saved scene and current ready panel; share means an open private Wi-Fi listener with a paired client; agent reports channel attempts (unacknowledged), polling, or nobody via readiness.voiceDelivery; polling alone cannot answer. transcription requires an enabled recognizer and an observed transcript in this session; configured but unobserved capture is not-checked and blocks voice readiness. replies reports the configured spoken-answer route; speechCheck=true attempts one short clip through that provider, including an OAuth network request when selected. Generated audio does not confirm headset playback. A current paired browser page establishes its connection regardless of optional debugging tools. Otherwise headset checks an authorized Quest debugging transport using discovered adb; an absent or failed debugging connection does not establish that the headset is off or unreachable. This status check does not enable or reconnect debugging. Check wearer.state separately for immersive rendering. ready is true when blocking is empty. The same text is printed by setup-doctor.ts and headset-drive.ts. Reading this does not count as listening. Debugging diagnostics may name the selected device or authorized endpoint; no pairing code, token or device key is returned. This does not assess the host app’s independent live voice session. Missing headset-microphone prerequisites do not block host voice, manual controls or text.',
@@ -5374,6 +5903,10 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
   },async input=>{
     const data=await current(input.sessionId),b=binding(input.sessionId,data);
     if(input.serverEpoch!==b.serverEpoch || input.sourceToken!==b.sourceToken) throw Error('Read the current inspection state before managing its connection.');
+    // Stopping sharing ends this session's public relay before anything else,
+    // including when another session holds the LAN listener: the old relay
+    // link must not keep serving /source and /tool until its own expiry.
+    if(input.action==='close') {await closeOwnedQuestLink(input.sessionId);loopbackShares.delete(input.sessionId);}
     if(lanOwner && (lanOwner.sessionId!==input.sessionId)) {
       if(input.action!=='status') throw Error('The LAN connection belongs to a different inspection.');
       return result(input.sessionId,data,{lan:null,addresses:listLanAddresses(),rememberedDevices:await lan.rememberedDevices()});
@@ -5383,16 +5916,23 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     // command stays pending, with no companion left to render it.
     if(input.action==='close') {
       forgetCompanionWork(input.sessionId,true);
-      const owned=lanOwner?.sessionId===input.sessionId;
+      const owned=lanOwner?.sessionId===input.sessionId, paired=pairedClients();
       await lan.close();lanOwner=undefined;
+      retireEndedPairings(paired,data,b);
       if(owned)markShared(input.sessionId,data.attachment,false);
       return result(input.sessionId,data,{lan:null,shareClosed:true,rememberedDevices:await lan.rememberedDevices()},
         'Sharing stopped. The private Wi-Fi listener is closed and paired devices are disconnected.');
     }
-    else if(input.action==='revoke') {if(!input.clientId) throw Error('Choose the paired client to revoke.');await lan.revoke(input.clientId);}
+    else if(input.action==='revoke') {
+      if(!input.clientId) throw Error('Choose the paired client to revoke.');
+      const paired=pairedClients();await lan.revoke(input.clientId);retireEndedPairings(paired,data,b);
+    }
     // Forgetting a headset is a Mac-wide decision about a stored key, so it
     // works whether or not this session currently runs the listener.
-    else if(input.action==='forget') {if(!input.deviceId) throw Error('Choose the remembered headset to forget, or "all".');await lan.forgetDevices(input.deviceId);}
+    else if(input.action==='forget') {
+      if(!input.deviceId) throw Error('Choose the remembered headset to forget, or "all".');
+      const paired=pairedClients();await lan.forgetDevices(input.deviceId);retireEndedPairings(paired,data,b);
+    }
     else if(input.action==='recover-pairing') {
       if (lanOwner?.sessionId !== input.sessionId || !input.launchId) throw Error('Choose the failed launch on this inspection.');
       const code = await lan.recoverPairing(input.launchId);
@@ -5429,7 +5969,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       // A restarted Quest Browser has forgotten the
       // person's Proceed, so the reopened page can stop at the certificate
       // warning. Its steps then replace "tap Enter VR".
-      const certificate=launched.opened?await headsetCertificateWarning(live.url,launched.headset?.worn,live.fingerprint):undefined;
+      const probe=launched.opened?await headsetCertificateWarning(live.url,launched.headset?.worn,live.fingerprint):{left:''};
+      const certificate=probe.warning;
       if(launched.opened && !certificate) await sayToWearer('Back. Tap Enter VR.');
       const after=await browserHealth();
       const text=launched.opened
@@ -5438,7 +5979,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         : `Stopped Quest Browser${health.browser==='anr'?' and cleared its ANR dialog':''}, but could not reopen the page: ${launched.message} Open the printed address on the headset.`;
       return result(input.sessionId,data,{lan:lan.status()??null,addresses:listLanAddresses(),
         recovery:{stopped:true,relaunched:launched.opened,before:health,after},launch:launched,...(code?{pairingCode:code}:{}),
-        ...(certificate?{certificateWarning:certificate}:{})},text);
+        ...(certificate?{certificateWarning:certificate}:{})},`${text}${probe.left}`);
     }
     else if(input.action==='enter-vr') {
       // A wearer on the flat page sees no molecule, and
@@ -5726,6 +6267,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
         const sameSource=latest.attachment===refreshed.attachment;
         const ready=receipt?.status==='rendered' && sameSource && latest.attachment.commands.readyPanel(receipt.panelId,binding(input.sessionId,latest));
         const reset='Appearance resets to the new source defaults, including representation and colors.';
+        // A plain name may have been asked for; the answer names the id it opened.
+        const demoLine=demo?`${openedDemoSentence(demo)} `:'';
         const budgetLine=`This host budgets ${Math.round(budgetMs/1000)} s for this source to load, draw and save; keep reading get_inspection_state for its sourceRenderReceipt until that budget is spent.`;
         const unwaitedLine=`No render wait was asked for, so nothing here says the wearer saw it. ${budgetLine}`;
         const reason=!sameSource?'The source changed again before rendering could be confirmed.'
@@ -5756,7 +6299,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
             status:!sameSource?'superseded':receipt?'unconfirmed':input.demo||preparationUsedWaitBudget?'rendering':askedMs?'timed_out':'unwaited'};
         if(!sameSource) return result(input.sessionId,latest,{sourceTransition:{sourceChanged:false,superseded:true},
           sourceRenderReceipt:null,sourceRenderStatus:renderReceipt,
-          renderWait:{timedOut:!receipt,reason,budgetMs,waitedForMs,askedMs}},reason);
+          renderWait:{timedOut:!receipt,reason,budgetMs,waitedForMs,askedMs}},demoLine+reason);
         return result(input.sessionId,latest,{kind:'inspect',renderToken:opened.structuredContent.renderToken,hasStructure:true,
           appearanceReset:true,
           sourceLoadTimings:loadTimings,
@@ -5766,16 +6309,16 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
           renderWait:{timedOut:!input.demo&&Boolean(askedMs)&&!receipt&&!preparationUsedWaitBudget,
             ...(input.demo?{pending:!receipt,waitExpired:askedMs>0&&!receipt}:{}),reason:ready?null:reason,budgetMs,waitedForMs,askedMs},
           sourceTransition:{sourceChanged:true,...(source.kind==='pdb'?{pdbId:source.id.toUpperCase()}:{kind:source.kind})}},
-          ready?`The selected panel rendered and saved the new source. ${reset}${receipt?.status==='rendered' && receipt.geometryBudget?` ${receipt.geometryBudget.message}`:''}`
+          demoLine+(ready?`The selected panel rendered and saved the new source. ${reset}${receipt?.status==='rendered' && receipt.geometryBudget?` ${receipt.geometryBudget.message}`:''}`
             :receipt?.status==='failed'?`The selected panel could not load the new source: ${reason}`
             :input.demo||askedMs?`${reason} ${reset}`
-              :`Stereofold session opened. The panel still needs to load and render the structure. Check get_inspection_state for hasScene and a current ready panel before reporting it as visible. ${reset}`);
+              :`Stereofold session opened. The panel still needs to load and render the structure. Check get_inspection_state for hasScene and a current ready panel before reporting it as visible. ${reset}`));
       } finally { releaseRetarget(); }
     } finally { sourceOperation.release(); }
   });
   privateTool('stereo_structure.grow_structure',{
     title:'Grow or shrink the staged lesson without leaving the headset',
-    description:'Step one tier up or down a staged demo in the session the wearer is already in, which is what to use for "grow it", "add tubulin", "build the wall", "cap it" and "shrink it". The loaded lesson names the tier, so pass stage="next" to grow, "back" to shrink, or the exact tier id (the microtubule-growth demo has monomer, dimer, protofilament, wall, tube and tip). The coordinates and the authored lesson are both replaced together and the same immersive session, placement and scale are kept, so the structure appears to form where it already is rather than reopening. Every tier uses indexed coordinates with a recorded digest, including deposited structures and bundled published models; growing runs no prediction. device is the paired headset class and decides what is allowed: a quest2 headset is refused anything over '+QUEST2_ATOM_SITE_CEILING.toLocaleString()+' atom sites, and the refusal comes back with a short spoken line to read out rather than an attempt that would drop the session with the headset on. First read get_inspection_state and copy sessionId, serverEpoch, sourceToken, stateRevision as baseStateRevision, inspectionRevision as baseInspectionRevision, and a current ready panelId. An accepted request is still pending rendering. Read get_inspection_state again for the new lesson and parts, and wait until sourceRenderReceipt has status="rendered", rendered=true, the current sourceToken and ready replacement panelId, and renderedRevision no greater than the current inspectionRevision. The receipt appears only after that renderer saves and attaches the new source.',
+    description:'Step one tier up or down a staged demo in the session the wearer is already in, which is what to use for "grow it", "add tubulin", "build the wall", "cap it" and "shrink it". The loaded lesson names the tier, so pass stage="next" to grow, "back" to shrink, or the exact tier id (the microtubule-growth demo has monomer, dimer, protofilament, wall, tube and tip). The coordinates and the authored lesson are both replaced together and the same immersive session, placement and scale are kept, so the structure appears to form where it already is rather than reopening. Every tier uses indexed coordinates with a recorded digest, including deposited structures and bundled published models; growing runs no prediction. device is the paired headset class and decides what is allowed: a quest2 headset is refused anything over '+QUEST2_ATOM_SITE_CEILING.toLocaleString()+' atom sites except the tube tier, which it has opened. Omitted, the class this session\'s headset pages report is used, and a session with no headset page is not held to that ceiling. The refusal comes back with a short spoken line to read out rather than an attempt that would drop the session with the headset on. First read get_inspection_state and copy sessionId, serverEpoch, sourceToken, stateRevision as baseStateRevision, inspectionRevision as baseInspectionRevision, and a current ready panelId. An accepted request is still pending rendering. Read get_inspection_state again for the new lesson and parts, and wait until sourceRenderReceipt has status="rendered", rendered=true, the current sourceToken and ready replacement panelId, and renderedRevision no greater than the current inspectionRevision. The receipt appears only after that renderer saves and attaches the new source.',
     inputSchema:growStructureSchema,annotations:{...mutation,destructiveHint:true},_meta:{},
   },async input=>{
     const data=await current(input.sessionId), b=binding(input.sessionId,data);
@@ -5788,7 +6331,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     const index=await readGrowthIndex();
     const here=growthStageOfLesson(index,data.attachment.customTour?.id);
     if(!here) throw Error('This session is not playing a staged lesson, so there is no tier to grow from. Load one with replace_inspection_source({sessionId,demo:"microtubule-growth",stage:"monomer"}).');
-    const tier=DEMO_TIER_BY_DEVICE[input.device??'unknown']??'quest2';
+    // A grow sent from the Mac names no device. Reading that as `unknown`
+    // let a Quest 2 that follows this session receive a tier it is refused
+    // when it asks itself, so the classes its own pages report decide.
+    const device=growthDeviceTier(input.device,input.device===undefined?sessionHeadsetClasses(input.sessionId,data.attachment.commands.summary(b).panels):[]);
+    const tier=device.tier;
     const resolution=resolveGrowthTarget(growthStages(index),here,input.stage,tier);
     if(resolution.refused) {
       // The Mac is the caller, so the spoken line would otherwise never
@@ -5796,7 +6343,8 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       // arms the caption-plate overlay from that notice the same way it
       // arms one from a wearer-asked grow.
       growthCaptions.offer({spoken:resolution.spoken,refused:true,from:here.stage.id});
-      return result(input.sessionId,data,{grow:{refused:true,from:here.stage.id,spoken:resolution.spoken,deviceTier:tier}},`${resolution.reason} Say this in the headset: "${resolution.spoken}"`);
+      return result(input.sessionId,data,{grow:{refused:true,from:here.stage.id,spoken:resolution.spoken,deviceTier:tier,deviceClass:device.deviceClass,deviceFrom:device.from}},
+        `${resolution.reason}${device.from==='headset'?' The class is the one this session\'s headset page reports, because the call named no device.':''} Say this in the headset: "${resolution.spoken}"`);
     }
     const target=resolution.target;
     if(!data.attachment.commands.readyPanel(input.panelId,b)) throw Error(PANEL_BUSY_MESSAGE);
@@ -5892,8 +6440,11 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
               throw Error(`The ${target.stage.id} tier opens beside ${atomSites.toLocaleString()} atom sites, not the ${volume.structure.atomSites.toLocaleString()} the index records.`);
           } else if(atomSites!==target.stage.coordinates.atomSites)
             throw Error(`The ${target.stage.id} tier renders ${atomSites.toLocaleString()} atom sites, not the ${target.stage.coordinates.atomSites.toLocaleString()} the index records.`);
-          if(tier==='quest2' && size.count>size.ceiling) throw Error('That tier is past what this headset holds.');
-          if(tier==='quest2' && atomSites>QUEST2_ATOM_SITE_CEILING) throw Error('That tier is past what this headset holds.');
+          // The exact structures a Quest 2 has opened above the ceiling are
+          // admitted here as they are in `stageFitsTier`.
+          const opened=openedOnQuest2(target.stage);
+          if(tier==='quest2' && size.count>size.ceiling && !opened) throw Error('That tier is past what this headset holds.');
+          if(tier==='quest2' && atomSites>QUEST2_ATOM_SITE_CEILING && !opened) throw Error('That tier is past what this headset holds.');
         }});
       const refreshed=await current(input.sessionId);
       if(target.stage.coordinates.assemblyId && refreshed.attachment.catalog.assemblyId!==target.stage.coordinates.assemblyId)
@@ -5908,7 +6459,7 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
       return result(input.sessionId,refreshed,{kind:'inspect',renderToken:opened.structuredContent.renderToken,hasStructure:true,
         operation:refreshed.attachment.sourceOperation,
         sourceTransition:{sourceChanged:true,...(target.stage.pdbId?{pdbId:target.stage.pdbId}:{})},
-        grow:{refused:false,from:here.stage.id,to:target.stage.id,demo:target.demo,grew,deviceTier:tier,
+        grow:{refused:false,from:here.stage.id,to:target.stage.id,demo:target.demo,grew,deviceTier:tier,deviceClass:device.deviceClass,deviceFrom:device.from,
           atomSites:target.stage.coordinates.atomSites,size:{count:size.count,unit:size.unit},
           ...(density?{density:{bytes:density.bytes.byteLength,sha256:density.sha256,contour:density.contour}}:{}),
           lessonId:lesson.id,spoken}},
@@ -6164,7 +6715,9 @@ export function registerInspection(server:McpServer, hooks:Hooks) {
     if(sceneImport) assertInspectionBudget({sceneImport:{sceneJson:sceneImport.bundle.sceneJson,declaration:sceneImport.bundle.declaration,resolvedScene:sceneImport.resolvedScene}},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
     if(data.attachment.customTour) assertInspectionBudget({customTour:data.attachment.customTour},MAX_INSPECTION_HYDRATION_BYTES,'Inspection hydration');
     const nativeHandoff=nativeStructureViewerHandoff({sourceSha256:data.attachment.catalog.source.sha256,pdbId:data.cache.pdbId,localFile:data.attachment.nativeLocalFile});
-    return {...result(sessionId,data,{},nativeHandoff?SOURCE_ONLY_HANDOFF_DISCLOSURE:undefined),_meta:{[PRIVATE_INSPECTION_META_KEY]:{
+    // The companion has this answer before it builds Enter VR, so the
+    // person's --no-ptt reaches the page even if its first attach is lost.
+    return {...result(sessionId,data,microphoneOff?{microphoneRefused:true}:{},nativeHandoff?SOURCE_ONLY_HANDOFF_DISCLOSURE:undefined),_meta:{[PRIVATE_INSPECTION_META_KEY]:{
       ...result(sessionId,data).structuredContent,...coordinates,format:'mmcif',pdbId:data.cache.pdbId,
       ...(nativeHandoff?{nativeStructureViewerHandoff:nativeHandoff,nativeStructureViewerHandoffDisclosure:SOURCE_ONLY_HANDOFF_DISCLOSURE}:{}),
       ...catalogTransport,scene:data.attachment.scene,comparisonSources:comparisonPayloads(data.attachment,data.attachment.scene),

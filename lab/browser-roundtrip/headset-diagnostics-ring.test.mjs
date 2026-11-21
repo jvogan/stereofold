@@ -8,7 +8,7 @@ test('ten minutes of traffic retains every changed or costly plate update', () =
   const important = [];
   for (clock = 0; clock <= 600000; clock += 1000) {
     if (clock % 60000 === 0) {
-      // Acceptance 5 #471/#580: changed geometry; also cheap repaint and
+      // Recorded #471/#580: changed geometry; also cheap repaint and
       // the exact 50 ms costly-no-op boundary must bypass both policies.
       for (const detail of [{ changed: 30, ms: 289 }, { changed: 1, ms: 2 }, { changed: 0, ms: 50 }])
         important.push(buffer.record('plate-update', detail));
@@ -72,7 +72,7 @@ test('twenty minutes of sampled frames and redraws retain rare records for a lat
     'component-label-layout', 'plate-standoff', 'session-start', 'head-rotation-hold'].map(kind => buffer.record(kind, { proof: kind }));
   rare.push(buffer.record('toolbar', { event: 'seat', reason: 'entry' }));
   rare.push(buffer.record('toolbar', { phase: 'status', text: 'Filament tier has no atoms. Switch to an atomic tier.' }));
-  // Acceptance 3 ring-now-0016 held seq 407..606: 100 frame-cost and
+  // The recorded ring-now-0016 held seq 407..606: 100 frame-cost and
   // 100 frame-rate, with every tour/entry record gone. Run longer, including
   // redraw and per-eye telemetry, and ask for the first heartbeat only now.
   for (clock = 1000; clock <= 20 * 60 * 1000; clock += 1000) {

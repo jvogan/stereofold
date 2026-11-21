@@ -1,9 +1,11 @@
 import { registerTextTool as registerHostTool } from './tool-text-state.js';
 import { createPreparedCompositeStore } from './prepared-composite.js';
 import { MAX_STRUCTURE_SOURCE_BYTES, STRUCTURE_SOURCE_SIZE_LABEL } from './inspection-limits.js';
-import { resolveStructureSource, inspectionSource, type StructureSourceRequest, type StructureSelection, type ResolvedStructureSource } from './structure-sources.js';
+import { resolveStructureSource, inspectionSource, admitPdbConversion, type StructureSourceRequest, type StructureSelection, type ResolvedStructureSource } from './structure-sources.js';
 import { registerInspection } from './inspection-server.js';
+import { admitDeclaredStructureRows } from './inspection-catalog.js';
 import type { DeviceCaptureHooks } from './headset-view-device.js';
+import type { LiveViewSeams } from './live-view.js';
 import type { DevtoolsTransport } from './headset-devtools.js';
 import type { Opener, OpenerSpawn, Runner } from './quest-launch.js';
 import type { VoiceTranscriber } from './inspection-voice.js';
@@ -25,6 +27,7 @@ import { DEPTH_FIXTURE_ID, DEPTH_FIXTURE_PDB } from './depth-fixture.js';
 import { DEFAULT_LOOK_COLOR, DEFAULT_LOOK_STYLE, type LookColor, type LookStyle } from './look.js';
 import { createPanelReportStore, type PanelSummary } from './panel-reports.js';
 import { PRIVATE_STRUCTURE_META_KEY } from './structure-result.js';
+import type { QuestLinkOptions } from './inspection-quest-link.js';
 import {
   claimActionInputSchema,
   completeActionInputSchema,
@@ -319,11 +322,13 @@ export interface StereoStructureServerOptions {
   /** Test seam; production creates cryptographically random UUIDs. */
   sessionIdFactory?: () => string;
   /** Explicit in-process test seams; production leaves OAuth voice helpers intact. */
-  voice?: { transcribe?: VoiceTranscriber; acknowledge?: (message: string) => Promise<{ wavBase64: string }> };
+  voice?: { transcribe?: VoiceTranscriber; acknowledge?: (message: string) => Promise<{ wavBase64: string }>; talkRoute?: () => boolean };
   /** Test seam for headset push-to-talk audio; production reads the environment. */
   transcriber?: PushToTalkTranscriber;
   /** Test seam for putting the companion on the headset; production opens the real browser or adb. */
   questLaunch?: QuestLaunchSeams;
+  /** Test seam for the public relay's cloudflared process; production runs the installed binary. */
+  questLink?: QuestLinkOptions;
   /** Test seam for the Mac-rendered headset reply audio; production reads the environment. */
   replyAudio?: ReplyAudioSynthesizer;
   /**
@@ -358,6 +363,8 @@ export interface StereoStructureServerOptions {
   headsetDevtools?: DevtoolsTransport;
   /** Where `STEREOFOLD_BRIDGE_DIR` is read from; production uses this process's environment. */
   environment?: NodeJS.ProcessEnv;
+  /** Test seams for the live view: a pause once a picture's bytes are written (a new frame or a repair), and word of each check of the file. */
+  liveView?: LiveViewSeams;
 }
 
 function normalizedPositiveInteger(value: number | undefined, fallback: number): number {
@@ -569,7 +576,7 @@ export function createStereoStructureServer(
   viewerHtmlPath = fileURLToPath(new URL('./viewer.html', import.meta.url)),
   options: StereoStructureServerOptions = {},
 ): McpServer {
-  const server = new McpServer({ name: SERVER_NAME, version: '0.1.22' }, {
+  const server = new McpServer({ name: SERVER_NAME, version: '0.1.23' }, {
     capabilities: { experimental: { 'claude/channel': {} } },
     instructions: 'The headset wearer cannot see this terminal. For a headset channel request: act, confirm, stop. Act at once with one scene tool call carrying utteranceId (from utterance_id), the change and waitForRenderMs:10000. Only update_inspection, control_tour, focus_selection and emphasize support this binding: leave out sessionId, panelId and referent, which the host takes from the utterance. Other scene tools still require sessionId, including undo_last_change, redo_last_change and replace_inspection_source. Common requests need no read first: pause or play is update_inspection animation {state}; next or back is control_tour; bigger or smaller is placement scale about 1.25x or 0.8x the scale in your last receipt or continue_session; a named ligand is an update_inspection selection of residues {componentId} spelled as the wearer said it (the host refuses one the structure lacks, so never substitute another); a chapter topic is control_tour next or back to the step continue_session listed; labels on one residue, range or ligand are one update_inspection compound of a selection of residues and appearance {labels:true}. Once rendered, answer with say_to_headset {text, utteranceId} in one short sentence and end the turn with no summary. A typed request also needs only a short confirmation. The selection highlight can replace a color set on selected atoms: call them highlighted, name no color for them, and leave a region unselected when its color should show. Labels show residue names and ligand codes: give a ligand its common name in your reply, and use install_lesson for a text label on a named region. Pushed transcripts recovered by listen_voice may already have been handled: deduplicate by utteranceId.',
   });
@@ -782,7 +789,10 @@ export function createStereoStructureServer(
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     _meta: viewerMetadata({ fileBinding: true }),
   };
-  async function openStructure(rawInput: unknown, committed: () => void = () => {}) {
+  // `catalogued`: the caller extracts a catalog from this source before it
+  // returns, and the extractor holds the same declarations to the same or a
+  // tighter bound, so they are not counted twice.
+  async function openStructure(rawInput: unknown, committed: () => void = () => {}, catalogued = false) {
     const input = parseOpenInput(rawInput);
     // Allocate before any source fetch so this expresses call order, not the
     // order in which asynchronous PDB requests happen to finish.
@@ -798,6 +808,12 @@ export function createStereoStructureServer(
       const reservation=input.sessionId==null?undefined:beginSourceLoad(input.sessionId);
       try {
         const source=await resolveStructureSource('source' in input?input.source:{kind:'pasted',text:input.structureText,format:input.format??'mmcif'},{resolveComposite:composites.resolve,fetchPdbText:loadPdbText,fetch:options.sourceFetch,...(options.sourceFetch?{cacheRoot:false as const}:{})});
+        // The viewer hands this text to Mol*, which walks every declared row
+        // of every chain in every model while it parses or converts it.
+        if(!catalogued) {
+          if(source.format==='mmcif') await admitDeclaredStructureRows(source.structureText);
+          else admitPdbConversion(source.structureText);
+        }
         const sourceSession=input.sessionId==null?createSession(serverEpoch):currentSourceLoad(input.sessionId,reservation!.revision);
         return completeOpen(input.sessionId,{
           ...withState(sourceSession,{...applyOpenAppearance(sourceSession.state,input),pdbId:source.pdbId}),
@@ -820,6 +836,7 @@ export function createStereoStructureServer(
         // Injected fetchers use the same atomic boundary as production HTTP:
         // malformed 200 bodies never get as far as a session cache commit.
         assertRcsbMmcifPayload(input.pdbId, structureText);
+        if (!catalogued) await admitDeclaredStructureRows(structureText);
         // Atomic PDB load: no state/cache assignment occurs until fetch
         // succeeds, and this is the newest retained session at commit time.
         const sourceSession = input.sessionId == null
@@ -857,9 +874,9 @@ export function createStereoStructureServer(
    * cache straight into the session. When that session is the one on a wearer's
    * headset, the new cache is a new inspection attachment with a new
    * sourceToken, which the inspection server reads as an unauthorized retarget
-   * of a LAN capability and answers by retiring the listener. A
-   * `load_pdb` of 1CRN ended a live 4HHB share thirteen seconds into a dress
-   * rehearsal, and the tool answered `hasStructure: true` with nothing about it.
+   * of a LAN capability and answers by retiring the listener. Unhandled, a
+   * `load_pdb` during a live share ends the share while the tool answers
+   * `hasStructure: true` with nothing about it.
    *
    * These two wrappers hand the commit to the inspection server's own
    * controlled transition, the one `replace_inspection_source` uses, so the
@@ -893,12 +910,13 @@ export function createStereoStructureServer(
       signal,...(options.sourceFetch?{cacheRoot:false as const}:{})}),signal);
     return abortable(inspectionSource(resolved),signal);
   }
-  inspection = registerInspection(server, { serverEpoch, open:openStructure, current:requireSession, now, scene, voice: options.voice, transcriber: options.transcriber, questLaunch: options.questLaunch,
+  inspection = registerInspection(server, { serverEpoch, open:(rawInput:unknown)=>openStructure(rawInput,undefined,true), current:requireSession, now, scene, voice: options.voice, transcriber: options.transcriber, questLaunch: options.questLaunch, questLink: options.questLink,
     live:(sessionId:string)=>sessions.has(sessionId), sessionEnded:(listener:(sessionId:string)=>void)=>{ sessionEnds.add(listener); },
     ...(options.replyAudio?{replyAudio:options.replyAudio}:{}),
     ...(options.headsetDevice?{headsetDevice:options.headsetDevice}:{}),
     ...(options.headsetDevtools?{headsetDevtools:options.headsetDevtools}:{}),
     ...(options.environment?{environment:options.environment}:{}),
+    ...(options.liveView?{liveView:options.liveView}:{}),
     ...(options.loopbackListenDenied?{loopbackListenDenied:options.loopbackListenDenied}:{}),
     prepareComposite: composites.prepare,
     resolveComparisonSource: resolveInspectionSource,
@@ -992,6 +1010,7 @@ export function createStereoStructureServer(
         try {
           const structureText = await loadPdbText(input.pdbId);
           assertRcsbMmcifPayload(input.pdbId, structureText);
+          await admitDeclaredStructureRows(structureText);
           const session = currentSourceLoad(input.sessionId, reservation.revision);
           // Atomic PDB load: a rejected/failed response cannot overwrite the
           // previous pdbId, appearance, coordinate cache, or diagnostics store.

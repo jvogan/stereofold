@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { addressedDemoFile, addressedDemoPath, pruneAddressedDemoFiles, readAddressedDemoFile } from '../src/addressed-demo-cache.js';
 import { compositeSha256, buildRigidComposite, type RigidCompositeRecipe } from '../src/demo-rigid-composite.js';
 import { resolveCoordinates, resolveVolumeStructure, type DemoEntry } from '../scripts/quest-demo.js';
@@ -12,12 +12,99 @@ import { readGrowthIndex } from '../src/molecular-growth.js';
 const fixture = await readFile(new URL('../../fixtures/1CRN.cif', import.meta.url), 'utf8');
 const dirs: string[] = [];
 async function workspace() { const dir = await mkdtemp(resolve(tmpdir(), 'stereofold-addressed-')); dirs.push(dir); return dir; }
-afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })));
+});
 const entry = (text: string): DemoEntry => ({ name: 'fixture', title: 'Fixture', pdbId: '1CRN', lesson: 'fixture.json', sources: [],
   coordinates: { file: 'motion.cif', sha256: compositeSha256(text), bytes: Buffer.byteLength(text), atomSites: 327, download: 'https://example.test/fixture.cif' } });
 const recipe = (chain: string): RigidCompositeRecipe => ({ version: 1, id: 'motion', title: 'Motion',
   sources: [{ id: '1CRN', url: 'https://files.rcsb.org/download/1CRN.cif', sha256: compositeSha256(fixture) }],
   bodies: [{ source: '1CRN', chain, authChains: ['A'], atoms: 'all', matrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]] }] });
+const cacheText = 'data_TEST\n#\n';
+
+describe('demo cache path confinement', () => {
+  it.each(['', '../motion.cif', 'nested/../motion.cif', 'nested//motion.cif', 'nested/', '/motion.cif',
+    'C:\\cache\\motion.cif', '\\\\cache\\motion.cif'])('refuses invalid cache names: %j', async file => {
+    const dir = await workspace(), cachePath = (name: string) => resolve(dir, name), sha256 = compositeSha256(fixture);
+    expect(() => addressedDemoPath(cachePath, file, sha256)).toThrow(/cache/i);
+    await expect(readAddressedDemoFile(cachePath, file, sha256)).rejects.toThrow(/cache/i);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it.each(['launcher', 'growth', 'density structure'])('%s refuses traversal before fetching or creating files', async route => {
+    const dir = await workspace(), cache = resolve(dir, 'cache'), demo = entry(cacheText);
+    demo.coordinates.file = '../outside/motion.cif';
+    if (route === 'density structure') demo.coordinates.volume = { structure: { ...demo.coordinates } } as any;
+    const fetchText = vi.fn(async () => cacheText);
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(cacheText));
+    const result = route === 'launcher' ? resolveCoordinates(demo, cache, () => {}, { fetchText })
+      : route === 'density structure' ? resolveVolumeStructure(demo, cache, () => {})
+        : ensureGrowthCoordinates({ demo: demo.name, stageId: 'motion', ...demo.coordinates }, {
+          cachePath: file => resolve(cache, file), fetchText, announce: () => {},
+        });
+    await expect(result).rejects.toThrow(/cache/i);
+    expect(fetchText).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it.each(['launcher', 'growth', 'density structure'])('%s refuses an outside symlink parent before creating files', async route => {
+    const dir = await workspace(), cache = resolve(dir, 'cache'), outside = resolve(dir, 'cache-other'), demo = entry(cacheText);
+    await mkdir(cache); await mkdir(outside); await symlink(outside, resolve(cache, 'nested'), 'dir');
+    demo.coordinates.file = 'nested/missing/motion.cif';
+    if (route === 'density structure') demo.coordinates.volume = { structure: { ...demo.coordinates } } as any;
+    const fetchText = vi.fn(async () => cacheText);
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(cacheText));
+    const result = route === 'launcher' ? resolveCoordinates(demo, cache, () => {}, { fetchText })
+      : route === 'density structure' ? resolveVolumeStructure(demo, cache, () => {})
+        : ensureGrowthCoordinates({ demo: demo.name, stageId: 'motion', ...demo.coordinates }, {
+          cachePath: file => resolve(cache, file), fetchText, announce: () => {},
+        });
+    await expect(result).rejects.toThrow(/cache/i);
+    expect(fetchText).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  it.each(['legacy', 'addressed'])('refuses a matching %s snapshot behind an outside symlink parent', async kind => {
+    const dir = await workspace(), cache = resolve(dir, 'cache'), outside = resolve(dir, 'cache-other');
+    await mkdir(cache); await mkdir(outside); await symlink(outside, resolve(cache, 'nested'), 'dir');
+    const sha256 = compositeSha256(cacheText), file = 'nested/motion.cif';
+    await writeFile(resolve(outside, kind === 'legacy' ? 'motion.cif' : addressedDemoFile('motion.cif', sha256)), cacheText);
+    await expect(readAddressedDemoFile(name => resolve(cache, name), file, sha256)).rejects.toThrow(/cache/i);
+    expect(await readdir(outside)).toHaveLength(1);
+  });
+
+  it('refuses a dangling symlink parent without creating its target', async () => {
+    const dir = await workspace(), cache = resolve(dir, 'cache'), outside = resolve(dir, 'missing');
+    await mkdir(cache); await symlink(outside, resolve(cache, 'nested'), 'dir');
+    expect(() => addressedDemoPath(file => resolve(cache, file), 'nested/motion.cif', compositeSha256(fixture))).toThrow();
+    await expect(stat(outside)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps catalog names and nested names unchanged beneath a new cache root', async () => {
+    const dir = await workspace(), cache = resolve(dir, 'missing/cache'), cachePath = (file: string) => resolve(cache, file);
+    const index = await readGrowthIndex();
+    const coordinates = index.demos.flatMap(demo => [demo.coordinates, ...(demo.stages ?? []).map(stage => stage.coordinates)])
+      .flatMap(coordinates => [coordinates, ...(coordinates.volume ? [coordinates.volume.structure] : [])]);
+    for (const { file, sha256 } of coordinates) {
+      expect(addressedDemoPath(cachePath, file, sha256)).toBe(cachePath(addressedDemoFile(file, sha256)));
+    }
+    const sha256 = compositeSha256(fixture);
+    expect(addressedDemoPath(cachePath, 'nested/3JAK.cif', sha256)).toBe(cachePath(`nested/3JAK.${sha256}.cif`));
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('allows cache root aliases and symlink parents whose destinations stay inside the canonical root', async () => {
+    const dir = await workspace(), cache = resolve(dir, 'cache'), alias = resolve(dir, 'alias');
+    await mkdir(resolve(cache, 'data'), { recursive: true });
+    await symlink(cache, alias, 'dir'); await symlink(resolve(cache, 'data'), resolve(cache, 'nested'), 'dir');
+    const sha256 = compositeSha256(fixture);
+    expect(addressedDemoPath(file => resolve(alias, file), 'nested/motion.cif', sha256))
+      .toBe(resolve(alias, `nested/motion.${sha256}.cif`));
+  });
+});
 
 describe('build-specific demo cache identities', () => {
   it('two separate hosts and indexes share one cache without replacing either composite', async () => {

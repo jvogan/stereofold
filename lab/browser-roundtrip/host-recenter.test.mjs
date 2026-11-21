@@ -2,9 +2,9 @@
  * An agent's `placement {recenter:true}` reaches the headset's
  * own Reset.
  *
- * On 2026-09-28 the only way an agent could put a lost structure back in
- * front of the wearer was to find Quest Browser's debugger and press the
- * page's Reset through it, which needs a USB cable. The command now rides the
+ * Without this command, the only way an agent can put a lost structure back
+ * in front of the wearer is to find Quest Browser's debugger and press the
+ * page's Reset through it, which needs a USB cable. The command takes the
  * ordinary receipt path over the Wi-Fi share. These tests run the page's real
  * source: the workspace hands the command to `viewer.inspection.recenter`, and
  * that runs `runFaceAction('recenter-structure')`, the Reset a held B or Y runs.

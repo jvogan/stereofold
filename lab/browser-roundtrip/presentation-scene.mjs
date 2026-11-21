@@ -88,6 +88,9 @@ export function createPresentationScene(canvas) {
   const roomLocked = new Set();
   const roomOffsets = new Map();
   let appliedKey;
+  // The representations that make up the menu column, as their owner marked
+  // them. Only a drawer that gives the column a layer of its own reads this.
+  const menuColumn = new Set();
   // Every glyph on this layer is drawn mirrored once the wearer's head leaves
   // the reference-space identity yaw, unless Mol*'s head-rotation branch is
   // off. `head-rotation-lock.mjs` carries the shader lines and the reasoning.
@@ -189,6 +192,18 @@ export function createPresentationScene(canvas) {
   }
   let depthClearRecorded = false;
 
+  // The caller drawing this layer into a target of its own, when one has
+  // taken it out of Canvas3D's pass (`useExternalDraw`). The registry clears an
+  // entry's scene as it unregisters it, which handing the layer over must not
+  // do, so that one unregister is told apart.
+  let external;
+  let handingOver = false;
+  // Whether that caller draws the menu column apart from the other controls.
+  let columnApart = false;
+  // Counts every change to what this layer draws, so a target that is only
+  // redrawn when its content changes can tell that it has.
+  let version = 0;
+
   const entry = {
     scene,
     get isEnabled() { return !disposed && scene.count > 0; },
@@ -197,19 +212,22 @@ export function createPresentationScene(canvas) {
     // Canvas3D may forward debug settings to every registry entry. Scientific
     // debug toggles must not hide the user's production controls.
     setProps() {},
-    clear() { scene.clear(); },
+    clear() { if (!handingOver) scene.clear(); },
   };
   registry.register(ENTRY_NAME, entry);
 
-  function requestDraw() { canvas.requestDraw(); }
+  function requestDraw() { version++; canvas.requestDraw(); }
   return Object.freeze({
     /**
      * @param representation Mol* representation to draw in this layer
-     * @param {{roomLocked?: boolean}} [options] `roomLocked` marks geometry
-     *   authored in XR room metres; anything else is taken as already being
-     *   in scene units and is left where it was put.
+     * @param {{roomLocked?: boolean, menuColumn?: boolean}} [options]
+     *   `roomLocked` marks geometry authored in XR room metres; anything else
+     *   is taken as already being in scene units and is left where it was
+     *   put. `menuColumn` marks a part of the menu column, for a drawer that
+     *   puts the column on a layer of its own (`separatesMenuColumn`); it
+     *   changes nothing about how this layer itself is drawn.
      */
-    add(representation, { roomLocked: locked = false } = {}) {
+    add(representation, { roomLocked: locked = false, menuColumn: column = false } = {}) {
       if (disposed) return;
       for (const renderObject of representation.renderObjects) {
         // Opt in room UI text only; ordinary molecular text keeps its shader.
@@ -218,6 +236,7 @@ export function createPresentationScene(canvas) {
         scene.add(renderObject);
       }
       if (locked) { roomLocked.add(representation); appliedKey = undefined; }
+      if (column) menuColumn.add(representation);
       scene.commit();
       requestDraw();
     },
@@ -225,6 +244,7 @@ export function createPresentationScene(canvas) {
       for (const renderObject of representation.renderObjects) scene.remove(renderObject);
       if (roomLocked.delete(representation)) appliedKey = undefined;
       roomOffsets.delete(representation);
+      menuColumn.delete(representation);
       scene.commit();
       requestDraw();
     },
@@ -248,6 +268,88 @@ export function createPresentationScene(canvas) {
       requestDraw();
       return true;
     },
+    /**
+     * How many times what this layer draws has changed. A target redrawn only
+     * on change compares it with the count it last drew.
+     */
+    contentVersion() { return version; },
+    /**
+     * Take this layer out of Canvas3D's own pass, for a caller that draws it
+     * into a target of its own choosing (its own XR layer), or `undefined`
+     * when the layer is disposed or already handed over.
+     *
+     * Once handed over, Canvas3D neither draws these controls nor clears the
+     * molecular depth for them, so nothing of this layer reaches the
+     * molecule's framebuffer. The handle's `prepare` does the per-frame work
+     * the stock draw did inside Canvas3D's pass, minus the depth clear: it
+     * places room-locked controls for the current camera and refreshes
+     * visibility, and says whether there is anything to draw. `release` gives
+     * the layer back to Canvas3D's pass.
+     *
+     * With `separateMenuColumn` the caller draws the menu column apart from
+     * the other controls: `split` hands it the scene as two groups the
+     * renderer can draw, the column's own objects and everything else, each
+     * object in exactly one. Whoever builds the column is told through
+     * `separatesMenuColumn`, so it can mark the column's parts.
+     *
+     * @param {{separateMenuColumn?: boolean}} [options]
+     */
+    useExternalDraw({ separateMenuColumn = false } = {}) {
+      if (disposed || external) return undefined;
+      handingOver = true;
+      try { registry.unregister(ENTRY_NAME); }
+      finally { handingOver = false; }
+      // A group is what the renderer draws: a placement and a list. Both of
+      // its blended passes are let run, and each skips what is not its own.
+      const part = () => ({ view: scene.view, position: scene.position, direction: scene.direction, up: scene.up,
+        renderables: [], hasOpaque: true, opacityAverage: 0 });
+      const parts = separateMenuColumn ? Object.freeze({ column: part(), rest: part() }) : undefined;
+      const columnStates = new Set();
+      const handle = Object.freeze({
+        scene,
+        prepare() {
+          if (disposed || external !== handle) return false;
+          applyRoomLock();
+          scene.syncVisibility();
+          return scene.count > 0;
+        },
+        /**
+         * The scene as `{ column, rest }` for this frame, or `undefined`
+         * when the column is not drawn apart. The lists are refilled on every
+         * call, in the scene's own draw order, and allocate nothing.
+         */
+        split() {
+          if (!parts || disposed || external !== handle) return undefined;
+          columnStates.clear();
+          for (const representation of menuColumn)
+            for (const renderObject of representation.renderObjects ?? []) columnStates.add(renderObject.state);
+          parts.column.renderables.length = 0; parts.rest.renderables.length = 0;
+          // A renderable shares its render object's state.
+          for (const renderable of scene.renderables ?? [])
+            (columnStates.has(renderable.state) ? parts.column : parts.rest).renderables.push(renderable);
+          return parts;
+        },
+        release() {
+          if (external !== handle) return;
+          external = undefined;
+          columnApart = false;
+          if (!disposed) registry.register(ENTRY_NAME, entry);
+          requestDraw();
+        },
+      });
+      external = handle;
+      columnApart = Boolean(parts);
+      globalThis.__stereofoldDiagnostics?.record?.('presentation', { phase: 'external-draw' });
+      requestDraw();
+      return handle;
+    },
+    /**
+     * Whether the menu column is being drawn apart from the other controls.
+     * The column's builder then keeps the column's glass and plates in a
+     * representation of their own and adds each of its parts with
+     * `menuColumn`.
+     */
+    separatesMenuColumn() { return columnApart; },
     /**
      * Show or hide one representation without removing it.
      *
@@ -280,8 +382,13 @@ export function createPresentationScene(canvas) {
       if (observedSetProps && canvas.setProps === observedSetProps) canvas.setProps = originalSetProps;
       roomLocked.clear();
       roomOffsets.clear();
+      menuColumn.clear();
+      columnApart = false;
       releaseHeadRotation();
-      registry.unregister(ENTRY_NAME);
+      // A handed-over layer is no longer registered, so it clears its own
+      // scene, as unregistering would have.
+      if (external) { external = undefined; scene.clear(); }
+      else registry.unregister(ENTRY_NAME);
     },
   });
 }

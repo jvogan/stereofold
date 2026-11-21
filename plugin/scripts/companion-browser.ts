@@ -48,6 +48,10 @@ import { createHeadsetBridgeWriter, summariseSelection,
  *                                across authored autoplay chapter boundaries.
  *   --natural-input             synthetic handless transient pointers on IWER;
  *                                production input/save path, not Apple simulator evidence.
+ *   --microphone-prompt          enter first with the microphone permission
+ *                                undecided and the session refused while its
+ *                                prompt is open, as Quest Browser does; check
+ *                                the status line, then enter. Requires IWER.
  *   --allow-console-errors       record console errors without failing.
  *
  * Recorded: every console message, every response with a status of 400 or
@@ -61,9 +65,9 @@ const out = resolve(outArgument ?? '');
 assert.ok(outArgument, 'Supply a fresh artifact directory.');
 // Both options are optional and may appear in either order. Supplying none
 // leaves this harness on exactly the path it took before the bridge existed.
-const OPTION_USAGE = 'Optional usage: --xr-runtime /absolute/path/to/iwer.min.js [--bridge /absolute/bridge/directory] [--demo <demo name>] [--stage <stage id>] [--shots /absolute/step/shot/directory] [--mode vr|ar] [--browser-channel shell|chromium] [--head-yaw <degrees>] [--head-offset <x,y,z metres>] [--dist /absolute/dist/directory] [--render-budget <knob:value,...>] [--tour chapters|full] [--grow] [--grow-voice] [--controller-input] [--natural-input] [--autoplay-manipulation] [--allow-console-errors]';
+const OPTION_USAGE = 'Optional usage: --xr-runtime /absolute/path/to/iwer.min.js [--bridge /absolute/bridge/directory] [--demo <demo name>] [--stage <stage id>] [--shots /absolute/step/shot/directory] [--mode vr|ar] [--browser-channel shell|chromium] [--head-yaw <degrees>] [--head-offset <x,y,z metres>] [--dist /absolute/dist/directory] [--render-budget <knob:value,...>] [--tour chapters|full] [--grow] [--grow-voice] [--controller-input] [--natural-input] [--autoplay-manipulation] [--microphone-prompt] [--allow-console-errors]';
 // Valueless switches, removed before the pairwise scan below.
-const BOOLEAN_OPTIONS = ['--allow-console-errors', '--grow', '--grow-voice', '--controller-input', '--natural-input', '--autoplay-manipulation'];
+const BOOLEAN_OPTIONS = ['--allow-console-errors', '--grow', '--grow-voice', '--controller-input', '--natural-input', '--autoplay-manipulation', '--microphone-prompt'];
 const switches = new Set(allOptionArguments.filter(argument => BOOLEAN_OPTIONS.includes(argument)));
 const optionArguments = allOptionArguments.filter(argument => !BOOLEAN_OPTIONS.includes(argument));
 // `--demo` and `--stage` name entries in plugin/demos/index.json, so they are
@@ -123,6 +127,8 @@ assert.ok(tourMode === undefined || tourMode === 'full' || tourMode === 'chapter
 assert.ok(!tourMode || (xrRuntimePath && options.get('--demo')),
   '--tour steps an authored lesson in immersion, so it needs --demo and --xr-runtime.');
 const allowConsoleErrors = switches.has('--allow-console-errors');
+// The first Enter VR press on a Quest whose microphone permission is undecided.
+const microphonePromptEntry = switches.has('--microphone-prompt');
 // The primary Enter control asks for immersive-ar wherever the browser reports
 // it and falls back to immersive-vr on the same button, so the default here is
 // to press what a wearer presses and record whichever mode the page chose.
@@ -131,7 +137,9 @@ const allowConsoleErrors = switches.has('--allow-console-errors');
 const entryMode = options.get('--mode');
 assert.ok(entryMode === undefined || entryMode === 'vr' || entryMode === 'ar', OPTION_USAGE);
 assert.ok(!entryMode || xrRuntimePath, '--mode chooses an immersive entry, so it needs --xr-runtime.');
-const demoName = options.get('--demo');
+// A plain name resolves to its id here, so shot folders and labels use the id.
+const demoName = options.get('--demo') === undefined ? undefined
+  : await import('./quest-demo.js').then(async ({ findDemo, readDemoIndex }) => findDemo(await readDemoIndex(), options.get('--demo')!).name);
 assert.ok(!options.get('--stage') || demoName, '--stage names a stage of a demo, so it needs --demo.');
 assert.ok(!demoName || xrRuntimePath, 'A demo run steps a lesson through immersive scenes, so --demo needs --xr-runtime.');
 // `--grow` plays the opening chapter and then grows the staged
@@ -348,11 +356,16 @@ const voiceBin = controllerVoiceFixture ?? process.env.STEREOFOLD_AGENT_VOICE_BI
  * the probe would fail on a Mac that is correctly configured.
  */
 const askLoop = process.env.STEREOFOLD_ASK_LOOP === '1';
+// The page asks for the microphone on Enter VR, and a held A opens it, only
+// when the host reports a voice route. The microphone-prompt entry and the
+// visibility probe both need that live microphone, so they turn transcription
+// on rather than depend on whether this Mac has a recognizer installed.
+const voiceOn = askLoop || microphonePromptEntry || process.env.STEREOFOLD_XRVIS_PROBE === '1';
 const serverEnvironment: Record<string, string> = {
   // Acceptance must not discover or forward into a wearer's live scene.
   STEREOFOLD_SCENE_SERVICE: resolve(out, 'scene-service.json'),
   ...(voiceBin ? { STEREOFOLD_AGENT_VOICE_BIN: voiceBin } : {}),
-  ...(askLoop ? { STEREOFOLD_PTT_TRANSCRIBE: '1' } : {}),
+  ...(voiceOn ? { STEREOFOLD_PTT_TRANSCRIBE: '1' } : {}),
   ...Object.fromEntries((askLoop
     ? ['STEREOFOLD_WHISPER_BIN', 'STEREOFOLD_WHISPER_MODEL', 'STEREOFOLD_WHISPER_GPU', 'STEREOFOLD_FFMPEG_BIN', 'STEREOFOLD_PTT_TRANSCRIBER', 'STEREOFOLD_APPLESPEECH_BIN']
     : []).flatMap(name => (process.env[name] ? [[name, process.env[name] as string]] : []))),
@@ -843,8 +856,8 @@ function installCompanionXrInstrumentation(installReferenceSpaceAdapter: (runtim
         window.dispatchEvent(new Event('resize'));
       }, { once: true });
     }
-    // Squeeze is the grip push-to-talk edge, so a run that never records one
-    // proves the wearer's grip never reached the page.
+    // Record select and squeeze events so a run shows which controller input
+    // reached the page. The talk button is read from gamepad state, not here.
     for (const type of ['selectstart', 'select', 'selectend',
       'squeezestart', 'squeeze', 'squeezeend', 'squeezecancel']) session.addEventListener(type, (event: any) => {
       record.inputEvents.push({ type, handedness: event.inputSource?.handedness, frame: record.rafCount });
@@ -1427,6 +1440,44 @@ function installCompanionMicrophoneStub() {
   }
   (window as any).MediaRecorder = StubRecorder;
 }
+/**
+ * A microphone permission still undecided, for `--microphone-prompt`.
+ *
+ * Headless Chromium draws no permission prompt, so this one is modelled. The
+ * permissions API answers `prompt`; `getUserMedia` waits until `answer()`;
+ * and while it waits, the session request is refused, which is what Quest
+ * Browser does with the request made in the press that opened its prompt.
+ * `answer()` settles the waiting requests through the harness microphone
+ * underneath, in its current mode, and the permission follows. Installed
+ * after the harness microphone and the XR instrumentation, both of which it
+ * wraps.
+ */
+function installCompanionMicrophonePromptStub() {
+  const status: any = new EventTarget();
+  status.state = 'prompt';
+  const waiting: Array<{ constraints: unknown, resolve: (value: unknown) => void, reject: (error: unknown) => void }> = [];
+  const devices: any = navigator.mediaDevices, underneath = devices.getUserMedia.bind(devices);
+  const control = { requests: 0, refused: 0,
+    answer() {
+      for (const request of waiting.splice(0)) underneath(request.constraints).then(request.resolve, request.reject);
+      status.state = (window as any).__stereofoldMicTest?.mode === 'deny' ? 'denied' : 'granted';
+      status.dispatchEvent(new Event('change'));
+    } };
+  (window as any).__stereofoldMicPrompt = control;
+  devices.getUserMedia = (constraints: unknown) => {
+    if (status.state !== 'prompt') return underneath(constraints);
+    control.requests += 1;
+    return new Promise((resolve, reject) => waiting.push({ constraints, resolve, reject }));
+  };
+  const permissions: any = navigator.permissions, query = permissions.query.bind(permissions);
+  permissions.query = async (descriptor: any) => descriptor?.name === 'microphone' ? status : query(descriptor);
+  const xr: any = (navigator as any).xr, request = xr.requestSession.bind(xr);
+  xr.requestSession = async (mode: string, options: unknown) => {
+    if (!waiting.length) return request(mode, options);
+    control.refused += 1;
+    throw Object.assign(Error('The session request was refused while a permission prompt is open.'), { name: 'NotAllowedError' });
+  };
+}
 /** Diagnostics the page recorded, newest last, for one kind. */
 async function diagnosticsOf(page: Page, kind: string) {
   return await page.evaluate(name => ((window as any).__stereofoldDiagnostics?.entries?.() ?? [])
@@ -1875,9 +1926,9 @@ try {
   // Five minutes for a demo run, two otherwise. A lesson builds a Gaussian
   // molecular surface and a spacefill over 13,000 to 41,000 atom sites, and
   // this emulator reports `gpu: unavailable`, so those scenes are computed on
-  // the CPU. The 40,908-site microtubule lattice passed two minutes on several
-  // waits. A Quest 2 has a GPU; this budget is the emulator's, not the
-  // product's, and a scene that is slow on hardware is a frame-budget finding
+  // the CPU, and a wait on the 40,908-site microtubule lattice can take longer
+  // than two minutes. A Quest 2 has a GPU; this budget is the emulator's, not the
+  // product's, and a scene that is slow on hardware is a frame-budget problem
   // rather than something this timeout would catch.
   companion.setDefaultTimeout(demoName ? 300_000 : 120_000);
   if (xrRuntime && xrAdapters) {
@@ -1890,6 +1941,7 @@ try {
     // the production voice path cannot be pressed at all without one. It
     // starts refusing, which is what a wearer who declines the prompt gets.
     await companion.addInitScript({ content: `(${installCompanionMicrophoneStub})();` });
+    if (microphonePromptEntry) await companion.addInitScript({ content: `(${installCompanionMicrophonePromptStub})();` });
     report.emulatedXr = { runtime: 'IWER 2.3.0', physicalHeadset: 'not_run', nativeHost: 'not_run' };
   }
   companion.on('pageerror', error => report.errors.push(error.message));
@@ -2116,8 +2168,46 @@ try {
       await companion.locator(`[data-enter-xr="immersive-${entryMode}"]`).click();
       await waitImmersive(`immersive-${entryMode}`);
     } else {
-      await companion.locator('[data-enter-xr][data-primary]').click();
-      await waitImmersive(['immersive-ar', 'immersive-vr']);
+      if (microphonePromptEntry) {
+        // The press opens the modelled prompt and its session request is
+        // refused. The wearer must be told to answer it and press again: no
+        // failure, no reload button, and Enter VR still pressable.
+        await companion.locator('[data-enter-xr][data-primary]').click();
+        const status = companion.locator('.xr-controls > small[role="status"]');
+        await companion.waitForFunction(() => (window as any).__stereofoldMicPrompt.refused >= 1
+          && !document.querySelector<HTMLButtonElement>('[data-enter-xr][data-primary]')?.disabled);
+        // Past one two-second status refresh, so a line that only lasts until
+        // the refresh is caught.
+        await companion.waitForTimeout(2500);
+        const shown = await companion.evaluate(() => {
+          const note = document.querySelector<HTMLElement>('.xr-controls > small[role="status"]');
+          const reload = [...document.querySelectorAll<HTMLButtonElement>('.xr-controls > button')].find(button => button.textContent === 'Reload to retry VR');
+          const enter = document.querySelector<HTMLButtonElement>('[data-enter-xr][data-primary]');
+          const prompt = (window as any).__stereofoldMicPrompt;
+          const errors = ((window as any).__stereofoldDiagnostics?.entries?.() ?? []).filter((entry: any) => entry.kind === 'page-error').map((entry: any) => entry.detail);
+          return { line: note?.textContent ?? null, state: note?.dataset.state ?? null, reloadShown: reload ? !reload.hidden : null,
+            enterDisabled: enter?.disabled ?? null, microphoneRequests: prompt.requests, refusedRequests: prompt.refused,
+            session: (window as any).__companionXrTest.active?.mode ?? null, errors };
+        });
+        assert.equal(shown.line, 'Answer the microphone prompt, then press Enter VR again.',
+          `A press refused while its microphone prompt was open showed ${JSON.stringify(shown.line)}.`);
+        assert.equal(shown.reloadShown, false, 'A press refused while its microphone prompt was open offered a reload.');
+        assert.notEqual(shown.state, 'error', 'A press refused while its microphone prompt was open was shown as an error.');
+        assert.equal(shown.enterDisabled, false, 'Enter VR could not be pressed again after the microphone prompt.');
+        assert.equal(shown.session, null, 'The modelled prompt did not hold the first press out of immersion.');
+        assert.equal(await status.textContent(), shown.line);
+        // The wearer answers the prompt (the harness microphone refuses by
+        // default, so the answer is Don't allow) and presses again.
+        await companion.evaluate(() => (window as any).__stereofoldMicPrompt.answer());
+        await companion.locator('[data-enter-xr][data-primary]').click();
+        await waitImmersive(['immersive-ar', 'immersive-vr']);
+        (report as any).microphonePromptEntry = { first: shown,
+          second: await companion.evaluate(() => (window as any).__companionXrTest.active?.mode ?? null) };
+        console.log(`Observed: a press refused while its microphone prompt was open read ${JSON.stringify(shown.line)} with no reload button, and the next press opened ${(report as any).microphonePromptEntry.second}.`);
+      } else {
+        await companion.locator('[data-enter-xr][data-primary]').click();
+        await waitImmersive(['immersive-ar', 'immersive-vr']);
+      }
     }
     const enteredMode: string = await companion.evaluate(() => (window as any).__companionXrTest.active.mode);
     immersiveEntryMode = enteredMode;
@@ -2773,7 +2863,7 @@ try {
       // The spoken route, first and from the page, exactly as a wearer reaches
       // it. `__stereofoldVoice.say` feeds the immersive runner's own grammar;
       // what it answers is recorded whether or not it grew anything, because a
-      // phrase the shipped headset page cannot act on is the finding.
+      // phrase the shipped headset page cannot act on is what this check reports.
       const voiceBefore = await companion.evaluate(() => ((globalThis as any).__stereofoldDiagnostics?.entries?.() ?? []).length);
       await companion.evaluate(() => { void (globalThis as any).__stereofoldVoice?.say?.('grow it'); });
       await companion.waitForFunction(count => ((globalThis as any).__stereofoldDiagnostics?.entries?.() ?? [])
@@ -2939,8 +3029,8 @@ try {
       };
 
       // Three tiers up, said the way a wearer says it: monomer, dimer,
-      // protofilament, wall. The fourth "grow it" is the tube, which a Quest 2
-      // cannot hold, so the honest answer is a refusal that leaves the wall.
+      // protofilament, wall. The fourth "grow it" is expected to be refused,
+      // leaving the wall.
       for (let step = 1; step <= 3; step++) {
         const { before, after, entry } = await speak('grow it', `grow-${step}`);
         assert.notEqual(after.lessonId, before.lessonId,
@@ -2965,14 +3055,11 @@ try {
       throw Object.assign(Error('spoken grow drive complete: stopping before the rest of the run.'), { stereofoldRunComplete: true });
     }
 
-    // Opt-in (`--tour full`). Every tour defect seen on hardware was reachable
-    // from this Mac, and none of them was reached: no run here ever played a
-    // lesson past its opening scene, so the narration route — the one that
-    // answered 409 for every spoken line in
-    // the headset — was never pressed at all. This walks the rest of the
-    // lesson with the agent's own `control_tour`, the way an assistant drives
-    // it, and requires of every chapter that its scene is shown, that its line
-    // is narrated, and that the spoken line was actually rendered and returned.
+    // Opt-in (`--tour full`). This walks a lesson past its opening scene with
+    // the agent's own `control_tour`, the way an assistant drives it, so every
+    // chapter's narration goes through the narration route. It requires of
+    // every chapter that its scene is shown, that its line is narrated, and
+    // that the spoken line was rendered and returned.
     if (tourMode) {
       // The page's diagnostics ring keeps 200 entries and a frame-cost record
       // lands every second, so a tour record is gone from it within a couple
@@ -3452,7 +3539,7 @@ try {
     // posts its audio straight at the host, so it skips getUserMedia, the
     // permission grant, MediaRecorder and the page's own chunk streamer -- the
     // whole in-browser half. Here the bytes go in at the microphone: the
-    // production grip binding opens the recorder, the production streamer cuts
+    // production talk button binding opens the recorder, the production streamer cuts
     // and posts the chunks over the page's own authenticated tool route, and
     // the page reads its own transcript back off the final marker. What it
     // still does not cover is the Quest's real Opus encoder or its timeslicing:
@@ -3751,8 +3838,8 @@ try {
 
     // The agent's own tour controls, against a headset panel that has just had
     // its workspace taken over by the reset. That takeover stops the tour
-    // (`tour-player.ts:832`), which is exactly the state that refused every
-    // `control_tour play` for eight minutes on hardware. Each command has to
+    // (`tour-player.ts`), and a stopped tour is the state in which a panel can
+    // refuse every `control_tour play`. Each command has to
     // render, and the panel has to advertise `ready` again after each one, or
     // the next agent command is refused.
     const tourCommands: { action: string; commandId: string }[] = [

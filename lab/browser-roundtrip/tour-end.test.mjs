@@ -9,7 +9,7 @@ const require = createRequire(new URL('../../plugin/package.json', import.meta.u
 const { tsImport } = require('tsx/esm/api');
 const { mountTourPlayer } = await tsImport('../../plugin/src/tour-player.ts', import.meta.url);
 const { molecularLessonToTour } = await tsImport('../../plugin/src/molecular-lesson-tour.ts', import.meta.url);
-const manifest = JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url)));
+const manifest = JSON.parse(readFileSync(new URL('../../plugin/test/fixtures/telomerase-haca-plates.json', import.meta.url)));
 const tour = molecularLessonToTour(manifest);
 const flush = async () => { for (let i = 0; i < 150; i++) await Promise.resolve(); };
 

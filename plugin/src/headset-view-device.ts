@@ -1,6 +1,6 @@
 import { access, constants } from 'node:fs/promises';
 import { delimiter, isAbsolute, join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, inflateSync } from 'node:zlib';
 
 /**
  * The second way to see what the wearer sees, over a debugging cable.
@@ -58,9 +58,54 @@ export const ADB_SERIAL_ENV_KEYS = Object.freeze(['STEREOFOLD_ADB_SERIAL', 'ANDR
  * a doffed headset came back as a black picture rather than the sentence.
  */
 export const FFMPEG_ENV_KEYS = Object.freeze(['STEREOFOLD_FFMPEG_BIN', 'STEREOFOLD_FFMPEG', 'FFMPEG']);
-/** Below both of these the panel is showing nothing at all, not a dark scene. */
-export const DEVICE_DARK_MEAN = 0.02;
-export const DEVICE_DARK_STDDEV = 0.02;
+/**
+ * A pixel is lit when its brightest channel reaches this, out of 255.
+ *
+ * A capture the headset blocked and a display that is asleep both come back
+ * as exact zeros: a real blocked 3664x1920 still had no channel above 0 in any
+ * pixel. Levels 1 to 3 are left as black so rounding or dither in an encoder
+ * cannot make an empty panel look drawn; anything from 4 up counts as drawn,
+ * however dark, so a dim scene is never mistaken for an empty one.
+ */
+export const DEVICE_LIT_FLOOR = 4;
+/**
+ * Below this share of lit pixels the still is refused as black.
+ *
+ * One in ten thousand is about 700 pixels of a 3664x1920 panel, a patch
+ * 26 pixels square: room for a status dot or stray noise, too little for a
+ * scene. Every pixel is counted, so no stripe can fall between samples.
+ */
+export const DEVICE_BLACK_LIT_SHARE = 0.000_1;
+/**
+ * Below this share of lit pixels, and at or above the last, the still is handed
+ * over with a note.
+ *
+ * A real scene that is still loading and a blocked capture carrying a small
+ * mark can be the same pixels, so a still lit over less than one percent of
+ * the panel is not refused on the pixels alone; the note says what is
+ * uncertain and what the headset's log suggests.
+ */
+export const DEVICE_SCENE_LIT_SHARE = 0.01;
+/**
+ * What the headset logs when its capture service blocks a still.
+ *
+ * The Quest's capture service hands back the whole display as black when it
+ * judges a composed layer secure, so a headset that is awake and drawing the
+ * scene can still return a black still. Some shell panels are always marked
+ * secure and normally do not cause it; it has been seen to persist until the
+ * system shell and the camera app were restarted. The line names neither the
+ * capture nor its caller, so it is read as a suggestion, never as proof.
+ */
+export const SECURE_LAYER_LOG = /secure layer detected/iu;
+/** Recent enough, in the headset's own seconds, to be worth mentioning beside the capture just made. */
+export const SECURE_LAYER_RECENT_SECONDS = 30;
+/**
+ * Log lines read for that line.
+ *
+ * Usually far more than half a minute of log, but not on every headset: one
+ * logging faster can push the line out, and the reason then does not mention it.
+ */
+export const SECURE_LAYER_LOG_LINES = 300;
 
 const PNG_MAGIC = 0x89504e47;
 /** `screencap`'s format word. 1 is RGBA_8888, which is what a Quest 2 reports. */
@@ -87,8 +132,12 @@ export type DeviceCaptureHooks = {
 export type DeviceCaptureOutcome =
   | { ok: true; bytes: Buffer; mimeType: 'image/png'; width: number; height: number; ms: number; serial: string;
       /** How the frame came off the device, for the sentence the agent reads. */
-      wire: 'gzip' | 'raw' | 'device-png' }
-  | { ok: false; reason: string };
+      wire: 'gzip' | 'raw' | 'device-png';
+      /** Only for a still lit over less than one percent: what the pixels cannot settle. */
+      note?: string }
+  | { ok: false; reason: string;
+      /** Set when a still arrived but was not handed over: black, or not something this Mac could check. */
+      still?: 'black' | 'unverified' };
 
 /** The Quest Browser package, which is the one process this module ever names. */
 export const QUEST_BROWSER_PACKAGE = 'com.oculus.browser';
@@ -151,6 +200,15 @@ export function ffmpegPngArguments({ width, height, pixelFormat, maxWidth }: {
     '-f', 'rawvideo', '-pix_fmt', pixelFormat, '-s', `${width}x${height}`, '-i', 'pipe:0',
     ...(maxWidth < width ? ['-vf', `scale=${maxWidth}:-2`] : []),
     '-frames:v', '1', '-c:v', 'png', '-f', 'image2', 'pipe:1'];
+}
+
+/**
+ * The size ffmpeg writes for those arguments: `scale=W:-2` keeps the panel's
+ * aspect and rounds the height to the nearest even number, the way ffmpeg's
+ * own integer rescale does, and a frame no wider than the ceiling keeps its size.
+ */
+export function ffmpegPngShape({ width, height, maxWidth }: { width: number; height: number; maxWidth: number }): { width: number; height: number } {
+  return maxWidth < width ? { width: maxWidth, height: 2 * Math.floor((maxWidth * height + width) / (2 * width)) } : { width, height };
 }
 
 async function isExecutable(path: string, exists: (value: string) => Promise<boolean>) {
@@ -216,43 +274,255 @@ export type ScreencapFrame = { width: number; height: number; pixelFormat: 'rgba
 /**
  * Split `screencap`'s header off its pixels.
  *
- * The header is four little-endian uint32: width, height, format, colorspace.
- * Android builds before 10 stop at the format, so the body length decides which
- * header this device wrote. A frame whose body does not match its own header is
- * a truncated transfer and is refused rather than rendered.
+ * The header is four little-endian uint32: width, height, format, colour
+ * space. Android builds before 10 stop at the format, so the body length
+ * decides which header this device wrote. A frame whose body does not match
+ * its own header is a truncated transfer and is refused rather than rendered.
+ * So is a pixel format this module cannot read, which is left to the headset's
+ * own PNG encoder rather than misread as RGBA, and so is a frame that both
+ * headers fit (see `SCREENCAP_COLOR_SPACES`).
  */
 export function decodeScreencap(bytes: Buffer): ScreencapFrame | undefined {
+  const read = readScreencap(bytes);
+  return read && 'body' in read ? read : undefined;
+}
+
+/**
+ * The colour-space words Android's `screencap` writes in the longer header:
+ * unknown, sRGB and Display P3.
+ *
+ * A frame cut four bytes short of a 16-byte header is exactly as long as a
+ * whole one after the 12-byte header, and both put a little-endian word at
+ * byte 12: the colour space, or the first pixel. A first word that cannot be a
+ * colour space settles it as the shorter header. One that can is a black or
+ * near-black corner pixel or a colour space, and the bytes cannot say which, so
+ * the frame is refused rather than read one pixel out of place.
+ */
+const SCREENCAP_COLOR_SPACES = 3;
+
+/**
+ * The frame, or why a frame whose length fits a header still cannot be read:
+ * a format nothing here reads, or a length both headers fit.
+ */
+function readScreencap(bytes: Buffer): ScreencapFrame | { unreadable: string } | undefined {
   if (bytes.byteLength < 13) return undefined;
   const width = bytes.readUInt32LE(0), height = bytes.readUInt32LE(4), format = bytes.readUInt32LE(8);
   if (width < 1 || height < 1 || width > 16_384 || height > 16_384) return undefined;
   const pixels = width * height * 4;
   const offset = bytes.byteLength - 16 === pixels ? 16 : bytes.byteLength - 12 === pixels ? 12 : undefined;
   if (offset === undefined) return undefined;
-  return { width, height, pixelFormat: PIXEL_FORMATS[format] ?? 'rgba', body: bytes.subarray(offset) };
+  const pixelFormat = PIXEL_FORMATS[format];
+  if (!pixelFormat) return { unreadable: `the headset sent raw pixels in format ${format}, which this Mac does not read.` };
+  if (offset === 12 && bytes.readUInt32LE(12) < SCREENCAP_COLOR_SPACES) {
+    return { unreadable: 'the headset\'s raw frame fits both screencap headers, whole after the 12-byte one or four bytes short after the '
+      + '16-byte one, so this Mac could not tell where its pixels start.' };
+  }
+  return { width, height, pixelFormat, body: bytes.subarray(offset) };
+}
+
+/** How many of a still's pixels are lit. */
+export type StillLight = { pixels: number; lit: number };
+
+/**
+ * Count the lit pixels, reading every one.
+ *
+ * A pixel is lit when its brightest colour channel reaches the floor, so the
+ * channel order (RGBA, BGRA, RGBX) does not matter and alpha is never read.
+ * The count is over the whole frame because a sparse sample can step over a
+ * thin bright stripe; on a 3664x1920 panel the pass takes a few milliseconds.
+ */
+export function countLitPixels(body: Uint8Array, pixels: number, channels: 3 | 4, floor = DEVICE_LIT_FLOOR): StillLight {
+  const whole = Math.min(pixels, Math.floor(body.byteLength / channels));
+  let lit = 0;
+  // Four-byte pixels on a little-endian host are read a word at a time: with a
+  // power-of-two floor, one mask asks whether any colour byte reaches it.
+  if (channels === 4 && body.byteOffset % 4 === 0 && LITTLE_ENDIAN && floor > 0 && floor <= 256 && (floor & (floor - 1)) === 0) {
+    const mask = ((0x100 - floor) & 0xff) * 0x01_01_01;
+    const words = new Uint32Array(body.buffer, body.byteOffset, whole);
+    for (let index = 0; index < whole; index++) if (words[index]! & mask) lit += 1;
+    return { pixels, lit };
+  }
+  const end = whole * channels;
+  for (let at = 0; at < end; at += channels) {
+    if (body[at]! >= floor || body[at + 1]! >= floor || body[at + 2]! >= floor) lit += 1;
+  }
+  return { pixels, lit };
+}
+
+const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+/** Every pixel of one raw frame. */
+export const frameLight = (frame: ScreencapFrame): StillLight => countLitPixels(frame.body, frame.width * frame.height, 4);
+
+/**
+ * What the lit share says, and no more.
+ *
+ * `black` is a still with almost no lit pixel: an asleep display or a blocked
+ * capture, which is refused. `dim` is lit over less than one percent, which a
+ * loading scene and a blocked capture with a status mark can both be, so it is
+ * handed over with a note. `lit` is a scene.
+ */
+export function judgeStill({ pixels, lit }: StillLight): 'black' | 'dim' | 'lit' {
+  const share = pixels > 0 ? lit / pixels : 0;
+  return share < DEVICE_BLACK_LIT_SHARE ? 'black' : share < DEVICE_SCENE_LIT_SHARE ? 'dim' : 'lit';
+}
+
+/** One decoded PNG, or the reason it could not be read, phrased to follow "the PNG the headset encoded". */
+export type PngPixels = { width: number; height: number; channels: 3 | 4; pixels: Buffer } | { unreadable: string };
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_COLOR_NAMES: Readonly<Record<number, string>> = Object.freeze({ 0: 'grayscale', 3: 'palette', 4: 'grayscale with alpha' });
+
+const CRC_TABLE = (() => {
+  const table = new Int32Array(256);
+  for (let entry = 0; entry < 256; entry++) {
+    let value = entry;
+    for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb8_8320 ^ (value >>> 1) : value >>> 1;
+    table[entry] = value;
+  }
+  return table;
+})();
+
+/**
+ * The CRC-32 a PNG chunk carries, from a table built here.
+ *
+ * `zlib.crc32` would do, but it arrived in Node 22.2 and this package runs on
+ * any Node 22; a missing named export stops the whole server from loading.
+ */
+export function pngCrc32(bytes: Uint8Array): number {
+  let crc = -1;
+  for (let index = 0; index < bytes.length; index++) crc = CRC_TABLE[(crc ^ bytes[index]!) & 0xff]! ^ (crc >>> 8);
+  return (crc ^ -1) >>> 0;
 }
 
 /**
- * How much light is in the frame, sampled rather than summed.
+ * Decode a PNG the headset encoded itself, or say why it cannot be.
  *
- * Seven million pixels do not need to be read to tell an empty panel from a
- * scene, and the wearer is waiting. A stride across the whole frame catches a
- * black panel with a lit corner, which a crop would miss.
+ * Only the 8-bit, non-interlaced RGB and RGBA that `screencap -p` writes are
+ * read. Every chunk's checksum is checked; the header has to come first and
+ * only once, the image data in one unbroken run, the end chunk empty, and no
+ * critical chunk may be one this decoder does not know. The image data has to
+ * inflate to exactly the size its header promises, so a damaged transfer is
+ * named rather than passed on. Anything else is a still this Mac cannot verify.
  */
-export function frameBrightness(frame: ScreencapFrame, samples = 20_000): { mean: number; stddev: number } {
-  const pixels = frame.width * frame.height;
-  const step = Math.max(1, Math.floor(pixels / Math.max(1, samples)));
-  const swapped = frame.pixelFormat === 'bgra';
-  let sum = 0, squares = 0, taken = 0;
-  for (let index = 0; index < pixels; index += step) {
-    const at = index * 4;
-    if (at + 2 >= frame.body.byteLength) break;
-    const red = frame.body[at + (swapped ? 2 : 0)]!, green = frame.body[at + 1]!, blue = frame.body[at + (swapped ? 0 : 2)]!;
-    const luma = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
-    sum += luma; squares += luma * luma; taken += 1;
+export function decodePng(bytes: Buffer): PngPixels {
+  if (bytes.byteLength < 8 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) return { unreadable: 'is not a PNG' };
+  let width = 0, height = 0, channels: 3 | 4 | 0 = 0, ended = false, palette = false;
+  // Image data has to arrive as one unbroken run of IDAT chunks.
+  let run: 'before' | 'inside' | 'after' = 'before';
+  const data: Buffer[] = [];
+  let at = 8;
+  while (at + 12 <= bytes.byteLength) {
+    const length = bytes.readUInt32BE(at);
+    if (at + 12 + length > bytes.byteLength) break;
+    const type = bytes.toString('latin1', at + 4, at + 8);
+    if (!/^[A-Za-z]{4}$/u.test(type)) return { unreadable: 'has a chunk whose name is not four letters' };
+    const body = bytes.subarray(at + 8, at + 8 + length);
+    if (pngCrc32(bytes.subarray(at + 4, at + 8 + length)) !== bytes.readUInt32BE(at + 8 + length)) {
+      return { unreadable: `has a ${type} chunk whose checksum does not match` };
+    }
+    if (at === 8 && type !== 'IHDR') return { unreadable: 'does not start with a header chunk' };
+    if (type !== 'IDAT' && run === 'inside') run = 'after';
+    if (type === 'IHDR') {
+      if (at !== 8) return { unreadable: 'has a second header chunk' };
+      if (length !== 13) return { unreadable: 'has a malformed header chunk' };
+      width = body.readUInt32BE(0); height = body.readUInt32BE(4);
+      const depth = body[8]!, color = body[9]!, interlace = body[12]!;
+      if (color !== 2 && color !== 6) return { unreadable: `is ${PNG_COLOR_NAMES[color] ?? `colour type ${color}`}; only 8-bit RGB and RGBA are read here` };
+      if (depth !== 8) return { unreadable: `is ${depth}-bit; only 8-bit RGB and RGBA are read here` };
+      if (interlace !== 0) return { unreadable: 'is interlaced; only non-interlaced PNGs are read here' };
+      if (body[10] !== 0 || body[11] !== 0) return { unreadable: 'uses a compression or filter method PNG does not define' };
+      channels = color === 6 ? 4 : 3;
+    } else if (type === 'IDAT') {
+      if (run === 'after') return { unreadable: 'has its image data split by another chunk' };
+      run = 'inside';
+      data.push(body);
+    } else if (type === 'IEND') {
+      if (length !== 0) return { unreadable: 'has an end chunk that is not empty' };
+      ended = true;
+      break;
+    } else if (type === 'PLTE') {
+      // A suggested palette is allowed beside RGB, once and before the image data.
+      if (palette || run !== 'before') return { unreadable: 'has a palette chunk out of place' };
+      // One to 256 three-byte entries; an RGB or RGBA image may carry it as a suggestion.
+      if (length < 3 || length > 768 || length % 3 !== 0) return { unreadable: 'has a malformed palette chunk' };
+      palette = true;
+    } else if (!(bytes[at + 4]! & 0x20)) {
+      // Lower case first letter marks a chunk a decoder may skip; upper case
+      // marks one it must understand to read the image at all.
+      return { unreadable: `has a critical ${type} chunk this Mac does not read` };
+    }
+    at += 12 + length;
   }
-  if (!taken) return { mean: 0, stddev: 0 };
-  const mean = sum / taken;
-  return { mean, stddev: Math.sqrt(Math.max(0, squares / taken - mean * mean)) };
+  if (!ended) return { unreadable: 'is cut short' };
+  if (!channels) return { unreadable: 'has no header chunk' };
+  if (width < 1 || height < 1 || width > 16_384 || height > 16_384) return { unreadable: `claims a ${width}x${height} image` };
+  if (!data.length) return { unreadable: 'has no image data' };
+  const stride = width * channels, expected = (stride + 1) * height;
+  if (expected > DEVICE_RAW_MAX_BYTES) return { unreadable: 'is larger than this Mac will decode' };
+  let raw: Buffer;
+  try { raw = inflateSync(Buffer.concat(data), { maxOutputLength: expected }); } catch { return { unreadable: 'has image data that does not decompress' }; }
+  if (raw.byteLength !== expected) return { unreadable: 'has less image data than its header promises' };
+  const pixels = Buffer.alloc(stride * height);
+  for (let row = 0; row < height; row++) {
+    const filter = raw[row * (stride + 1)]!, from = row * (stride + 1) + 1, to = row * stride, up = to - stride;
+    if (filter > 4) return { unreadable: `uses row filter ${filter}, which PNG does not define` };
+    if (filter === 0) { raw.copy(pixels, to, from, from + stride); continue; }
+    for (let index = 0; index < stride; index++) {
+      const left = index >= channels ? pixels[to + index - channels]! : 0;
+      const above = row > 0 ? pixels[up + index]! : 0;
+      let predicted: number;
+      if (filter === 1) predicted = left;
+      else if (filter === 2) predicted = above;
+      else if (filter === 3) predicted = (left + above) >> 1;
+      else {
+        const corner = row > 0 && index >= channels ? pixels[up + index - channels]! : 0;
+        const estimate = left + above - corner;
+        const toLeft = Math.abs(estimate - left), toAbove = Math.abs(estimate - above), toCorner = Math.abs(estimate - corner);
+        predicted = toLeft <= toAbove && toLeft <= toCorner ? left : toAbove <= toCorner ? above : corner;
+      }
+      pixels[to + index] = (raw[from + index]! + predicted) & 0xff;
+    }
+  }
+  return { width, height, channels, pixels };
+}
+
+/**
+ * The headset's clock and its recent log, in one shell round trip, so the age
+ * of a line is measured on the headset's own clock.
+ */
+export function secureLayerLogArguments(serial: string): string[] {
+  return ['-s', serial, 'shell', `date +%s; logcat -d -v epoch -t ${SECURE_LAYER_LOG_LINES}`];
+}
+
+/**
+ * What the log probe can say about a blocked capture.
+ *
+ * A number is how many seconds ago, on the headset's clock, the newest "secure
+ * layer detected" line inside the window was written. `none` means the log was
+ * read and held no such line that recent. `unchecked` means the answer had no
+ * readable clock, so no line in it can be dated and nothing can be said.
+ */
+export type SecureLayerLog = number | 'none' | 'unchecked';
+
+export function secureLayerLog(stdout: string, recentSeconds = SECURE_LAYER_RECENT_SECONDS): SecureLayerLog {
+  const lines = stdout.split('\n');
+  const now = Number(lines[0]?.trim());
+  if (!lines[0]?.trim() || !Number.isFinite(now)) return 'unchecked';
+  let age: number | undefined;
+  for (const line of lines.slice(1)) {
+    if (!SECURE_LAYER_LOG.test(line)) continue;
+    const at = Number(/^\s*(\d+(?:\.\d+)?)\s/u.exec(line)?.[1]);
+    if (!Number.isFinite(at) || now - at > recentSeconds || at - now > 5) continue;
+    const seconds = Math.max(0, Math.round(now - at));
+    age = age === undefined ? seconds : Math.min(age, seconds);
+  }
+  return age ?? 'none';
+}
+
+/** How many dated lines a log probe answer holds, after its clock line; separators are not counted. */
+export function datedLogLines(stdout: string): number {
+  return stdout.split('\n').slice(1).filter(line => /^\s*\d+(?:\.\d+)?\s/u.test(line)).length;
 }
 
 /** Width and height out of a PNG's IHDR, or nothing. */
@@ -367,9 +637,11 @@ export async function resolveAdbTarget({ env, exists = defaultExists, run }: {
  * error, because a Mac without Developer Mode enabled is an ordinary state,
  * not a fault.
  *
- * A black frame is a device state, not a capture failure, so it is reported as
- * one: the headset is asleep or off the wearer's head, or it is awake and the
- * panel is genuinely empty, and the two say different things.
+ * Every still is checked before it is handed over. One that is almost
+ * entirely black is refused with what the headset says about itself; one this
+ * Mac cannot decode is refused as unverified, never as black; one lit over
+ * only a small area is handed over with a note saying what the pixels cannot
+ * settle.
  */
 export async function captureDeviceView({ maxWidth, hooks, timeoutMs = DEVICE_CAPTURE_TIMEOUT_MS }: {
   maxWidth?: number; hooks: DeviceCaptureHooks; timeoutMs?: number;
@@ -393,39 +665,61 @@ export async function captureDeviceView({ maxWidth, hooks, timeoutMs = DEVICE_CA
   let frame: ScreencapFrame | undefined;
   let wire: 'gzip' | 'raw' = 'gzip';
   let captureError: string | undefined;
+  // Why a whole raw frame that arrived could not be read here.
+  let unreadable: string | undefined;
+  const take = (bytes: Buffer) => {
+    const read = readScreencap(bytes);
+    if (read && 'unreadable' in read) unreadable = read.unreadable;
+    return read && 'body' in read ? read : undefined;
+  };
   if (ffmpeg) {
     // Compressed first. A device without gzip writes nothing to stdout and its
     // shell complains on stderr, which is a fall-through rather than a failure.
     try {
       const zipped = toBuffer((await capture(screencapArguments(serial))).stdout);
-      if (zipped.byteLength > 2) frame = decodeScreencap(gunzipSync(zipped));
+      if (zipped.byteLength > 2) frame = take(gunzipSync(zipped, { maxOutputLength: DEVICE_RAW_MAX_BYTES }));
     } catch (error) { captureError = shortReason(error); }
-    if (!frame) {
+    // A whole frame nothing here can read would arrive the same way
+    // uncompressed, so it goes straight to the headset's own encoder.
+    if (!frame && unreadable === undefined) {
       wire = 'raw';
       try {
-        frame = decodeScreencap(toBuffer((await capture(screencapArguments(serial, { gzip: false }))).stdout));
+        frame = take(toBuffer((await capture(screencapArguments(serial, { gzip: false }))).stdout));
       } catch (error) { captureError ??= shortReason(error); }
     }
+    // A whole raw frame that arrived, readable or not, makes an earlier gzip
+    // failure history: only what it says, and what goes wrong after it, can
+    // explain a fall back to the headset's PNG.
+    if (frame || unreadable !== undefined) captureError = unreadable;
   } else {
-    captureError = 'No ffmpeg was found to encode the raw frame, so the headset encoded it instead.';
+    captureError = 'No ffmpeg was found on this Mac, so the headset was asked to encode the still itself.';
   }
 
+  const probe = () => probeStill({ adb, serial, env, run: hooks.run });
+
   if (frame && ffmpeg) {
-    // Only this path can see the pixels, so only this path can tell a sleeping
-    // headset from a busy one.
-    const light = frameBrightness(frame);
-    if (light.mean < DEVICE_DARK_MEAN && light.stddev < DEVICE_DARK_STDDEV) {
-      return { ok: false, reason: await darkFrameReason({ adb, serial, env, run: hooks.run }) };
-    }
+    // Every pixel of the raw frame is read before anything is encoded, so a
+    // black still is refused without spending the encode on it.
+    const light = frameLight(frame);
+    const verdict = judgeStill(light);
+    if (verdict === 'black') return { ok: false, still: 'black', reason: blackStillReason(light, await probe()) };
     try {
       const encoded = toBuffer((await hooks.run(ffmpeg,
         ffmpegPngArguments({ width: frame.width, height: frame.height, pixelFormat: frame.pixelFormat, maxWidth: width }),
         { timeout: timeoutMs, env, maxBuffer: DEVICE_CAPTURE_MAX_BYTES, input: frame.body })).stdout);
-      const shape = pngShape(encoded);
-      if (shape && encoded.byteLength <= DEVICE_CAPTURE_MAX_BYTES) {
-        return { ok: true, bytes: encoded, mimeType: 'image/png', ...shape, ms: now() - started, serial, wire };
+      // What is handed over is ffmpeg's PNG, so it is read in full and judged
+      // too: a conversion of the wrong size, cut short, or emptied of the
+      // frame that was judged goes to the headset's own encoder instead.
+      const converted = judgeConversion(encoded, ffmpegPngShape({ width: frame.width, height: frame.height, maxWidth: width }));
+      if ('fault' in converted) captureError = converted.fault;
+      else {
+        // The native frame is the panel as drawn, so its count leads a note; a
+        // scaled still that came out dim from a lit frame gets its own.
+        const dim = verdict === 'dim' ? light : converted.verdict === 'dim' ? converted.light : undefined;
+        const note = dim ? dimStillNote(dim, await probe()) : undefined;
+        return { ok: true, bytes: encoded, mimeType: 'image/png', width: converted.width, height: converted.height,
+          ms: now() - started, serial, wire, ...(note ? { note } : {}) };
       }
-      captureError ??= 'ffmpeg wrote something that is not a PNG.';
     } catch (error) { captureError ??= `ffmpeg failed: ${shortReason(error)}`; }
   }
 
@@ -436,7 +730,10 @@ export async function captureDeviceView({ maxWidth, hooks, timeoutMs = DEVICE_CA
   try {
     encoded = toBuffer((await capture(screencapPngArguments(serial))).stdout);
   } catch (error) {
-    return { ok: false, reason: `adb screencap failed: ${captureError ?? shortReason(error)}` };
+    // The transfer that just failed is the answer; why this route was taken
+    // follows it as context, never as the cause.
+    const context = captureError ? ` ${captureError.replace(/^(?!ffmpeg)[a-z]/u, letter => letter.toUpperCase()).replace(/([^.])$/u, '$1.')}` : '';
+    return { ok: false, reason: `adb screencap failed: ${shortReason(error).replace(/\.$/u, '')}.${context}` };
   }
   const shape = pngShape(encoded);
   if (!shape) {
@@ -445,32 +742,131 @@ export async function captureDeviceView({ maxWidth, hooks, timeoutMs = DEVICE_CA
   if (encoded.byteLength > DEVICE_CAPTURE_MAX_BYTES) {
     return { ok: false, reason: `The device capture is ${encoded.byteLength} bytes, past the limit.` };
   }
-  return { ok: true, bytes: encoded, mimeType: 'image/png', ...shape, ms: now() - started, serial, wire: 'device-png' };
+  // The headset's own PNG is decoded and every pixel read, the same check as a
+  // raw frame. One this Mac cannot decode is refused rather than passed on
+  // unread, because nothing here can say what it shows.
+  const decoded = decodePng(encoded);
+  if ('unreadable' in decoded) {
+    return { ok: false, still: 'unverified', reason: unverifiedStillReason(decoded.unreadable, { ffmpeg: Boolean(ffmpeg), captureError }) };
+  }
+  const light = countLitPixels(decoded.pixels, decoded.width * decoded.height, decoded.channels);
+  const verdict = judgeStill(light);
+  if (verdict === 'black') {
+    // A raw frame or a conversion that was not black is part of what the agent needs to know.
+    return { ok: false, still: 'black', reason: blackStillReason(light, await probe(), ffmpeg ? captureError : undefined) };
+  }
+  const note = verdict === 'dim' ? dimStillNote(light, await probe()) : undefined;
+  return { ok: true, bytes: encoded, mimeType: 'image/png', width: decoded.width, height: decoded.height,
+    ms: now() - started, serial, wire: 'device-png', ...(note ? { note } : {}) };
 }
 
 /**
- * Why the frame is empty, in the device's own words.
- *
- * A headset the wearer took off is the common case and is not a fault; a panel
- * that is awake and still black is worth escalating. The probe is best effort:
- * when it cannot answer, the sentence covers both.
+ * Whether ffmpeg's PNG is a whole, readable picture of the size it was asked
+ * for, and what its own pixels say, by the rule the raw frame was judged by.
+ * A fault is phrased to follow "the headset encoded it because".
  */
-async function darkFrameReason({ adb, serial, env, run }: {
+function judgeConversion(encoded: Buffer, expected: { width: number; height: number }):
+{ fault: string } | { width: number; height: number; light: StillLight; verdict: 'dim' | 'lit' } {
+  if (encoded.byteLength > DEVICE_CAPTURE_MAX_BYTES) return { fault: `ffmpeg's conversion is ${encoded.byteLength} bytes, past the limit.` };
+  const decoded = decodePng(encoded);
+  if ('unreadable' in decoded) return { fault: `ffmpeg's conversion ${decoded.unreadable}.` };
+  if (decoded.width !== expected.width || decoded.height !== expected.height) {
+    return { fault: `ffmpeg's conversion is ${decoded.width}x${decoded.height} where ${expected.width}x${expected.height} was asked for.` };
+  }
+  const light = countLitPixels(decoded.pixels, decoded.width * decoded.height, decoded.channels);
+  const verdict = judgeStill(light);
+  if (verdict === 'black') {
+    return { fault: `ffmpeg's conversion came out almost entirely black (${count(light.lit)} of ${count(light.pixels)} pixels lit) from a raw frame that was not.` };
+  }
+  return { width: decoded.width, height: decoded.height, light, verdict };
+}
+
+/**
+ * What the headset says about itself when a still comes back dark. `power` is
+ * empty when it did not answer; `log` is `unchecked` when the log probe failed.
+ */
+export type StillProbe = { power: string; log: SecureLayerLog;
+  /** How many dated log lines came back, so the sentence never claims more than were read. */
+  linesRead?: number };
+
+/**
+ * Ask the headset whether its display is awake and whether its log mentions a
+ * blocked capture, in parallel. Best effort: a probe that fails only changes
+ * the wording, never the verdict on the pixels.
+ */
+async function probeStill({ adb, serial, env, run }: {
   adb: string; serial: string; env: NodeJS.ProcessEnv; run: DeviceRunner;
-}): Promise<string> {
-  let power = '';
-  try {
-    const dumped = await run(adb, ['-s', serial, 'shell', 'dumpsys', 'power'],
-      { timeout: DEVICE_ADB_TIMEOUT_MS, env, maxBuffer: 4 * 1024 * 1024 });
-    power = /mWakefulness=(\w+)/u.exec(toBuffer(dumped.stdout).toString('utf8'))?.[1] ?? '';
-  } catch { /* The frame is still the answer; the probe is only the wording. */ }
-  if (/asleep|dozing/iu.test(power)) {
-    return 'The headset display is off or asleep, so the frame is black. Put it back on, or hold it awake with adb shell am broadcast -a com.oculus.vrpowermanager.prox_close.';
-  }
+}): Promise<StillProbe> {
+  const options = { timeout: DEVICE_ADB_TIMEOUT_MS, env, maxBuffer: 4 * 1024 * 1024 };
+  const [dumped, logged] = await Promise.allSettled([
+    run(adb, ['-s', serial, 'shell', 'dumpsys', 'power'], options),
+    run(adb, secureLayerLogArguments(serial), options),
+  ]);
+  const power = dumped.status === 'fulfilled' ? /mWakefulness=(\w+)/u.exec(toBuffer(dumped.value.stdout).toString('utf8'))?.[1] ?? '' : '';
+  const answer = logged.status === 'fulfilled' ? toBuffer(logged.value.stdout).toString('utf8') : undefined;
+  const log = answer === undefined ? 'unchecked' : secureLayerLog(answer);
+  return { power, log, ...(answer === undefined ? {} : { linesRead: datedLogLines(answer) }) };
+}
+
+const count = (value: number) => value.toLocaleString('en-US');
+const percent = (light: StillLight) => `${Number((100 * light.lit / Math.max(1, light.pixels)).toPrecision(2))}%`;
+const ASLEEP = /asleep|dozing/iu;
+const PAGE_SOURCE = 'While the page is in immersion, source "page" reads the molecule from the page itself.';
+const RECOVERY = 'To try to get the device view back, restart the headset, or run `adb shell am force-stop com.oculus.vrshell` '
+  + 'and then `adb shell am force-stop com.oculus.metacam` (the headset\'s menus reload), and ask again.';
+const WAKE = 'If the headset is off the wearer\'s head, put it back on, or hold it awake with `adb shell am broadcast -a com.oculus.vrpowermanager.prox_close`.';
+const secureLine = (age: number) => `A headset log line from ${age} s ago says "secure layer detected", which suggests the system blocked this capture`;
+/** What the log said, or could not say, when it names no recent blocked capture. */
+const logSaid = (log: 'none' | 'unchecked', linesRead?: number) => log === 'unchecked'
+  ? 'its log could not be checked for a blocked capture'
+  : linesRead === 0 ? 'its log returned no lines to check for a blocked capture'
+    : `no "secure layer detected" line from the last ${SECURE_LAYER_RECENT_SECONDS} s was found in the `
+      + (linesRead === undefined ? 'log lines read' : `${linesRead} log line${linesRead === 1 ? '' : 's'} read`);
+
+/**
+ * Why a black still was refused, saying only what was observed.
+ *
+ * The pixels establish that the still is black and nothing more. The power
+ * state is what the headset reports, and a recent "secure layer detected" line
+ * suggests a blocked capture without proving this one was blocked, so each is
+ * reported as exactly that, followed by what to try. `fallback` is why the
+ * headset encoded the still when this Mac could not, which is said first.
+ */
+export function blackStillReason(light: StillLight, { power, log, linesRead }: StillProbe, fallback?: string): string {
+  const seen = `The still is almost entirely black (${count(light.lit)} of ${count(light.pixels)} pixels lit), `
+    + 'so it was not handed over as the wearer\'s view. Nothing was saved.' + encodedBecause(fallback);
+  if (ASLEEP.test(power)) return `${seen} The headset reports its display ${power}. ${WAKE}`;
+  if (typeof log === 'number') return `${seen} ${secureLine(log)}; the scene itself may be drawing normally. ${PAGE_SOURCE} ${RECOVERY}`;
   if (power) {
-    return `The headset is ${power} but the panel drew nothing, so the frame is black. The session may have dropped out of immersion.`;
+    return `${seen} The headset reports it is ${power}, and ${logSaid(log, linesRead)}, so the cause is unknown: `
+      + `the session may have left immersion, or the capture may have been blocked. ${PAGE_SOURCE} Otherwise ask again.`;
   }
-  return 'The frame is black: the headset display is off or asleep, or the panel drew nothing at all.';
+  return `${seen} The headset did not say whether its display is awake${log === 'unchecked' ? ', and its log could not be checked either' : ''}. ${WAKE} ${PAGE_SOURCE}`;
+}
+
+/**
+ * The note on a still lit over less than one percent, which is handed over.
+ *
+ * A scene still loading and a blocked capture carrying a status mark can be
+ * the same pixels, so this says what is uncertain instead of choosing.
+ */
+export function dimStillNote(light: StillLight, { power, log }: StillProbe): string {
+  return `Almost all of this still is black: ${percent(light)} of its pixels are lit (${count(light.lit)} of ${count(light.pixels)}). `
+    + 'The pixels cannot tell a scene that is dark or still loading from a blocked capture that kept a small mark.'
+    + (typeof log === 'number' ? ` ${secureLine(log)}.` : '')
+    + (ASLEEP.test(power) ? ` The headset reports its display ${power}.` : '')
+    + ` If the wearer should be seeing more than this, ask again. ${PAGE_SOURCE}`;
+}
+
+/** " The headset encoded it because ...", or nothing when there is no reason to give. */
+const encodedBecause = (cause: string | undefined) => cause
+  ? ` The headset encoded it because ${cause.replace(/^[A-Z]/u, letter => letter.toLowerCase()).replace(/\.$/u, '')}.` : '';
+
+/** Why a still this Mac could not decode was refused, which is never the same as black. */
+export function unverifiedStillReason(unreadable: string, { ffmpeg, captureError }: { ffmpeg: boolean; captureError?: string | undefined }): string {
+  return `Could not verify the still: the PNG the headset encoded ${unreadable}, so it was not handed over as the wearer's view. Nothing was saved.`
+    + (ffmpeg ? encodedBecause(captureError) : ' With ffmpeg on this Mac, or STEREOFOLD_FFMPEG_BIN naming it, the still is read from raw pixels instead.')
+    + ` Ask again. ${PAGE_SOURCE}`;
 }
 
 /* ------------------------------------------------ is the browser responding */

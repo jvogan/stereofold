@@ -82,9 +82,13 @@ for (const action of ['next', 'done', 'select', 'replace', 'source'] as const) i
     else if (action === 'select') await h.player.select(tour.id);
     else if (action === 'replace') await h.player.replaceTours([tour]);
     else h.source('other');
-    await vi.advanceTimersByTimeAsync(1000); expect(h.angle()).toBe(held);
+    // Next leaves the chapter, so the turn it had left is played out at once,
+    // where it ends when allowed to finish. Done leaves the lesson, so the
+    // camera goes back to the frame the lesson found. The rest leave it be.
+    const left = action === 'next' ? 100 : action === 'done' ? 0 : held;
+    await vi.advanceTimersByTimeAsync(1000); expect(h.angle()).toBeCloseTo(left, 9);
     if (action === 'next' || action === 'source') {
-      await h.player.togglePlay(); await vi.advanceTimersByTimeAsync(1000); expect(h.angle()).toBe(held);
+      await h.player.togglePlay(); await vi.advanceTimersByTimeAsync(1000); expect(h.angle()).toBeCloseTo(left, 9);
     } else expect(h.player.getState()).toMatchObject({ active: false, motionRunning: false });
   } finally { h.player.pause(); h.cleanup(); vi.useRealTimers(); }
 });
@@ -100,9 +104,11 @@ it('manual XR edits keep the lesson active and its held placement until an expli
     expect(h.angle()).toBe(held); expect(h.capture()).toEqual(before);
     expect(h.player.getState()).toMatchObject({ stopped: false, active: true, motionRunning: false });
     // Rejoin is the explicit request to restore the chapter. Its animation
-    // starts a fresh visit instead of reviving the old visit's remainder.
+    // starts a fresh visit instead of reviving the old visit's remainder,
+    // from the chapter's first pose rather than where the old visit stopped.
+    expect(held).toBeGreaterThan(0);
     await h.player.rejoin(false); await vi.advanceTimersByTimeAsync(500);
-    expect(h.angle() - held).toBeCloseTo(6.25, 8);
+    expect(h.angle()).toBeCloseTo(6.25, 8);
   } finally { h.player.pause(); h.cleanup(); vi.useRealTimers(); }
 });
 

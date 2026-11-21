@@ -197,7 +197,8 @@ These variables configure transcription and transcript delivery:
 | `STEREOFOLD_WHISPER_GPU` | `1` runs whisper on the GPU. Unset, it runs on the CPU: a little slower, and it keeps transcription out of the GPU driver, which crashed under heavy Metal load. |
 | `STEREOFOLD_FFMPEG_BIN` | An absolute path to `ffmpeg`, which decodes audio before either recognizer runs. |
 | `STEREOFOLD_PTT_SILENCE_RMS` | The loudest-100 ms threshold below which a press counts as silence and no recognizer runs. Default `0.012`; `0` disables it. |
-| `STEREOFOLD_PTT_TRANSCRIPTS` | An absolute file path to append transcript records as JSON lines. |
+| `STEREOFOLD_PTT_TRANSCRIPTS` | An absolute file path to append transcript records as JSON lines. The file must be a regular file that you own, not a symlink; Stereofold keeps it readable by your account only. |
+| `STEREOFOLD_PTT_DEBUG_TRANSCRIPTS` | `1` writes each transcript's words to the server's log, which an agent host can save to disk. Unset, the log records only each transcript's length. |
 | `STEREOFOLD_PTT_TEXT_COMMAND` | A shell command run once per transcript, with the text on standard input. |
 | `STEREOFOLD_BRIDGE_DIR` | An absolute directory path for transcript delivery to a running headset bridge. |
 
@@ -241,9 +242,12 @@ hand. Claude Code installs the same share with
 `claude plugin marketplace add /absolute/path/to/stereofold-share` and
 `claude plugin install stereofold@stereofold-local`.
 
-Install the complete artifact to keep its five runtime assets together: `dist/server.mjs`,
-`dist/viewer.html`, `dist/inspector.html`, `dist/inspector.css`, and `dist/inspector-host.js`.
-The server and panels must come from the same build.
+Install the complete artifact. The server and its panels are
+`dist/server.mjs`, `dist/viewer.html`, `dist/inspector.html`,
+`dist/inspector.css`, `dist/inspector-script-1.js`,
+`dist/inspector-script-2.js`, and `dist/inspector-host.js`; the detailed view
+also loads `dist/molstar/molstar.js` and `dist/molstar/molstar.css`. All of
+`dist/` must come from the same build.
 
 ### Maintainer installer safety
 
@@ -272,7 +276,7 @@ changes during installation, the existing personal plugin stays in place.
 
 ## After a rebuild
 
-Before trusting anything on screen, run the [live check](./host-verification.md#live-check-inside-a-host): fresh conversation, load 1CRN with `stereo_structure.open`, retain the returned `sessionId`, choose Parallel, call `stereo_structure.get_state` with that ID, and read `structuredContent.diagnostics`. Also open the focused inspector with `stereo_structure.inspect` and verify its own saved view mounts. The proof of which stereo-viewer bytes are mounted is `diagnostics.viewerBuild`, compared against the hash `pnpm --filter stereo-structure smoke` prints. The server registers the `stereo_structure.*` tools that `pnpm --filter stereo-structure smoke` asserts by name; read that list rather than a count typed here. At this checkout there are 68 registered tools: 41 model-visible tools (`continue_session`, `open_inspector`, `recall_headset`, `switch_assistant`, `undo_last_change`, `redo_last_change`, `inspect`, `inspect_file`, `inspect_scene`, `inspect_lesson`, `prepare_composite`, `install_lesson`, `measure`, `remove_measurement`, `inspect_experience`, `list_experiences`, `navigate_experience`, `grow_structure`, `open_companion`, `manage_companion`, `control_tour`, `get_inspection_state`, `get_readiness`, `update_inspection`, `manage_inspection_view`, `emphasize`, `focus_selection`, `replace_inspection_source`, `open_detailed_view`, `import_detailed_view`, `say_to_headset`, `speak_to_headset`, `listen_voice`, `capture_headset_view`, `read_headset_browser`, `read_headset_log`, `open`, `control`, `get_state`, `set_mode`, `set_motion`) and 27 app-only hydration, synchronization, and lease tools. The 41 holds in Codex, which hides the app-only tools from the model, and in Claude Code 2.1.280, which reads the same hint; a Claude Code plugin install names each tool `mcp__plugin_stereofold_stereo_structure__stereo_structure_<name>`. See [plugin/README.md](../plugin/README.md) for the canonical tool list. Its two resources are `ui://stereo-structure/inspector` and `ui://stereo-structure/viewer`.
+Before trusting anything on screen, run the [live check](./host-verification.md#live-check-inside-a-host): fresh conversation, load 1CRN with `stereo_structure.open`, retain the returned `sessionId`, choose Parallel, call `stereo_structure.get_state` with that ID, and read `structuredContent.diagnostics`. Also open the focused inspector with `stereo_structure.inspect` and verify its own saved view mounts. The proof of which stereo-viewer bytes are mounted is `diagnostics.viewerBuild`, compared against the hash `pnpm --filter stereo-structure smoke` prints. The server registers the `stereo_structure.*` tools that `pnpm --filter stereo-structure smoke` asserts by name; read that list rather than a count typed here. At this checkout there are 70 registered tools: 42 model-visible tools (`continue_session`, `open_inspector`, `recall_headset`, `switch_assistant`, `undo_last_change`, `redo_last_change`, `inspect`, `inspect_file`, `inspect_scene`, `inspect_lesson`, `prepare_composite`, `install_lesson`, `measure`, `remove_measurement`, `inspect_experience`, `list_experiences`, `navigate_experience`, `grow_structure`, `open_companion`, `manage_companion`, `control_tour`, `get_inspection_state`, `get_readiness`, `update_inspection`, `manage_inspection_view`, `emphasize`, `focus_selection`, `replace_inspection_source`, `open_detailed_view`, `import_detailed_view`, `say_to_headset`, `speak_to_headset`, `listen_voice`, `capture_headset_view`, `show_live_view`, `read_headset_browser`, `read_headset_log`, `open`, `control`, `get_state`, `set_mode`, `set_motion`) and 28 app-only hydration, synchronization, and lease tools. The 42 holds in Codex, which hides the app-only tools from the model, and in Claude Code 2.1.280, which reads the same hint; a Claude Code plugin install names each tool `mcp__plugin_stereofold_stereo_structure__stereo_structure_<name>`. See [plugin/README.md](../plugin/README.md) for the canonical tool list. Its two resources are `ui://stereo-structure/inspector` and `ui://stereo-structure/viewer`.
 
 ## Claude Science local MCP server
 

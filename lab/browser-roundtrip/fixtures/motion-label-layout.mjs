@@ -12,6 +12,8 @@ export const demoSeats = {
   'kinesin-walk':{file:'kinesin-walk-motion.cif',scale:.00504,placement:1.738056,distance:6.5,center:[0,45,0]},
   'hemoglobin-switch':{file:'hemoglobin-tr-motion.cif',scale:.02421,placement:1.618259,distance:4.097,center:[10,14,40]},
   'atp-synthase-rotor':{file:'atp-synthase-rotor-motion.cif',scale:.00777,placement:2.017061,distance:3.483,center:[0,53.22,0]},
+  // No device recording yet: the seat the motion framing rule gives a level head, held 1.25x above its base scale.
+  'daraxonrasib-assembly':{file:'daraxonrasib-assembly-motion.cif',scale:.019088,placement:1.25,distance:3.13,center:[20.35,7.78,9.13]},
 };
 export function sampleTimes(chapter) {
   const a=chapter.animation, samples=new Set([0,a?.durationSeconds ?? 0]);

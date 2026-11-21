@@ -1,9 +1,14 @@
 import { inspectionJson, type InspectionScene, type InspectionChange } from './inspection-contract.js';
-import { sameEntryScene } from './inspection-render-settle.js';
+import { sameEntryScene, withoutChapterTurn } from './inspection-render-settle.js';
 
 /** A queued unbound edit can follow a save only if its inputs did not change. */
 export function compatibleLocalSave(before:InspectionScene, after:InspectionScene, change:InspectionChange):boolean {
   if(before.sourceSha256!==after.sourceSha256 || before.modelNumber!==after.modelNumber || before.assemblyId!==after.assemblyId)return false;
+  // A chapter's own camera turn records how far it ran and whether it still
+  // runs in the lesson cursor. The save that settles the turn changes those two
+  // fields with the camera, so no comparison below may read them as an edit.
+  before={...before,inspection:withoutChapterTurn(before.inspection)};
+  after={...after,inspection:withoutChapterTurn(after.inspection)};
   // A running clip advances between captures, including across loop wraps.
   // Keep its definition, identity and controls in every comparison below;
   // only elapsed time is incidental to these queued lesson commands.

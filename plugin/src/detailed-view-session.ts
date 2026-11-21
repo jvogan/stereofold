@@ -447,6 +447,9 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
       get recording() { return Boolean(recorder) || starting; },
       async start() {
         if (recorder || starting) return false;
+        // The person started this share with --no-ptt: no press opens the
+        // microphone, and the line is the one a refused microphone gets.
+        if (options.refused && options.refused()) { say('The microphone is not allowed here.'); return false; }
         mime = pickRecordingMime(Recorder, options.mimeTypes || []);
         if (!mime) { say('This browser cannot record. Use the headset menu.'); return false; }
         starting = true; releasePending = false; stopping = false;
@@ -494,6 +497,16 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
    * loop around it does the drawing and the posting, so the decision itself is
    * testable without a viewer.
    */
+  /**
+   * Whether Hold to talk stays refused after one host answer. An answer that
+   * carries microphoneRefused sets it; one that lacks it, such as a heartbeat
+   * for a panel the host dropped, leaves it set. Only a successful attach, a
+   * new binding, can clear it.
+   */
+  function microphoneRefusedAfter(previous, answer, attach) {
+    var said = Boolean(answer && answer.structuredContent && answer.structuredContent.microphoneRefused === true);
+    return attach ? said : previous || said;
+  }
   function readBeat(answer, currentScene) {
     var state = (answer && answer.structuredContent) || {};
     var priv = (answer && answer.private) || {};
@@ -521,6 +534,6 @@ export const DETAILED_VIEW_SESSION_SOURCE = String.raw`(() => {
   return {renders: renders, refusal: refusal, nextScene: nextScene, recordingPlugin: recordingPlugin,
     clearPainted: clearPainted, createSelectionReporter: createSelectionReporter, selectionSignature: selectionSignature, captionAudioUrl: captionAudioUrl,
     captionSegments: captionSegments,
-    pickRecordingMime: pickRecordingMime, createTalk: createTalk, readBeat: readBeat,
+    pickRecordingMime: pickRecordingMime, createTalk: createTalk, readBeat: readBeat, microphoneRefusedAfter: microphoneRefusedAfter,
     isReturnRequest: isReturnRequest, resolveReturnRequest: resolveReturnRequest};
 })()`;

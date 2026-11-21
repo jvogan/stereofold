@@ -51,9 +51,10 @@ test('the steps land on the documented hex values', () => {
   assert.equal(shadeHex(STRAND_BASE_BETA, -0.12), '#d1860a');
 });
 
-test('every wall part maps to its own strand, ligands to the front one', () => {
+test('every wall part maps to its own strand, each copy\'s cargo to its host strand', () => {
   const parts = wall.chapters[0].immersive.emphasis.parts;
-  assert.equal(parts.length, 14);
+  // Twelve tubulin chains and the GTP, GDP and Taxol of all six copies.
+  assert.equal(parts.length, 25);
   for (const part of parts) {
     const strand = wallStrandIndex(part);
     if (part.id.startsWith('middle-')) assert.equal(strand, 1, part.id);

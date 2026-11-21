@@ -1,7 +1,8 @@
 /** Immutable coordinate identities shared by launchers, scenes and growth. */
 import { createHash } from 'node:crypto';
+import { lstatSync, realpathSync } from 'node:fs';
 import { readFile, readdir, rm, stat } from 'node:fs/promises';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
 import { writeVerifiedCacheFile } from './verified-cache-write.js';
 
 export const DEMO_CACHE_DIGESTS_TO_KEEP = 3;
@@ -16,8 +17,36 @@ export function addressedDemoFile(file: string, sha256: string): string {
   return stem.endsWith(`.${sha256}`) ? file : `${stem}.${sha256}${ext}`;
 }
 
+/** Resolve existing ancestors without creating missing cache directories. */
+function canonicalCachePath(path: string): string {
+  try { return realpathSync(path); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  try { lstatSync(path); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    return resolve(canonicalCachePath(dirname(path)), basename(path));
+  }
+  throw Error('Demo cache path contains a dangling symlink');
+}
+
+/** Validate names before resolution, and confine both new and existing files. */
+export function confinedDemoPath(cachePath: (file: string) => string, file: string): string {
+  if (!file || isAbsolute(file) || win32.isAbsolute(file)
+    || file.split(/[/\\]/u).some(segment => !segment || segment === '..')) {
+    throw Error('Demo cache file must be a relative name without empty or parent segments');
+  }
+  const root = canonicalCachePath(resolve(cachePath('.'))), path = cachePath(file);
+  const child = relative(root, canonicalCachePath(resolve(path)));
+  if (!child || child === '..' || child.startsWith(`..${sep}`) || isAbsolute(child)) {
+    throw Error('Demo cache file must remain inside the canonical cache root');
+  }
+  return path;
+}
+
 export function addressedDemoPath(cachePath: (file: string) => string, file: string, sha256: string): string {
-  const path = cachePath(addressedDemoFile(file, sha256));
+  // Validate the original name before adding a digest can hide empty segments.
+  confinedDemoPath(cachePath, file);
+  const path = confinedDemoPath(cachePath, addressedDemoFile(file, sha256));
   usedThisRun.add(resolve(path));
   return path;
 }
@@ -27,7 +56,7 @@ export async function readAddressedDemoFile(cachePath: (file: string) => string,
   path: string; bytes: Buffer;
 } | undefined> {
   const path = addressedDemoPath(cachePath, file, sha256);
-  for (const candidate of [path, cachePath(file)]) {
+  for (const candidate of [path, confinedDemoPath(cachePath, file)]) {
     const bytes = await readFile(candidate).catch((error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') return undefined;
       throw error;

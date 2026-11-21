@@ -2362,6 +2362,34 @@ it('animation rejects stale revisions and seeks beyond the clip',async()=>{
     expect(stale.isError).toBe(true);
   }finally{await t.close();}
 });
+// A headset page can slide the structure aside to keep its menu in view while
+// a restarted clip draws. The restart is still drawn and its clock checked; the
+// slide is the page's own seat, not a different restart.
+for(const moved of ['translation','scale','rotation'] as const)
+it(`animation restart receipt ${moved==='translation'?'accepts':'refuses'} a headset page that changed the ${moved} while it drew`,async()=>{
+  const t=await setup();
+  try {
+    const headset=(await t.call('attach_inspection',{...t.binding,surface:'companion'})).structuredContent.panelId;
+    await t.call('poll_inspection',{...t.binding,panelId:headset,availability:'ready',animation:{...animationSample,timeSeconds:4}});
+    const sent=await t.call('update_inspection',{sessionId:t.sessionId,commandId:`restart-${moved}`,change:{kind:'animation',patch:{restart:true,state:'play'}}});
+    expect(sent.structuredContent.command).toMatchObject({panelId:headset,status:'queued'});
+    const {delivery}=await t.poll('ready',t.binding,headset);
+    const drawn=structuredClone(t.scene);
+    if(moved==='translation') drawn.inspection.placement.translation=[-0.85,0,-1.46];
+    else if(moved==='scale') drawn.inspection.placement.scale=1.25;
+    else drawn.inspection.placement.rotation=[0,0.5,0];
+    const animation={...animationSample,timeSeconds:0};
+    const done=(await t.call('complete_inspection',{...t.binding,panelId:headset,commandId:delivery.commandId,claimToken:delivery.claimToken,scene:drawn,animation})).structuredContent;
+    if(moved==='translation') {
+      expect(done.command).toMatchObject({status:'rendered',animation,renderedRevision:t.binding.baseInspectionRevision+1});
+      expect(done.command.detail).toBe('The headset page moved the structure while it drew this change; the saved placement is where it drew it.');
+      expect((await t.current()).structuredContent.view.placement).toEqual(drawn.inspection.placement);
+    } else {
+      expect(done.command.status).toBe('unconfirmed');
+      expect(done.inspectionRevision).toBe(t.binding.baseInspectionRevision);
+    }
+  }finally{await t.close();}
+});
 
 it('animation completion publishes its playback with the shared scene revision and accepts elapsed render time',async()=>{
   const t=await setup();
@@ -2678,7 +2706,7 @@ it('registers comparison bytes claimed by a named capture retry before receiving
   // Execute the viewer's comparison lookup; substitute only its GPU operations.
   const viewerSource=readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs',import.meta.url),'utf8');
   const start=viewerSource.indexOf('  async function restoreCompanion(');
-  const renderer:any=vm.createContext({Error,comparisonSources:new Map(),companionRecord:undefined,candidateRecords:new Set(),
+  const renderer:any=vm.createContext({ followRecovery: false, recoveryPanel: undefined,Error,comparisonSources:new Map(),companionRecord:undefined,candidateRecords:new Set(),
     retiredComparisons:new Set(),detached:structuredClone,comparisonGeometry:()=>{},paintCompanion:async()=>{},
     applyInspectionTransform:()=>{},canvas:{xr:{isPresenting:{value:false}}},
     plugin:{state:{data:{updateCellState:()=>{}}}},

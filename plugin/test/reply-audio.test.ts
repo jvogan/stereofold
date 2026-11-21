@@ -109,7 +109,7 @@ describe('the reply clip a voiceless headset plays', () => {
     expect(audio.started[0].connected).toBe(true);
     expect(audio.context().state).toBe('running');
     expect(synth.spoken).toEqual([]);
-    // e5bb157 records spoken evidence at audio start, including replies without IDs.
+    // Audio start records the spoken confirmation, including for a reply without an ID.
     expect(kinds(entries)).toEqual(['reply-audio-fetch', 'voice-loop', 'reply-audio-play']);
     expect(detailOf(entries, 'voice-loop')).toEqual({ stage: 'spoken-confirmation-started',
       spokenText: 'Thirteen protofilaments, and EB3 marks the seam.', spokenWords: 7 });
@@ -389,7 +389,9 @@ describe('a reply that takes more than one segment', () => {
     const silent = segmented({ id: 'silent-reply',
       segments: segmented().segments.map(segment => ({ index: segment.index, text: segment.text, seconds: 0.001 })) });
     events.dispatchEvent({ type: REPLY_AUDIO_EVENT, detail: silent });
-    await new Promise(resolve => setTimeout(resolve, 40));
+    // Wait for the last caption rather than a fixed time: the three timers
+    // are a millisecond each, but a busy machine can run them late.
+    await vi.waitFor(() => expect(captions).toHaveLength(silent.segments.length), { timeout: 5000, interval: 5 });
 
     expect(audio.started).toHaveLength(0);
     expect(captions).toEqual(silent.segments.map((segment: any) => segment.text));

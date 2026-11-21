@@ -14,9 +14,9 @@ const viewerFunction = name => {
   assert.ok(start >= 0, name);
   return source.slice(start, source.indexOf('\n  }', start) + 4);
 };
-const demo = JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url)));
+const demo = JSON.parse(readFileSync(new URL('../../plugin/test/fixtures/telomerase-haca-plates.json', import.meta.url)));
 
-test('all five shipped telomerase scenes retain ten named plates and record a scene solve', async () => {
+test('all five scenes of a ten-part plate lesson retain ten named plates and record a scene solve', async () => {
   const records = [], cells = new Map();
   let status = 'Tour started.', outcome = 'Tour started.';
   const dependencies = { createComponentLabelSession, planComponentLabels, createLessonResting, platesWanted,

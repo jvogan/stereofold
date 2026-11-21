@@ -64,7 +64,7 @@ function assertClear(h) {
   }
 }
 
-test('acceptance 6 show-dyskerin: real replay and reply clear every drawn plate in both eyes', async () => {
+test('recorded show-dyskerin: real replay and reply clear every drawn plate in both eyes', async () => {
   assert.equal(layouts.length, 1);
   assert.equal(capture.entries.filter(e => e.kind === 'plate-update').length, 1);
   assert.equal(capture.entries.filter(e => e.kind === 'talk-caption' && e.detail.text === 'Both dyskerin copies.').length, 1);

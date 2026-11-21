@@ -93,18 +93,15 @@ export function requestRoute(value: unknown): string {
  * else comes back as it went in.
  */
 export function scrubSecrets<T>(value: T, secrets: readonly unknown[]): T {
-  const live = secrets.filter((secret): secret is string => typeof secret === 'string' && secret.length >= 8);
+  const live = liveSecrets(secrets);
   if (live.length === 0) return value;
   const walk = (node: unknown): unknown => {
-    if (typeof node === 'string') {
-      let text = node;
-      for (const secret of live) text = text.split(secret).join(SCRUBBED);
-      return text;
-    }
+    if (typeof node === 'string') return scrubText(node, live);
     if (Array.isArray(node)) return node.map(walk);
     if (node !== null && typeof node === 'object' && Object.getPrototypeOf(node) === Object.prototype) {
+      // A property name is written out as surely as a value, so it is scrubbed too.
       const copy: Record<string, unknown> = {};
-      for (const [key, entry] of Object.entries(node)) copy[key] = walk(entry);
+      for (const [key, entry] of Object.entries(node)) copy[scrubText(key, live)] = walk(entry);
       return copy;
     }
     return node;
@@ -112,15 +109,25 @@ export function scrubSecrets<T>(value: T, secrets: readonly unknown[]): T {
   return walk(value) as T;
 }
 
+function liveSecrets(secrets: readonly unknown[]): string[] {
+  return secrets.filter((secret): secret is string => typeof secret === 'string' && secret.length >= 8);
+}
+
+function scrubText(text: string, live: readonly string[]): string {
+  let scrubbed = text;
+  for (const secret of live) scrubbed = scrubbed.split(secret).join(SCRUBBED);
+  return scrubbed;
+}
+
 /**
  * Report where a secret still survives, as `path` strings into the value.
  *
  * A harness calls this after scrubbing to prove the artifact is clean, and a
  * test calls it to prove the scrubber works. It finds substring matches, so a
- * secret hidden inside a longer string is still found.
+ * secret hidden inside a longer string or a property name is still found.
  */
 export function findLeakedSecrets(value: unknown, secrets: readonly unknown[]): string[] {
-  const live = secrets.filter((secret): secret is string => typeof secret === 'string' && secret.length >= 8);
+  const live = liveSecrets(secrets);
   const found: string[] = [];
   const walk = (node: unknown, path: string): void => {
     if (typeof node === 'string') {
@@ -129,7 +136,14 @@ export function findLeakedSecrets(value: unknown, secrets: readonly unknown[]): 
     }
     if (Array.isArray(node)) { node.forEach((entry, index) => walk(entry, `${path}[${index}]`)); return; }
     if (node !== null && typeof node === 'object')
-      for (const [key, entry] of Object.entries(node)) walk(entry, path === '' ? key : `${path}.${key}`);
+      for (const [key, entry] of Object.entries(node)) {
+        // A property name can carry a secret too. Its path is reported with the
+        // secret scrubbed, so the list of leaks is not itself a leak.
+        const name = scrubText(key, live);
+        const child = path === '' ? name : `${path}.${name}`;
+        if (name !== key) found.push(child);
+        walk(entry, child);
+      }
   };
   walk(value, '');
   return found;

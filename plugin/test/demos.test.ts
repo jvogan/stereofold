@@ -73,7 +73,7 @@ const arrival = (unit: Unit) => unit.lessonId.startsWith('microtubule-arrival-')
 // Motion demos animate rigid bodies between deposited states, or step through
 // them as a flipbook. They hold each state for inspection instead of following
 // the cinematic arc.
-const MOTION_DEMOS = ['hemoglobin-switch', 'kinesin-walk', 'atp-synthase-rotor'];
+const MOTION_DEMOS = ['hemoglobin-switch', 'kinesin-walk', 'atp-synthase-rotor', 'daraxonrasib-assembly'];
 const gallery = (unit: Unit) => ['binder-gallery','binder-gallery-extended'].includes(unit.entry.name);
 const extendedGallery = (unit: Unit) => unit.entry.name === 'binder-gallery-extended';
 const motion = (unit: Unit) => MOTION_DEMOS.some(name => unit.lessonId.startsWith(`${name}-`));
@@ -133,11 +133,11 @@ describe('the checked-in demo index', () => {
       // A density tier is measured in none of the units below.
       //
       // Its download is an EMDB map, not an RCSB coordinate file; it has no
-      // atom sites at all; and the 16,777,216-byte bound is this plugin's
-      // download policy, which a map does not travel through — it has its own
-      // route and its own cap. What a volume is held to instead is the thing that decides
-      // whether the headset can draw it: the measured triangle count of its
-      // isosurface, and a byte count that is exactly the grid it claims.
+      // atom sites at all; and the 64 MiB coordinate download cap does not
+      // apply to it — a map has its own route and its own 256 MiB cap. What a
+      // volume is held to instead is the thing that decides whether the
+      // headset can draw it: the measured triangle count of its isosurface,
+      // and a byte count that is exactly the grid it claims.
       const volume = coordinates.volume;
       if (volume) {
         expect(coordinates.download).toMatch(/^https:\/\/ftp\.ebi\.ac\.uk\/pub\/databases\/emdb\/structures\/EMD-\d+\/map\/\S+\.map\.gz$/);
@@ -570,8 +570,9 @@ describe('the staged microtubule-arrival demo', () => {
   it('opens at one oblique angle, then replays cumulative masks without chapter framing', async () => {
     const manifest = await lesson('build');
     const tour = molecularLessonToTour(manifest);
-    const additions = [['A-2'], ['B-2'], ['A-3', 'B-3'], ['A-4', 'B-4'],
-      ['A-5', 'B-5'], ['A-6', 'B-6'], ['A-7', 'B-7'], []];
+    // Each new pair docks at the beta (plus) end, which is -z in the 5SYF frame.
+    const additions = [['A-3'], ['B-3'], ['A-2', 'B-2'], ['A-5', 'B-5'],
+      ['A-4', 'B-4'], ['A-7', 'B-7'], ['A-6', 'B-6'], []];
     expect(manifest.chapters.map(chapter => chapter.id)).toEqual([
       'alpha', 'dimer', 'extend', 'neighbor', 'neighbor-extend', 'third-strand', 'wall', 'inspect',
     ]);
@@ -600,6 +601,35 @@ describe('the staged microtubule-arrival demo', () => {
     for (const part of key.parts) expect(part.color).toBe(part.chain?.startsWith('A-') ? '#4a90e2' : '#f5a623');
   });
 
+  it('flies each newly revealed pair in once and lands it on the deposited coordinates', async () => {
+    const manifest = await lesson('build');
+    let shown: string[] = [];
+    for (const chapter of manifest.chapters) {
+      const visible = (chapter.immersive?.visibility?.chains ?? []) as string[];
+      const added = visible.filter(chain => !shown.includes(chain));
+      const animation = chapter.animation;
+      // The opening alpha and the closing walk-around hold still.
+      if (!shown.length || !added.length) { expect(animation, chapter.id).toBeUndefined(); shown = visible; continue; }
+      expect(animation, chapter.id).toBeDefined();
+      expect(animation!.playback).toEqual({ autoplay: true, loop: false, speed: 1 });
+      expect(animation!.durationSeconds).toBeLessThanOrEqual(2);
+      const [arrive, held] = animation!.tracks;
+      expect(arrive!.chains, chapter.id).toEqual(added);
+      expect(arrive!.selector).toBeUndefined();
+      const first = arrive!.keyframes[0]!, last = arrive!.keyframes.at(-1)!;
+      expect(Math.hypot(...first.translation), chapter.id).toBeGreaterThanOrEqual(40);
+      expect(last.t).toBe(animation!.durationSeconds);
+      expect(last.translation).toEqual([0, 0, 0]);
+      for (const frame of arrive!.keyframes) expect(frame.rotation).toEqual([0, 0, 0, 1]);
+      // The pieces already in place stay at the identity pose. Their track keeps
+      // the chapter's framing on what is already built instead of the new pair
+      // alone: whole chains in the two opening clips, one residue each after.
+      expect(held!.chains, chapter.id).toEqual(shown);
+      for (const frame of held!.keyframes) expect(frame).toMatchObject({ rotation: [0, 0, 0, 1], translation: [0, 0, 0] });
+      shown = visible;
+    }
+  });
+
   it('holds the distinct density specimen and leaves the large overhead reveal to the wearer', async () => {
     const manifest = await lesson('density');
     const tour = molecularLessonToTour(manifest);
@@ -611,7 +641,10 @@ describe('the staged microtubule-arrival demo', () => {
     expect(manifest.provenance.note).toContain('not molecular segmentation');
     expect(manifest.provenance.note).toContain('begins from the prior displayed center and diameter');
     expect(manifest.provenance.note).toContain('active opening chapter can fit the density when no wearer placement is held');
-    expect(manifest.chapters[1]!.caption).toContain('Above us after loading settles');
+    // Above us is on the grid Menu opens. During the lesson that grid folds
+    // away when it would cover the tube, so the card finishes the lesson first.
+    expect(manifest.chapters[1]!.caption).toContain('After loading settles, choose Done, then Menu, then Above us');
+    expect(manifest.chapters[1]!.immersive?.narration).toContain('choose Done, then Menu, then Above us');
     for (const step of tour.steps) {
       expect(step.motion).toBe('hold');
       expect(step.placement).toBeUndefined();
@@ -631,8 +664,8 @@ describe('the staged microtubule-growth demo', () => {
     // `filament` sits between the wall and the tube on purpose.
     // The growth resolver steps ONE tier and refuses rather than skipping, so
     // this is the position at which "grow it" from the wall reaches a whole
-    // microtubule on a Quest 2 — as density, which fits, rather than as the
-    // 177,268-site atomic tube, which does not.
+    // microtubule — as density first, one tier before the 177,268-site
+    // atomic tube.
     expect(stages.map(stage => stage.id)).toEqual(['monomer', 'dimer', 'protofilament', 'wall', 'filament', 'tube', 'tip']);
     expect(stages.map(stage => stage.order)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
     // The story starts at one chain, so the first tier is one deposited
@@ -659,7 +692,7 @@ describe('the staged microtubule-growth demo', () => {
     expect(tube.coordinates.bytes).toBeLessThan(stages.find(stage => stage.id === 'wall')!.coordinates.bytes);
   });
 
-  it('opens the Quest 2 tier by default and never the tube', () => {
+  it('opens the wall by default and the tip as the largest tier for every class', () => {
     expect(growth.defaultStage).toBe('wall');
     expect(growth.lesson).toBe('microtubule-growth/wall.json');
     expect(stageForDevice(growth, 'quest2')).toBe('tip');
@@ -667,7 +700,7 @@ describe('the staged microtubule-growth demo', () => {
     expect(stageForDevice(growth, 'not-a-device')).toBe('tip');
     expect(stageForDevice(growth, 'quest3')).toBe('tip');
     expect(stages.find(stage => stage.id === stageForDevice(growth, 'quest2'))!.tiers).toContain('quest2');
-    expect(stages.find(stage => stage.id === 'tube')!.tiers).toEqual(['quest3']);
+    expect(stages.find(stage => stage.id === 'tube')!.tiers).toEqual(['quest2', 'quest3']);
   });
 
   it('maps only the measured Quest 2 class to its restricted tier', () => {
@@ -727,6 +760,7 @@ describe('the launcher prefetch', () => {
     'microtubule-growth/protofilament.json',
     'microtubule-growth/wall.json',
     'microtubule-growth/filament.json',
+    'microtubule-growth/tube.json',
     'microtubule-growth/tip.json',
   ];
 
@@ -795,7 +829,7 @@ describe('the launcher prefetch', () => {
     expect(prefetchTier(undefined)).toBe('quest3');
   });
 
-  it('starts and warms the full tube for a future headset class while preserving Quest 2 restrictions', () => {
+  it('starts and warms the full tube for any headset class while preserving the Quest 2 ceiling', () => {
     // The real index ends with tip, which both tiers allow. Put the tube last
     // to expose a mistaken Quest 2 fallback in launch-stage selection.
     const tube = growth.stages!.find(stage => stage.id === 'tube')!;
@@ -807,10 +841,18 @@ describe('the launcher prefetch', () => {
     expect(warmed[0]!.lesson).toBe('microtubule-growth/tube.json');
     expect(lessons(warmed).sort()).toEqual(fixture.stages!.map(stage => stage.lesson).sort());
 
+    // A Quest 2 has opened this exact tube, so it starts there too.
     const quest2 = resolveDemoStage(fixture, stageForDevice(fixture, 'quest2'));
-    expect(quest2.stage?.id).toBe('tip');
-    expect(quest2.entry.coordinates.atomSites).toBe(43_066);
+    expect(quest2.stage?.id).toBe('tube');
     expect(lessons(prefetchEntries(fixture, quest2, 'quest2')).sort()).toEqual([...quest2Lessons].sort());
+
+    // Other coordinates of the same size are still held to the ceiling.
+    const unopened: DemoEntry = { ...fixture, stages: fixture.stages!.map(stage => stage.id === 'tube'
+      ? { ...stage, coordinates: { ...stage.coordinates, sha256: 'f'.repeat(64) } } : stage) };
+    const held = resolveDemoStage(unopened, stageForDevice(unopened, 'quest2'));
+    expect(held.stage?.id).toBe('tip');
+    expect(held.entry.coordinates.atomSites).toBe(43_066);
+    expect(lessons(prefetchEntries(unopened, held, 'quest2'))).not.toContain('microtubule-growth/tube.json');
   });
 
   it('warms one entry for a plain demo, whatever the device', () => {
@@ -824,35 +866,34 @@ describe('the launcher prefetch', () => {
 
   it('warms every tier the device class allows, starting with the selected stage', () => {
     // A grow swaps to whichever tier the wearer names, so everything quest2
-    // may hold is cached before the headset goes on — everything but the
-    // quest3-only tube.
+    // may hold is cached before the headset goes on, the tube included.
     const quest2 = prefetchEntries(growth, resolveDemoStage(growth, 'wall'), 'quest2');
     expect(lessons(quest2).sort()).toEqual([...quest2Lessons].sort());
     expect(quest2[0]!.lesson).toBe('microtubule-growth/wall.json');
-    expect(lessons(quest2)).not.toContain('microtubule-growth/tube.json');
+    expect(lessons(quest2)).toContain('microtubule-growth/tube.json');
 
     const quest3 = prefetchEntries(growth, resolveDemoStage(growth, 'tip'), 'quest3');
-    expect(quest3).toHaveLength(quest2Lessons.length + 1);
+    expect(quest3).toHaveLength(quest2Lessons.length);
     expect(lessons(quest3)).toContain('microtubule-growth/tube.json');
     expect(quest3[0]!.lesson).toBe('microtubule-growth/tip.json');
   });
 
   it('warms the union of every device class with no device, and keeps the per-class set otherwise', () => {
     // No --device warms everything: the running server grows from the device
-    // the panel reports, not the launcher flag, so the quest3-only tube must
-    // be cached too or a Quest 3 wearer hits the miss in VR.
+    // the panel reports, not the launcher flag, so every tier must be cached
+    // or a wearer hits the miss in VR.
     const wall = prefetchEntries(growth, resolveDemoStage(growth), undefined);
-    expect(lessons(wall).sort()).toEqual([...quest2Lessons, 'microtubule-growth/tube.json'].sort());
+    expect(lessons(wall).sort()).toEqual([...quest2Lessons].sort());
     // --stage tube with no --device still opens the tube first.
     const tube = prefetchEntries(growth, resolveDemoStage(growth, 'tube'), undefined);
     expect(tube[0]!.lesson).toBe('microtubule-growth/tube.json');
-    expect(lessons(tube).sort()).toEqual([...quest2Lessons, 'microtubule-growth/tube.json'].sort());
+    expect(lessons(tube).sort()).toEqual([...quest2Lessons].sort());
     // An explicit --device keeps that class's own set. An explicit quest2 is
-    // the one class with a measured ceiling, so it alone leaves the tube out;
-    // an explicit unknown is not held to that ceiling and warms the tube too.
+    // the one class with a measured ceiling; the tube is the one structure
+    // past it that a Quest 2 has opened, so it is warmed too.
     const quest2 = prefetchEntries(growth, resolveDemoStage(growth), 'quest2');
     expect(lessons(quest2).sort()).toEqual([...quest2Lessons].sort());
-    expect(lessons(quest2)).not.toContain('microtubule-growth/tube.json');
+    expect(lessons(quest2)).toContain('microtubule-growth/tube.json');
     const unknown = prefetchEntries(growth, resolveDemoStage(growth), 'unknown');
     expect(lessons(unknown)).toContain('microtubule-growth/tube.json');
   });
@@ -997,19 +1038,18 @@ describe('the one colour rule the six microtubule tiers share', () => {
   it('lights the copy each tier just added, so a grown tier reads as the same thing bigger', () => {
     const reveal = (id: string) => tiers.find(tier => tier.id === id)!.manifest.chapters[0]!.immersive!.emphasis!;
     expect(reveal('monomer').focus).toBeUndefined();
-    // With only beta lit, the dimer read as a solitary amber monomer with a
+    // With only beta lit, the dimer reads as a solitary amber monomer with a
     // ghost shadow rather than an assembled heterodimer, against its own
     // narration "Alpha stays blue." A two-piece structure cannot ghost one
     // half and still read as the same thing bigger, so the dimer lights both
     // halves.
     expect(reveal('dimer').focus).toEqual(['alpha-tubulin', 'beta-tubulin']);
-    // Quest 2 captures showed the grown protofilament with its new dimer as a
-    // 35 per cent grey ghost while the first dimer stayed lit, so the lit
-    // subject shrank (38.6 % to 22.3 % of the lens) even though
-    // the strand grew — against its own narration "same two colours". Like the
-    // dimer above and the wall below, a grown tier lights every subunit; the
-    // opening chapter's focus is all four tubulins, and only the ligand cargo
-    // (GTP, Taxol) stays in the ghost.
+    // A grown protofilament that shows its new dimer as a 35 per cent grey
+    // ghost while the first dimer stays lit shrinks the lit subject (38.6 % to
+    // 22.3 % of the lens) even though the strand grows, against its own
+    // narration "same two colours". Like the dimer above and the wall below, a
+    // grown tier lights every subunit; the opening chapter's focus is all four
+    // tubulins, and only the ligand cargo (GTP, Taxol) stays in the ghost.
     expect(reveal('protofilament').focus).toEqual(['alpha-tubulin', 'beta-tubulin', 'new-alpha', 'new-beta']);
     // The wall tier is the documented exception, and the headset is why. Its
     // opening chapter is titled "Three wide" and captioned "three neighbouring
@@ -1068,11 +1108,16 @@ describe('the one colour rule the six microtubule tiers share', () => {
     // chapter in the emulator.
     const wall = tiers.find(tier => tier.id === 'wall')!.manifest;
     const [first, middle, neighbour] = WALL_STRANDS;
+    // "Same cargo" lights the cargo of all six copies and ghosts the protein.
+    // Lighting the strand with its cargo painted the ligands their host's own
+    // colour inside a spacefill, so the cargo the caption names was invisible.
+    const cargo = ['gtp', 'gdp', 'taxol', 'gtp-above', 'gdp-taxol-above',
+      ...['middle-', 'new-'].flatMap(strand => ['gtp', 'gdp-taxol', 'gtp-above', 'gdp-taxol-above'].map(id => strand + id))];
     const subjects: Record<string, string[] | undefined> = {
       reveal: undefined,                      // "Three wide": all three strands, no ghost.
       orbit: first,                           // "Two contacts": one strand, its joints.
       highlight: neighbour,                   // "Open sheet": the lateral neighbour.
-      site: [...first, 'gtp', 'taxol'],       // "Same cargo": alternation plus its cargo.
+      site: cargo,                            // "Same cargo": every copy's cargo.
       wide: undefined,                        // "Six of many": the wall again, no ghost.
     };
     expect(middle.length).toBe(4);

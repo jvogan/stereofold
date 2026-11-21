@@ -194,7 +194,7 @@ function roomBacking(panel) {
       inset: 0, depth: panel.backingDepthMeters ?? 0, bevel: panel.backingBorderMeters ?? 0,
       lift: (panel.backingBorderMeters ?? 0) * 0.5, segments: 5, backing: true,
     });
-    return polygon ? [{ index: -1, label, style: 'backing', ...polygon }] : [];
+    return polygon ? [{ index: -1, label, style: 'backing', card: plate !== panel.backing, ...polygon }] : [];
   });
 }
 
@@ -584,7 +584,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   // supplies its own rather than waiting six seconds for it.
   now = () => (globalThis.performance?.now?.() ?? Date.now()) }) {
   // Compact controls leave the molecule the central view. Menu opens the rest.
-  let representation, readoutRepresentation, plateRepresentation, stateRepresentation, hoverRepresentation, collapsed = true, mode = 'move', notice, panel, lastPanelOptions, lastLessonCard = false, entryHead, actionChain = Promise.resolve(), sequence = 0, closed = false, inputLocked = false, renderedLayout, renderedContent, poseSync, seatedStandoff = 0, hidden = false;
+  let representation, readoutRepresentation, plateRepresentation, cardPlateRepresentation, stateRepresentation, hoverRepresentation, collapsed = true, mode = 'move', notice, panel, lastPanelOptions, lastLessonCard = false, entryHead, actionChain = Promise.resolve(), sequence = 0, closed = false, inputLocked = false, renderedLayout, renderedContent, poseSync, seatedStandoff = 0, hidden = false;
   // Menu is an explicit request for controls. A clearance proposal cannot
   // immediately fold that grid again, or the accepted press appears inert.
   // Retain that request through later status/chapter paints until Close.
@@ -603,9 +603,17 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   // released drag's replacement glyphs are still being built.
   let renderedOffset = [0, 0, 0];
   const appliedRoomOffsets = new WeakMap();
+  // A drawer that puts the menu column on a flat layer of its own asks for
+  // the column apart from the cards (`presentation.separatesMenuColumn`).
+  // Then the caption and status glass get a representation of their own
+  // (`cardPlateRepresentation`) and every part of the column is added marked.
+  // Otherwise nothing here differs: one plate mesh, added unmarked.
+  const columnApart = () => presentation.separatesMenuColumn?.() === true;
+  const ROOM_LOCKED = Object.freeze({ roomLocked: true });
+  const COLUMN_PART = Object.freeze({ roomLocked: true, menuColumn: true });
   function applyMenuRoomOffset(offset) {
     if (typeof presentation.setRoomOffset !== 'function') return;
-    for (const target of [representation, readoutRepresentation, stateRepresentation, plateRepresentation, heldRepresentation]) {
+    for (const target of [representation, readoutRepresentation, stateRepresentation, plateRepresentation, cardPlateRepresentation, heldRepresentation]) {
       if (!target) continue;
       const previous = appliedRoomOffsets.get(target);
       if (previous && offset.every((value, axis) => value === previous[axis])) continue;
@@ -686,15 +694,19 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   // moment a chapter started — the very thing the latch exists to stop.
   let menuLatched = false, seatReason = 'entry', entryOutboard = 1;
   const wearerOwnsSeat = () => seatReason === 'menu-drag' || seatReason === 'molecule-placement';
-  let observedPlacementMoves = getState()?.placementMoves ?? 0;
+  let observedPlacementMoves = getState()?.placementMoves ?? 0, observedPlacementHeld = getState()?.placementHeld;
   function syncPlacementSeat() {
-    const placementMoves = getState()?.placementMoves ?? observedPlacementMoves;
-    if (placementMoves !== observedPlacementMoves) {
+    const state = getState();
+    const placementMoves = state?.placementMoves ?? observedPlacementMoves;
+    // An undo can hand a placement back to the wearer without a new move.
+    const heldAgain = state?.placementHeld === true && observedPlacementHeld === false;
+    if (state?.placementHeld !== undefined) observedPlacementHeld = state.placementHeld;
+    if (placementMoves !== observedPlacementMoves || heldAgain) {
       observedPlacementMoves = placementMoves;
       // Moving the molecule chooses its position relative to the already
       // drawn menu. A changed molecular silhouette must not chase that move
       // with a new menu seat, even if the menu itself has never been dragged.
-      if (panel && !wearerOwnsSeat() && !menuReseatRequested) {
+      if (panel && !wearerOwnsSeat() && !menuReseatRequested && !openingSeat) {
         const constants = chapterCardSeat?.constants ?? drawnPanelOptions?.constants ?? renderedLayout;
         relocationSeat = { ...relocationSeat, anchor: [...panel.anchor], layout: { ...constants },
           plane: { right: [...panel.right], normal: [...panel.normal] },
@@ -704,6 +716,17 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
         chapterCardSeat = undefined;
         seatReason = 'molecule-placement';
       }
+    }
+    // That claim lasts only as long as the placement it came from. Once
+    // nothing holds the molecule's place (Done, Reset view, Fit, a new source,
+    // a move put back), the menu is an ordinary clearance seat again: it stays
+    // where it is, and the next chapter or lesson may seat its card. A menu
+    // the wearer dragged stays theirs. The glass the claim held, turned as it
+    // was drawn, ends with it: the seats the next chapter measures, and the
+    // seat it then draws, face the wearer as they do in a chapter never moved.
+    if (seatReason === 'molecule-placement' && state?.placementHeld === false) {
+      seatReason = 'clearance';
+      if (relocationSeat) { relocationSeat = { ...relocationSeat }; delete relocationSeat.plane; delete relocationSeat.layout; }
     }
   }
   // The column count the seat in force was solved against, and the
@@ -722,6 +745,15 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   // complete resting column, including its physical scale and fold, until the
   // player explicitly finishes. A later depth sample cannot revive that seat.
   let restingMenuSeat, restoredMenuLayout, tourSeatHeld = false, tourSeatRestorePending = false;
+  // The seat a new lesson or structure opens from: the resting seat the
+  // wearer last chose, by entering the headset or summoning the menu (Move,
+  // Menu, B/Y, Reset view), as first drawn there. Seats the page chose for one
+  // lesson afterwards (a chapter's clearance seat, the seat Done left) belong
+  // to that lesson and do not carry into the next one. `shownSource` and
+  // `shownLesson` are the source and lesson the seat was last opened for.
+  // `openingSeat` is a seat opened that way and not yet drawn: its first draw
+  // starts from the session seat rather than from the glass drawn before it.
+  let sessionSeat, sessionSeatPending = false, shownSource, shownLesson, openingSeat = false, openingHeld = false;
   // Whether Done's restore is still waiting for the
   // experience player to publish its completed reading, and how many rows the
   // preview that served the clearance solve measured on its way in.
@@ -796,7 +828,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   function isEntrySeat() {
     const tour = getState()?.tour;
     if (!tour) return true;
-    // A preselected demo is still the resting entry (#34/#41, acceptance 5).
+    // A preselected demo is still the resting entry (recorded #34/#41).
     // Only an active or displayed chapter has had its own framing pass.
     return tour.active !== true && !(Number.isSafeInteger(tour.step) && tour.step >= 0);
   }
@@ -821,6 +853,73 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     menuFoldMaxRows = undefined;
     if (reseat) { entryHead = undefined; menuReseatRequested = true; }
     globalThis.__stereofoldDiagnostics?.record?.('toolbar', { event: 'seat', latched: false, reason });
+  }
+
+  /**
+   * A different lesson or structure opens from the session's seat.
+   *
+   * The menu seat is latched for the session, and the seats the page takes
+   * inside a lesson (a chapter's clearance seat, the seat Done left, the
+   * resting seat captured after it) used to be where the next lesson started:
+   * kinesin opened after telomerase came up where telomerase had ended. A new
+   * source puts the seat back to the one the wearer last chose, as its first
+   * drawn resting seat, and the clearance proof of the draw that follows moves
+   * it only for what is on show now. A menu the wearer dragged is theirs and
+   * stays. A source that changes while the same lesson runs (a stage of it)
+   * is that lesson continuing, and keeps its seat.
+   *
+   * Decided on settled state only. While a source loads, the presentation
+   * holds the outgoing lesson (`sourceTransition`, forced active), which
+   * would read as that lesson continuing on the new source. The lesson is
+   * followed on every settled draw, so a lesson started on a source already
+   * shown is the one its next stage continues.
+   *
+   * A different lesson opened by name over the one on screen says so while it
+   * loads (`tour.opening`). Its load is drawn at the session's seat as that
+   * seat was drawn, the glass a first opening loads against, so the new
+   * lesson's placement and opening seat are solved against the same glass
+   * whatever was on screen before. The seat opens again for the new source
+   * when the load ends, as for any opening.
+   */
+  function openShownSeat(state) {
+    if (state?.tour?.sourceTransition) {
+      // A press on the menu that has not yet become a drag waits: it may still
+      // carry the menu, and the next draw of the load takes the seat instead.
+      if (state.tour.opening && !openingHeld && !menuDrag && sessionSeat && seatReason !== 'menu-drag') {
+        openingHeld = true;
+        seatAtSession(state, { ...sessionSeat, relocationSeat: sessionSeat.relocationSeat
+          ?? (sessionSeat.anchor ? { anchor: [...sessionSeat.anchor] } : undefined) });
+      }
+      return;
+    }
+    openingHeld = false;
+    const source = state?.subject?.sourceSha256, lesson = state?.tour?.selectedId;
+    if (typeof source !== 'string' || source === shownSource) { shownLesson = lesson; return; }
+    const opening = shownSource !== undefined
+      && !(lesson !== undefined && lesson === shownLesson && lessonUnderway(state?.tour));
+    shownSource = source; shownLesson = lesson;
+    if (!opening || !sessionSeat || seatReason === 'menu-drag') return;
+    seatAtSession(state, sessionSeat);
+  }
+
+  function seatAtSession(state, seat) {
+    cancelMenuDrag();
+    // A seat chosen during a lesson has no resting draw of its own: the next
+    // resting draw at it becomes the resting seat.
+    restingMenuSeat = sessionSeat.anchor ? sessionSeat : undefined;
+    entryHead = seat.head;
+    relocationSeat = seat.relocationSeat;
+    chapterCardSeat = undefined;
+    seatedStandoff = seat.standoff;
+    entryOutboard = seat.outboard;
+    restoredMenuLayout = undefined;
+    menuLatched = true;
+    observedPlacementMoves = state?.placementMoves ?? observedPlacementMoves;
+    seatReason = 'entry'; solvedColumns = 0; menuFoldMaxRows = undefined; tourSeatHeld = false;
+    // Not `menuReseatRequested`: that holds host draws back for a wearer's
+    // own press, and nothing here is waiting for one.
+    openingSeat = true; renderedContent = undefined;
+    globalThis.__stereofoldDiagnostics?.record?.('toolbar', { event: 'seat', latched: true, reason: openingHeld ? 'opening' : 'opened' });
   }
 
   /**
@@ -1198,6 +1297,9 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     seatedStandoff = latchedStandoff({ current: seatedStandoff, required, latched: false,
       step: STANDOFF_STEP_METERS, release: STANDOFF_RELEASE_METERS });
     menuLatched = true;
+    // A seat the wearer chose. The automatic re-seat after a molecule move
+    // (`placement`) follows the molecule rather than the wearer.
+    if (seatReason !== 'placement') sessionSeatPending = true;
     entryOutboard = isEntrySeat() ? seatEntryMenu() : 1;
     globalThis.__stereofoldDiagnostics?.record?.('toolbar', { event: 'seat', latched: true,
       reason: seatReason, meters: Number(seatedStandoff.toFixed(3)), outboard: entryOutboard });
@@ -1474,6 +1576,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     renderedContent = undefined;
     renderedPanelSignature = undefined;
     plateRepresentation = drop(plateRepresentation);
+    cardPlateRepresentation = drop(cardPlateRepresentation);
     readoutRepresentation = drop(readoutRepresentation);
     stateRepresentation = drop(stateRepresentation);
     if (representation) { appliedRoomOffsets.delete(representation); presentation.remove(representation); representation.destroy(); representation = undefined; onRepresentationChange(0); }
@@ -1486,15 +1589,15 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
    * carries a real highlight and the panel has depth rather than a uniform
    * fill.
    */
-  async function buildPlates(mapped) {
-    if (!mapped?.plates?.length) return undefined;
-    const mesh = plateMesh(mapped.plates, mapped.outward);
+  async function buildPlates(mapped, plates = mapped?.plates) {
+    if (!plates?.length) return undefined;
+    const mesh = plateMesh(plates, mapped.outward);
     const shape = Shape.create('Stereofold toolbar plates', {}, mesh,
       groupId => plateColor(groupId, STYLE_ORDER), () => 1,
       () => 'Spatial control');
     const next = ShapeRepresentation(async () => shape, Mesh.Utils, { modifyState: state => ({ ...state, pickable: false }) });
-    globalThis.__stereofoldDiagnostics?.record('toolbar', { phase: 'plates', plates: mapped.plates.length,
-      triangles: mesh.triangleCount, styles: mapped.plates.map(plate => plate.style) });
+    globalThis.__stereofoldDiagnostics?.record('toolbar', { phase: 'plates', plates: plates.length,
+      triangles: mesh.triangleCount, styles: plates.map(plate => plate.style) });
     try {
       await plugin.runTask(next.createOrUpdate(toolbarPlateProps(menuAlpha(dimmed).plates), {}));
     } catch (error) {
@@ -1561,7 +1664,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     // Teardown ran during the update and already released this object.
     if (hoverRepresentation !== target) { try { target.destroy(); } catch {} return; }
     if (closed) return;
-    if (!hoverAdded) { hoverAdded = true; hoverVisible = true; presentation.add(target, { roomLocked: true }); return; }
+    if (!hoverAdded) { hoverAdded = true; hoverVisible = true; presentation.add(target, columnApart() ? COLUMN_PART : ROOM_LOCKED); return; }
     if (!hoverVisible) { hoverVisible = true; try { target.setState({ visible: true }); } catch {} }
     // The plate's vertex buffers changed on a render object the scene already
     // has; this re-uploads them and re-applies the room-lock matrix.
@@ -1786,6 +1889,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     dimmed = next;
     const alpha = menuAlpha(dimmed);
     const targets = [[plateRepresentation, toolbarPlateProps(alpha.plates)],
+      [cardPlateRepresentation, toolbarPlateProps(alpha.plates)],
       [representation, toolbarTextProps(alpha.labels)],
       [readoutRepresentation, toolbarTextProps(alpha.readout)]];
     globalThis.__stereofoldDiagnostics?.record?.('toolbar', { phase: 'dim', dimmed, plates: alpha.plates, readout: alpha.readout });
@@ -1794,7 +1898,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
         if (!target || closed) continue;
         // A redraw during the pass replaced this representation, and built it
         // at the alpha now in force. Leave that one alone.
-        if (target !== plateRepresentation && target !== representation && target !== readoutRepresentation) continue;
+        if (target !== plateRepresentation && target !== cardPlateRepresentation && target !== representation && target !== readoutRepresentation) continue;
         try {
           await plugin.runTask(target.createOrUpdate(props));
           presentation.update?.(target);
@@ -1829,6 +1933,14 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     const spatialState = getState();
     const currentTour = spatialState?.tour;
     syncPlacementSeat();
+    openShownSeat(spatialState);
+    // Done ends the claim a molecule move put on the menu. That claim vouched
+    // for the glass the wearer placed the molecule against, the lesson's
+    // compact controls; Done draws the resting column and its card instead,
+    // which nobody has seen next to that molecule. The column goes back to the
+    // seat the lesson started from and is proven like any other draw. The
+    // molecule stays where the wearer put it: the proof moves glass only.
+    if (restoreTourSeat && !restartTourSeat && seatReason === 'molecule-placement') seatReason = 'clearance';
     if (restoreTourSeat && restingMenuSeat) {
       if (!restartTourSeat && ['entry', 'clearance'].includes(seatReason) && restingMenuSeat.anchor) {
         // Automatic lesson clearance does not become a wearer menu move.
@@ -1971,7 +2083,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
       { placement: presented?.placementNote, descriptionPage: descriptionPageIndex(), statusRetired: plateStatusRetired });
     // A chapter may fold the grid before it is drawn. Host changes measure
     // candidates at the held anchor; only a summon may choose a new anchor.
-    const heldAnchor = relocationSeat?.anchor ?? (menuReseatRequested ? undefined : chapterCardSeat ? chapterCardSeat.columnAnchor : panel?.anchor);
+    const heldAnchor = relocationSeat?.anchor ?? (menuReseatRequested || openingSeat ? undefined : chapterCardSeat ? chapterCardSeat.columnAnchor : panel?.anchor);
     if (reseatForTourColumns({ panelRows, readout: panelReadout,
       status: '', assistantLines: assistantStatus.panelLines(), seatAnchor: heldAnchor })) {
       physicalLayout = layout();
@@ -1996,12 +2108,12 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     const stableLesson = collapsed && lessonUnderway(presentedTour) && !presentedTour?.menuOpen && !presented?.sequence?.open;
     const contentSignature = JSON.stringify([physicalLayoutSignature, seatSignature, relocationSeat, fitCaption, stableLesson, wearerOwnsSeat() ? null : getEntryGeometry({ keyOnly: true })?.clearanceKey,
       panelRows, panelReadout, cardPageFor(panelReadout), assistantStatus.panelLines()]);
-    if (representation && !menuReseatRequested && !recheckClearance && contentSignature === renderedContent) return;
+    if (representation && !menuReseatRequested && !openingSeat && !recheckClearance && contentSignature === renderedContent) return;
     const panelOptions = { stableLesson,
       measureText: toolbarTextWidth, rows: panelRows, head: entryHead, constants: { ...seatLayout(physicalLayout), fitChapterCaption: fitCaption }, readout: panelReadout, status: '', assistantLines: assistantStatus.panelLines(), assistantGlance: assistantStatus.panelGlance(), seatAnchor: heldAnchor, readoutPage: cardPageFor(panelReadout) };
     if (relocationSeat?.glance) panelOptions.assistantLines = panelOptions.assistantGlance;
     lastPanelOptions = panelOptions;
-    let nextPanel = createToolbarPanel(panelOptions), nextChapterCardSeat;
+    let nextPanel = createToolbarPanel(panelOptions), nextChapterCardSeat, seatReceipt;
     if (relocationSeat?.statusAside) nextPanel = { ...nextPanel, statusBacking: undefined, statusPoints: [], statusPoint: nextPanel.buttons[0].point };
     // A least-overlapping grid is only a proposal. The viewer must clear its
     // complete glass against the all-pose envelope before any new mesh draws.
@@ -2017,12 +2129,17 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     if (origin !== 'clearance' && !wearerOwnsSeat()) {
       const clearance = await beforeMenuDraw({ points: toolbarPlatePoints(nextPanel), glass: toolbarGlassPlates(nextPanel), statusGlass: toolbarStatusGlass(nextPanel),
         ...(chapterCardSeat && !hidden ? { currentPoints: toolbarPlatePoints(panel), currentGlass: toolbarGlassPlates(panel) } : {}),
-        isCurrent: () => own === sequence && !closed, lesson,
+        isCurrent: () => own === sequence && !closed, menuHeld: () => menuDrag?.active === true, lesson,
         relocationCandidates: pose => menuRelocationCandidates(panelOptions, entryHead, pose),
         chapterCardCandidates: pose => presentedTour?.active && collapsed
           ? menuRelocationCandidates(panelOptions, entryHead, { ...pose, cardOnly: true }) : [] });
       if (own !== sequence || closed) return;
       if ((getState()?.placementMoves ?? observedPlacementMoves) !== observedPlacementMoves) return update({ origin });
+      // A proof that outlived its scene, tracking or placement clears
+      // nothing: the drawn glass stays while the new state is proven.
+      // A drag that took the menu owns its seat instead.
+      if (clearance?.cancelled) return menuDrag?.active ? undefined : update({ origin });
+      seatReceipt = clearance?.committed;
       if (clearance?.chapterCardSeat) {
         nextChapterCardSeat = { ...clearance.chapterCardSeat, columnAnchor: nextPanel.anchor };
         nextPanel = nextChapterCardSeat.panel;
@@ -2074,14 +2191,14 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     // are refreshed below independently of their identical drawn geometry.
     const panelSignature = JSON.stringify({ ...nextPanel,
       buttons: nextPanel.buttons.map(({ action, ...button }) => button) });
-    if (representation && !menuReseatRequested && !restoreTourSeat && !resetMenu && !tourSeatRestorePending
+    if (representation && !menuReseatRequested && !openingSeat && !restoreTourSeat && !resetMenu && !tourSeatRestorePending
       && origin !== 'menu-drag' && origin !== 'clearance' && renderedOffset.every(v => v === 0)
       && panelSignature === renderedPanelSignature) {
       if (JSON.stringify(panel?.buttons.map(button => button.action)) !== JSON.stringify(nextPanel.buttons.map(button => button.action))) {
         if (menuDrag) cancelMenuDrag();
         gestures.dispose();
       }
-      panel = nextPanel; drawnPanelOptions = panelOptions; chapterCardSeat = nextChapterCardSeat;
+      panel = nextPanel; drawnPanelOptions = panelOptions; chapterCardSeat = nextChapterCardSeat; seatReceipt?.();
       renderedContent = contentSignature; renderedLayout = physicalLayout; lastMenuMotion = [];
       cardPageCount = nextPanel.readoutPageCount ?? 1; cardPagedOf = readoutSignature(panelReadout);
       return;
@@ -2142,7 +2259,8 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     const nextReadout = floatingLines.length
       ? ShapeRepresentation(async () => readoutShape, Text.Utils, { modifyState: state => ({ ...state, pickable: false }) })
       : undefined;
-    let nextPlates;
+    let nextPlates, nextCardPlates;
+    const apart = columnApart();
     try {
       // `offsetZ` pulls text toward the eye by that many scene units times
       // the camera scale, which is a physical distance that changes when the
@@ -2157,7 +2275,10 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
       // per-glyph background the panel plate now provides. The glyphs are
       // filled (`borderWidth: 0`) rather than stroked.
       if (nextReadout) await plugin.runTask(nextReadout.createOrUpdate(toolbarTextProps(menuAlpha(dimmed).readout), {}));
-      nextPlates = await buildPlates(mapped);
+      if (apart) {
+        nextPlates = await buildPlates(mapped, mapped.plates.filter(plate => !plate.card));
+        nextCardPlates = await buildPlates(mapped, mapped.plates.filter(plate => plate.card));
+      } else nextPlates = await buildPlates(mapped);
     } catch (error) {
       // A failed redraw never becomes the live representation, but its
       // partially-created Mol* resources still need releasing.
@@ -2165,6 +2286,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
       try { nextState?.destroy(); } catch {}
       try { nextReadout?.destroy(); } catch {}
       try { nextPlates?.destroy(); } catch {}
+      try { nextCardPlates?.destroy(); } catch {}
       throw error;
     }
     // The cutaway band can move the panel while Mol* builds the text mesh.
@@ -2174,7 +2296,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     // the head or the structure moved during one, which under a tour spin is
     // every rebuild, so the panel never caught up at all.
     if (own !== sequence || closed || menuDrag?.active || physicalLayoutSignature !== layoutSignature()) {
-      next.destroy(); try { nextState?.destroy(); } catch {} try { nextReadout?.destroy(); } catch {} try { nextPlates?.destroy(); } catch {} return;
+      next.destroy(); try { nextState?.destroy(); } catch {} try { nextReadout?.destroy(); } catch {} try { nextPlates?.destroy(); } catch {} try { nextCardPlates?.destroy(); } catch {} return;
     }
     // Keep the hit panel paired with the representation that is visible. Any
     // press captured against the outgoing panel is cancelled before the swap,
@@ -2222,7 +2344,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
         lastMenuMotion = [];
       }
       renderedSeat = seatSignature; renderedGrid = collapsed;
-      menuReseatRequested = false;
+      menuReseatRequested = false; openingSeat = false;
       // The Move row's receipt. A re-seat on an unmoved wearer draws
       // the column exactly where it already was, so neither the drawn state nor
       // a capture can prove the row worked. This is written by the commit that
@@ -2233,7 +2355,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
       seatedViewPoints = [...toolbarDrawnMenuPoints(nextPanel), ...toolbarCaptionPoints(nextPanel)];
       representation = next; stateRepresentation = nextState; panel = nextPanel; renderedLayout = physicalLayout; renderedContent = contentSignature;
       renderedPanelSignature = panelSignature;
-      chapterCardSeat = nextChapterCardSeat;
+      chapterCardSeat = nextChapterCardSeat; seatReceipt?.();
       drawnPanelOptions = panelOptions;
       cardPageCount = nextPanel.readoutPageCount ?? 1; cardPagedOf = readoutSignature(panelReadout);
       // The rows were laid out before this card was, from the last card's
@@ -2278,7 +2400,14 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
         restingMenuSeat = { head: entryHead, anchor: [...nextPanel.anchor], collapsed, standoff: seatedStandoff,
           relocationSeat,
           outboard: entryOutboard, layout: physicalLayout };
+        if (sessionSeatPending) sessionSeat = restingMenuSeat;
+      } else if (sessionSeatPending) {
+        // Chosen while a lesson draws its own controls there: keep where the
+        // wearer was and the latch, not the chapter's glass, so a later seat
+        // the page chooses (Done's) cannot stand in for it.
+        sessionSeat = { head: entryHead, collapsed, standoff: seatedStandoff, outboard: entryOutboard };
       }
+      sessionSeatPending = false;
       // The rows the wearer can now press, in XR-local metres, published for
       // an external harness. Such a harness would otherwise rebuild this
       // layout from its own copy of the tour state, and every row that moves
@@ -2317,13 +2446,15 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
         }
       } catch {}
       // Plates first: they sit behind the labels and must not overdraw them.
-      if (nextPlates) { plateRepresentation = nextPlates; presentation.add(nextPlates, { roomLocked: true }); }
-      presentation.add(next, { roomLocked: true });
-      if (nextState) { presentation.add(nextState, { roomLocked: true }); }
-      if (nextReadout) { readoutRepresentation = nextReadout; presentation.add(nextReadout, { roomLocked: true }); }
+      const columnPart = apart ? COLUMN_PART : ROOM_LOCKED;
+      if (nextPlates) { plateRepresentation = nextPlates; presentation.add(nextPlates, columnPart); }
+      if (nextCardPlates) { cardPlateRepresentation = nextCardPlates; presentation.add(nextCardPlates, ROOM_LOCKED); }
+      presentation.add(next, columnPart);
+      if (nextState) { presentation.add(nextState, columnPart); }
+      if (nextReadout) { readoutRepresentation = nextReadout; presentation.add(nextReadout, ROOM_LOCKED); }
       renderedOffset = [0, 0, 0];
       // A rebuild adds fresh render objects, which are visible by default.
-      if (hidden) for (const target of [next, nextState, nextReadout, nextPlates]) { if (target) presentation.setVisible?.(target, false); }
+      if (hidden) for (const target of [next, nextState, nextReadout, nextPlates, nextCardPlates]) { if (target) presentation.setVisible?.(target, false); }
       onRepresentationChange(1);
       if (redrawAfterDrag) {
         const pending = redrawAfterDrag; redrawAfterDrag = undefined;
@@ -2935,7 +3066,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
       for (const source of [...wakeSources]) cancelWake(source);
       disposeHighlight();
     }
-    for (const target of [representation, readoutRepresentation, stateRepresentation, plateRepresentation]) {
+    for (const target of [representation, readoutRepresentation, stateRepresentation, plateRepresentation, cardPlateRepresentation]) {
       if (target) presentation.setVisible?.(target, !hidden);
     }
     // A hidden redraw may have seated different rows. Publish that footprint
@@ -2978,9 +3109,11 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   }
 
   // The worker measures these exact full panels; preparation never moves glass.
+  // A menu in the wearer's hand is theirs from grip-down, before the first
+  // frame of the drag locks input: it is offered no seat and none replaces it.
   function prepareRelocation({ headInRoom, labelViews, renderFromRoom }) {
     syncPlacementSeat();
-    if (!panel || !drawnPanelOptions || closed || hidden || inputLocked || menuReseatRequested || wearerOwnsSeat()) return [];
+    if (!panel || !drawnPanelOptions || closed || hidden || inputLocked || menuDrag?.active || menuReseatRequested || openingSeat || wearerOwnsSeat()) return [];
     const head = { matrix: headInRoom, position: { x: headInRoom[12], y: headInRoom[13], z: headInRoom[14] } };
     const baseline = JSON.stringify(platePoints());
     return [...menuRelocationCandidates(drawnPanelOptions, head, { labelViews, renderFromRoom }),
@@ -2990,7 +3123,7 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
   async function commitRelocation(candidate) {
     syncPlacementSeat();
     const stale = () => Object.assign(Error('The menu changed while checking its new seat. Kept the previous placement.'), { code: 'FIT_STALE' });
-    if (closed || hidden || inputLocked || menuReseatRequested || wearerOwnsSeat() || candidate.baseline !== JSON.stringify(platePoints())) throw stale();
+    if (closed || hidden || inputLocked || menuDrag?.active || menuReseatRequested || openingSeat || wearerOwnsSeat() || candidate.baseline !== JSON.stringify(platePoints())) throw stale();
     const before = { relocationSeat: relocationSeat ?? { anchor: [...panel.anchor] }, entryHead, seatReason };
     if (candidate.hide && !candidate.recovery && lessonUnderway(getState()?.tour)) {
       // A lesson's glass stays drawn, even over the structure.
@@ -3063,11 +3196,12 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     options.readoutPage = cardPageAt(options.readout);
     // Done draws its completed rows at the currently held anchor. Measure
     // that same glass so a chapter menu moved by the wearer cannot make the
-    // saved view solve against the older resting anchor.
+    // saved view solve against the older resting anchor. A molecule claim
+    // ends at Done (`update`), so its column goes back to the resting seat.
     const seated = restoreTourSeat && restingMenuSeat;
-    const restoreAutomaticAnchor = seated && ['entry', 'clearance'].includes(seatReason) && restingMenuSeat.anchor;
+    const restoreAutomaticAnchor = seated && ['entry', 'clearance', 'molecule-placement'].includes(seatReason) && restingMenuSeat.anchor;
     const preview = createToolbarPanel(seated
-      ? { ...options, head: restoreAutomaticAnchor ? restingMenuSeat.head : entryHead ?? restingMenuSeat.head, constants: wearerOwnsSeat() ? layout() : restingMenuSeat.layout,
+      ? { ...options, head: restoreAutomaticAnchor ? restingMenuSeat.head : entryHead ?? restingMenuSeat.head, constants: seatReason === 'menu-drag' ? layout() : restingMenuSeat.layout,
         seatAnchor: restoreAutomaticAnchor || (panel?.anchor && drawnRoomPoints([panel.anchor])[0]) } : options);
     const points = toolbarPlatePoints(preview);
     if (!resetMenu && !restoreTourSeat) {
@@ -3102,11 +3236,13 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
    * them from the head the menu is seated from. A chapter's framing leaves
    * room for one of them, so its card never has to cover the chapter. The
    * card's size does not depend on its words, so the chapter being entered
-   * can be framed before its own card is drawn. Read-only.
+   * can be framed before its own card is drawn. Read-only. None while the
+   * wearer drags the menu: it keeps the glass it was drawn as until release,
+   * and then it is theirs.
    */
   function chapterCardSeats(pose) {
     syncPlacementSeat();
-    if (!lastLessonCard || !lastPanelOptions || !entryHead || closed || !pose || wearerOwnsSeat()) return [];
+    if (!lastLessonCard || !lastPanelOptions || !entryHead || closed || !pose || menuDrag?.active || wearerOwnsSeat()) return [];
     const readout = lastPanelOptions.readout?.some(line => line.forwardView === true) ? lastPanelOptions.readout
       : [{ text: 'Chapter', whole: true, forwardView: true }];
     try {
@@ -3177,7 +3313,9 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
    */
   function menuMotion() { return [...lastMenuMotion]; }
 
-  return Object.freeze({ update, syncBounds, syncPose, syncInput, depthRange, aimSynthetic, platePoints, glassPlates, placementPoints, placementPreview, prepareRelocation, commitRelocation, captionPoints, drawnMenuPoints, chapterCardSeats, menuPoints, captionColumn, menuRows, menuMotion, setStatus,
+  /** Whether the wearer dragged the menu to where it is: no automatic proof moves it. */
+  const menuDraggedByWearer = () => seatReason === 'menu-drag';
+  return Object.freeze({ update, syncBounds, syncPose, syncInput, depthRange, aimSynthetic, platePoints, glassPlates, placementPoints, placementPreview, prepareRelocation, commitRelocation, menuDraggedByWearer, captionPoints, drawnMenuPoints, chapterCardSeats, menuPoints, captionColumn, menuRows, menuMotion, setStatus,
     // What the status row is saying right now, read-only. A
     // command receipt expires after a few seconds of frames and must clear the
     // row only while the row still holds that receipt — a voice line or the
@@ -3189,6 +3327,28 @@ export function createSpatialToolbar({ plugin, canvas, presentation, session, sp
     // driver is a second opinion rather than the drawn plate.
     readoutText: () => (panel && !closed ? [...(panel.readoutPoints ?? []),...(panel.statusPoints ?? [])].map(line => line.text) : []),
     aimPoint: () => !closed && !hidden && aimPoint ? [...aimPoint] : undefined,
+    // The panel's axes while `aimPoint` has a point, in XR room metres: they
+    // exist with the menu folded to one control, when there is no glass.
+    aimAxes: () => !closed && !hidden && aimPoint && panel ? { right: [...panel.right], up: [...panel.up], normal: [...panel.normal] } : undefined,
+    /**
+     * The menu column's glass, for a drawer that puts the column on a flat
+     * layer of its own: centre, axes and half extents in XR room metres, where
+     * it is drawn now (a drag included), how far drawn content stands in front
+     * of it (`front`: label lift, raised faces, the hover bias) and behind it
+     * (`back`: plate and glass depth), and the seat it was placed for.
+     * `undefined` while the menu is closed or hidden. Read-only.
+     */
+    menuPlate: () => {
+      const plate = panel?.backing;
+      if (closed || hidden || !plate) return undefined;
+      const moved = point => point.map((v, i) => v + renderedOffset[i]);
+      const clearance = Math.max(TEXT_LIFT_METERS, (panel.fontMeters ?? 0) * 0.5);
+      return { point: moved(plate.point), right: [...(plate.right ?? panel.right)], up: [...(plate.up ?? panel.up)],
+        normal: [...(plate.normal ?? panel.normal)], halfWidth: plate.halfWidth, halfHeight: plate.halfHeight,
+        front: clearance + (panel.faceLiftMeters ?? 0) + (panel.highlightBiasMeters ?? 0),
+        back: Math.max(panel.backingDepthMeters ?? 0, panel.plateDepthMeters ?? 0),
+        ...(Array.isArray(panel.seatOrigin) ? { seat: moved(panel.seatOrigin) } : {}) };
+    },
     layout, seatAnchor: () => panel?.anchor ? drawnRoomPoints([panel.anchor])[0] : undefined,
     setHidden, setDimmed, isDimmed: () => dimmed,
     blur, // A blind session drops its hover and its held press.

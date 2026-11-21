@@ -161,7 +161,7 @@
     {
       "id": "orbit",
       "title": "Two halves",
-      "caption": "Alpha is 437 residues, beta 426, both from Sus scrofa. Every dimer points the same way.",
+      "caption": "Pig alpha has 451 residues, beta 445; 5SYF models 426 of each. Every dimer points the same way.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -272,7 +272,7 @@
     {
       "id": "highlight",
       "title": "Both faces",
-      "caption": "Amber marks contacts at the alpha end and one lateral face in the 5SYF lattice.",
+      "caption": "Blue: alpha's contacts with the next dimer and the next strand. Amber: beta's contact with that strand.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -331,14 +331,14 @@
           "scale": 1.6
         },
         "view": "fit",
-        "narration": "Amber marks end-stacking and one lateral contact face.",
+        "narration": "Blue: alpha's end and side contacts. Amber: beta's side contact.",
         "motion": "hold",
         "emphasis": {
           "parts": [
             {
               "id": "end-contact-1",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 1,
@@ -349,7 +349,7 @@
             {
               "id": "end-contact-2",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 130,
@@ -360,7 +360,7 @@
             {
               "id": "end-contact-3",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 133,
@@ -371,7 +371,7 @@
             {
               "id": "end-contact-4",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 163,
@@ -382,7 +382,7 @@
             {
               "id": "end-contact-5",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 199,
@@ -393,7 +393,7 @@
             {
               "id": "end-contact-6",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 245,
@@ -404,7 +404,7 @@
             {
               "id": "end-contact-7",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 251,
@@ -415,7 +415,7 @@
             {
               "id": "end-contact-8",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 253,
@@ -426,7 +426,7 @@
             {
               "id": "end-contact-9",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 256,
@@ -437,7 +437,7 @@
             {
               "id": "end-contact-10",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 260,
@@ -448,7 +448,7 @@
             {
               "id": "end-contact-11",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 314,
@@ -459,7 +459,7 @@
             {
               "id": "end-contact-12",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 324,
@@ -470,7 +470,7 @@
             {
               "id": "end-contact-13",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 329,
@@ -481,7 +481,7 @@
             {
               "id": "end-contact-14",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 336,
@@ -492,7 +492,7 @@
             {
               "id": "end-contact-15",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 346,
@@ -503,7 +503,7 @@
             {
               "id": "end-contact-16",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 434,
@@ -514,7 +514,7 @@
             {
               "id": "end-contact-17",
               "label": "End contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 437,
@@ -525,7 +525,7 @@
             {
               "id": "side-alpha-contact-1",
               "label": "Lateral alpha contact",
-              "color": "#f5a623",
+              "color": "#4a90e2",
               "chain": "A",
               "residues": {
                 "from": 279,

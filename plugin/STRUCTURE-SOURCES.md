@@ -24,10 +24,8 @@ The 60-second request deadline also covers redirects and streaming.
 URLs are contacted only when explicitly requested; their host sees the URL and
 client network address. There is no discovery, authentication or external-viewer adapter.
 
-Inspector loads do not count residue positions or atom sites. Earlier builds
-refused loads past 20,000 residue positions or 200,000 atom sites; neither limit
-was measured against a viewer, and both applied to every surface, including the
-desktop. An explicitly chosen assembly is expanded and verified before the load
+Inspector loads do not count residue positions or atom sites on any surface,
+including the desktop. An explicitly chosen assembly is expanded and verified before the load
 commits. A catalog larger than the 64 MiB decode policy is refused; this is a
 chosen decode bound, not a measured device capacity. The local file cap is the
 same 67,108,864-byte read policy. An authored experience stage declares how much
@@ -36,12 +34,11 @@ a device limit. The paired Quest 2 growth workflow uses a 43,066-atom tier
 tested as cartoon; that is not a universal limit for arbitrary structures.
 Representation-specific admission and build deadlines apply separately.
 
-Earlier builds also had a 6,275,072-byte encoded-source budget and a 4 MiB
-compressed-catalog budget. Neither was measured against a viewer or a documented
-host ceiling: both kept one JSON tool result small, and together they refused
-1AON, 1XCK and 1S5L. A desktop panel pulls the coordinates and the compressed
-catalog through `stereo_structure.get_inspection_bytes` in 96 KiB chunks, and
-the headset takes coordinates as raw bytes on the LAN `/source` route.
+No encoded-source or compressed-catalog byte budget applies to one tool
+result, so large entries such as 1AON, 1XCK and 1S5L load. A desktop panel
+pulls the coordinates and the compressed catalog through
+`stereo_structure.get_inspection_bytes` in 96 KiB chunks, and the headset takes
+coordinates as raw bytes on the LAN `/source` route.
 
 PDB URL/pasted content is normalized into mmCIF using the bundled Mol* parser
 and CIF writer. It preserves source MODEL numbers, author/label identity and

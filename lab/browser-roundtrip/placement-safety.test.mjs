@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { clampPlacementScale, PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE } from './placement-limits.mjs';
+import { clampPlacementScale, PLACEMENT_MIN_SCALE, PLACEMENT_MAX_SCALE, WEARER_SCALE_RANGE } from './placement-limits.mjs';
 import { createInspectionState, normalizePlacement } from './inspection-state.mjs';
 import { oneHandScaleFactor } from './xr-manipulate.mjs';
 
@@ -39,22 +39,22 @@ test(`stick and repeated two-grip reductions stay inside the entry range before 
   vm.runInContext(body('applyGrabDelta'), h);
   // The exact production one-controller rate, integrated at Quest's 72 Hz.
   for (let i = 0; i < 72 * 9; i++) h.applyGrabDelta({ scale: oneHandScaleFactor(-1, 1 / 72) });
-  assert.ok(state.placement().scale * h.grabScale >= entry / 5);
+  assert.ok(state.placement().scale * h.grabScale >= entry / WEARER_SCALE_RANGE);
   // Commit/release, then start six fresh pinches. The bound cannot rebase on release.
   for (let gesture = 0; gesture < 6; gesture++) {
     state.place({ scale: clampPlacementScale(state.placement().scale * h.grabScale, entry) }); h.grabScale = 1;
     for (let frame = 0; frame < 10; frame++) h.applyGrabDelta({ scale: .82 });
-    assert.ok(state.placement().scale * h.grabScale >= entry / 5);
+    assert.ok(state.placement().scale * h.grabScale >= entry / WEARER_SCALE_RANGE);
   }
   h.applyGrabDelta({ scale: 1e100 });
-  assert.ok(state.placement().scale * h.grabScale <= entry * 5);
+  assert.ok(state.placement().scale * h.grabScale <= entry * WEARER_SCALE_RANGE);
   h.applyGrabDelta({ scale: NaN });
   assert.ok(Number.isFinite(h.grabScale));
 });
 
 test('wearer bounds intersect the absolute envelope even at its endpoints or with invalid inputs', () => {
   for (const entry of [1e-6, 2e-6, .005, .9313518360015975, PLACEMENT_MAX_SCALE]) {
-    const low = Math.max(1e-6, entry / 5), high = Math.min(PLACEMENT_MAX_SCALE, entry * 5);
+    const low = Math.max(1e-6, entry / WEARER_SCALE_RANGE), high = Math.min(PLACEMENT_MAX_SCALE, entry * WEARER_SCALE_RANGE);
     assert.equal(clampPlacementScale(0, entry), low);
     assert.equal(clampPlacementScale(1e100, entry), high);
     for (const scale of [NaN, Infinity, -Infinity]) assert.equal(clampPlacementScale(scale, entry), entry);
@@ -65,23 +65,24 @@ test('wearer bounds intersect the absolute envelope even at its endpoints or wit
   }
 });
 
-for (const authored of [12, .05]) test(`authored scale ${authored} returns gradually to the fixed band without outward ratcheting`, () => {
+const BAND = { low: 1 / WEARER_SCALE_RANGE, high: WEARER_SCALE_RANGE };
+for (const authored of [BAND.high * 2.4, BAND.low / 4]) test(`authored scale ${authored} returns gradually to the fixed band without outward ratcheting`, () => {
   let current = authored;
-  const inward = authored > 5 ? .99 : 1.01;
+  const inward = authored > BAND.high ? .99 : 1.01;
   for (let frame = 0; frame < 2000; frame++) {
     const next = clampPlacementScale(current * inward, 1, current);
     assert.ok(inward < 1 ? next <= current : next >= current);
     assert.ok(Math.abs(Math.log(next / current)) <= Math.abs(Math.log(inward)) + 1e-12);
     current = next;
-    if (current < .2 || current > 5) {
+    if (current < BAND.low || current > BAND.high) {
       assert.equal(clampPlacementScale(current / inward, 1, current), current, 'reversing cannot restore the earlier out-of-band scale');
     }
   }
-  assert.equal(current, inward < 1 ? .2 : 5);
+  assert.equal(current, inward < 1 ? BAND.low : BAND.high);
   // After reaching the band, extreme and invalid requests cannot escape it.
   for (const requested of [0, 1e100, Infinity, -Infinity, NaN, 0, 1e100]) {
     current = clampPlacementScale(requested, 1, current);
-    assert.ok(Number.isFinite(current) && current >= .2 && current <= 5);
+    assert.ok(Number.isFinite(current) && current >= BAND.low && current <= BAND.high);
   }
 });
 

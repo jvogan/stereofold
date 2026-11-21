@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
-import { CLEARANCE_STANDOFF_FACTOR, fitChapterField, framingEnvelopeObject, menuGlassInView, menuObstruction, visibleChapterSpheres } from './chapter-field.mjs';
+import { CLEARANCE_STANDOFF_FACTOR, fitChapterField, framingEnvelopeObject, menuGlassInView, menuObstruction, sweptChapterBalls, visibleChapterSpheres } from './chapter-field.mjs';
 import { renderedMeshVertexCount } from './component-label-measurement.mjs';
 import { annotationFieldBounds } from './immersive-annotations.mjs';
 import { motionFocusPlacement } from './motion-framing.mjs';
@@ -43,6 +43,49 @@ test('density chapter glass measures the contour instead of empty GPU grid corne
   assert.deepEqual(Array.from(bounds.center), contour.center);
 });
 
+// Leaving the headset in a spinning chapter and entering again: Play turns
+// the installed chapter once more with no new paint, so its glass is still
+// proven against the turn. Only a new source forgets the spin.
+test('leaving the headset in a spinning chapter keeps its spin for the glass and drops its field and proof', () => {
+  const h = vm.createContext({ canvas: { xr: { isPresenting: { value: false } } }, state: {}, roomAnchorEnabled: () => false });
+  vm.runInContext(`var sweptFieldCache = new Map([['turn', []]]), lastSpinProof = { answer: {} }, spinningChapter = 'cas9-complex',
+    paintingChapter, paintingTurn, turnHeldFor = null, roomEntry = null, roomAnchor = null, busy = false, wearerPlacedInRoom = false,
+    latestRoomPlacementPose = {}, latestHeadContext = null, latestHeadSample = 0, placementNote = null, entryRoomPoint = null,
+    pendingRoomSeat = false, pendingRoomLabels = false, pendingRoomLabelBasis = null, latestPlateSeat = null,
+    latestSeatStandoffMeters = null, menuResolveReason = null, playing = true;
+    function motionReason() { return playing ? null : 'paused'; }
+    ${source.match(/\n  function forgetChapterSpin\([^\n]*\n/)[0]}`, h);
+  for (const name of ['beginRoomEntry', 'chapterSpinning']) vm.runInContext(pageFunction(source, name), h);
+  vm.runInContext('playing = false;', h); h.beginRoomEntry(false);
+  assert.equal(vm.runInContext('sweptFieldCache.size', h), 0, 'the field is dropped');
+  assert.equal(vm.runInContext('lastSpinProof', h), null, 'the proof is dropped');
+  vm.runInContext('playing = true;', h); h.canvas.xr.isPresenting.value = true; h.beginRoomEntry(true);
+  assert.equal(h.chapterSpinning(), true, 'Play after entering again turns the chapter for its glass');
+  h.forgetChapterSpin();
+  assert.equal(h.chapterSpinning(), false, 'a new source has no spin');
+});
+
+// Two spinning chapters about the same pivot and vertical axis whose masks
+// show one ball of the same size: near the axis, then 63 units out. The second
+// must be swept from where it is drawn, not handed the first one's field.
+test('a spinning chapter sweeps the geometry it draws, not a field another mask left behind', () => {
+  if (!/\n  function sweptChapterField\(/.test(source)) return;
+  const { h } = tourFocusHarness();
+  let drawn = [{ center: [0, 0, 2], radius: 1.5 }];
+  Object.assign(h, { sweptChapterBalls, chapterSpinning: () => true, pivotCenter: () => [0, 0, 0],
+    loadedSphere: () => ({ center: [0, 0, 0], radius: 70 }), presentationTransform: identity,
+    visibleChapterSpheres: () => drawn.map(ball => ({ ...ball })), scientificRepresentations: () => [] });
+  vm.runInContext(`var sweptFieldCache = new Map(), lastSpinProof = null, spinningChapter = null;
+${pageFunction(source, 'sweptChapterField')}`, h);
+  vm.runInContext(pageFunction(source, 'chapterFieldBounds'), h);
+  const reach = field => Math.max(...field.spheres.map(ball => Math.hypot(ball.center[0], ball.center[2]) + ball.radius));
+  const near = h.chapterFieldBounds(1, { still: true, drawn: true });
+  assert.ok(reach(near) < 5, `near the axis: ${reach(near)}`);
+  drawn = [{ center: [60, 0, -18], radius: 1.5 }];
+  const far = h.chapterFieldBounds(1, { still: true, drawn: true });
+  assert.ok(reach(far) > 62, `63 units out the turn reaches ${reach(far)}`);
+});
+
 test('an end-on density chapter keeps the nearest clear frame with its complete lesson glass', async () => {
   const { h, records } = tourFocusHarness();
   const sphere = { center: [0, 0, 0], radius: 307,
@@ -68,6 +111,10 @@ test('an end-on density chapter keeps the nearest clear frame with its complete 
   h.immersiveSession = { ...h.immersiveSession, platePoints: () => seats[0].points,
     captionPoints: () => [], drawnMenuPoints: () => [], menuRows: () => [], chapterCardSeats: () => seats };
   vm.runInContext(pageFunction(source, 'chapterFieldBounds'), h);
+  // The angle the solver projected for its own scale and distance.
+  const solve = h.focusPlacement;
+  let solved;
+  h.focusPlacement = options => (solved = solve(options));
   await h.focusSelection({ wholeStructure: true, liftEmphasis: false, framing: 'fill', enclosure: .85, elevationDegrees: 0, durationMs: 0 });
   const result = records.find(record => record.reason === 'chapter-glass');
   assert.ok(result, 'a clear glass seat is found instead of accepting the overlapping frame');
@@ -86,6 +133,12 @@ test('an end-on density chapter keeps the nearest clear frame with its complete 
   assert.ok(Math.abs(depth - 3.5) < .001, 'keeps the authored reading distance');
   const contourDiameter = 2 * Math.asin(placement.scale * sphere.radius * h.canvas.camera.scale / depth) * 180 / Math.PI;
   assert.ok(contourDiameter > 45, `the measured contour stays large (${contourDiameter} degrees)`);
+  // The view angle reported is the shrunken contour's: the solver's half-width at the scale it landed at.
+  const focus = records.filter(record => record.kind === 'xr-focus').at(-1);
+  const half = angle => Math.tan(angle * Math.PI / 360);
+  assert.ok(resized.scale < resized.previousScale, 'the contour fit shrank the chapter');
+  assert.ok(Math.abs(half(focus.angleDegrees) / half(solved.angleDegrees) - resized.scale / resized.previousScale) < .01,
+    `reported ${focus.angleDegrees} degrees, solved ${solved.angleDegrees} at scale ${resized.previousScale}, landed at ${resized.scale}`);
 });
 
 // Hemoglobin's switch chapter in the headset: its whole-turn motion envelope
@@ -212,12 +265,17 @@ test('past the stand-off the card keeps a seat clear of the name plates and reta
       assert.equal(kept.shortCard, true);
       assert.equal(kept.panel.readoutLineBudget, 2);
     } else {
-      // Without the cache there are no name plates. The stable 2×2 controls
-      // leave a full card available, so preserve its three caption lines.
+      // Without the cache there are no name plates, but no seat clears the
+      // motion either: the short card covers less of the molecule than the
+      // full one, so it wins. On one line the caption's second sentence would
+      // break across pages, so the card grown to two caption lines wins, and
+      // the caption pages at its sentence break.
       assert.equal(plates(fixture).spheres.length, 0);
-      assert.equal(kept.shortCard, undefined);
-      assert.equal(kept.panel.readoutLineBudget, 4);
-      assert.ok(cardLines(fixture.t).join(' ').includes(tour.bodyPage), 'the full caption stays whole');
+      assert.equal(kept.shortCard, true);
+      assert.equal(kept.panel.readoutLineBudget, 3);
+      assert.ok(!kept.splitsSentence);
+      assert.ok(!cardLines(fixture.t).join(' ').includes(tour.bodyPage), 'the caption pages rather than showing whole');
+      assert.deepEqual(cardLines(fixture.t).slice(1, -1), ['Green: alpha 1 beta 1, which stays fixed.'], 'its first page is the first sentence');
     }
     assert.equal(kept.panel.buttons.length, fixture.t.toolbar.rows().length, 'all lesson controls stay');
     assert.equal(kept.panel.statusPoints.length, 1);

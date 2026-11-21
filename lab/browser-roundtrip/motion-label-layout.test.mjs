@@ -12,18 +12,18 @@ const cache=process.env.STEREOFOLD_DEMO_CACHE;
 // and its neighbours in a packed assembly. It must not hide another plate's
 // anchor, or the wearer loses the part that plate names. The one exception is
 // an anchor on a part the plate may briefly cover: a walking head's plate
-// crossing the stalk, or a bound head's plate over the head waiting behind it.
+// crossing the stalk.
 for(const [name,seat] of Object.entries(demoSeats)) test(`${name}: every motion-chapter plate clears other plates and their anchors`,{skip:!cache},()=>{
   const lesson=JSON.parse(readFileSync(new URL(`../../plugin/demos/${name}/motion.json`,import.meta.url)));
   const atoms=coordinates(`${cache}/${seat.file}`,lesson.provenance.sourceSha256);
   for(const chapter of lesson.chapters) {
-    const scene=prepareLabelScene(chapter,atoms), allow=name==='kinesin-walk'?walkPlateAllowance(chapter):()=>false;
+    const scene=prepareLabelScene(chapter,atoms), allow=name==='kinesin-walk'?walkPlateAllowance():()=>false;
     for(const yaw of name==='kinesin-walk'?[-.35,0,.35]:[0]) for(const pitch of name==='kinesin-walk'?[-.2,0,.2]:[0]) for(const placement of [1,seat.placement]) for(const eye of [-.032,.032]) for(const t of sampleTimes(chapter)) {
       const f=labelFrame(scene,{...seat,yaw,pitch},t,placement,eye),where=`${name}/${chapter.id} at ${t}, yaw ${yaw}, pitch ${pitch}, scale ${placement}, eye ${eye}`;
       for(const label of f.labels) for(const other of f.labels) if(other!==label)
         assert.ok(!platesOverlap(label,{rect:other.anchorRect}) || allow(label.id,other.chain,t),`${where}: ${label.id} covers the anchor of ${other.id}`);
-      // Only a walking kinesin head plate may cross a linker or the coil, or
-      // cover the free head that waits behind it just after ATP binds.
+      // A walking kinesin head plate may sit on its own head and cross a
+      // linker or the coil; it never sits on the other head.
       if(name==='kinesin-walk') for(const label of f.labels) for(const body of f.bodies)
         assert.ok(!platesOverlap(label,body) || allow(label.id,body.id,t),`${where}: ${label.id} covers ${body.id}`);
       assert.equal(countPlateOverlaps(f.labels),0,`${where}: plates overlap`);

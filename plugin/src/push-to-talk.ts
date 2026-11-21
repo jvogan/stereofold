@@ -1,8 +1,8 @@
 /**
- * Headset grip -> Mac shell command.
+ * Headset talk button -> Mac shell command.
  *
  * The companion sends `push_to_talk` with `{state:'down'}` when the wearer
- * squeezes the grip and `{state:'up'}` when they let go. This module turns
+ * presses the talk button and `{state:'up'}` when they let go. This module turns
  * those two events into at most two user-configured shell commands.
  *
  * Three properties are deliberate:
@@ -11,7 +11,7 @@
  *   interpolated into a command. The command strings come only from
  *   `STEREOFOLD_PTT_DOWN` and `STEREOFOLD_PTT_UP`, read once at startup.
  * - This repository ships no command for either variable. Until the user
- *   exports one, a squeeze writes a log line and nothing else runs.
+ *   exports one, a talk press writes a log line and nothing else runs.
  * - Nothing here synthesizes a keystroke, a pointer event, or any other
  *   input. It runs the command the user wrote, and that command owns
  *   whatever it does.
@@ -22,7 +22,7 @@ export const PUSH_TO_TALK_TOOL = 'push_to_talk';
 export const PUSH_TO_TALK_ENABLED_ENV = 'STEREOFOLD_PTT_ENABLED';
 export const PUSH_TO_TALK_DOWN_ENV = 'STEREOFOLD_PTT_DOWN';
 export const PUSH_TO_TALK_UP_ENV = 'STEREOFOLD_PTT_UP';
-/** One grip press per 300 ms. A controller can chatter on a hard squeeze. */
+/** One talk press per 300 ms, because a controller button can chatter on a hard press. */
 export const PUSH_TO_TALK_DEBOUNCE_MS = 300;
 /** A dictation-key command should return at once; 5 s is a stuck command. */
 export const PUSH_TO_TALK_TIMEOUT_MS = 5_000;
@@ -101,7 +101,7 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
     if (!command) {
       log(`push-to-talk ${state}: no ${state === 'down' ? PUSH_TO_TALK_DOWN_ENV : PUSH_TO_TALK_UP_ENV} command is set.`);
       return Promise.resolve({ accepted: true, reason: 'unconfigured' as const, ran: false,
-        message: `Grip ${state} recorded. No ${state === 'down' ? PUSH_TO_TALK_DOWN_ENV : PUSH_TO_TALK_UP_ENV} command is set.` });
+        message: `Talk button ${state} recorded. No ${state === 'down' ? PUSH_TO_TALK_DOWN_ENV : PUSH_TO_TALK_UP_ENV} command is set.` });
     }
     return new Promise(resolve => {
       let child: ChildProcess;
@@ -112,7 +112,7 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'The push-to-talk command could not start.';
         log(`push-to-talk ${state}: ${message}`);
-        resolve({ accepted: true, reason: 'failed', ran: false, message: `Grip ${state} could not run its command. ${message}` });
+        resolve({ accepted: true, reason: 'failed', ran: false, message: `Talk button ${state} could not run its command. ${message}` });
         return;
       }
       let out = '', err = '', settled = false, timedOut = false;
@@ -132,8 +132,8 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
         if (out.trim()) log(`push-to-talk ${state} stdout: ${clip(out.trim())}`);
         if (err.trim()) log(`push-to-talk ${state} stderr: ${clip(err.trim())}`);
         const outcome = timedOut
-          ? `Grip ${state} command was killed after ${timeoutMs} ms.`
-          : code === 0 ? `Grip ${state} command finished.` : `Grip ${state} command exited with ${signal ?? code}.`;
+          ? `Talk button ${state} command was killed after ${timeoutMs} ms.`
+          : code === 0 ? `Talk button ${state} command finished.` : `Talk button ${state} command exited with ${signal ?? code}.`;
         log(`push-to-talk ${state}: ${outcome}`);
         resolve({ accepted: true, reason: timedOut || code !== 0 ? 'failed' : 'ran', ran: true,
           exitCode: code, signal: signal ?? null, timedOut, message: outcome });
@@ -143,7 +143,7 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve({ accepted: true, reason: 'failed', ran: false, message: `Grip ${state} could not run its command. ${error.message}` });
+        resolve({ accepted: true, reason: 'failed', ran: false, message: `Talk button ${state} could not run its command. ${error.message}` });
       });
       child.on('close', (code: number | null, signal: NodeJS.Signals | null) => settle(code, signal));
     });
@@ -161,9 +161,7 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
     listening() { return held; },
     /** One line for the host to print at startup. */
     describe(): string {
-      // The binding is A and X, not the left grip,
-      // so the startup banner names the buttons the wearer holds.
-      // The event names inside this module are unchanged.
+      // The startup banner names A and X, the buttons the wearer holds to talk.
       if (!enabled) return 'Push-to-talk is off. Add --ptt to let the wearer hold A or X to talk.';
       const parts: string[] = [];
       if (commands.down) parts.push(`${PUSH_TO_TALK_DOWN_ENV}=${commands.down}`);
@@ -173,7 +171,7 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
       return `Push-to-talk runs ${parts.join(' and ')}`;
     },
     /**
-     * Accept one grip event. `sessionId` must be the live inspection session
+     * Accept one talk button event. `sessionId` must be the live inspection session
      * the caller already resolved; an absent one is never acted on.
      */
     async handle(state: PushToTalkState, sessionId: unknown): Promise<PushToTalkResult> {
@@ -182,13 +180,13 @@ export function createPushToTalk(options: PushToTalkOptions = {}) {
         return reject(state, 'no_session', 'Push-to-talk needs a live inspection session.');
       if (!enabled) return reject(state, 'disabled', 'Push-to-talk is off. Restart the host with --ptt.');
       if (state === 'down') {
-        if (held) return reject('down', 'repeat', 'The grip is already held.');
+        if (held) return reject('down', 'repeat', 'The talk button is already held.');
         const at = now();
-        if (at - lastDownAt < debounceMs) return reject('down', 'debounced', 'That grip press arrived too soon after the last one.');
+        if (at - lastDownAt < debounceMs) return reject('down', 'debounced', 'That talk press arrived too soon after the last one.');
         held = true;
         lastDownAt = at;
       } else {
-        if (!held) return reject('up', 'unpaired', 'No grip press is open.');
+        if (!held) return reject('up', 'unpaired', 'No talk press is open.');
         held = false;
       }
       // Serialize so an up can never overtake the down it closes.
@@ -218,7 +216,7 @@ export function pushToTalkFromEnv(env: NodeJS.ProcessEnv = process.env, override
   try { return createPushToTalk(base); }
   catch (error) {
     const log = base.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
-    log(`push-to-talk: ${error instanceof Error ? error.message : 'A command variable could not be read.'} Logging grip events only.`);
+    log(`push-to-talk: ${error instanceof Error ? error.message : 'A command variable could not be read.'} Logging talk presses only.`);
     return createPushToTalk({ ...base, down: undefined, up: undefined });
   }
 }

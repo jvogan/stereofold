@@ -162,7 +162,7 @@ including when the helper exits before the first receipt check. A valid
 completion remains usable if subsequent connection cleanup fails.
 Do not publish for partial audio, failed responses or unfinished output writes;
 only connection cleanup may remain. The helper keeps its 45-second process
-deadline, and Stereofold removes its private input/output directory after exit.
+deadline, and Stereofold removes its private input and output directory after exit.
 This handoff needs no new provider, credentials, persistent service or model
 request. It changes when a completed clip is available, not what it says.
 
@@ -173,7 +173,7 @@ using the chosen package manager and preserving existing working routes.
 
 ## Claude Code channel protocol
 
-This package pins MCP SDK 1.29.0, whose latest supported protocol is `2025-11-25`;
+This package pins MCP SDK 1.32.2, whose latest supported protocol is `2025-11-25`;
 it does not negotiate `2026-07-28`. No legacy override is needed here. If a future
 v2 runtime negotiates `2026-07-28` and Claude fails to register the channel, set
 `MCP_PROTOCOL_NEGOTIATION=legacy` in that MCP server's environment and restart.

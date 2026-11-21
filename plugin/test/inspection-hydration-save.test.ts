@@ -17,13 +17,14 @@ afterEach(() => vi.useRealTimers());
 
 // Execute the real hydration checkpoint and queued saver. The renderer boundary
 // models a chapter-control notification starting a clearance draw after install.
-function page(options:{densityReferencePreview?:boolean;referenceOnly?:boolean}={}) {
+function page(options: { renderBudgetMs?: number; densityReferencePreview?: boolean; referenceOnly?: boolean } = {}) {
+  const { renderBudgetMs } = options;
   vi.useFakeTimers();
   const events: string[] = [];
   const skipped:string[]=[];
   let ready = false;
   const scene = { sourceSha256: 'new-source', inspection: { placement: { scale: 2 } } };
-  const h: any = vm.createContext({
+  const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     Promise, JSON, Date, Math, setTimeout, clearTimeout, waitForPanelRender,
     saveRetryAdmission: createSaveRetryAdmission(),
     binding: { sessionId: 'session', sourceToken: 'new-source', serverEpoch: 'epoch', stateRevision: 2, inspectionRevision: 0 },
@@ -33,6 +34,8 @@ function page(options:{densityReferencePreview?:boolean;referenceOnly?:boolean}=
     passiveSavedRestore: false, journeySave: undefined, replacesPanelId: 'retained-headset', options: {},
     densityReferencePreview:options.densityReferencePreview===true,densityReferenceOnly:false,
     isCompanion: true, experiencePreparing: false, tourPlayer: undefined, panelId: 'retained-headset',
+    PRIVATE_KEY: 'stereo_structure/inspection',
+    response: { _meta: { 'stereo_structure/inspection': renderBudgetMs === undefined ? {} : { renderBudgetMs } } },
     workspace: { snapshot: () => ({ ready }), capture: () => structuredClone(scene), syncSceneHistory() {}, setStatus() {} },
     trace: { phase: async (_name: string, work: Promise<unknown>) => work, skip:(name:string)=>skipped.push(name) },
     recordHeadsetEvent() {}, thrownErrorMessage: (e: Error) => e.message, problemMessage: (_kind: string, e: Error) => e.message,
@@ -80,13 +83,27 @@ it('rechecks the draw after an earlier queued save yields', async () => {
   expect(p.events).toEqual(['saved', 'attached-saved']);
 });
 
-it('does not attach or claim a save when clearance never settles', async () => {
-  const p = page();
+it('keeps waiting while a heavy scene finishes its post-load work, within the source render budget', async () => {
+  const p = page({ renderBudgetMs: 130_000 });
   const pending = p.h.checkpoint();
-  await vi.advanceTimersByTimeAsync(15_100); await pending;
+  await vi.advanceTimersByTimeAsync(40_000);
   expect(p.events).toEqual([]);
-  expect(p.h.blocked).toBe(true);
+  expect(p.h.blocked).toBe(false);
+  p.draw(); await vi.advanceTimersByTimeAsync(100); await pending;
+  expect(p.events).toEqual(['saved', 'attached-saved']);
+  expect(p.h.dirty).toBe(false); expect(p.h.blocked).toBe(false);
 });
+
+it.each([[130_000, 130_100], [undefined, 15_100]] as const)(
+  'does not attach or claim a save when clearance never settles (budget %s)', async (renderBudgetMs, waited) => {
+    const p = page({ renderBudgetMs });
+    const pending = p.h.checkpoint();
+    await vi.advanceTimersByTimeAsync(waited - 1_000);
+    expect(p.h.blocked).toBe(false);
+    await vi.advanceTimersByTimeAsync(1_000); await pending;
+    expect(p.events).toEqual([]);
+    expect(p.h.blocked).toBe(true);
+  });
 
 it.each(['generation', 'closed'] as const)('does not save or attach an obsolete hydration after %s changes while clearance draws', async field => {
   const p = page();

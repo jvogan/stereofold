@@ -271,3 +271,36 @@ test('an explicit shared coordinate frame carries role offsets across raw-source
   assert.notDeepEqual(Array.from(object.values.aPosition.ref.value.slice(0,3)),offset);
  }
 });
+
+test('a headset offset edit gives an exterior plate the seat it would take fresh, and each offset keeps its own role seat',async()=>{
+ const {motionFixture}=await import('./motion-benchmark-fixture.mjs');
+ const {createLessonFigure}=await import('./lesson-figure.mjs');
+ let coordinateFrame;
+ const h=await motionFixture({animation:null,createFigure:options=>createLessonFigure({...options,getCoordinateFrame:()=>coordinateFrame})});
+ const label={id:'iron',target:{chain:'H0'},text:'Fe, T',color:'#246080',offsetX:0,offsetY:3,maxOffsetEm:3,sizeFactor:1,placement:'outside-figure'};
+ const lowered={...label,headsetOffsetY:-3};
+ const memory=new WeakMap();
+ const seat=async next=>{
+  await h.figure.install({layers:[],labels:[next],distances:[]});
+  const repr=h.figure.annotations()[0],object=repr.renderObjects[0];
+  const authored=Array.from(object.values.aPosition.ref.value.slice(0,3));
+  h.presentation[14]=-250;repr.setState({transform:h.presentation});
+  sizeImmersiveAnnotation(repr,h.canvas,[0,0,0]);
+  capFigureAnnotations({figure:h.figure,views,cameraScale:h.canvas.camera.scale,memory,placed:[]});
+  assert.ok(memory.get(object)?.figureAnchor,'the exterior plate receives a derived anchor');
+  return Array.from(object.values.aPosition.ref.value.slice(0,3),(value,axis)=>value-authored[axis]);
+ };
+ const near=(a,b)=>a.every((value,axis)=>Math.abs(value-b[axis])<1e-6);
+ try{
+  // What the lowered plate takes as the first plate of a source of its own.
+  coordinateFrame='control-frame';const fresh=await seat(lowered);
+  coordinateFrame=undefined;const raised=await seat(label);
+  assert.ok(!near(raised,fresh),`the two authored offsets start from different seats: ${raised} ${fresh}`);
+  // Only the headset offset changes: the plate must not keep the earlier seat.
+  const edited=await seat(lowered);
+  assert.ok(near(edited,fresh),`headset offset edit: ${edited}, fresh ${fresh}, earlier ${raised}`);
+  // A later chapter with either plate reuses that plate's own seat.
+  assert.ok(near(await seat(label),raised));
+  assert.ok(near(await seat(lowered),fresh));
+ }finally{await h.dispose();}
+});

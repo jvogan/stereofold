@@ -240,6 +240,130 @@ describe('private LAN companion transport', () => {
     expect(hung.ms).toBeLessThan(4_000);
   }, 30_000);
 
+  // The host retires the panels of a pairing that ends, so it has to know a
+  // panel's pairing by the time a revoke can land, including on its first beat.
+  it('names a beating panel’s pairing before the Mac answers, so a revoke during that beat finds it', async () => {
+    const lanAddress = listLanAddresses()[0];
+    if (!lanAddress) return; // A host without a private interface cannot run a LAN listener integration fixture.
+    let release!: () => void, arrived!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const reached = new Promise<void>(resolve => { arrived = resolve; });
+    const target = await listen((request, response) => {
+      request.resume();
+      request.on('end', () => {
+        arrived();
+        void gate.then(() => { if (!response.destroyed) { response.setHeader('content-type', 'application/json'); response.end('{}'); } });
+      });
+    });
+    cleanups.push(() => new Promise(resolve => { release(); target.server.closeAllConnections(); target.server.close(() => resolve()); }));
+    const directory = await mkdtemp(join(tmpdir(), 'stereofold-lan-beat-')); cleanups.push(() => rm(directory, { recursive: true, force: true }));
+    const port = await unusedPort(lanAddress.address);
+    const beats: Array<{ clientId: string; panelId: string; paired: boolean }> = [];
+    let lan!: LanCompanion;
+    lan = new LanCompanion({ certificateStore: directory, remember: false, onPanelHeartbeat: (clientId, panelId) => {
+      beats.push({ clientId, panelId, paired: Boolean(lan.status()?.clients.some(client => client.id === clientId)) }); } });
+    cleanups.push(() => lan.close());
+    const opened = await lan.open({ url: `http://127.0.0.1:${target.port}/#${'a'.repeat(64)}`, host: lanAddress.address, port });
+    const ca = await readFile(certificatePath(directory, opened.host));
+    const origin = `https://${opened.host}:${opened.port}`;
+    const paired = JSON.parse((await httpsCall(opened.host, opened.port, '/pair', { method: 'POST',
+      headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ code: opened.pairingCode }), ca })).body) as { token: string; clientId: string };
+    const beat = httpsCall(opened.host, opened.port, '/tool', { method: 'POST',
+      headers: { Authorization: `Bearer ${paired.token}`, Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'poll_inspection', args: { panelId: 'first-beat-panel' } }), ca }).catch(() => undefined);
+    await reached;
+    await expect(lan.revoke(paired.clientId)).resolves.toBe(true);
+    release(); await beat;
+    expect(beats).toEqual([{ clientId: paired.clientId, panelId: 'first-beat-panel', paired: true }]);
+  }, 30_000);
+
+  /**
+   * A LAN listener on a loopback fixture whose answers are held at `gate`
+   * until released, with one paired client. `answer` writes each tool's reply.
+   */
+  async function heldListener(answer: (name: string, response: ServerResponse) => void, options: ConstructorParameters<typeof LanCompanion>[0] = {}) {
+    const lanAddress = listLanAddresses()[0];
+    if (!lanAddress) return; // A host without a private interface cannot run a LAN listener integration fixture.
+    let release!: () => void, arrived!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const reached = new Promise<void>(resolve => { arrived = resolve; });
+    const target = await listen((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on('data', chunk => chunks.push(Buffer.from(chunk)));
+      request.on('end', () => {
+        arrived();
+        const name = String(JSON.parse(Buffer.concat(chunks).toString('utf8')).name);
+        void gate.then(() => { if (!response.destroyed) answer(name, response); });
+      });
+    });
+    cleanups.push(() => new Promise(resolve => { release(); target.server.closeAllConnections(); target.server.close(() => resolve()); }));
+    const directory = await mkdtemp(join(tmpdir(), 'stereofold-lan-answer-')); cleanups.push(() => rm(directory, { recursive: true, force: true }));
+    const port = await unusedPort(lanAddress.address);
+    const lan = new LanCompanion({ certificateStore: directory, remember: false, ...options });
+    cleanups.push(() => lan.close());
+    const opened = await lan.open({ url: `http://127.0.0.1:${target.port}/#${'a'.repeat(64)}`, host: lanAddress.address, port });
+    const ca = await readFile(certificatePath(directory, opened.host));
+    const origin = `https://${opened.host}:${opened.port}`;
+    const paired = JSON.parse((await httpsCall(opened.host, opened.port, '/pair', { method: 'POST',
+      headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ code: opened.pairingCode }), ca })).body) as { token: string; clientId: string };
+    const tool = (name: string, args: Record<string, unknown>) => httpsCall(opened.host, opened.port, '/tool', { method: 'POST',
+      headers: { Authorization: `Bearer ${paired.token}`, Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, args }), ca });
+    return { lan, paired, tool, release, reached };
+  }
+  const json = (status: number, body: unknown) => (_name: string, response: ServerResponse) => {
+    response.statusCode = status; response.setHeader('content-type', 'application/json'); response.end(JSON.stringify(body));
+  };
+
+  // A panel's pairing is the one its attach was answered on. The Mac goes on
+  // to register the panel whether or not the page is still there to read the
+  // answer, so the listener has to hear it out even when a revoke cut the page off.
+  it('hears the Mac issue a panel to a paired page’s attach, even when the pairing is revoked before the answer arrives', async () => {
+    let heard!: (value: unknown) => void;
+    const opened = new Promise(resolve => { heard = resolve; });
+    let lan: LanCompanion | undefined;
+    const t = await heldListener(json(200, { content: [], structuredContent: { panelId: 'issued-panel' } }), {
+      onPanelOpened: (client, panelId, replacedPanelId) => heard({ client, panelId, replacedPanelId,
+        paired: Boolean(lan?.status()?.clients.some(paired => paired.id === client.id)) }) });
+    if (!t) return;
+    lan = t.lan;
+    const attach = t.tool('attach_inspection', { surface: 'companion', replacesPanelId: 'earlier-panel' }).catch(() => undefined);
+    await t.reached;
+    await expect(t.lan.revoke(t.paired.clientId)).resolves.toBe(true);
+    // The page is cut off before the Mac answers.
+    expect(await attach).toBeUndefined();
+    t.release();
+    expect(await Promise.race([opened, new Promise(resolve => setTimeout(() => resolve('not heard'), 4_000))]))
+      .toEqual({ client: { id: t.paired.clientId }, panelId: 'issued-panel', replacedPanelId: 'earlier-panel', paired: false });
+  }, 30_000);
+
+  it('hears no panel from an attach the Mac refused, or from a heartbeat', async () => {
+    const opened: string[] = [];
+    let answer = json(409, { error: 'request_failed' });
+    const t = await heldListener((name, response) => answer(name, response), { onPanelOpened: (_client, panelId) => opened.push(panelId) });
+    if (!t) return;
+    t.release();
+    expect((await t.tool('attach_inspection', { surface: 'companion' })).status).toBe(409);
+    answer = json(200, { isError: true, content: [], structuredContent: { panelId: 'refused-panel' } });
+    expect((await t.tool('attach_inspection', { surface: 'companion' })).status).toBe(200);
+    answer = json(200, { content: [], structuredContent: { panelId: 'beaten-panel', attached: true } });
+    expect((await t.tool('poll_inspection', { panelId: 'beaten-panel' })).status).toBe(200);
+    expect(opened).toEqual([]);
+  }, 30_000);
+
+  // A heartbeat can move a panel's pairing before the Mac answers it (see
+  // above), so the hook hears the answer and can put a refused beat's move back.
+  it('tells a heartbeat’s hook the status the Mac answered it with', async () => {
+    const answered: number[] = [];
+    let answer = json(409, { error: 'request_failed' });
+    const t = await heldListener((name, response) => answer(name, response), { onPanelHeartbeat: () => status => { answered.push(status); } });
+    if (!t) return;
+    t.release();
+    expect((await t.tool('poll_inspection', { panelId: 'some-panel' })).status).toBe(409);
+    answer = json(200, { content: [], structuredContent: { attached: true } });
+    expect((await t.tool('poll_inspection', { panelId: 'some-panel' })).status).toBe(200);
+    expect(answered).toEqual([409, 200]);
+  }, 30_000);
+
   it('refuses a paired page that names a file, a web address or pasted coordinates before the loopback companion sees it', async () => {
     const lanAddress = listLanAddresses()[0];
     if (!lanAddress) return; // A host without a private interface cannot run a LAN listener integration fixture.

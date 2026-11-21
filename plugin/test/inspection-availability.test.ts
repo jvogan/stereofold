@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as contract from '../src/inspection-contract.js';
-import { choosePanel, fillAgentArguments, PANEL_BLUR_POLL_MS, PANEL_BLUR_WAIT_MS } from '../scripts/agent-arguments.js';
+import { choosePanel, COMPANION_CATCH_UP_WAIT_MS, COMPANION_LOADING_MESSAGE, fillAgentArguments, PANEL_BLUR_POLL_MS, PANEL_BLUR_WAIT_MS, sentAfterBlurNote } from '../scripts/agent-arguments.js';
 import { bindArguments } from '../scripts/inspection-agent.js';
 import { detectHiddenSession, HIDDEN_SESSION_ADVICE } from '../scripts/headset-drive.js';
 import { panelAvailability } from '../src/inspection-panel-recovery.js';
@@ -46,6 +46,83 @@ describe('panel availability cause', () => {
       expect(contract.availabilityCauseSchema.safeParse(value).success).toBe(true);
     for (const value of ['hidden', 'rendering', '', undefined, {}, 1])
       expect(contract.availabilityCauseSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('a headset page drawing its structure again', () => {
+  const desk = { panelId: 'desk', surface: 'desktop', availability: 'ready', current: true };
+  const loading = (panels: any[]) => ({ ...state(panels as any), companionLoading: true, companionRegistered: true });
+
+  it('waits for the page to register again and sends the command to it, not to the Mac', async () => {
+    vi.useFakeTimers();
+    const reads = [loading([desk]), loading([desk]), loading([desk]),
+      state([desk, { panelId: 'quest', surface: 'companion', availability: 'ready', current: true }] as any)];
+    const request = vi.fn(async () => ({ structuredContent: reads.shift() ?? reads.at(-1) }));
+    const outcome = bindArguments(control, 'update_inspection', {}, request);
+    await vi.runAllTimersAsync();
+    expect(await outcome).toMatchObject({ arguments: { panelId: 'quest' }, waitedMs: 3 * PANEL_BLUR_POLL_MS, reloaded: true });
+    expect(sentAfterBlurNote(3 * PANEL_BLUR_POLL_MS, true)).toBe('Sent after the headset page came back from drawing its structure again (waited 1.2 s).');
+  });
+
+  it('waits for a page catching up with the saved view, listed behind and unsaved', async () => {
+    vi.useFakeTimers();
+    const behind = { panelId: 'quest', surface: 'companion', availability: 'unsaved', current: false };
+    const reads = [state([desk, behind] as any), state([desk, behind] as any),
+      state([desk, { panelId: 'quest-2', surface: 'companion', availability: 'ready', current: true }] as any)];
+    const request = vi.fn(async () => ({ structuredContent: reads.shift() ?? reads.at(-1) }));
+    const outcome = bindArguments(control, 'control_tour', { action: 'next' }, request);
+    await vi.runAllTimersAsync();
+    expect(await outcome).toMatchObject({ arguments: { panelId: 'quest-2' }, waitedMs: 2 * PANEL_BLUR_POLL_MS });
+  });
+
+  it('still refuses with the loading sentence when the page does not come back', async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => ({ structuredContent: loading([desk]) }));
+    const outcome = bindArguments(control, 'update_inspection', {}, request).catch(error => error);
+    await vi.runAllTimersAsync();
+    expect((await outcome).message).toBe(COMPANION_LOADING_MESSAGE);
+    expect(request).toHaveBeenCalledTimes(Math.ceil(COMPANION_CATCH_UP_WAIT_MS / PANEL_BLUR_POLL_MS) + 1);
+  });
+
+  it('refuses rather than sending to the Mac when the awaited headset page drops out', async () => {
+    vi.useFakeTimers();
+    const behind = { panelId: 'quest', surface: 'companion', availability: 'unsaved', current: false };
+    const reads = [state([desk, behind] as any), state([desk] as any)];
+    const request = vi.fn(async () => ({ structuredContent: reads.shift() ?? reads.at(-1) }));
+    const outcome = bindArguments(control, 'update_inspection', {}, request).catch(error => error);
+    await vi.runAllTimersAsync();
+    expect((await outcome).message).toMatch(/^No panel is ready for a command right now \(.*companion unsaved/);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps waiting while the page being replaced beats unsaved at the revision it has just installed', async () => {
+    vi.useFakeTimers();
+    const retiring = { panelId: 'quest', surface: 'companion', availability: 'unsaved', current: true };
+    const reads = [state([desk, { ...retiring, current: false }] as any), state([desk, retiring] as any),
+      state([desk, { panelId: 'quest-2', surface: 'companion', availability: 'ready', current: true }] as any)];
+    const request = vi.fn(async () => ({ structuredContent: reads.shift() ?? reads.at(-1) }));
+    const outcome = bindArguments(control, 'update_inspection', {}, request);
+    await vi.runAllTimersAsync();
+    expect(await outcome).toMatchObject({ arguments: { panelId: 'quest-2' } });
+  });
+
+  it('sends a source replacement to the host\u2019s recovery owner even after waiting for the headset page', async () => {
+    vi.useFakeTimers();
+    const behind = { panelId: 'quest', surface: 'companion', availability: 'unsaved', current: false };
+    const reads = [state([desk, behind] as any), { ...state([desk, behind] as any), sourceRecovery: { panelId: 'desk', ready: true } }];
+    const request = vi.fn(async () => ({ structuredContent: reads.shift() ?? reads.at(-1) }));
+    const outcome = bindArguments(control, 'replace_inspection_source', { source: { kind: 'pdb', id: '1CRN' } }, request);
+    await vi.runAllTimersAsync();
+    expect(await outcome).toMatchObject({ arguments: { panelId: 'desk' } });
+  });
+
+  it('does not wait out a refusal that is not about the panel', async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => ({ structuredContent: loading([desk]) }));
+    const outcome = bindArguments(control, 'replace_inspection_source', { source: { kind: 'url', url: 'http://example.test/x.cif' } }, request).catch(error => error);
+    await vi.runAllTimersAsync();
+    expect(request.mock.calls.length).toBeLessThanOrEqual(1);
+    expect(String((await outcome)?.message ?? '')).not.toBe(COMPANION_LOADING_MESSAGE);
   });
 });
 
@@ -148,7 +225,7 @@ describe('a panel whose only unsaved work is placement', () => {
   function page(captured: (scene: any) => any, flags: { dirty?: boolean; blocked?: boolean; refuses?: boolean } = {}) {
     const saved = { sourceSha256: 'a'.repeat(64), selectionKeys: ['one'], camera: { position: [0, 0, 10] },
       inspection: { appearance: { opacity: 1 }, placement: { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 } } };
-    const h: any = vm.createContext({ panelAvailability, sameEntryScene, savedScene: saved, dirty: flags.dirty ?? true,
+    const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined, panelAvailability, sameEntryScene, savedScene: saved, dirty: flags.dirty ?? true,
       blocked: flags.blocked ?? false, isCompanion: true, panelTour: undefined, tourPlayer: undefined,
       workspace: { snapshot: () => ({ ready: true, interactionActive: false }), viewer: { xr: { blind: () => false } },
         capture: () => { if (flags.refuses) throw Error('Unidentified scene.'); return captured(structuredClone(saved)); } } });

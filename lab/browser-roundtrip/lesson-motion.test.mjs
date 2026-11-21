@@ -9,7 +9,7 @@ const closeVec = (actual, expected, message) => {
   for (let index = 0; index < expected.length; index += 1) close(actual[index], expected[index], `${message}[${index}]`);
 };
 
-/** The pose the wall lesson's chapter 1 opened from (ring 83ad4e9 seq 70-71). */
+/** The pose the wall lesson's chapter 1 opens from. */
 const framed = { position: [3.2, 0.9, 0.4], target: [0, 0, 0], up: [0, 1, 0] };
 
 test('a chapter tick normalises only the two moves a chapter may ask for', () => {

@@ -98,6 +98,64 @@ it.each([false, true])('next survives a chapter turn settling before delivery (b
     .toMatchObject({ commandId: 'turn-next' });
 });
 
+/** A playing lesson before and after its chapter turn settles: only the camera and the turn's cursor move. */
+function settledTurn() {
+  const before = playing(base); delete before.inspection.animation;
+  Object.assign(before.inspection.lessonPlayback!, { motionProgress: 0, motionPlaying: true });
+  const after = structuredClone(before);
+  after.camera = { ...after.camera, position: [3, 0, 7] };
+  Object.assign(after.inspection.lessonPlayback!, { motionProgress: 1, motionPlaying: false });
+  return { before, after };
+}
+const queuedKinds: InspectionChange[] = [
+  { kind: 'emphasis', patch: { parts: ['part'] } },
+  { kind: 'focus', patch: {} },
+  { kind: 'lesson', patch: {} },
+  { kind: 'visibility', patch: {} },
+  { kind: 'motion', patch: { state: 'spin' } },
+  { kind: 'tour', patch: { action: 'done' } },
+  { kind: 'tour', patch: { action: 'start' } },
+  { kind: 'tour', patch: { action: 'restore-start' } },
+] as any;
+
+it.each(queuedKinds.map(change => [`${change.kind} ${(change.patch as any).action ?? ''}`.trim(), change] as const))(
+  'queued %s follows a chapter turn settling', (_name, change) => {
+    const { before, after } = settledTurn();
+    expect(compatibleLocalSave(before, after, change)).toBe(true);
+  });
+
+it.each([false, true])('host keeps a queued emphasis and lesson across a chapter turn save (bound: %s)', bound => {
+  for (const change of [queuedKinds[0], queuedKinds[2]]) {
+    const host = new InspectionCommands(() => 0);
+    const binding = { serverEpoch: 'epoch', sourceToken: 'source', stateRevision: 1, inspectionRevision: 1 };
+    const expected = { serverEpoch: 'epoch', sourceToken: 'source', baseStateRevision: 1, baseInspectionRevision: 1 };
+    const panelId = host.attach({ ...expected, surface: 'companion' }, binding);
+    host.poll({ ...expected, panelId, availability: 'ready' }, binding);
+    const { before, after } = settledTurn();
+    host.enqueue({ ...expected, panelId, commandId: 'after-turn', deferLocalSave: !bound, change }, binding, before);
+    const saved = { ...binding, inspectionRevision: 2 };
+    host.settleLocalSave(panelId, binding, saved, after, before);
+    expect(host.summary(saved, 'after-turn').command?.status).toBe('queued');
+    expect(host.poll({ ...expected, baseInspectionRevision: 2, panelId, availability: 'ready' }, saved).delivery)
+      .toMatchObject({ commandId: 'after-turn' });
+  }
+});
+
+it('a queued focus or lesson still conflicts when the turn arrives with a placement or scientific edit', () => {
+  for (const edit of [
+    (s: InspectionScene) => { s.inspection.appearance.opacity = .3; },
+    (s: InspectionScene) => { s.selectionKeys = []; },
+    (s: InspectionScene) => { s.inspection.lessonPlayback!.chapterId = 'two'; },
+  ]) {
+    const { before, after } = settledTurn();
+    edit(after);
+    for (const change of [queuedKinds[1], queuedKinds[2]]) expect(compatibleLocalSave(before, after, change)).toBe(false);
+  }
+  const { before, after } = settledTurn();
+  after.inspection.placement = { ...after.inspection.placement, scale: 2 };
+  expect(compatibleLocalSave(before, after, queuedKinds[1])).toBe(false);
+});
+
 it('next still conflicts with a changed chapter, source, selection or scientific edit as a turn settles', () => {
   const before = playing(base); delete before.inspection.animation;
   Object.assign(before.inspection.lessonPlayback!, { motionProgress: 0, motionPlaying: true });

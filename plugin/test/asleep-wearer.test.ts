@@ -13,16 +13,18 @@ import { createStereoStructureServer } from '../src/server.js';
 import { PRIVATE_INSPECTION_META_KEY as KEY, expectedInspection, type InspectionScene } from '../src/inspection-contract.js';
 import { InspectionCommands, WEARER_SILENT_MS } from '../src/inspection-commands.js';
 import { thrownErrorMessage } from '../src/tool-result.js';
-import { followsSourceTransition } from '../src/inspection-panel-recovery.js';
+import { followsSourceTransition, panelAvailability, saveFailureRecovery } from '../src/inspection-panel-recovery.js';
+import { sameEntryScene } from '../src/inspection-render-settle.js';
+import { canRefreshInspectionAttach, isStaleInspectionAttach, MAX_ATTACH_REFRESHES, STALE_ATTACH_MESSAGE } from '../src/inspection-attach-recovery.js';
+import { createSaveRetryAdmission } from '../src/inspection-save-retry.js';
 
-// 2026-09-28. The Codex app drove a Quest 2 lying asleep on a
-// desk: a colour edit was claimed by the hidden headset page, which could not
-// draw a frame, and was rejected thirty seconds later as render_failed. The
-// saved scene kept the old colours. At 14:07 the person put the headset on,
-// and the agent, with no way to read whether they had pressed Enter VR, asked
-// in chat; the person took the headset off to answer. These tests hold both
-// halves: an edit for a paused page is saved, and the host says where the
-// wearer's page is.
+// A host can edit a scene on a Quest 2 that lies asleep on a desk: the hidden
+// headset page claims a colour edit, cannot draw a frame, and rejects the edit
+// thirty seconds later as render_failed, so the saved scene keeps the old
+// colours. When the person puts the headset on, an agent with no way to read
+// whether they pressed Enter VR has to ask in chat, and the person takes the
+// headset off to answer. These tests hold both halves: an edit for a paused
+// page is saved, and the host says where the wearer's page is.
 const cif = await readFile(new URL('../../fixtures/1CRN.cif', import.meta.url), 'utf8');
 const orange = { kind: 'appearance', patch: { color: 'uniform', uniformColor: '#ff8800' } } as const;
 
@@ -423,13 +425,14 @@ const run = (source: string, context: vm.Context) => vm.runInContext(ts.transpil
   { compilerOptions: { target: ts.ScriptTarget.ES2022, alwaysStrict: true } }).outputText, context);
 const blank = () => ({ hidden: true, textContent: '', addEventListener() {}, dataset: {} as Record<string, string> });
 
-function wakingPage({ attached = true, sourceToken = 't', shared = true } = {}) {
+function wakingPage({ attached = true, sourceToken = 't', shared = true, hasScene = true, meta = {} as Record<string, unknown> } = {}) {
   const restored: any[] = [], hydrated: string[] = [], attaches: unknown[] = [];
   const saved = { inspection: { appearance: { uniformColor: '#ff8800' } }, sourceSha256: 'sha' };
   const h: any = vm.createContext({
     failedSourceLoad:undefined,pollBackoff:createPollBackoff(),
     closed: false, experiencePreparing: false, pollInFlight: false, beatInFlight: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, pollTimer: undefined,
     generation: 1, dirty: false, blocked: false, remote: false, loading: false, edits: 0,
+    saveAttempts: 0, lastAutoReload: 0, reloading: false, recordHeadsetEvent: () => {}, followRecovery: false, recoveryPanel: undefined, followMapFailures: 0, SAVE_RELOAD_INTERVAL_MS: 5_000,
     heldComparisons: new Map(), comparisonRegistration: 0,
     binding: { sessionId: 's', serverEpoch: 'e', sourceToken: 't', stateRevision: 1, inspectionRevision: 1 },
     panelId: 'panel', savedScene: {}, pendingReceipt: undefined, isCompanion: true, repairNeeded: false, nextRepairAt: 0,
@@ -449,19 +452,21 @@ function wakingPage({ attached = true, sourceToken = 't', shared = true } = {}) 
     noteNamedViews: () => {}, receiveSpokenReply: () => {}, recordTalkReplyDelivery: () => {}, requestHeadsetViewCapture: () => {},
     showOutcome: () => {}, retireStaleHud: () => {}, syncHandoff: () => {}, scheduleSave: () => {}, handoffSpokenRequest: async () => {},
     voiceBindingKey: () => 'key', clearConnectionProblem: () => {},
-    followsSourceTransition,
+    followsSourceTransition, armDesktopRetry: () => {}, desktopRetryAttempt: 0, desktopRetrySource: undefined, desktopInput: 0, desktopCleanInput: 0, desktopLastInputAt: 0, DESKTOP_QUIET_MS: 5_000, desktopHeldPointers: new Set(), desktopPersonEditing: () => false,
+    // A headset page keeps no live view picture.
+    liveViewCapture: undefined,
     receive: async () => {}, save: async () => {},
     attach: async (...args: unknown[]) => { attaches.push(args); },
     hydrate: async (id: string) => { hydrated.push(id); },
     call: async (name: string) => name !== 'poll_inspection' ? { structuredContent: {}, _meta: {} } : {
-      structuredContent: { attached, hasScene: true, shared, sessionId: 's', serverEpoch: 'e', sourceToken,
+      structuredContent: { attached, hasScene, shared, sessionId: 's', serverEpoch: 'e', sourceToken,
         stateRevision: 1, inspectionRevision: 2 },
-      _meta: { [KEY]: { scene: saved } } },
+      _meta: { [KEY]: { scene: saved, ...meta } } },
     notice: blank(), message: blank(), retry: blank(), reload: blank(), pairAgain: blank(), details: blank(), detailsText: blank(), outcome: blank(),
   });
   h.globalThis = { dispatchEvent: () => true };
   run(pageFunctions(['armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'poll', 'problemMessage', 'showProblem', 'showConnectionProblem',
-    'registerComparisonSources', 'stepAsideWhileHidden']), h);
+    'registerComparisonSources', 'stepAsideWhileHidden', 'reloadSharedView', 'retryFollowRecovery', 'noteSavedViewInstalled']), h);
   return { h, restored, saved, hydrated, attaches };
 }
 
@@ -485,6 +490,42 @@ describe('a headset page with a scene saved while it slept', () => {
       expect(page.h.binding.inspectionRevision).toBe(2);
       expect(page.h.blocked).toBe(false);
     } finally { page.h.closed = true; clearTimeout(page.h.pollTimer); }
+  });
+
+  it('dropped while another page draws a new source, waits for that page before drawing it', async () => {
+    vi.useFakeTimers();
+    // A new source with no saved scene yet; another page owns its first save.
+    // The host offers a scene only on the page's own source.
+    const waiting = wakingPage({ attached: false, sourceToken: 't2', hasScene: false, meta: { scene: undefined, awaitSourceOwner: true } });
+    const asToday = wakingPage({ attached: false, sourceToken: 't2', hasScene: false, meta: { scene: undefined } });
+    try {
+      for (const page of [waiting, asToday]) page.h.document.visibilityState = 'visible';
+      await waiting.h.poll(); await waiting.h.poll();
+      expect([waiting.hydrated, waiting.attaches, waiting.restored]).toEqual([[], [], []]);
+      expect(waiting.h.panelId, 'it keeps its panel and asks again').toBe('panel');
+      // With no owner drawing it, the dropped page draws the source at once.
+      await asToday.h.poll();
+      expect(asToday.hydrated).toEqual(['s']);
+      expect(asToday.h.panelId).toBeUndefined();
+    } finally { for (const page of [waiting, asToday]) { page.h.closed = true; clearTimeout(page.h.pollTimer); } }
+  });
+
+  it('reloads after a refused save on the pose it drew, and a failed reload leaves it unblocked', async () => {
+    const page = wakingPage(), h = page.h, journal: any[] = [], asked: unknown[] = [];
+    h.recordHeadsetEvent = (event: string, detail: any) => journal.push({ event, ...detail });
+    // The reload's appearance fit is refused, as hydrate() then throws it.
+    h.hydrate = async (_id: string, _provided: unknown, _journey: unknown, options: unknown) => {
+      asked.push(options);
+      throw Object.assign(Error('Could not reset: the entry size cannot fit inside both eyes and clear the menu within 4 m.'), { fitRefusal: true });
+    };
+    try {
+      expect(h.reloadSharedView()).toBe(true);
+      await h.rendering;
+      expect(asked).toEqual([{ keepPanel: true, keepRoomPose: true }]);
+      expect(h.blocked, 'a blocked headset page answers unsaved and refuses every command').toBe(false);
+      expect(h.reloading).toBe(false);
+      expect(journal).toContainEqual(expect.objectContaining({ event: 'save-recovery', kind: 'conflict', action: 'reload-failed' }));
+    } finally { h.closed = true; clearTimeout(h.pollTimer); }
   });
 
   it('neither draws nor re-registers after the host dropped it, until it can draw', async () => {
@@ -623,6 +664,377 @@ it.each(['companion','stopped desktop'])('shared follow ignores a delayed older 
   }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
 });
 
+// The Mac's panel saved a newer view while the headset page was entering VR.
+// The page began to follow it, and the entry seat moved the structure before
+// the restore committed. Blocking the page behind a Retry button nobody in the
+// headset can press left it unsaved and behind for the rest of the session, so
+// every later step went to the Mac. Saving the seat instead could replace the
+// Mac's newer view, and saved nothing when only the revisions had moved. These
+// run the page's real poll, save and recovery against a host that keeps one
+// saved scene; `hydrate` stands in for the reload and ends as hydrate() does:
+// the host's saved scene drawn and registered at its revisions.
+function followRace({ companion = true, hostStateRevision = 1, offerAlways = false, moveDuringHydrate = false } = {}) {
+  const ch1 = { sourceSha256: 'sha', inspection: { appearance: { uniformColor: '#4a90e2' }, placement: { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 2.2 } } };
+  const ch2 = { sourceSha256: 'sha', inspection: { appearance: { uniformColor: '#f5a623' }, placement: { translation: [0, 0, 0], rotation: [0, 140, 0], scale: 2.2 } } };
+  const seated = structuredClone(ch1); seated.inspection.placement = { translation: [-0.25, 0.42, -1.77], rotation: [0, 0, 0], scale: 1.94 };
+  const host = { stateRevision: hostStateRevision, inspectionRevision: 2, scene: structuredClone(ch2) as any };
+  const page = wakingPage(); const h = page.h;
+  run(pageFunctions(['scheduleSave', 'save', 'recoverSave', 'reloadSharedView', 'retryFollowRecovery', 'noteSavedViewInstalled', 'hydrate']), h);
+  const realHydrate = h.hydrate;
+  let onScreen: any = structuredClone(ch1), polls = 0;
+  const syncs: any[] = [], reloads: string[] = [], journal: any[] = [], hydrations: ('defer' | 'throw' | 'install')[] = [];
+  let fetch: 'defer' | 'throw' = 'defer';
+  Object.assign(h, { isCompanion: companion, savedScene: structuredClone(ch1),
+    saveRetryAdmission: createSaveRetryAdmission(), saveFailureRecovery, saving: Promise.resolve(), timer: undefined,
+    saveAttempts: 0, lastAutoReload: 0, reloading: false, recordHeadsetEvent: (kind: string, detail: any) => { journal.push({ kind, ...detail }); },
+    followRecovery: false, recoveryPanel: undefined, followMapFailures: 0, SAVE_RELOAD_INTERVAL_MS: 5_000, sourceSwapTrace: undefined, HYDRATION_TRANSPORT: {}, tourCommandContext: undefined,
+    beginSourceSwapTrace: () => ({ phase: (_name: string, work: unknown) => work, skip() {}, fail() {} }) });
+  h.document.visibilityState = 'visible';
+  Object.assign(h.workspace, { capture: () => structuredClone(onScreen), syncSceneHistory() {}, setStatus() {},
+    snapshot: () => ({ ready: true, interactionActive: false, xrPresenting: companion, sourceSha256: 'sha' }) });
+  // Draws the host's saved scene and adopts its revisions, as hydrate() does
+  // where it installs the view (and calls noteSavedViewInstalled there).
+  const install = async () => {
+    h.generation++; onScreen = structuredClone(host.scene); h.savedScene = structuredClone(host.scene);
+    h.binding = { ...h.binding, stateRevision: host.stateRevision, inspectionRevision: host.inspectionRevision };
+    h.dirty = false; h.blocked = false; h.retryHydrationId = undefined; h.noteSavedViewInstalled?.(host.inspectionRevision);
+    // Another panel saves while this hydration runs.
+    if (moveDuringHydrate) { host.stateRevision++; host.inspectionRevision++; }
+    await h.attach();
+  };
+  // The real hydrate for a reload that defers to another panel's journey or
+  // whose read fails; a later one installs the view.
+  h.hydrate = async (id: string, ...rest: unknown[]) => {
+    reloads.push(id); const mode = hydrations.shift() ?? 'install';
+    if (mode === 'install') return install();
+    fetch = mode; return realHydrate(id, ...rest);
+  };
+  h.call = async (name: string, args: any) => {
+    if (name === 'poll_inspection') return { structuredContent: { attached: true, hasScene: true, shared: true, sessionId: 's',
+      serverEpoch: 'e', sourceToken: 't', stateRevision: host.stateRevision, inspectionRevision: host.inspectionRevision },
+      _meta: { [KEY]: ++polls === 1 || offerAlways ? { scene: structuredClone(host.scene) } : {} } };
+    if (name === 'get_inspection') {
+      if (fetch === 'throw') throw Object.assign(Error('Link lost'), { code: 'companion_connection' });
+      return { structuredContent: {}, _meta: { [KEY]: { journeyTransition: { status: 'pending', panelId: 'other-panel' } } } };
+    }
+    if (name === 'sync_inspection') {
+      syncs.push(args);
+      if (args.baseStateRevision !== host.stateRevision || args.baseInspectionRevision !== host.inspectionRevision) return { structuredContent: { conflict: true } };
+      host.scene = structuredClone(args.scene); host.inspectionRevision++;
+      return { structuredContent: { saved: true, stateRevision: host.stateRevision, inspectionRevision: host.inspectionRevision } };
+    }
+    return { structuredContent: {}, _meta: {} };
+  };
+  const settle = async () => { for (let i = 0; i < 8; i++) { await vi.advanceTimersByTimeAsync(500); await h.rendering; await h.saving; } };
+  return { ...page, h, host, ch1, ch2, seated, syncs, reloads, journal, hydrations, screen: () => onScreen, seat: () => { onScreen = structuredClone(seated); }, settle,
+    realHydrate, draw: (scene: any) => { onScreen = structuredClone(scene); } };
+}
+
+describe('a headset page whose follow of a newer saved view is refused', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('shows the Mac’s newer view and writes nothing when its seat lands while a grow retry moved its revision', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => {
+        // A grow retry's heartbeat advanced the binding without drawing its scene.
+        h.binding = { ...h.binding, inspectionRevision: race.host.inspectionRevision };
+        race.seat(); admit(); throw Error('Restore must not reach its commit.');
+      };
+      await h.poll(); await race.settle();
+      expect(race.host.scene, 'the Mac’s newer view is still the saved one').toEqual(race.ch2);
+      expect(race.host.inspectionRevision).toBe(2); expect(race.syncs).toEqual([]);
+      expect(race.reloads).toEqual(['s']); expect(race.attaches).toHaveLength(1);
+      expect(h.binding).toMatchObject({ stateRevision: 1, inspectionRevision: 2 });
+      expect(race.screen()).toEqual(race.ch2); expect(h.savedScene).toEqual(race.ch2);
+      expect(h.blocked).toBe(false); expect(h.dirty).toBe(false);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('catches up when only the revisions moved and its view is unchanged', async () => {
+    vi.useFakeTimers(); const race = followRace({ hostStateRevision: 2 }); const { h } = race;
+    try {
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => { admit(); throw Error('Restore must not reach its commit.'); };
+      await h.poll(); await race.settle();
+      expect(race.syncs).toEqual([]); expect(race.reloads).toEqual(['s']); expect(race.attaches).toHaveLength(1);
+      expect(h.binding).toMatchObject({ stateRevision: 2, inspectionRevision: 2 });
+      expect(race.screen()).toEqual(race.ch2); expect(h.blocked).toBe(false); expect(h.dirty).toBe(false);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('writes nothing while a reload defers to another panel\u2019s journey, and the later reload lands', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      race.hydrations.push('defer');
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => {
+        h.binding = { ...h.binding, inspectionRevision: race.host.inspectionRevision };
+        race.seat(); admit(); throw Error('Restore must not reach its commit.');
+      };
+      await h.poll(); await race.settle();
+      expect(race.syncs, 'nothing is written while the reload is deferred').toEqual([]);
+      expect(race.host.scene).toEqual(race.ch2); expect(h.followRecovery).toBe(true); expect(h.blocked).toBe(false);
+      expect(race.journal.map(e => e.outcome).filter(Boolean)).toEqual(['refused-reload', 'reload-deferred']);
+      await vi.advanceTimersByTimeAsync(6_000); await h.rendering;
+      expect(race.reloads).toEqual(['s', 's']); expect(race.syncs).toEqual([]); expect(race.host.scene).toEqual(race.ch2);
+      expect(h.binding).toMatchObject({ stateRevision: 1, inspectionRevision: 2 }); expect(race.screen()).toEqual(race.ch2);
+      expect(h.followRecovery).toBe(false); expect(h.blocked).toBe(false); expect(h.dirty).toBe(false); expect(race.attaches).toHaveLength(1);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('is not blocked when a reload fails once, and ends current on the next one', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      race.hydrations.push('throw');
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => { race.seat(); admit(); throw Error('Restore must not reach its commit.'); };
+      await h.poll(); await race.settle();
+      expect(h.blocked, 'a failed reload must not block a headset page').toBe(false);
+      expect(race.syncs).toEqual([]); expect(h.followRecovery).toBe(true);
+      expect(race.journal.some(e => e.kind === 'shared-follow' && e.outcome === 'reload-failed')).toBe(true);
+      await vi.advanceTimersByTimeAsync(6_000); await h.rendering;
+      expect(race.reloads).toEqual(['s', 's']); expect(race.syncs).toEqual([]);
+      expect(h.binding).toMatchObject({ stateRevision: 1, inspectionRevision: 2 }); expect(race.screen()).toEqual(race.ch2);
+      expect(h.followRecovery).toBe(false); expect(h.blocked).toBe(false); expect(h.dirty).toBe(false); expect(race.attaches).toHaveLength(1);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('spaces its reloads when the host\u2019s revisions move during each one', async () => {
+    vi.useFakeTimers(); const race = followRace({ hostStateRevision: 2, offerAlways: true, moveDuringHydrate: true }); const { h } = race;
+    try {
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => { admit(); throw Error('Restore must not reach its commit.'); };
+      await h.poll(); await vi.advanceTimersByTimeAsync(12_000); await h.rendering;
+      expect(race.syncs).toEqual([]); expect(h.blocked).toBe(false);
+      expect(race.reloads.length, 'one reload, then at most one per five seconds').toBeLessThanOrEqual(3);
+      expect(race.reloads.length).toBeGreaterThanOrEqual(2);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  // The reload below is the page's real hydrate, attach and availability:
+  // only the host and the renderer are stand-ins.
+  function realReload(race: ReturnType<typeof followRace>, { map = false } = {}) {
+    const { h, host } = race;
+    run(pageFunctions(['hydrate', 'attach', 'detach', 'expected', 'liveAvailability', 'placementOnlyWork', 'navigateExperience']), h);
+    const calls: { name: string; args: any }[] = []; const held: { release?: () => void } = {}; const spoken: string[] = [];
+    let panels = 0;
+    const element = () => ({ textContent: '', dataset: {}, className: '', prepend() {}, remove() {}, setAttribute() {}, removeAttribute() {} });
+    Object.assign(h, { panelAvailability, sameEntryScene, epoch: 'e', completedHydration: true, narrationGeneration: 0,
+      voiceOwnedSourceTransition: false, voiceInteraction: undefined, pendingReceiptFields: undefined, sourceLoadOutcome: undefined,
+      handoffSource: undefined, handoffFeedback: '', handoffPending: false, handoffVersion: 0, sourceGeometryBudgetSupported: false,
+      rendererContextSupported: false, renderedSourceIdentitySupported: false, comparisonPrimaryName: '', TOURS: [],
+      hydrateInspectionBytes: async () => {}, decodeInspectionCatalog: async () => ({ source: { sha256: 'sha' }, assemblyId: '1' }),
+      verifyInspectionCatalogSource: async () => {}, stopUnanimatedLessonPlayback: (scene: unknown) => scene,
+      sceneImportLoadSettings: () => ({}), savedLessonPlayback: () => {}, abortableSwapPhase: async () => {}, lessonSourceInitialization: () => undefined,
+      updateSceneImportNotice() {}, sceneHistoryClient: { note() {}, requestStarted: () => 0 }, parseNativeStructureViewerHandoff: () => undefined,
+      MAP_DRAW_FAILED_SPOKEN: 'The map did not draw.', experienceView: undefined, experienceSourceChanged: false, defaultToLesson: undefined,
+      showHeadsetCaption() {}, failSourceLoadOutcome() {}, finishSourceLoadOutcome() {}, announceSourceGeometryBudget() {},
+      sourceGeometryBudget: () => undefined, canRefreshInspectionAttach, isStaleInspectionAttach, finishMapDrawFailure: (error: Error) => { spoken.push(error.message); },
+      attaching: undefined, attachRetryAt: 0, localInteractionSerial: 0, leavingForDetailedView: false, MAX_ATTACH_REFRESHES,
+      interactionActive: false, notice: blank(), details: blank() });
+    h.document = { visibilityState: 'visible', body: { dataset: {} }, querySelector: () => element(), createElement: () => element() };
+    Object.assign(h.workspace, {
+      restore: async (scene: any) => { await new Promise<void>(resolve => { held.release = resolve; }); race.draw(scene); },
+      loadSource: async () => { await new Promise<void>(resolve => { held.release = resolve; }); throw Error('The isosurface did not build.'); },
+      snapshot: () => ({ ready: true, interactionActive: false, xrPresenting: true, sourceSha256: 'sha', sourceSubset: false, modelNumber: 1, assemblyId: '1' }) });
+    const inner = h.call;
+    h.call = async (name: string, args: any) => {
+      calls.push({ name, args: structuredClone(args) });
+      if (name === 'get_inspection') return { structuredContent: {}, _meta: { [KEY]: { sessionId: 's', serverEpoch: 'e', sourceToken: 't', format: 'mmcif',
+        catalog: {}, structureText: 'data_x', stateRevision: host.stateRevision, inspectionRevision: host.inspectionRevision, shared: true,
+        scene: structuredClone(host.scene), ...(map ? { mapSha256: 'map-sha', mapBytes: new Uint8Array(4), mapContour: 1 } : {}) } } };
+      // The host's own admission: a panel attaches only at the saved revisions.
+      if (name === 'attach_inspection') {
+        if (args.baseStateRevision !== host.stateRevision || args.baseInspectionRevision !== host.inspectionRevision)
+          throw Object.assign(Error(STALE_ATTACH_MESSAGE), { code: 'inspection_attach_stale' });
+        return { structuredContent: { panelId: `issued-${++panels}` } };
+      }
+      if (name === 'detach_inspection') return { structuredContent: { detached: true } };
+      return inner(name, args);
+    };
+    race.hydrations.length = 0;
+    return { calls, held, spoken, beats: () => calls.filter(c => c.name === 'poll_inspection').map(c => ({ panelId: c.args.panelId, availability: c.args.availability, rev: c.args.baseInspectionRevision })) };
+  }
+
+  it('keeps the headset listed as behind while its real reload draws, then attaches in place of that panel', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      const reload = realReload(race); h.hydrate = race.realHydrate;
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => { race.seat(); admit(); throw Error('Restore must not reach its commit.'); };
+      await h.poll(); await vi.advanceTimersByTimeAsync(1_500);
+      expect(reload.held.release, 'the reload is drawing the saved view').toBeTypeOf('function');
+      expect(reload.calls.some(c => c.name === 'detach_inspection'), 'the headset page stays registered').toBe(false);
+      expect(h.panelId).toBe('panel');
+      const during = reload.beats().slice(1);
+      expect(during.length).toBeGreaterThan(0);
+      // The page says it is behind before its reload asks for the saved view.
+      const firstRead = reload.calls.findIndex(c => c.name === 'get_inspection');
+      expect(reload.calls.slice(0, firstRead).filter(c => c.name === 'poll_inspection').map(c => c.args.availability)).toEqual(['ready', 'unsaved']);
+      expect(during.every(b => b.panelId === 'panel' && b.availability === 'unsaved' && b.rev === 1), JSON.stringify(during)).toBe(true);
+      reload.held.release!(); await vi.advanceTimersByTimeAsync(500); await h.rendering;
+      const attach = reload.calls.filter(c => c.name === 'attach_inspection');
+      expect(attach).toHaveLength(1); expect(attach[0].args).toMatchObject({ replacesPanelId: 'panel', baseInspectionRevision: 2, surface: 'companion' });
+      expect(h.panelId).toBe('issued-1'); expect(h.followRecovery).toBe(false); expect(h.recoveryPanel).toBeUndefined();
+      expect(race.screen()).toEqual(race.ch2); expect(h.binding).toMatchObject({ stateRevision: 1, inspectionRevision: 2 });
+      expect(race.syncs).toEqual([]); expect(race.journal.filter(e => e.kind === 'shared-follow').map(e => e.outcome)).toEqual(['refused-reload', 'reloaded']);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(reload.beats().at(-1)).toEqual({ panelId: 'issued-1', availability: 'ready', rev: 2 });
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('says unsaved after a beat that was still in flight when its follow was refused', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      const reload = realReload(race); h.hydrate = race.realHydrate;
+      const traced = h.call; let releaseBeat!: () => void;
+      h.call = async (name: string, args: any) => {
+        if (name === 'poll_inspection' && args.availability === 'busy') {
+          const answer = traced(name, args); await new Promise<void>(resolve => { releaseBeat = resolve; }); return answer;
+        }
+        return traced(name, args);
+      };
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => {
+        // The restore waits; a timer's beat goes out meanwhile and is slow.
+        void h.busyBeat(h.generation, true); await Promise.resolve();
+        race.seat(); admit(); throw Error('Restore must not reach its commit.');
+      };
+      const polling = h.poll(); await vi.advanceTimersByTimeAsync(50);
+      expect(reload.calls.some(c => c.name === 'get_inspection'), 'the reload waits for the unsaved beat').toBe(false);
+      releaseBeat(); await polling; await vi.advanceTimersByTimeAsync(50);
+      const firstRead = reload.calls.findIndex(c => c.name === 'get_inspection');
+      expect(firstRead).toBeGreaterThan(0);
+      expect(reload.calls.slice(0, firstRead).filter(c => c.name === 'poll_inspection').map(c => c.args.availability)).toEqual(['ready', 'busy', 'unsaved']);
+      reload.held.release?.(); await vi.advanceTimersByTimeAsync(500); await h.rendering;
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('keeps its panel through the attach refresh when another panel saves during its real reload', async () => {
+    vi.useFakeTimers(); const race = followRace({ hostStateRevision: 2, offerAlways: true }); const { h } = race;
+    try {
+      const reload = realReload(race); h.hydrate = race.realHydrate;
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => { admit(); throw Error('Restore must not reach its commit.'); };
+      await h.poll(); await vi.advanceTimersByTimeAsync(1_000);
+      // Another panel saves while the reload draws revision 2: its attach is
+      // refused as stale and the attach refreshes, drawing revision 3.
+      race.host.stateRevision++; race.host.inspectionRevision++;
+      const first = reload.held.release!; reload.held.release = undefined; first();
+      await vi.advanceTimersByTimeAsync(1_500);
+      expect(reload.held.release, 'the attach refresh is drawing revision 3').toBeTypeOf('function');
+      expect(h.followRecovery).toBe(false); expect(h.recoveryPanel).toBe('panel'); expect(h.panelId).toBe('panel');
+      expect(reload.calls.some(c => c.name === 'detach_inspection'), 'the refresh keeps the headset page registered').toBe(false);
+      const refreshing = reload.beats().slice(-2);
+      expect(refreshing.length).toBeGreaterThan(0);
+      expect(refreshing.every(b => b.panelId === 'panel' && b.availability === 'unsaved'), JSON.stringify(refreshing)).toBe(true);
+      reload.held.release!(); await vi.advanceTimersByTimeAsync(1_000); await h.rendering;
+      expect(h.binding).toMatchObject({ stateRevision: 3, inspectionRevision: 3 }); expect(h.recoveryPanel).toBeUndefined();
+      expect(race.syncs).toEqual([]); expect(reload.calls.some(c => c.name === 'detach_inspection')).toBe(false);
+      // The first beat is the one that offered the newer view.
+      expect(reload.beats().slice(1).filter(b => b.availability === 'ready' && b.rev !== 3), JSON.stringify(reload.beats())).toEqual([]);
+      const attaches = reload.calls.filter(c => c.name === 'attach_inspection').map(c => ({ rev: c.args.baseInspectionRevision, replaces: c.args.replacesPanelId }));
+      expect(attaches).toEqual([{ rev: 2, replaces: 'panel' }, { rev: 3, replaces: 'panel' }]);
+      expect(h.panelId).toBe('issued-1');
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('stays fenced, behind and listed when the saved map does not draw, and pairs with the old drawing after a second failure', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      race.host.scene = { ...structuredClone(race.ch2), sourceSha256: 'map-sha' };
+      const reload = realReload(race, { map: true }); h.hydrate = race.realHydrate;
+      const before = structuredClone(h.savedScene);
+      // The page could not follow a newer saved map.
+      h.followRecovery = true; await h.poll(); await vi.advanceTimersByTimeAsync(1_000);
+      let release = reload.held.release!; reload.held.release = undefined; release();
+      await vi.advanceTimersByTimeAsync(500); await h.rendering;
+      expect(h.followRecovery, 'a failed map draw installed nothing').toBe(true);
+      expect(h.binding).toMatchObject({ stateRevision: 1, inspectionRevision: 1 }); expect(h.savedScene).toEqual(before);
+      expect(reload.calls.some(c => c.name === 'attach_inspection')).toBe(false); expect(h.panelId).toBe('panel');
+      expect(race.journal.filter(e => e.kind === 'shared-follow').map(e => e.outcome)).toEqual(['reload-failed']);
+      expect(h.blocked).toBe(false); expect(race.syncs).toEqual([]); expect(reload.spoken).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(reload.beats().at(-1)).toEqual({ panelId: 'panel', availability: 'unsaved', rev: 1 });
+      // The second attempt fails too: the page pairs with the session it has,
+      // says once that the map did not draw, and stops asking.
+      await vi.advanceTimersByTimeAsync(4_000);
+      release = reload.held.release!; expect(release).toBeTypeOf('function'); reload.held.release = undefined; release();
+      await vi.advanceTimersByTimeAsync(1_000); await h.rendering;
+      expect(h.followRecovery).toBe(false); expect(h.recoveryPanel).toBeUndefined();
+      expect(race.journal.filter(e => e.kind === 'shared-follow').map(e => e.outcome)).toEqual(['reload-failed', 'map-failed']);
+      expect(reload.spoken).toEqual(['The isosurface did not build.']);
+      expect(h.binding).toMatchObject({ stateRevision: 1, inspectionRevision: 2 }); expect(h.panelId).toBe('issued-1');
+      expect(reload.calls.filter(c => c.name === 'attach_inspection').map(c => c.args.replacesPanelId)).toEqual(['panel']);
+      expect(race.syncs).toEqual([]); expect(race.screen()).toEqual(race.ch1);
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(reload.calls.filter(c => c.name === 'get_inspection'), 'no more reloads').toHaveLength(2);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  // A headset page that redraws the host's saved view to recover from a
+  // viewer or lesson it could not put back, or from a refused save, is the
+  // same page drawing the same coordinates. It used to detach as if it were
+  // loading a new structure, and every command was refused with "no panel
+  // yet" for as long as a heavy lesson took to draw again.
+  for (const [name, start] of [
+    ['a viewer it could not put back', (h: any) => h.reloadSavedScene('viewer-error')],
+    ['a refused save', (h: any) => h.reloadSharedView()],
+  ] as const) it(`keeps the headset listed as behind while it redraws the saved view after ${name}`, async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      race.host.inspectionRevision = 1;
+      const reload = realReload(race); h.hydrate = race.realHydrate;
+      run(pageFunctions(['reloadSavedScene', 'reloadSharedView']), h);
+      await h.poll(); await vi.advanceTimersByTimeAsync(500);
+      const before = reload.beats().length;
+      expect(start(h)).toBe(true);
+      await vi.advanceTimersByTimeAsync(1_500);
+      expect(reload.held.release, 'the saved view is drawing').toBeTypeOf('function');
+      expect(reload.calls.filter(c => c.name === 'detach_inspection'), 'the headset page stays registered').toEqual([]);
+      expect(h.panelId).toBe('panel'); expect(h.recoveryPanel).toBe('panel');
+      const during = reload.beats().slice(before);
+      expect(during.length).toBeGreaterThan(0);
+      expect(during.every(b => b.panelId === 'panel' && b.availability === 'unsaved'), JSON.stringify(during)).toBe(true);
+      reload.held.release!(); await vi.advanceTimersByTimeAsync(500); await h.rendering;
+      const attach = reload.calls.filter(c => c.name === 'attach_inspection');
+      expect(attach).toHaveLength(1); expect(attach[0].args).toMatchObject({ replacesPanelId: 'panel', surface: 'companion' });
+      expect(h.panelId).toBe('issued-1'); expect(h.recoveryPanel).toBeUndefined(); expect(h.reloading).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(reload.beats().at(-1)).toMatchObject({ panelId: 'issued-1', availability: 'ready' });
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('still detaches as loading for a hydration that is not a recovery', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      race.host.inspectionRevision = 1;
+      const reload = realReload(race); h.hydrate = race.realHydrate;
+      const done = h.hydrate('s'); await vi.advanceTimersByTimeAsync(500);
+      expect(reload.calls.filter(c => c.name === 'detach_inspection').map(c => c.args)).toMatchObject([{ panelId: 'panel', reason: 'loading' }]);
+      expect(h.recoveryPanel).toBeUndefined();
+      reload.held.release!(); await done;
+      expect(reload.calls.filter(c => c.name === 'attach_inspection')).toHaveLength(1);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('refuses its own menu step while catching up and reports no readiness', async () => {
+    vi.useFakeTimers(); const race = followRace(); const { h } = race;
+    try {
+      const reload = realReload(race); h.followRecovery = true;
+      Object.assign(h, { experiencePlayer: undefined, experiencePreparing: false, experienceView: { definition: { id: 'x', steps: [{}, {}] }, stepIndex: 0, revision: 1 } });
+      h.workspace.viewer.inspection = { captureXrRecoveryFrame: () => ({}) };
+      await expect(h.navigateExperience('x', 1)).rejects.toThrow('This view is catching up with the saved view. Try again in a moment.');
+      expect(reload.calls.filter(c => c.name === 'poll_inspection' || c.name === 'navigate_experience')).toEqual([]);
+      expect(h.followRecovery).toBe(true);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+
+  it('a desktop panel still blocks behind Retry and writes nothing', async () => {
+    vi.useFakeTimers(); const race = followRace({ companion: false }); const { h } = race;
+    try {
+      h.workspace.restoreShared = async (_scene: any, admit: () => void) => { race.seat(); admit(); throw Error('Restore must not reach its commit.'); };
+      await h.poll(); await race.settle();
+      expect(h.blocked).toBe(true); expect(h.detailsText.textContent).toContain('Local work changed before the shared view arrived');
+      expect(race.syncs).toEqual([]); expect(race.reloads).toEqual([]); expect(race.host.scene).toEqual(race.ch2);
+    } finally { h.closed = true; clearTimeout(h.pollTimer); clearTimeout(h.timer); }
+  });
+});
+
 it('shared follow refuses a queued restore after a newer receipt advances the binding before commit',async()=>{
   vi.useFakeTimers();const page=wakingPage();
   try {
@@ -637,7 +1049,10 @@ it('shared follow refuses a queued restore after a newer receipt advances the bi
     await page.h.poll();
     expect(page.restored).toEqual([]);expect(page.h.binding.inspectionRevision).toBe(3);
     expect(page.h.savedScene).toEqual(newer);
-    expect(page.h.detailsText.textContent).toContain('Local work changed before the shared view arrived');
+    // A headset page is not blocked behind a Retry nobody can press: it
+    // reloads the host's saved view, writing nothing.
+    expect(page.h.blocked).toBe(false);expect(page.h.dirty).toBe(false);
+    await page.h.rendering;expect(page.hydrated).toEqual(['s']);
   }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
 });
 
@@ -750,7 +1165,7 @@ it('the fast heartbeat keeps failed-source recovery while the wearer holds the o
   }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}
 });
 
-it('the fast heartbeat dispatches a lesson admitted during a busy grab',async()=>{
+it('the fast heartbeat leaves a lesson for a ready beat while the wearer holds the molecule',async()=>{
   vi.useFakeTimers();const page=wakingPage(),received:any[]=[];
   try {
     page.h.liveAvailability=()=> 'busy';page.h.receive=async(delivery:any)=>{received.push(delivery);};
@@ -758,6 +1173,9 @@ it('the fast heartbeat dispatches a lesson admitted during a busy grab',async()=
     const delivery={change:{kind:'lesson'},panelId:'panel',commandId:'lesson'};
     page.h.call=async(name:string,args:any)=>{const response=await original(name,args);
       response._meta[KEY].delivery=delivery;return response;};
+    await page.h.busyBeat(1);await page.h.rendering;
+    expect(received).toEqual([]);
+    page.h.liveAvailability=()=> 'ready';
     await page.h.busyBeat(1);await page.h.rendering;
     expect(received).toEqual([delivery]);
   }finally{page.h.closed=true;clearTimeout(page.h.pollTimer);vi.useRealTimers();}

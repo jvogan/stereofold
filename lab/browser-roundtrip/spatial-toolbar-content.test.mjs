@@ -276,9 +276,9 @@ test('an absent row reports -1 rather than a neighbouring control', () => {
 });
 
 test('the final chapter keeps quiet navigation and menu movement, with Done hittable', () => {
-  // Gemini's 91bdaff review: wall-05 dropped Next and the menu jumped from
-  // Talk/Play/Next/Menu to Talk/Play/Menu. The last chapter keeps the seat
-  // as an actionable Done so the footprint does not change.
+  // On a last chapter the row must not shrink from Talk/Play/Next/Menu to
+  // Talk/Play/Menu. The last chapter keeps the seat as an actionable Done so
+  // the footprint does not change.
   const mid = MID_CHAPTER_TOUR;
   const last = FINAL_CHAPTER_TOUR;
   const voice = { state: 'idle' };

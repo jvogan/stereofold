@@ -159,8 +159,12 @@ test('a swap to a smaller structure takes the entry seat instead of the zoomed d
   assert.equal(v.pendingRoomSeat, false);
   assert.equal(v.transforms, 1, 'the seat measures the transform the geometry carries');
   assert.deepEqual(v.applied.map(value => value.roomPoint), [seat.roomPoint], 'the room anchor measures drift from the new seat');
+  // The record also names the fitter's step, the entry size before the fit,
+  // and the seat the drawn glass stands at (this toolbar offers no seats).
+  assert.ok(seat.entryScale > seat.scale, 'the entry size before the fit is larger than the seat it shrank to');
   assert.deepEqual(v.records, [{ kind: 'source-anchor', anchor: 'entry-seat', anchoredScale: anchor.placement.scale,
-    scale: seat.scale, metersAcross: Math.round(seat.metersAcross * 100) / 100 }]);
+    scale: seat.scale, metersAcross: Math.round(seat.metersAcross * 100) / 100,
+    step: 'shrunk', entryScale: seat.entryScale, menuSeat: 'none offered' }]);
   const placed = v.inspectionSnapshot().placement;
   assert.deepEqual(placed.rotation, [0, 0, 0], 'the zoomed orientation is not carried over');
 
@@ -222,6 +226,9 @@ for (const [name, reason, spoil] of [
 test('a lesson tier keeps the room anchor; only an agent swap asks for the entry seat', () => {
   const load = closure('load');
   const anchored = load.slice(load.indexOf('if (sourceAnchor) {'), load.indexOf("after_room_anchor"));
+  // Only an agent swap into a different coordinate frame takes the entry
+  // seat; a tier that keeps the frame keeps the room anchor and owes a turn
+  // only when its coordinate file runs along a different axis.
   assert.match(anchored, /if \(settings\.seatForEntry && !sourceAnchor\.preservesCoordinateFrame\) \{[\s\S]*seatSwappedSource\(sourceAnchor, \{ deferAnchor: true \}\);[\s\S]*\} else \{[\s\S]*inspectionState\.place\(sourceAnchor\.placement, 'source-transition'\);[\s\S]*pendingGrowthTurn = !sourceAnchor\.preservesCoordinateFrame;/);
 });
 

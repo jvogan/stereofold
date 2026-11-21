@@ -12,9 +12,16 @@ const tour = { selectedId: 'tubulin-eb3-lattice', step: 0, active: true, navigat
 const before = { rows: [{ id: 'next', label: 'Next', active: true }], state: { tour } };
 const options = parseDriveArguments(['/tmp/share.json', '--out', '/tmp/drive-verdict', '--settle', '0']);
 
-function harness({ note, entries = [], state = {}, initialState = {}, observation = before, pagePanelId = panelId }: {
+/**
+ * What `capture_headset_view` answers when the step boundary's own
+ * `Driver.capture` asks it, and what the direct screencap fallback does.
+ * Given, the real `capture` runs; absent, `capture` is replaced by a fixture.
+ */
+type ToolCapture = { text: string; structured: Record<string, unknown>; fallback: () => Promise<{ path: string; via: string }> };
+
+function harness({ note, entries = [], state = {}, initialState = {}, observation = before, pagePanelId = panelId, tool }: {
   note?: string; entries?: DiagnosticRecord[]; state?: Record<string, unknown>; initialState?: Record<string, unknown>;
-  observation?: MenuObservation; pagePanelId?: string;
+  observation?: MenuObservation; pagePanelId?: string; tool?: ToolCapture;
 } = {}) {
   const driver = new Driver({} as never, 'unused-adb', 0, {} as never, options);
   vi.spyOn(driver, 'agent').mockRejectedValue(Error('Unexpected agent call in a unit test'));
@@ -26,7 +33,14 @@ function harness({ note, entries = [], state = {}, initialState = {}, observatio
   }));
   vi.spyOn(driver, 'companionPanel').mockResolvedValue({ xrStartup: { presenting: false } });
   vi.spyOn(driver, 'observeMenu').mockResolvedValue(observation);
-  vi.spyOn(driver, 'capture').mockResolvedValue({ path: '/tmp/fixture.png', via: 'fixture', ...(note ? { note } : {}) });
+  if (tool) {
+    vi.mocked(driver.agent).mockImplementation(async name => {
+      if (name !== 'capture_headset_view') throw Error(`Unexpected agent call ${name} in a unit test`);
+      return { content: [{ type: 'text', text: tool.text }], structuredContent: tool.structured } as never;
+    });
+    // The fallback is the one thing here that would touch a device.
+    vi.spyOn(driver as unknown as { screencap: ToolCapture['fallback'] }, 'screencap').mockImplementation(tool.fallback);
+  } else vi.spyOn(driver, 'capture').mockResolvedValue({ path: '/tmp/fixture.png', via: 'fixture', ...(note ? { note } : {}) });
   let pending: DiagnosticRecord[] = [];
   vi.spyOn(driver, 'drainDiagnostics').mockImplementation(async () => pending.splice(0));
   vi.spyOn(driver, 'pressMenu').mockImplementation(async () => {
@@ -70,6 +84,68 @@ describe('capture verdicts at the shared step boundary', () => {
       expect(report(result).drive).toMatchObject({ verified: 0, dispatchedOnly: 0, failed: 1 });
       expect(formatDriveSummary(report(result).drive).join(' ')).toContain('0 verified, 0 dispatched-only, 1 failed');
     }
+  });
+
+  it('fails a step on the current black-still wording too', async () => {
+    const current = 'The device could not take a still: The still is almost entirely black (0 of 7,034,880 pixels lit), so it was not handed over as the';
+    const result = await run(harness({ note: current }), 'exit');
+    expect(result).toMatchObject({ ok: false, failure: expect.stringContaining(current), evidence: { captureNote: current } });
+  });
+
+  describe('through the real Driver.capture', () => {
+    const refusal = 'The device could not take a still: The still is almost entirely black (0 of 7,034,880 pixels lit), so it was not handed over as the '
+      + 'wearer\'s view. Nothing was saved. The headset reports it is Awake, and its log could not be checked for a blocked capture, so the cause is unknown.';
+    const refused = { captured: false, source: 'device', reason: 'device_unavailable', still: 'black', detail: refusal };
+
+    it.each(['exit', 'aim:miss'] as const)('fails %s on a black refusal even when the fallback screencap throws, trying the fallback once', async step => {
+      const fallback = vi.fn(async () => { throw Error('adb offline'); });
+      const driver = harness({ tool: { text: refusal, structured: refused, fallback } });
+      const result = await run(driver, step);
+      expect(result).toMatchObject({ ok: false, failure: expect.stringContaining('almost entirely black'), evidence: { captureNote: refusal } });
+      expect(result.evidence.captureError).toMatch(/adb offline/u);
+      expect(result.evidence.failedCapture).toBeUndefined();
+      // One fallback per capture the tool refused, never a second try of the same one.
+      expect(fallback).toHaveBeenCalledTimes(vi.mocked(driver.agent).mock.calls.length);
+      expect(fallback).toHaveBeenCalledTimes(step === 'exit' ? 1 : 2);
+    });
+
+    it('fails the step on a still the tool could not verify, even when the fallback screencap throws', async () => {
+      const unverified = 'The device could not take a still: Could not verify the still: the PNG the headset encoded has image data that does not '
+        + 'decompress, so it was not handed over as the wearer\'s view. Nothing was saved.';
+      const fallback = vi.fn(async () => { throw Error('adb offline'); });
+      const driver = harness({ tool: { text: unverified, fallback,
+        structured: { captured: false, source: 'device', reason: 'device_unavailable', still: 'unverified', detail: unverified } } });
+      const result = await run(driver, 'exit');
+      expect(result).toMatchObject({ ok: false, failure: expect.stringContaining('Could not verify the still'), evidence: { captureNote: unverified } });
+      // A host without adb is still only advice: its fallback picture is the step's capture.
+      const advice = harness({ tool: { text: 'The device could not take a still: No adb was found.', fallback: async () => ({ path: '/tmp/drive-verdict/x.png', via: 'adb screencap' }),
+        structured: { captured: false, source: 'device', reason: 'device_unavailable' } } });
+      expect((await run(advice, 'exit')).ok).toBe(true);
+    });
+
+    it('fails the step on a black refusal when the fallback still works, naming the fallback file', async () => {
+      const driver = harness({ tool: { text: refusal, structured: refused, fallback: async () => ({ path: '/tmp/drive-verdict/fallback.png', via: 'adb screencap' }) } });
+      const result = await run(driver, 'aim:miss');
+      expect(result).toMatchObject({ ok: false, evidence: { captureNote: refusal, captureVia: 'adb screencap' } });
+      expect(result.evidence.failedCapture).toMatch(/\.png$/u);
+    });
+
+    it('keeps a capture the tool saved, with its whole dim-still note, and takes no second one', async () => {
+      const stillNote = 'Almost all of this still is black: 0.058% of its pixels are lit (4,096 of 7,034,880). The pixels cannot tell a scene that is dark or '
+        + 'still loading from a blocked capture that kept a small mark. If the wearer should be seeing more than this, ask again.';
+      const fallback = vi.fn(async () => ({ path: '/tmp/never.png', via: 'adb screencap' }));
+      const driver = harness({ tool: { text: `Headset display buffer ... ${stillNote}`, fallback,
+        structured: { captured: true, source: 'device', path: '/tmp/drive-verdict/aim-miss.png', mimeType: 'image/png', still: 'dim', stillNote } } });
+      const result = await run(driver, 'aim:miss');
+      expect(result).toMatchObject({ ok: true, evidence: { capture: '/tmp/drive-verdict/aim-miss.png', captureVia: 'capture_headset_view:device', captureNote: stillNote } });
+      expect(stillNote.length).toBeGreaterThan(160);
+      expect(fallback).not.toHaveBeenCalled();
+      // And a plain saved capture needs no fallback either.
+      const plain = harness({ tool: { text: 'Headset display buffer', fallback,
+        structured: { captured: true, source: 'device', path: '/tmp/drive-verdict/plain.png', mimeType: 'image/png' } } });
+      expect(await run(plain, 'aim:miss')).toMatchObject({ ok: true, evidence: { capture: '/tmp/drive-verdict/plain.png' } });
+      expect(fallback).not.toHaveBeenCalled();
+    });
   });
 
   it.each([undefined, 'The host has no adb configured; used the direct capture.'])('keeps a usable fallback capture passing (%s)', async note => {

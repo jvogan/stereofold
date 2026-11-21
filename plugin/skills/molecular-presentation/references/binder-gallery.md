@@ -15,7 +15,7 @@ headset session. Confirm `sourceRenderStatus.rendered:true`; if pending, poll
 For a requested headset with no shared connection, use stereo-structure's
 normal `open_companion` route after the scene is ready.
 
-For a genuinely new session in a host that can render/listen, resolve these
+For a genuinely new session in a host that can render and listen, resolve these
 paths from the active plugin root and open the complete local lesson directly:
 
 ```javascript

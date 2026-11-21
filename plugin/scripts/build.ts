@@ -4,6 +4,7 @@ import { uniformCacheBuildPlugins } from '../src/molstar-uniform-cache-patch.js'
 import { propsBuildPatch } from '../src/molstar-props-patch.js';
 import { isosurfaceGpuChoicePatch } from '../src/molstar-isosurface-gpu-choice-patch.js';
 import { cifFieldBuildPatch } from '../src/molstar-cif-field-patch.js';
+import { molstarByteReadBuildPatch } from '../src/molstar-byte-read-patch.js';
 import { motionCanvasPatch } from '../src/molstar-motion-patch.js';
 import { patchLessonLabelRenderer, patchLessonLabelDraw, patchLessonLabelRenderItem, patchLessonLabelFragment } from '../src/molstar-lesson-label-patch.js';
 import { build } from 'esbuild';
@@ -255,7 +256,7 @@ async function emit(outRoot: string): Promise<void> {
     target: ['es2022'],
     metafile: true,
     write: false,
-    plugins: [cifFieldBuildPatch, isosurfaceGpuChoicePatch(), ...uniformCacheBuildPlugins(renderSettings.uniformCacheEnabled), propsBuildPatch, ...(opaqueDepthEnabled ? [opaqueRendererPatch(false)] : []), ...opaqueDepthBuildPlugins(process.env.STEREOFOLD_OPAQUE_DEPTH_PATCH), stereoViewportPatch, anaglyphDrawPassFork, pickHelperPatch, fontAtlasCachePatch, textFontTexturePatch, labelUniformUpdatePatch,
+    plugins: [cifFieldBuildPatch, molstarByteReadBuildPatch, isosurfaceGpuChoicePatch(), ...uniformCacheBuildPlugins(renderSettings.uniformCacheEnabled), propsBuildPatch, ...(opaqueDepthEnabled ? [opaqueRendererPatch(false)] : []), ...opaqueDepthBuildPlugins(process.env.STEREOFOLD_OPAQUE_DEPTH_PATCH), stereoViewportPatch, anaglyphDrawPassFork, pickHelperPatch, fontAtlasCachePatch, textFontTexturePatch, labelUniformUpdatePatch,
       ...zeroContributionLightingBuildPlugins(process.env.STEREOFOLD_ZERO_LIGHT_PATCH),
       ...matteLightingBuildPlugins(process.env.STEREOFOLD_MATTE_LIGHT_PATCH), ...impostorScaleBuildPlugins(impostorScaleEnabled ? '1' : '0')],
   });
@@ -272,8 +273,8 @@ async function emit(outRoot: string): Promise<void> {
   // The inspector excludes desktop stereo forks. Its Mol* patches bound label
   // resources and omit proven zero-alpha meshes from the blended color pass.
   const appearanceWorker = await build({
-    entryPoints: [resolve(pluginRoot, '../lab/browser-roundtrip/appearance-fit-worker.mjs')],
-    bundle: true, format: 'iife', platform: 'browser', target: ['es2022'], minify: true, write: false,
+    absWorkingDir: pluginRoot, entryPoints: [resolve(pluginRoot, '../lab/browser-roundtrip/appearance-fit-worker.mjs')],
+    bundle: true, format: 'iife', platform: 'browser', target: ['es2022'], minify: true, metafile: true, write: false,
   });
   const inspector = await build({
     absWorkingDir:pluginRoot, bundle:true, entryPoints:[resolve(sourceRoot,'inspector.ts')],
@@ -281,7 +282,7 @@ async function emit(outRoot: string): Promise<void> {
     loader:{'.css':'css','.ttf':'dataurl'}, minify:true, metafile:true, write:false,
     define: { __APPEARANCE_FIT_WORKER_SOURCE__: JSON.stringify(appearanceWorker.outputFiles[0]!.text),
       __STEREOFOLD_QUEST_MENU_DEPTH_RESET__: JSON.stringify(renderSettings.questMenuDepthResetEnabled) },
-    outfile:resolve(outRoot,'inspector.bundle.js'), plugins:[cifFieldBuildPatch,isosurfaceGpuChoicePatch(),...uniformCacheBuildPlugins(renderSettings.uniformCacheEnabled),motionCanvasPatch,fontAtlasCachePatch,textFontTexturePatch,labelUniformUpdatePatch,opaqueRendererPatch(true),opaqueInspectorDrawPatch,
+    outfile:resolve(outRoot,'inspector.bundle.js'), plugins:[cifFieldBuildPatch,molstarByteReadBuildPatch,isosurfaceGpuChoicePatch(),...uniformCacheBuildPlugins(renderSettings.uniformCacheEnabled),motionCanvasPatch,fontAtlasCachePatch,textFontTexturePatch,labelUniformUpdatePatch,opaqueRendererPatch(true),opaqueInspectorDrawPatch,
       ...opaqueDepthBuildPlugins(process.env.STEREOFOLD_OPAQUE_DEPTH_PATCH, inspectorOpaqueComposition),stateAbortLoggingPatch(),
       ...zeroContributionLightingBuildPlugins(process.env.STEREOFOLD_ZERO_LIGHT_PATCH),
       ...matteLightingBuildPlugins(process.env.STEREOFOLD_MATTE_LIGHT_PATCH), ...impostorScaleBuildPlugins(impostorScaleEnabled ? '1' : '0', sphereImpostorTransform), ...inspectorCandidatePlugins],
@@ -323,7 +324,7 @@ async function emit(outRoot: string): Promise<void> {
   await writeFile(resolve(outRoot, 'inspector-host.js'), inspectorHostJs.text);
 
   const server = await build({
-    plugins: [cifFieldBuildPatch],
+    plugins: [cifFieldBuildPatch, molstarByteReadBuildPatch],
     absWorkingDir: pluginRoot,
     bundle: true,
     entryPoints: [resolve(sourceRoot, 'server.ts')],
@@ -340,27 +341,28 @@ async function emit(outRoot: string): Promise<void> {
   // The Unix-socket relay for sandboxed hosts (QUICKSTART, "A host that
   // sandboxes its MCP servers"). It ships in dist so a release recipient can
   // run it with node alone; the checkout runs the same source with tsx.
-  await build({
+  const socketRelay = await build({
     absWorkingDir: pluginRoot, bundle: true, entryPoints: [resolve(pluginRoot, 'scripts/scene-socket-relay.ts')],
     format: 'esm', platform: 'node', target: ['node22'], minify: true, sourcemap: false,
-    outfile: resolve(outRoot, 'scene-socket-relay.mjs'), write: true,
+    outfile: resolve(outRoot, 'scene-socket-relay.mjs'), metafile: true, write: true,
   });
 
   // The external headset owner runs without a package install. Its child host
   // is bundled separately because both processes must own their own lifetime.
+  const headsetHosts = [];
   for (const [source, output] of [
     ['scripts/headset-host.ts', 'headset-host.mjs'],
     ['scripts/serve-inspection.ts', 'serve-inspection.mjs'],
-  ]) await build({
-    plugins: [cifFieldBuildPatch],
+  ]) headsetHosts.push(await build({
+    plugins: [cifFieldBuildPatch, molstarByteReadBuildPatch],
     absWorkingDir: pluginRoot, bundle: true, entryPoints: [resolve(pluginRoot, source)],
     format: 'esm', platform: 'node', target: ['node22'], minify: true, sourcemap: false,
-    outfile: resolve(outRoot, output), write: true,
+    outfile: resolve(outRoot, output), metafile: true, write: true,
     // The MCP SDK's stdio client spawns through cross-spawn, a CommonJS module
     // that calls require('child_process'). An ESM bundle has no require, so
     // esbuild's shim threw "Dynamic require ... is not supported" at startup.
     banner: { js: "import { createRequire as __stereofoldRequire } from 'node:module'; const require = __stereofoldRequire(import.meta.url);" },
-  });
+  }));
 
   // The full Mol* viewer application, served by the loopback detailed view.
   // It is the stock prebuilt bundle, copied rather than re-bundled so it stays
@@ -376,7 +378,10 @@ async function emit(outRoot: string): Promise<void> {
 
   await writeFile(
     scratchDist ? resolve(outRoot, 'THIRD_PARTY_NOTICES.md') : resolve(pluginRoot, 'THIRD_PARTY_NOTICES.md'),
-    await generateThirdPartyNotices(pluginRoot, [viewer.metafile, inspector.metafile, inspectorHost.metafile, server.metafile]),
+    // Every bundle that lands in dist, including the worker the inspector
+    // embeds as text, contributes its inputs.
+    await generateThirdPartyNotices(pluginRoot, [viewer.metafile, appearanceWorker.metafile, inspector.metafile,
+      inspectorHost.metafile, server.metafile, socketRelay.metafile, ...headsetHosts.map((host) => host.metafile)]),
   );
 
   // What this build read, so a reader can ask whether a dist matches a source

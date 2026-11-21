@@ -22,14 +22,20 @@ says "still drawing" with `sourceRenderStatus.status:"rendering"` and a pollable
 not report failure or resend the load. Only a current ready rendered receipt
 establishes that it is shown.
 
-`demo` names an entry in the bundled `demos/index.json`; omit `stage` for its
-default or name a listed stage. This verifies cached coordinates, fetches missing
+`demo` names an entry in the bundled `demos/index.json`. A plain name that fits
+one entry also works (`"telomerase"` opens `telomerase-haca`); a name that fits
+several is refused with only those ids, and the answer names the id it opened.
+Omit `stage` for its default or name a listed stage. This verifies cached coordinates, fetches missing
 coordinates under the existing policy, installs the complete bundled lesson and
 starts its opening chapter with `autoplay:false,narration:false`. Motion within
 a chapter still plays. The joined headset page and wearer placement rules stay
 in effect; no new session or launch is needed. Use the same route for
 `kinesin-walk`, `hemoglobin-switch`, single-source demos, or
 `demo:"microtubule-growth",stage:"monomer"` followed by `grow_structure`.
+For "microtubule growth" open `microtubule-arrival`: tubulin units arrive and
+build a wall. `microtubule-growth` opens on a finished wall that
+`grow_structure` grows into a tube, and `microtubule-lattice` is a still
+lesson on one wall.
 Prepared density maps must already be cached; follow the returned preparation
 command on a cache miss. Confirm `sourceRenderStatus.rendered:true`, or poll
 `sourceRenderReceipt` for the current source and ready panel before reporting

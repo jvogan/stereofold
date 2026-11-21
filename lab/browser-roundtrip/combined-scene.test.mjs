@@ -12,6 +12,7 @@ import * as visibility from './inspection-visibility.mjs';
 import * as budgets from './representation-budget.mjs';
 import { representationQualityFor } from './xr-render-budget.mjs';
 import { normalizeStyles } from './inspection-styles.mjs';
+import { noteAtomSphereMeshes } from './component-label-measurement.mjs';
 const source=readFileSync(process.env.COMBINED_VIEWER_SOURCE ?? new URL('./viewer.mjs',import.meta.url),'utf8');
 const plain=value=>JSON.parse(JSON.stringify(value));
 const companion={source:{kind:'pdb',id:'2HHB'},sourceSha256:'a'.repeat(64),modelNumber:1,assemblyId:'asymmetric_unit',
@@ -72,7 +73,7 @@ test('combined style painting preserves hidden keys and never paints or selects 
   assert.ok(!h.paints.some(p=>p.target==='pair'));
   assert.ok(!h.marks.some(m=>m.action==='select' && m.keys.some(k=>['k0','k21','k22'].includes(k))));
   // Execute primary emphasis painting with a real key too, not just transparency.
-  Object.assign(c,{now:()=>0,recordCost(){},mergeEmphasisColourLayers:v=>v,EMPHASIS_LAYER_REF:'emphasis'});
+  Object.assign(c,{now:()=>0,recordCost(){},mergeEmphasisColourLayers:v=>v,EMPHASIS_LAYER_REF:'emphasis',noteAtomSphereMeshes});
   c.StateTransforms.Representation.OverpaintStructureRepresentation3DFromBundle='overpaint';
   install(c,['paintEmphasisLayers','scientificRepresentations']);
   c.inspectionLabel=undefined;
@@ -87,7 +88,7 @@ test('production geometry advisory accounts for primary, comparison and style me
   Object.assign(c,{appearanceWork:undefined,busy:true,retainedPoseHidden:false,...budgets,builtRepresentation:'cartoon',currentXrSession:()=>null,sessionDeviceClass:()=> 'quest2',isStandaloneHmdAgent:()=>false});
   c.structure.obj.data.atomicResidueCount=7000;c.structure.obj.data.elementCount=56000;c.structure.obj.data.bondCount=63000;
   c.companionRecord={companionState:companion,structure:{obj:{data:{elementCount:8000,bondCount:9000,atomicResidueCount:1000}}}};
-  install(c,['sceneGeometryEntries','sceneGeometry','comparisonGeometry','geometryFor']);
+  c.lessonPlayback=undefined; install(c,['sceneGeometryEntries','sceneGeometry','comparisonGeometry','geometryFor','lessonOwnsScene']);
   const style={selectionKeys:Array.from({length:40},(_,i)=>'k'+i),representation:'ball-and-stick'};
   c.stylesState=[style];
   const plans=c.styleLayerPlans();
@@ -120,7 +121,7 @@ test('a global lesson figure shares the allowance with even a translucent base a
   c.companionRecord=undefined;c.stylesState=[];
   const figureEntry={representation:'ball-and-stick',atoms:320,bonds:360,residues:40};
   c.lessonFigure.geometryEntries=()=>[figureEntry];
-  install(c,['sceneGeometryEntries','sceneGeometry','comparisonGeometry','geometryFor']);
+  c.lessonPlayback=undefined; install(c,['sceneGeometryEntries','sceneGeometry','comparisonGeometry','geometryFor','lessonOwnsScene']);
   assert.doesNotThrow(()=>budgets.requireGeometryBudget({representation:'ball-and-stick',atoms:4500,bonds:5600,residues:600,presenting:true,deviceClass:'quest2',quality:'lower'}));
   assert.doesNotThrow(()=>budgets.requireGeometryBudget({...figureEntry,presenting:true,deviceClass:'quest2',quality:'lower'}));
   assert.equal(c.geometryFor('ball-and-stick').status,'advisory');
@@ -296,7 +297,7 @@ test('production appearance rebuild keeps the comparison look and applies the sh
     now:()=>0,recordCost(){},commitRepresentationUpdate:builder=>builder.commit({revertOnError:true}),
     rebuildLigandOverlay:async()=>{},ligandOverlayForBudget:()=>undefined,ligandAtomSites:()=>0});
   c.canvas.camera={getSnapshot:()=>({position:[0,0,80]}),setState(){}};c.canvas.setProps=()=>{};
-  install(c,['geometryFor','comparisonGeometry','sceneGeometryEntries','sceneGeometry','paintCompanion','applyInspectionAppearance']);
+  c.lessonPlayback=undefined; install(c,['geometryFor','lessonOwnsScene','comparisonGeometry','sceneGeometryEntries','sceneGeometry','paintCompanion','applyInspectionAppearance']);
   await c.applyInspectionAppearance();
   assert.deepEqual(updates.map(u=>[u.target,u.params.type,u.params.typeParams.alpha,u.params.colorParams.value]),
     [['primary','cartoon',0.7,0x112233],['companion','cartoon',0.4,0xe6a04b]]);
@@ -328,7 +329,7 @@ test('an unbounded headset rebuilds the comparison at its own quality tier, with
     now:()=>0,recordCost(){},commitRepresentationUpdate:builder=>builder.commit({revertOnError:true}),
     rebuildLigandOverlay:async()=>{},ligandOverlayForBudget:()=>undefined,ligandAtomSites:()=>0});
   c.canvas.camera={getSnapshot:()=>({position:[0,0,80]}),setState(){}};c.canvas.setProps=()=>{};
-  install(c,['geometryFor','comparisonGeometry','sceneGeometryEntries','sceneGeometry','paintCompanion','applyInspectionAppearance']);
+  c.lessonPlayback=undefined; install(c,['geometryFor','lessonOwnsScene','comparisonGeometry','sceneGeometryEntries','sceneGeometry','paintCompanion','applyInspectionAppearance']);
   await c.applyInspectionAppearance();
   assert.deepEqual(updates.map(u=>u.target),['primary','companion']);
   for(const update of updates) {

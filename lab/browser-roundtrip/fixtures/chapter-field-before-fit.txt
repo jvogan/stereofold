@@ -1,4 +1,4 @@
-// Frozen 2026-10-17 pre-optimization field geometry, used only as an equivalence oracle.
+// Frozen pre-optimization field geometry, used only as an equivalence oracle.
 function fieldGeometry({ placement, bounds, center, radius, cameraScale, renderFromRoom, exact = false, projectionCache }) {
   const { rotation, roomFromRender, spheres, loose, groups } = fieldParts({ placement, bounds, cameraScale, renderFromRoom });
   const local = bounds.center.map((v, i) => v - center[i]);

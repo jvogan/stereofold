@@ -2,12 +2,11 @@
  * Sequences that reach the viewer's fit through a path the mode-switch loop
  * never takes.
  *
- * The existing per-profile run mounts once, is handed a tool result, and then
- * clicks the four mode buttons. That is one ordering out of many, and it is
- * the only one the plugin was ever measured on. A Codex side panel on
- * an earlier build came up through a different one and framed the structure for a
- * viewport more than twice the size of the one it rendered into: the molecule
- * was cut by hard vertical edges at all four eye-window edges.
+ * The per-profile run mounts once, is handed a tool result, and then clicks
+ * the four mode buttons. That is one ordering out of many. A host panel that
+ * comes up through a different one can frame the structure for a viewport more
+ * than twice the size of the one it renders into, so the molecule is cut by
+ * hard vertical edges at all four eye-window edges.
  *
  * Each scenario here drives one such ordering and measures, per eye, where the
  * lit pixels landed inside that eye's window. They are part of the harness

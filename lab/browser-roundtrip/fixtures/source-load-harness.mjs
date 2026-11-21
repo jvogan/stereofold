@@ -15,6 +15,7 @@ import { createInspectionState } from '../inspection-state.mjs';
 import { createGesturePivot } from '../gesture-pivot.mjs';
 import { pageFunction } from './label-action-harness.mjs';
 import { createSelectionAdapter, createSelectionAdapterAsync } from '../selection.mjs';
+import { escapeStructureMarkup } from '../structure-markup.mjs';
 import { experienceVisibilityExpression } from '../experience-visibility.mjs';
 import { preserveSourceTransitionAnchor } from '../source-transition-anchor.mjs';
 import { runTransitionTask, prepareRepresentationUploads } from '../scene-transition.mjs';
@@ -80,6 +81,7 @@ export async function sourceLoadHarness(initialSource, initialScene, record = no
   const c = vm.createContext({ ...emptyMolecularAnimationBinding(),
     console, crypto, Error, setTimeout, clearTimeout, performance, structuredClone,
     plugin, canvas, Task, StateTransforms, BoundaryHelper, ModelSymmetry, MolScriptBuilder, createSelectionAdapter, createSelectionAdapterAsync,
+    escapeStructureMarkup,
     experienceVisibilityExpression, preserveSourceTransitionAnchor, runTransitionTask, prepareRepresentationUploads,
     createStructureRepresentationParams, cameraSnapshot, checkDrawnRecord, drawnRecordIsVisible, geometryBudgetReceipt,
     __stereofoldDiagnostics: { record },

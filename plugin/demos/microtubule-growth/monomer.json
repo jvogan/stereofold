@@ -21,7 +21,7 @@
     {
       "id": "reveal",
       "title": "One monomer",
-      "caption": "Entry 5SYF, a Taxol-stabilised microtubule by cryo-EM at 3.5 Angstrom. This is its alpha-tubulin chain alone.",
+      "caption": "Alpha chain of 5SYF, a Taxol-stabilised cryo-EM microtubule, 3.5 Angstrom. Grow steps show measured pieces, not recorded assembly.",
       "durationSeconds": 10,
       "changes": [
         {
@@ -85,7 +85,7 @@
           "scale": 2.6
         },
         "view": "fit",
-        "narration": "Blue is alpha tubulin. One chain, the starting piece.",
+        "narration": "Blue alpha tubulin. Grow steps show measured pieces, not recorded assembly.",
         "motion": {
           "kind": "turntable",
           "degrees": 25,
@@ -113,7 +113,7 @@
     {
       "id": "orbit",
       "title": "One fold",
-      "caption": "One turn around it. Alpha tubulin is 437 residues; beta tubulin, which comes next, is a near-identical fold.",
+      "caption": "Alpha tubulin has 451 residues; 5SYF models 426. Beta tubulin, which comes next, is a near-identical fold.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -245,7 +245,7 @@
           "parts": [
             {
               "id": "monomer-contact-1",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -256,7 +256,7 @@
             },
             {
               "id": "monomer-contact-2",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -267,7 +267,7 @@
             },
             {
               "id": "monomer-contact-3",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -278,7 +278,7 @@
             },
             {
               "id": "monomer-contact-4",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -289,7 +289,7 @@
             },
             {
               "id": "monomer-contact-5",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -300,7 +300,7 @@
             },
             {
               "id": "monomer-contact-6",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -311,7 +311,7 @@
             },
             {
               "id": "monomer-contact-7",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -322,7 +322,7 @@
             },
             {
               "id": "monomer-contact-8",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -333,7 +333,7 @@
             },
             {
               "id": "monomer-contact-9",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -344,7 +344,7 @@
             },
             {
               "id": "monomer-contact-10",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -355,7 +355,7 @@
             },
             {
               "id": "monomer-contact-11",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -366,7 +366,7 @@
             },
             {
               "id": "monomer-contact-12",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -377,7 +377,7 @@
             },
             {
               "id": "monomer-contact-13",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -388,7 +388,7 @@
             },
             {
               "id": "monomer-contact-14",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -399,7 +399,7 @@
             },
             {
               "id": "monomer-contact-15",
-              "label": "Beta contact",
+              "label": "Contact with beta",
               "color": "#4a90e2",
               "chain": "A",
               "residues": {
@@ -417,7 +417,7 @@
     {
       "id": "site",
       "title": "Empty pocket",
-      "caption": "This file is entity 1 alone, so the nucleotide pocket it shows carries no GTP and no magnesium.",
+      "caption": "This file is entity 1 alone, so its nucleotide pocket is empty. Real alpha tubulin keeps its GTP.",
       "durationSeconds": 11,
       "changes": [
         {
@@ -482,7 +482,7 @@
           ],
           "scale": 2.8
         },
-        "narration": "The nucleotide pocket sits empty in this alpha-only file.",
+        "narration": "Empty only in this file: real alpha tubulin keeps its GTP.",
         "motion": {
           "kind": "orbit",
           "degrees": -15,

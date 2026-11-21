@@ -24,7 +24,7 @@
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { accessSync, constants } from 'node:fs';
-import { appendFile, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, delimiter, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,6 +50,13 @@ export const FFMPEG_BIN_ENV = 'STEREOFOLD_FFMPEG_BIN';
 export const TRANSCRIBER_ENV = 'STEREOFOLD_PTT_TRANSCRIBER';
 export const APPLESPEECH_BIN_ENV = 'STEREOFOLD_APPLESPEECH_BIN';
 export const TRANSCRIPT_LOG_ENV = 'STEREOFOLD_PTT_TRANSCRIPTS';
+/**
+ * `1` puts each transcript's words in the diagnostic log line. By default the
+ * line keeps its timing and the transcript's length only: an agent host writes
+ * an MCP server's stderr to its own log files, and what the wearer said is
+ * delivered through the transcript queue, not the log.
+ */
+export const TRANSCRIPT_DEBUG_ENV = 'STEREOFOLD_PTT_DEBUG_TRANSCRIPTS';
 export const TEXT_COMMAND_ENV = 'STEREOFOLD_PTT_TEXT_COMMAND';
 /** An absolute headset-bridge directory. Set only when a bridge harness is running. */
 export const BRIDGE_DIR_ENV = 'STEREOFOLD_BRIDGE_DIR';
@@ -287,6 +294,27 @@ export function containerExtension(mime: string): string {
   }
 }
 
+const CONTAINER_DEMUXERS: Record<string, string> = { webm: 'matroska', mp4: 'mov', ogg: 'ogg', mp3: 'mp3', wav: 'wav', flac: 'flac' };
+
+/**
+ * FFmpeg input options for a recording of the declared type.
+ *
+ * The bytes come from a paired page, so the decoder must not choose the
+ * container by probing them: a probe can pick a demuxer that opens other
+ * files, as an ffconcat script naming a file beside it does. Each accepted
+ * type is read with the demuxer for the container `containerExtension` names,
+ * and only the `file` protocol is allowed, so no input can open a URL. The raw
+ * AAC types are the exception: their bytes may be ADTS or LATM as well as MP4,
+ * so they keep probing, but only among those three demuxers.
+ */
+export function ffmpegInputOptions(mime: string): string[] {
+  const type = (mime ?? '').split(';')[0].trim().toLowerCase();
+  const container = type === 'audio/aac' || type === 'audio/mp4a-latm'
+    ? ['-format_whitelist', 'mov,aac,loas']
+    : ['-f', CONTAINER_DEMUXERS[containerExtension(mime)]];
+  return ['-protocol_whitelist', 'file', ...container];
+}
+
 export const pushToTalkAudioSchema = z.object({
   sessionId: sessionIdSchema,
   panelId: z.string().uuid().optional(),
@@ -483,8 +511,8 @@ function resolvePath(explicit: string | undefined, candidates: readonly string[]
  * These are not transcription errors, they are the model's priors leaking on
  * near-silent audio: a short press with only a breath in it comes back as
  * `you`, `Thank you.` or `Thanks for watching!` with nothing spoken anywhere
- * in the clip. The 11:08 Quest 2 pass is exactly this case, and it was the
- * whole of what the wearer saw: a caption reading `Heard: you`.
+ * in the clip. Kept, it is the whole of what the wearer sees: a caption
+ * reading `Heard: you`.
  *
  * Only a transcript that is nothing but one of these is dropped. A real
  * sentence containing "thank you" is untouched, and none of these is a command
@@ -846,6 +874,8 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
   const log = options.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
   const now = options.now ?? Date.now;
   const env = options.env ?? process.env;
+  const heardForLog = (text: string) => !text ? '(nothing)'
+    : env[TRANSCRIPT_DEBUG_ENV] === '1' ? JSON.stringify(text) : `${text.length} characters`;
   const enabled = options.enabled ?? false;
   const exists = options.exists;
   const whisperBin = resolvePath(options.whisperBin, whisperBinCandidates(env), exists ?? existsExecutable);
@@ -976,8 +1006,24 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
     const targets: { name: string; run: () => Promise<unknown> }[] = [];
     if (transcriptLog) {
       targets.push({ name: TRANSCRIPT_LOG_ENV, run: async () => {
-        await appendFile(transcriptLog, `${JSON.stringify(record)}\n`, { mode: FILE_MODE });
-        await chmod(transcriptLog, FILE_MODE).catch(() => {});
+        const handle = await open(transcriptLog,
+          constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+          FILE_MODE).catch((error: NodeJS.ErrnoException) => {
+          throw Error(error.code === 'ELOOP'
+            ? 'Transcript log skipped: final path is a symlink.'
+            : 'Transcript log skipped: could not securely open a regular file.');
+        });
+        try {
+          const info = await handle.stat().catch(() => { throw Error('Transcript log skipped: could not check the file.'); });
+          if (!info.isFile()) throw Error('Transcript log skipped: not a regular file.');
+          if (info.uid !== process.getuid?.()) throw Error('Transcript log skipped: file owner is not the running user.');
+          if ((info.mode & 0o7777) !== FILE_MODE) {
+            await handle.chmod(FILE_MODE).catch(() => { throw Error('Transcript log skipped: could not restrict file permissions.'); });
+            const secured = await handle.stat().catch(() => { throw Error('Transcript log skipped: could not check file permissions.'); });
+            if ((secured.mode & 0o7777) !== FILE_MODE) throw Error('Transcript log skipped: file permissions could not be restricted to 0600.');
+          }
+          await handle.appendFile(`${JSON.stringify(record)}\n`).catch(() => { throw Error('Transcript log skipped: could not append to the file.'); });
+        } finally { await handle.close(); }
       } });
     }
     if (record.text && !record.headsetAction && options.bridge) targets.push({ name: 'headset bridge', run: async () => { await options.bridge!.voice(record); } });
@@ -1040,7 +1086,7 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
       let recognizable = encoded;
       if (ffmpegReady) {
         const decoded = await runProcess(spawn, ffmpegBin!, ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
-          '-i', encoded, '-ac', '1', '-ar', String(WHISPER_SAMPLE_RATE), '-c:a', 'pcm_s16le', wav], { timeoutMs: PTT_DECODE_TIMEOUT_MS });
+          ...ffmpegInputOptions(utterance.mime), '-i', encoded, '-ac', '1', '-ar', String(WHISPER_SAMPLE_RATE), '-c:a', 'pcm_s16le', wav], { timeoutMs: PTT_DECODE_TIMEOUT_MS });
         if (decoded.timedOut || decoded.code !== 0) {
           log(`push-to-talk audio: ffmpeg failed. ${decoded.stderr.trim().slice(0, 400)}`);
           return outcome(input, 'failed', 'The recording could not be decoded on this Mac.');
@@ -1112,7 +1158,7 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
               ...referentField,
             };
             await fanOut(appleRecord, utterance.sessionId);
-            log(`push-to-talk audio: heard ${appleText ? JSON.stringify(appleText) : '(nothing)'} in ${durationMs} ms`
+            log(`push-to-talk audio: heard ${heardForLog(appleText)} in ${durationMs} ms`
               + `, recognized in ${appleRecord.recognizerMs} ms.`);
             return {
               ...outcome(input, 'transcribed', appleText ? `Heard: ${appleText}` : 'No speech was recognized.'),
@@ -1157,7 +1203,7 @@ export function createPushToTalkTranscriber(options: PushToTalkTranscribeOptions
         ...referentField,
       };
       await fanOut(record, utterance.sessionId);
-      log(`push-to-talk audio: heard ${text ? JSON.stringify(text) : '(nothing)'} in ${durationMs} ms`
+      log(`push-to-talk audio: heard ${heardForLog(text)} in ${durationMs} ms`
         + `, recognized in ${record.recognizerMs} ms${fallbackFrom ? ` (whisper, after ${fallbackFrom})` : ''}.`);
       return { ...outcome(input, 'transcribed', text ? `Heard: ${text}` : 'No speech was recognized.'), accepted: true, transcript: record };
     } catch (error) {

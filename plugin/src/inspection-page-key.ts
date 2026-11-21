@@ -25,6 +25,16 @@
  * `fragment` says which of the two happened, and every same-tab link is built
  * with it, so the way back works either way.
  *
+ * One origin can also serve several pages with different keys from the same
+ * path: the desktop panel host serves every inspector it opens at `/`. There a
+ * single per-tab copy is not enough. A tab that opened inspector A and later
+ * inspector B holds both history entries, and a reload of A's entry would find
+ * B's key. Such a page passes `perEntry`, and the key also rides in the history
+ * entry itself, as `history.state`, written by the same `replaceState` that
+ * clears the fragment. A browser keeps that state with its entry through
+ * reload, back and forward, so each entry reads its own key first and the tab
+ * copy is only the fallback for an entry that has none.
+ *
  * Both functions take the browser objects they use as arguments and touch no
  * other global, so a Node test drives them with plain fakes and the served
  * pages run this very text: `pageKeySource()` and `keepPageKeySource()` embed
@@ -35,7 +45,7 @@
 /** Only the parts of `window.location` these read. */
 export type PageKeyLocation = { hash?: string; pathname?: string; search?: string };
 /** Only the part of `window.history` these call. */
-export type PageKeyHistory = { replaceState?: (data: unknown, title: string, url: string) => void };
+export type PageKeyHistory = { state?: unknown; replaceState?: (data: unknown, title: string, url: string) => void };
 /** Only the parts of `window.sessionStorage` these call. */
 export type PageKeyStorage = { getItem?: (key: string) => string | null; setItem?: (key: string, value: string) => void };
 
@@ -63,7 +73,7 @@ export type HeldPageKey = {
  * emitted body.
  */
 export function readPageKey(location: PageKeyLocation, history: PageKeyHistory,
-  storage: PageKeyStorage | undefined, useStored: boolean): HeldPageKey {
+  storage: PageKeyStorage | undefined, useStored: boolean, perEntry?: boolean): HeldPageKey {
   const NAME = 'stereo_structure/page-key', SHAPE = /^[a-f0-9]{64}$/;
   const hash = location && typeof location.hash === 'string' ? location.hash : '';
   const raw = hash.charAt(0) === '#' ? hash.slice(1) : hash;
@@ -74,10 +84,25 @@ export function readPageKey(location: PageKeyLocation, history: PageKeyHistory,
       if (storage && typeof storage.setItem === 'function') { storage.setItem(NAME, key); stored = true; }
     } catch (error) { stored = false; }
   } else if (useStored) {
-    try {
-      const remembered = storage && typeof storage.getItem === 'function' ? storage.getItem(NAME) : null;
-      if (typeof remembered === 'string' && SHAPE.test(remembered)) { key = remembered; stored = true; }
-    } catch (error) { /* A tab that cannot read its own copy simply has no key. */ }
+    if (perEntry === true) {
+      // This history entry's own key wins over the tab's copy, which may
+      // belong to another page opened later in the same tab. The tab copy is
+      // brought back to this key, so a tab opened from here gets it too.
+      try {
+        const state = history ? history.state as Record<string, unknown> | null | undefined : undefined;
+        const own = state && typeof state === 'object' ? state[NAME] : undefined;
+        if (typeof own === 'string' && SHAPE.test(own)) {
+          key = own; stored = true;
+          if (storage && typeof storage.setItem === 'function') storage.setItem(NAME, own);
+        }
+      } catch (error) { /* The entry's key stands even when the tab copy cannot be written. */ }
+    }
+    if (!key) {
+      try {
+        const remembered = storage && typeof storage.getItem === 'function' ? storage.getItem(NAME) : null;
+        if (typeof remembered === 'string' && SHAPE.test(remembered)) { key = remembered; stored = true; }
+      } catch (error) { /* A tab that cannot read its own copy simply has no key. */ }
+    }
   }
   // Only a key this tab can get back is worth taking out of the address, and
   // only an address that actually shows one needs rewriting.
@@ -85,7 +110,14 @@ export function readPageKey(location: PageKeyLocation, history: PageKeyHistory,
     const pathname = location && typeof location.pathname === 'string' ? location.pathname : '/';
     const search = location && typeof location.search === 'string' ? location.search : '';
     try {
-      if (history && typeof history.replaceState === 'function') history.replaceState(null, '', pathname + search);
+      let state: Record<string, unknown> | null = null;
+      if (perEntry === true) {
+        const prior = history ? history.state : null;
+        const entry = Object.assign({}, prior && typeof prior === 'object' ? prior : null) as Record<string, unknown>;
+        entry[NAME] = key;
+        state = entry;
+      }
+      if (history && typeof history.replaceState === 'function') history.replaceState(state, '', pathname + search);
       else stored = false;
     } catch (error) { stored = false; }
   }
@@ -128,8 +160,24 @@ function pageKeyStorageSource(): string {
  * written here would not be. Each function is self-contained, so its minified
  * body is still valid on its own.
  */
-export function pageKeySource(useStored: boolean): string {
-  return `(${readPageKey.toString()})(location,history,${pageKeyStorageSource()},${useStored ? 'true' : 'false'})`;
+export function pageKeySource(useStored: boolean, perEntry = false): string {
+  return `(${readPageKey.toString()})(location,history,${pageKeyStorageSource()},${useStored ? 'true' : 'false'}${perEntry ? ',true' : ''})`;
+}
+
+/**
+ * For a page that reads its key once at load (`pageKeySource(true, true)`),
+ * held in the variable `bearer`. A link to another page on the same path
+ * differs only in its fragment, so the browser changes the fragment without
+ * loading anything and the page would keep the key it loaded with, leaving
+ * the new key in the address bar. A key-shaped fragment arriving later
+ * reloads the page, which takes that key out of the address and opens what
+ * it names through the ordinary load. The browser may also move back or
+ * forward between those entries without a load, so an entry whose own key
+ * is not the one in use reloads too.
+ */
+export function reloadOnPageKeySource(bearer: string): string {
+  return 'addEventListener("hashchange",()=>{if(/^#[a-f0-9]{64}$/.test(location.hash))location.reload();});'
+    + `addEventListener("popstate",e=>{const k=e.state&&e.state["stereo_structure/page-key"];if(typeof k==="string"&&k!==${bearer})location.reload();});`;
 }
 
 export function keepPageKeySource(keyExpression: string): string {

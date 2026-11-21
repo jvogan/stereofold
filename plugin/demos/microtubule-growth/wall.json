@@ -3,6 +3,10 @@
   "id": "microtubule-growth-wall",
   "title": "D. A wall three protofilaments wide",
   "mode": "explore",
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
   "provenance": {
     "sourceRefs": [
       {
@@ -15,13 +19,13 @@
       }
     ],
     "sourceSha256": "f78a56284d959324ae35bc58a9efa69bec4e99f861c5dbc6f4d09d521f8367ec",
-    "note": "Coordinates are RCSB biological assembly 1 of entry 5SYF, restricted to six of its 26 deposited helical operators: three neighbouring protofilaments at 166.20, 138.50 and 110.80 degrees, each two tubulin dimers deep. No coordinate was altered."
+    "note": "Coordinates are RCSB biological assembly 1 of entry 5SYF, restricted to six of its 26 deposited helical operators: three neighboring protofilaments at 166.20, 138.50 and 110.80 degrees, each two tubulin dimers deep. No coordinate was altered."
   },
   "chapters": [
     {
       "id": "reveal",
       "title": "Three wide",
-      "caption": "Six copies of the Taxol-stabilised 5SYF dimer: three neighbouring protofilaments, each two dimers deep. 40,908 atoms.",
+      "caption": "Blue alpha, amber beta: six 5SYF dimers, three strands. Grow steps show measured pieces, not recorded assembly.",
       "durationSeconds": 10,
       "changes": [
         {
@@ -85,7 +89,7 @@
           "scale": 2.2
         },
         "view": "fit",
-        "narration": "A third strand joins beside them, same two colours.",
+        "narration": "Blue alpha, amber beta. Steps show measured pieces, not recorded assembly.",
         "motion": {
           "kind": "turntable",
           "degrees": 25,
@@ -146,7 +150,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-beta",
@@ -157,7 +161,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-alpha-above",
@@ -190,7 +194,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-beta",
@@ -201,7 +205,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-alpha-above",
@@ -212,7 +216,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain A-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "new-beta-above",
@@ -223,7 +227,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain B-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "gtp",
@@ -246,6 +250,127 @@
                 "to": 502
               },
               "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Operator 2, author chain B-2 residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "gtp-above",
+              "label": "GTP above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain A-3 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "gdp-taxol-above",
+              "label": "GDP and Taxol above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain B-3 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp",
+              "label": "GTP, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain A-4 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol",
+              "label": "GDP and Taxol, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain B-4 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp-above",
+              "label": "GTP, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain A-5 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol-above",
+              "label": "GDP and Taxol, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain B-5 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp",
+              "label": "GTP, new strand",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain A-6 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol",
+              "label": "GDP and Taxol, new strand",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain B-6 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp-above",
+              "label": "GTP, new strand above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain A-7 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol-above",
+              "label": "GDP and Taxol, new strand above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain B-7 residues 501 and 502: this copy's GDP and Taxol."
             }
           ],
           "contextOpacity": 0.18,
@@ -257,7 +382,7 @@
     {
       "id": "orbit",
       "title": "Two contacts",
-      "caption": "Dimers stack head to tail along each strand; the strands pack side by side across the wall.",
+      "caption": "One strand lit. Its dimers stack head to tail; strands pack side by side to make the wall.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -295,7 +420,7 @@
           ],
           "scale": 2.2
         },
-        "narration": "Length from longitudinal joints, width from lateral ones.",
+        "narration": "One strand lit: dimers stack head to tail.",
         "motion": {
           "kind": "orbit",
           "degrees": 20,
@@ -357,7 +482,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-beta",
@@ -368,7 +493,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-alpha-above",
@@ -401,7 +526,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-beta",
@@ -412,7 +537,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-alpha-above",
@@ -423,7 +548,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain A-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "new-beta-above",
@@ -434,7 +559,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain B-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "gtp",
@@ -457,6 +582,127 @@
                 "to": 502
               },
               "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Operator 2, author chain B-2 residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "gtp-above",
+              "label": "GTP above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain A-3 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "gdp-taxol-above",
+              "label": "GDP and Taxol above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain B-3 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp",
+              "label": "GTP, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain A-4 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol",
+              "label": "GDP and Taxol, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain B-4 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp-above",
+              "label": "GTP, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain A-5 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol-above",
+              "label": "GDP and Taxol, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain B-5 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp",
+              "label": "GTP, new strand",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain A-6 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol",
+              "label": "GDP and Taxol, new strand",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain B-6 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp-above",
+              "label": "GTP, new strand above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain A-7 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol-above",
+              "label": "GDP and Taxol, new strand above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain B-7 residues 501 and 502: this copy's GDP and Taxol."
             }
           ],
           "contextOpacity": 0.18,
@@ -473,7 +719,7 @@
     {
       "id": "highlight",
       "title": "Open sheet",
-      "caption": "As a surface, the new strand binds along the side: a patch of wall, not a closed tube.",
+      "caption": "Lit: the third strand, bound beside the middle one. The sheet stays open, not a closed tube.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -526,13 +772,13 @@
           ],
           "rotation": [
             0,
-            220,
+            140,
             0
           ],
           "scale": 1.6
         },
         "view": "fit",
-        "narration": "This neighbour binds sideways; the sheet stays open.",
+        "narration": "The lit strand binds sideways; the sheet stays open.",
         "motion": {
           "kind": "dolly",
           "metres": 0.15,
@@ -593,7 +839,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-beta",
@@ -604,7 +850,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-alpha-above",
@@ -637,7 +883,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-beta",
@@ -648,7 +894,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-alpha-above",
@@ -659,7 +905,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain A-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "new-beta-above",
@@ -670,7 +916,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain B-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "gtp",
@@ -693,6 +939,127 @@
                 "to": 502
               },
               "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Operator 2, author chain B-2 residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "gtp-above",
+              "label": "GTP above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain A-3 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "gdp-taxol-above",
+              "label": "GDP and Taxol above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain B-3 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp",
+              "label": "GTP, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain A-4 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol",
+              "label": "GDP and Taxol, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain B-4 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp-above",
+              "label": "GTP, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain A-5 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol-above",
+              "label": "GDP and Taxol, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain B-5 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp",
+              "label": "GTP, new strand",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain A-6 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol",
+              "label": "GDP and Taxol, new strand",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain B-6 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp-above",
+              "label": "GTP, new strand above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain A-7 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol-above",
+              "label": "GDP and Taxol, new strand above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain B-7 residues 501 and 502: this copy's GDP and Taxol."
             }
           ],
           "contextOpacity": 0.18,
@@ -709,7 +1076,7 @@
     {
       "id": "site",
       "title": "Same cargo",
-      "caption": "Every dimer carries the same cargo: GTP and magnesium in alpha, GDP and Taxol in beta.",
+      "caption": "Same cargo in every dimer: amber GDP and Taxol in beta; blue GTP sits buried in alpha.",
       "durationSeconds": 11,
       "changes": [
         {
@@ -774,7 +1141,7 @@
           ],
           "scale": 2.4
         },
-        "narration": "Every dimer keeps GTP in alpha, GDP and Taxol in beta.",
+        "narration": "Every beta's Taxol and GDP lit amber; GTP stays buried.",
         "motion": {
           "kind": "orbit",
           "degrees": -15,
@@ -836,7 +1203,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-beta",
@@ -847,7 +1214,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-alpha-above",
@@ -880,7 +1247,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-beta",
@@ -891,7 +1258,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-alpha-above",
@@ -902,7 +1269,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain A-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "new-beta-above",
@@ -913,7 +1280,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain B-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "gtp",
@@ -936,15 +1303,143 @@
                 "to": 502
               },
               "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Operator 2, author chain B-2 residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "gtp-above",
+              "label": "GTP above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain A-3 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "gdp-taxol-above",
+              "label": "GDP and Taxol above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain B-3 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp",
+              "label": "GTP, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain A-4 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol",
+              "label": "GDP and Taxol, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain B-4 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp-above",
+              "label": "GTP, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain A-5 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol-above",
+              "label": "GDP and Taxol, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain B-5 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp",
+              "label": "GTP, new strand",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain A-6 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol",
+              "label": "GDP and Taxol, new strand",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain B-6 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp-above",
+              "label": "GTP, new strand above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain A-7 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol-above",
+              "label": "GDP and Taxol, new strand above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain B-7 residues 501 and 502: this copy's GDP and Taxol."
             }
           ],
           "focus": [
-            "alpha-tubulin",
-            "beta-tubulin",
-            "alpha-above",
-            "beta-above",
             "gtp",
-            "taxol"
+            "gdp",
+            "taxol",
+            "gtp-above",
+            "gdp-taxol-above",
+            "middle-gtp",
+            "middle-gdp-taxol",
+            "middle-gtp-above",
+            "middle-gdp-taxol-above",
+            "new-gtp",
+            "new-gdp-taxol",
+            "new-gtp-above",
+            "new-gdp-taxol-above"
           ],
           "contextOpacity": 0.18,
           "framing": "fill"
@@ -954,8 +1449,8 @@
     {
       "id": "wide",
       "title": "Six of many",
-      "caption": "Three strands of the wall, side by side. Many more like them close the tube.",
-      "durationSeconds": 9,
+      "caption": "Thirteen strands close a tube. Say grow it for the whole tube, or move overhead.",
+      "durationSeconds": 12,
       "changes": [
         {
           "kind": "scene",
@@ -987,7 +1482,7 @@
         },
         {
           "kind": "zoom",
-          "durationSeconds": 4,
+          "durationSeconds": 7,
           "easing": "ease_in_out",
           "magnification": 1
         }
@@ -1071,7 +1566,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain A-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-beta",
@@ -1082,7 +1577,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees round the axis at 138.50 degrees."
+              "note": "Operator 4, author chain B-4: the middle strand, 27.70 degrees around the axis at 138.50 degrees."
             },
             {
               "id": "middle-alpha-above",
@@ -1115,7 +1610,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain A-6: the alpha tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-beta",
@@ -1126,7 +1621,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbour this tier adds, at 110.80 degrees."
+              "note": "Operator 6, author chain B-6: the beta tubulin of the lateral neighbor this tier adds, at 110.80 degrees."
             },
             {
               "id": "new-alpha-above",
@@ -1137,7 +1632,7 @@
                 "from": 1,
                 "to": 437
               },
-              "note": "Operator 7, author chain A-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain A-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "new-beta-above",
@@ -1148,7 +1643,7 @@
                 "from": 1,
                 "to": 436
               },
-              "note": "Operator 7, author chain B-7: the new lateral neighbour, one dimer step higher."
+              "note": "Operator 7, author chain B-7: the new lateral neighbor, one dimer step higher."
             },
             {
               "id": "gtp",
@@ -1171,13 +1666,134 @@
                 "to": 502
               },
               "note": "Operator 2, author chain B-2 residue 502, ligand TA1: Taxol. All six copies carry their own."
+            },
+            {
+              "id": "gdp",
+              "label": "GDP",
+              "color": "#f5a623",
+              "chain": "B-2",
+              "residues": {
+                "from": 501,
+                "to": 501
+              },
+              "note": "Operator 2, author chain B-2 residue 501: the deposited GDP. Amber because it belongs to beta."
+            },
+            {
+              "id": "gtp-above",
+              "label": "GTP above",
+              "color": "#4a90e2",
+              "chain": "A-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain A-3 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "gdp-taxol-above",
+              "label": "GDP and Taxol above",
+              "color": "#f5a623",
+              "chain": "B-3",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 3, author chain B-3 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp",
+              "label": "GTP, middle strand",
+              "color": "#4a90e2",
+              "chain": "A-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain A-4 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol",
+              "label": "GDP and Taxol, middle strand",
+              "color": "#f5a623",
+              "chain": "B-4",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 4, author chain B-4 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "middle-gtp-above",
+              "label": "GTP, middle strand above",
+              "color": "#4a90e2",
+              "chain": "A-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain A-5 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "middle-gdp-taxol-above",
+              "label": "GDP and Taxol, middle strand above",
+              "color": "#f5a623",
+              "chain": "B-5",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 5, author chain B-5 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp",
+              "label": "GTP, new strand",
+              "color": "#4a90e2",
+              "chain": "A-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain A-6 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol",
+              "label": "GDP and Taxol, new strand",
+              "color": "#f5a623",
+              "chain": "B-6",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 6, author chain B-6 residues 501 and 502: this copy's GDP and Taxol."
+            },
+            {
+              "id": "new-gtp-above",
+              "label": "GTP, new strand above",
+              "color": "#4a90e2",
+              "chain": "A-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain A-7 residues 501 and 502: this copy's GTP and magnesium."
+            },
+            {
+              "id": "new-gdp-taxol-above",
+              "label": "GDP and Taxol, new strand above",
+              "color": "#f5a623",
+              "chain": "B-7",
+              "residues": {
+                "from": 501,
+                "to": 502
+              },
+              "note": "Operator 7, author chain B-7 residues 501 and 502: this copy's GDP and Taxol."
             }
           ],
           "contextOpacity": 0.18,
           "framing": "fill",
           "strandShades": true
         },
-        "narration": "Three strands side by side; thirteen close the tube.",
+        "narration": "Thirteen strands make a tube. Say grow it, or move overhead.",
         "motion": {
           "kind": "turntable",
           "degrees": 30,

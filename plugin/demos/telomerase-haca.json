@@ -4,7 +4,7 @@
   "title": "Telomerase H/ACA RNP, the RNA-protein lobe of human telomerase",
   "mode": "explore",
   "presentation": {
-    "captionCard": "hidden"
+    "captionCard": "shown"
   },
   "provenance": {
     "sourceRefs": [
@@ -72,7 +72,7 @@
           "labels": false,
           "clipping": 0,
           "fog": 30,
-          "componentLabels": true
+          "componentLabels": false
         },
         "placement": {
           "translation": [
@@ -203,6 +203,98 @@
             }
           ],
           "contextOpacity": 0.12
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "dyskerin-asp125-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            },
+            {
+              "id": "dyskerin-asp125-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "dyskerin-c-name",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 23,
+                  "to": 421
+                }
+              },
+              "text": "Dyskerin 1",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "dyskerin-g-name",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 43,
+                  "to": 60
+                }
+              },
+              "text": "Dyskerin 2",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "tcab1-k-name",
+              "target": {
+                "chain": "K",
+                "residues": {
+                  "from": 146,
+                  "to": 522
+                }
+              },
+              "text": "TCAB1",
+              "color": "#db2777",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "htr-b-name",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 211,
+                  "to": 450
+                }
+              },
+              "text": "Telomerase RNA",
+              "color": "#dc2626",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            }
+          ]
         }
       }
     },
@@ -364,7 +456,99 @@
           "contextOpacity": 0.12
         },
         "appearance": {
-          "componentLabels": true
+          "componentLabels": false
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "dyskerin-asp125-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            },
+            {
+              "id": "dyskerin-asp125-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "dyskerin-c-name",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 23,
+                  "to": 421
+                }
+              },
+              "text": "Dyskerin 1",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "gar1-d-name",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 66,
+                  "to": 159
+                }
+              },
+              "text": "GAR1 1",
+              "color": "#ea580c",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "dyskerin-g-name",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 375,
+                  "to": 395
+                }
+              },
+              "text": "Dyskerin 2",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "gar1-h-name",
+              "target": {
+                "chain": "H",
+                "residues": {
+                  "from": 65,
+                  "to": 161
+                }
+              },
+              "text": "GAR1 2",
+              "color": "#ea580c",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            }
+          ]
         }
       }
     },
@@ -414,7 +598,7 @@
           "opacity": 1,
           "labels": false,
           "clipping": 0,
-          "componentLabels": true
+          "componentLabels": false
         },
         "placement": {
           "translation": [
@@ -545,13 +729,105 @@
             }
           ],
           "contextOpacity": 0.12
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "dyskerin-asp125-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            },
+            {
+              "id": "dyskerin-asp125-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "dyskerin-g-name",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 43,
+                  "to": 395
+                }
+              },
+              "text": "Dyskerin 2",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "nop10-j-name",
+              "target": {
+                "chain": "J",
+                "residues": {
+                  "from": 1,
+                  "to": 64
+                }
+              },
+              "text": "NOP10 2",
+              "color": "#0284c7",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "nhp2-i-name",
+              "target": {
+                "chain": "I",
+                "residues": {
+                  "from": 23,
+                  "to": 152
+                }
+              },
+              "text": "NHP2 2",
+              "color": "#16a34a",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "htr-b-name",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 211,
+                  "to": 450
+                }
+              },
+              "text": "Telomerase RNA",
+              "color": "#dc2626",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            }
+          ]
         }
       }
     },
     {
       "id": "site",
       "title": "The working part",
-      "caption": "Close on dyskerin’s pseudouridylation site. No target uridine occupies it in this structure.",
+      "caption": "Close on the two dyskerin copies, each with a pseudouridylation site. No target uridine occupies either in this structure.",
       "durationSeconds": 11,
       "changes": [
         {
@@ -601,7 +877,7 @@
           "labels": false,
           "clipping": 0,
           "fog": 10,
-          "componentLabels": true
+          "componentLabels": false
         },
         "placement": {
           "translation": [
@@ -730,8 +1006,74 @@
               "note": "H/ACA domain of telomerase RNA; scaffolds both heterotetramers."
             }
           ],
-          "focus": ["dyskerin-c", "dyskerin-g"],
-          "contextOpacity": 0.12
+          "focus": [
+            "dyskerin-c",
+            "dyskerin-g"
+          ],
+          "framing": "fill",
+          "contextOpacity": 0.18
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "dyskerin-asp125-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            },
+            {
+              "id": "dyskerin-asp125-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "dyskerin-c-name",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 23,
+                  "to": 421
+                }
+              },
+              "text": "Dyskerin 1",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "dyskerin-g-name",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 180,
+                  "to": 250
+                }
+              },
+              "text": "Dyskerin 2",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            }
+          ]
         }
       }
     },
@@ -784,7 +1126,7 @@
           "labels": false,
           "clipping": 0,
           "fog": 30,
-          "componentLabels": true
+          "componentLabels": false
         },
         "placement": {
           "translation": [
@@ -915,6 +1257,128 @@
             }
           ],
           "contextOpacity": 0.12
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "dyskerin-asp125-c",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            },
+            {
+              "id": "dyskerin-asp125-g",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 125,
+                  "to": 125
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#7c3aed",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "dyskerin-c-name",
+              "target": {
+                "chain": "C",
+                "residues": {
+                  "from": 23,
+                  "to": 421
+                }
+              },
+              "text": "Dyskerin 1",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "dyskerin-g-name",
+              "target": {
+                "chain": "G",
+                "residues": {
+                  "from": 43,
+                  "to": 60
+                }
+              },
+              "text": "Dyskerin 2",
+              "color": "#7c3aed",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "nhp2-i-name",
+              "target": {
+                "chain": "I",
+                "residues": {
+                  "from": 23,
+                  "to": 152
+                }
+              },
+              "text": "NHP2 2",
+              "color": "#16a34a",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "gar1-d-name",
+              "target": {
+                "chain": "D",
+                "residues": {
+                  "from": 66,
+                  "to": 159
+                }
+              },
+              "text": "GAR1 1",
+              "color": "#ea580c",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "tcab1-k-name",
+              "target": {
+                "chain": "K",
+                "residues": {
+                  "from": 146,
+                  "to": 522
+                }
+              },
+              "text": "TCAB1",
+              "color": "#db2777",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            },
+            {
+              "id": "htr-b-name",
+              "target": {
+                "chain": "B",
+                "residues": {
+                  "from": 211,
+                  "to": 450
+                }
+              },
+              "text": "Telomerase RNA",
+              "color": "#dc2626",
+              "offsetX": 0,
+              "offsetY": 0,
+              "sizeFactor": 1.1
+            }
+          ]
         }
       }
     }

@@ -14,7 +14,7 @@
         "ref": "https://doi.org/10.1158/2159-8290.CD-24-0027"
       }
     ],
-    "sourceSha256": "631d0ce3ea45229f42f2b063adccdb1a76156a122056eb9dff496c0af17d7c34",
+    "sourceSha256": "cd40d1936530c0f122faa575fc29a244e6cbf7652a769e82e2cf205d21972706",
     "note": "Explore the KRAS G12D, cyclophilin A and daraxonrasib complex from PDB 9AX6, biological assembly 1. Start with the complete assembly, then examine contacts around the ligand. Dashed lines show measured heavy-atom distances; they do not establish hydrogen bonds."
   },
   "presentation": {
@@ -1640,7 +1640,9 @@
               "color": "#9E7B13",
               "offsetX": 0,
               "offsetY": -8,
-              "sizeFactor": 0.9
+              "sizeFactor": 0.9,
+              "maxOffsetEm": 4,
+              "desktopSizePx": 14.4
             }
           ],
           "distances": [

@@ -71,11 +71,14 @@ export function panelEntering(value:{pending?:boolean;phase?:string}|undefined) 
 }
 /** Close the ready-heartbeat/render-start race before touching a scene. */
 export async function waitForPanelRender<T = void>(options:{ready:()=>boolean;current:()=>boolean;waitMs?:number;
+  /** The longest wait a caller may ask for. A command's settle stays at 15 s. */
+  maxWaitMs?:number;
   presentation?:()=>{presenting?:boolean;phase?:string;pending?:boolean;drawCount?:number};
   onEntryWait?:(elapsedMs:number)=>void; onReady?:()=>T;
   now?:()=>number;sleep?:(ms:number)=>Promise<void>}) {
   const now=options.now??Date.now, sleep=options.sleep??(ms=>new Promise(resolve=>setTimeout(resolve,ms)));
-  let deadline=now()+Math.min(options.waitMs??15000,15000);
+  const cap=Math.max(15000,options.maxWaitMs??15000);
+  let deadline=now()+Math.min(options.waitMs??15000,cap);
   const initial = options.presentation?.();
   const entering = panelEntering;
   let entrySeen = Boolean(entering(initial));

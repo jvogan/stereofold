@@ -137,8 +137,8 @@ export const GROWTH_ROLL_DEGREES = 12;
  * sheet is the whole face the wearer sees. The shortest-arc turn leaves that
  * twist wherever the arrival pose had it, so a wall can land edge-on — its
  * lateral neighbours stacked in depth behind each other — with the beta
- * plus-ends covering the view. The 76aa6ff wall landing read 75.6 per cent
- * amber for exactly this reason. A quarter turn about the landed long axis
+ * plus-ends covering the view: an edge-on wall can show 75.6 per cent amber,
+ * the beta colour. A quarter turn about the landed long axis
  * presents the sheet's broad face instead: the protofilament axis stays across
  * the lens, the lateral neighbours spread across it beside each other, and the
  * alpha/beta alternation along every strand reads evenly. Filament tiers are

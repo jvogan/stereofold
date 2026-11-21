@@ -3,10 +3,9 @@
  *
  * The head observer wraps every callback the page registers on the session.
  * The frame-rate watcher registers first, so in every frame its callback runs
- * before Mol*'s, and a headset capture taken after it read a framebuffer Mol*
- * had not drawn into: the byte-identical black eyes of 2026-09-24 and
- * 2026-09-28. The observer now tells its caller whether the callback it
- * follows drew. This runs the module's real observer over a scripted session.
+ * before Mol*'s, and a headset capture taken after it reads a framebuffer Mol*
+ * has not drawn into: a byte-identical black eye. The observer tells its
+ * caller whether the callback it follows drew. This runs the module's real observer over a scripted session.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

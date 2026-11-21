@@ -1,5 +1,5 @@
 import { solveAppearanceFit } from './appearance-fit-worker.mjs';
-import { renderedMeshVertexCount } from './component-label-measurement.mjs';
+import { atomSphereMesh, renderedMeshVertexCount } from './component-label-measurement.mjs';
 
 // Snapshot only the values the geometry reader uses. Native XRView/transform
 // objects and Mol* ValueCell metadata are not structured-cloneable. Typed arrays
@@ -29,8 +29,10 @@ export function appearanceFitMessage(options, transfers = []) {
       state: { visible: object.state?.visible, disposed: object.state?.disposed, alphaFactor: object.state?.alphaFactor },
       // Impostor spheres/cylinders and texture meshes use their instance
       // bounding spheres in resetEntryGeometry, never their position buffers.
+      // So does a spacefill sphere mesh: without its positions the worker
+      // reads it as that, and 2.47 M vertices (1AON) are not copied per fit.
       values: Object.fromEntries(keys.filter(key => object.values?.[key]
-        && (key !== 'aPosition' || object.type === 'mesh')).map(key =>
+        && (key !== 'aPosition' || (object.type === 'mesh' && !atomSphereMesh(object)))).map(key =>
         [key, { ref: { value: snapshot(object, key, object.values[key].ref.value) } }])) })),
     views: options.geometry.views.map(view => ({ eye: view.eye,
       projectionMatrix: Array.from(view.projectionMatrix),
@@ -55,6 +57,9 @@ export function fitAppearanceInWorker(options, { makeWorker = appearanceWorker,
   // Appearance changes and retained-pose checks have independent owners.
   for (const check of [...(waiters ?? [])]) if (check.fitKind === kind)
     check(Object.assign(Error('The fit was cancelled by a newer change. Kept the previous appearance.'), { code: 'FIT_CANCELLED' }));
+  // No clearance answer came back: a timeout, a cancellation, or no helper in
+  // XR. Callers tell these from a pose the solver refused (`fitUnanswered`).
+  const unanswered = message => Object.assign(Error(message), { fitUnanswered: true });
   return new Promise((resolve, reject) => {
     let worker, timer, fallbackTimer, settled, finished = false, path = 'worker';
     const started = now(), deadline = started + timeoutMs;
@@ -69,15 +74,15 @@ export function fitAppearanceInWorker(options, { makeWorker = appearanceWorker,
     };
     const check = error => {
       if (error) finish(error);
-      else if (now() >= deadline) finish(Error('The fit did not answer within 30 seconds. Kept the previous appearance. Try again.'));
+      else if (now() >= deadline) finish(unanswered('The fit did not answer within 30 seconds. Kept the previous appearance. Try again.'));
     };
     check.fitKind = kind;
     check.settled = new Promise(resolve => { settled = resolve; });
-    const abort = () => check(Error('The fit was cancelled. Kept the previous appearance.'));
+    const abort = () => check(unanswered('The fit was cancelled. Kept the previous appearance.'));
     const refuseInXR = () => {
       if (!isPresenting()) return false;
       path = 'worker-unavailable-xr';
-      finish(Error('The headset browser could not run the fitting helper. Kept the previous appearance.'));
+      finish(unanswered('The headset browser could not run the fitting helper. Kept the previous appearance.'));
       return true;
     };
     const fallback = error => {

@@ -103,13 +103,11 @@ describe('which Quest Browser tab is the live viewer', () => {
   });
 
   /**
-   * The
-   * demo host's ten-hour share ended at 04:26 and a new one opened at 08:05.
-   * The wearer's tab was still showing the page's "sharing from your Mac has
-   * ended" plate, and that plate leaves the spatial-menu hook installed, so
-   * the probe read six rows, called the tab `menu`, kept it and sent no
-   * intent. The drive then failed three times on the same tab, because it
-   * could read the plate the probe could not.
+   * A tab left in front after its share ends shows the page's "sharing from
+   * your Mac has ended" plate, and that plate leaves the spatial-menu hook
+   * installed. Ranked on rows alone, the probe would read six rows, call the
+   * tab `menu`, keep it and send no intent, and every later drive would fail
+   * on the same tab.
    */
   it('ranks a tab whose share has ended below one that only answered, however many menu rows it draws', () => {
     expect(tabLiveness(reading('250', { menu: true, menuRows: 6, ended: 'share-ended' }))).toBe('ended');

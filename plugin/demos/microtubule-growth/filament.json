@@ -140,7 +140,7 @@
     },
     {
       "id": "highlight",
-      "title": "Amber crowns",
+      "title": "By radius",
       "caption": "Amber highlights outer density by radius. This coloring does not identify individual proteins.",
       "durationSeconds": 10,
       "changes": [

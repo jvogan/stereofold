@@ -1,5 +1,5 @@
 {
-  "provenance": "Acceptance 6 on 396595e; unmodified selected page records. Run 1 is completed; run 5 is Done. Geometry adapters use replayOptionsFromLayoutRecord; this is not a new device capture.",
+  "provenance": "Recorded headset run: unmodified selected page records. Run 1 is completed; run 5 is Done. Geometry adapters use replayOptionsFromLayoutRecord; this is not a new device capture.",
   "completed": {
     "source": "seq6-tour/run1-ring-after.json",
     "entries": [

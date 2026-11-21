@@ -117,6 +117,27 @@ describe('taking the page key out of the address bar', () => {
     const hostile = { ...scope, get sessionStorage(): never { throw Error('site data is blocked'); } };
     expect(runInNewContext(pageKeySource(true), hostile)).toEqual({ key: KEY, stored: false, fragment: '#' + KEY });
   });
+
+  it('keeps the key in the history entry only for a page that asks for it', () => {
+    const states: unknown[] = [];
+    const history = { state: { scroll: 3 } as unknown, replaceState(data: unknown) { states.push(data); this.state = data; } };
+    const storage = { getItem: () => null, setItem: () => {} };
+    readPageKey({ hash: '#' + KEY, pathname: '/' }, history, storage, true);
+    expect(states).toEqual([null]);
+    history.state = { scroll: 3 };
+    readPageKey({ hash: '#' + KEY, pathname: '/' }, history, storage, true, true);
+    expect(states[1]).toEqual({ scroll: 3, [STORE]: KEY });
+    // The entry's own key wins over a tab copy written by a later page.
+    const other = 'f'.repeat(64), held = new Map([[STORE, other]]);
+    const tab = { getItem: (name: string) => held.get(name) ?? null, setItem: (name: string, value: string) => { held.set(name, value); } };
+    expect(readPageKey({ hash: '', pathname: '/' }, history, tab, true, true).key).toBe(KEY);
+    expect(held.get(STORE)).toBe(KEY);
+    // Pages that do not ask still read the tab copy, as the companion pages do.
+    held.set(STORE, other);
+    expect(readPageKey({ hash: '', pathname: '/' }, history, tab, true).key).toBe(other);
+    expect(pageKeySource(true)).not.toMatch(/,true,true\)$/);
+    expect(pageKeySource(true, true)).toMatch(/,true,true\)$/);
+  });
 });
 
 describe('the pages that hold a page key', () => {

@@ -13,7 +13,7 @@
  * to the browser and never written to this command's own output.
  */
 import { shareMaxLifetimeMs, type PairingFailure } from '../src/inspection-lan.js';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
@@ -22,7 +22,7 @@ import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { describeBuildContent, formatDoctor, runDoctor, type DoctorReport } from './setup-doctor.js';
 import { formatBuildIdentities } from '../src/build-identity.js';
-import { pttLaunchEnabled } from '../src/ptt-launch-options.js';
+import { pttLaunchEnabled, pttLaunchRefused } from '../src/ptt-launch-options.js';
 import { pushToTalkFromEnv } from '../src/push-to-talk.js';
 import { pushToTalkTranscriberFromEnv } from '../src/push-to-talk-transcribe.js';
 import { openOnQuest } from './quest-open-on-device.js';
@@ -32,6 +32,7 @@ import { WEB_LAUNCH_STEPS, attemptWebLaunch, closeChromeRendererTabs, copyAppleL
 import { redactTokens, requestRoute } from './report-redaction.js';
 import { startSceneSocketRelay, defaultSocket } from './scene-socket-relay.js';
 import { sceneServicePath, sceneCallTimeoutMs, SCENE_HOST_START_TIMEOUT_MS, SCENE_SOCKET_ENV } from '../src/scene-service.js';
+import { HOST_LIFELINE_ENV } from '../src/host-lifeline.js';
 
 const pluginRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const pluginRequire = createRequire(resolve(pluginRoot, 'package.json'));
@@ -68,6 +69,8 @@ export type QuestOptions = {
   headless: boolean;
   allowStaleBuild: boolean;
   pushToTalk: boolean;
+  /** The person's own command line ended its voice flags with `--no-ptt`: no route may record the headset microphone. */
+  microphoneRefused: boolean;
   remember: boolean;
   shareHours?: number;
   webLaunch: LaunchMode;
@@ -175,7 +178,7 @@ export function parseQuestArgs(args: string[], home: string = homedir(), env: No
   let webLaunchPinned = false, openOnDevice: LaunchMode = 'off', visionPro = false;
   for (let index = 0; index < args.length; index++) {
     const argument = args[index];
-    if (argument === '--help' || argument === '-h') return { source: '1CRN', statePath: resolve(home, '.stereofold/quest-share.json'), playTour: false, headless: false, allowStaleBuild: false, pushToTalk: false, remember: true, webLaunch: 'off', webLaunchPinned: true, openOnQuest: 'off', visionPro: false, lanPort: 8443, help: true };
+    if (argument === '--help' || argument === '-h') return { source: '1CRN', statePath: resolve(home, '.stereofold/quest-share.json'), playTour: false, headless: false, allowStaleBuild: false, pushToTalk: false, microphoneRefused: false, remember: true, webLaunch: 'off', webLaunchPinned: true, openOnQuest: 'off', visionPro: false, lanPort: 8443, help: true };
     if (argument === '--play-tour') { playTour = true; continue; }
     if (argument === '--headless') { headless = true; continue; }
     if (argument === '--ptt' || argument === '--no-ptt') continue;
@@ -260,9 +263,20 @@ export function parseQuestArgs(args: string[], home: string = homedir(), env: No
   // for a test rather than for a wearer, so it opts out of both.
   return { source: isPdbId(source) ? source : resolve(source), statePath: statePath ?? resolve(home, '.stereofold/quest-share.json'),
     shareHours: shareMaxLifetimeMs(shareHoursRaw ?? '') / 3_600_000,
-    lessonPath, densityPath, assemblyId, tourId, playTour, headless, allowStaleBuild, pushToTalk: pttLaunchEnabled(args, env, !headless), remember,
+    lessonPath, densityPath, assemblyId, tourId, playTour, headless, allowStaleBuild, pushToTalk: pttLaunchEnabled(args, env, !headless), microphoneRefused: pttLaunchRefused(args), remember,
     webLaunch: webLaunch ?? (headless || visionPro ? 'off' : 'code'), webLaunchPinned, openOnQuest: openOnDevice, visionPro, browser, lanHost, lanPort,
     ...(atomSites === undefined ? {} : { atomSites }), ...(panelTimeoutMs === undefined ? {} : { panelTimeoutMs }) };
+}
+
+/**
+ * The voice flag the standalone host is started with. `--no-ptt` goes on only
+ * when the person passed it, because the host reads it as "the person said no
+ * to the headset microphone" and then refuses every route that records it. A
+ * run that is off by default (`--headless`, or STEREOFOLD_PTT_TRANSCRIBE off)
+ * passes no flag, and the host resolves the same environment to off.
+ */
+export function questHostVoiceFlags(options: Pick<QuestOptions, 'pushToTalk' | 'microphoneRefused'>): string[] {
+  return options.pushToTalk ? ['--ptt'] : options.microphoneRefused ? ['--no-ptt'] : [];
 }
 
 /** Pass the selected ceiling to the child host, including an explicit flag override. */
@@ -275,7 +289,7 @@ export function questHostEnv(options: Pick<QuestOptions, 'shareHours'>, env: Nod
  * The port check is the one that matters most in practice: another agent's host
  * already owns 8443 more often than anything else here fails.
  */
-export function preflightProblems(report: DoctorReport, allowStaleBuild = false): string[] {
+export function preflightProblems(report: DoctorReport, allowStaleBuild = false, portHolder?: PortHolder): string[] {
   const problems: string[] = [];
   if (report.node.check !== 'ok') problems.push(`Node ${report.node.version} is older than ${report.node.required}.`);
   if (report.openssl.check !== 'ok') problems.push('openssl is unavailable, and the private Wi-Fi certificate needs it.');
@@ -289,9 +303,48 @@ export function preflightProblems(report: DoctorReport, allowStaleBuild = false)
       + 'Run: pnpm run build, or pass --allow-stale-build to run the existing one anyway.');
   }
   if (report.lan.addresses.length === 0) problems.push('This Mac has no assigned private IPv4 address. Join the Wi-Fi the Quest is on, then retry.');
-  if (report.port.state === 'listening') problems.push(`TCP ${report.port.port} already has a listening process. Stop that session, or pass --lan-port with a free port.`);
+  if (report.port.state === 'listening') problems.push(describeTakenPort(report.port.port, portHolder));
   if (report.port.state === 'unknown') problems.push(`TCP ${report.port.port} occupancy could not be determined; lsof was missing, denied, or timed out twice.`);
   return problems;
+}
+
+/** The process listening on a port, as `lsof` and `ps` name it. */
+export type PortHolder = { pid: number; command: string };
+
+/** A Stereofold host or its MCP child, as a process listing shows it. */
+export function isStereofoldHostCommand(command: string): boolean {
+  return /(?:serve-inspection\.(?:ts|mjs)|headset-host\.mjs|\/dist\/server\.mjs)(?:\s|$)/.test(command);
+}
+
+/**
+ * Say what holds the port and what to do about it. A second launch never stops
+ * the first one's processes: the other session may be in use.
+ */
+export function describeTakenPort(port: number, holder?: PortHolder, home: string = homedir()): string {
+  if (!holder) return `TCP ${port} already has a listening process. Stop that session, or pass --lan-port with a free port.`;
+  let command = holder.command.split(home).join('~');
+  if (command.length > 120) command = `${command.slice(0, 117)}...`;
+  const whose = isStereofoldHostCommand(holder.command)
+    ? 'a Stereofold host, so another launch is still running or was left behind'
+    : 'another program';
+  return `TCP ${port} already has a listening process: pid ${holder.pid}, ${whose} (${command}). `
+    + `This launch leaves it alone. Stop that launch with Ctrl-C in its terminal or kill ${holder.pid}, or pass --lan-port with a free port.`;
+}
+
+type TextRunner = (command: string, args: readonly string[]) => Promise<string | undefined>;
+/** stdout of a short command, or undefined when it could not run at all. A nonzero exit still returns its output. */
+const runText: TextRunner = (command, args) => new Promise(done => {
+  execFile(command, [...args], { timeout: 5_000 }, (error, stdout) => {
+    done(!error || typeof (error as NodeJS.ErrnoException & { code?: unknown }).code === 'number' ? String(stdout) : undefined);
+  });
+});
+
+/** Which process listens on this TCP port, when this Mac will say. */
+export async function findPortHolder(port: number, run: TextRunner = runText): Promise<PortHolder | undefined> {
+  const pid = Number(/^p(\d+)$/m.exec(await run('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-F', 'p']) ?? '')?.[1]);
+  if (!Number.isInteger(pid) || pid <= 0) return undefined;
+  const command = (await run('ps', ['-o', 'command=', '-p', String(pid)]) ?? '').trim();
+  return { pid, command: command || 'command not shown' };
 }
 
 export type HostAddress = { origin: string; address: string };
@@ -559,6 +612,54 @@ export async function stopOwnedHost(host: ChildProcess, processGroup = false, gr
   await wait(1_000);
 }
 
+/** One process-table row. */
+export type ProcessRow = { pid: number; ppid: number; pgid: number };
+
+export function parseProcessTable(text: string): ProcessRow[] {
+  return text.split('\n').map(line => line.trim().split(/\s+/).slice(0, 3).map(Number))
+    .filter(fields => fields.length === 3 && fields.every(Number.isInteger) && fields[0] > 0)
+    .map(([pid, ppid, pgid]) => ({ pid, ppid, pgid }));
+}
+
+/** The process table, or only the named processes; undefined when `ps` could not run. */
+export async function readProcessTable(pids?: readonly number[], run: TextRunner = runText): Promise<ProcessRow[] | undefined> {
+  const listed = await run('ps', pids ? ['-o', 'pid=,ppid=,pgid=', '-p', pids.join(',')] : ['-A', '-o', 'pid=,ppid=,pgid=']);
+  return listed === undefined ? undefined : parseProcessTable(listed);
+}
+
+/**
+ * The processes this launcher runs under, each with the parent it had at start.
+ *
+ * `pnpm run demo` reaches here through pnpm, the pnpm it re-executes, the tsx
+ * CLI and the demo launcher. A top process killed outright passes nothing
+ * down, so the direct parent never notices and the session keeps running
+ * with nothing driving it. The chain is the direct
+ * parent plus every further ancestor in this process's own process group: the
+ * job a terminal or another program started. The shell above that job is not
+ * part of the launch, so `nohup ... &` from a shell that then exits still works.
+ */
+export function launchChain(rows: readonly ProcessRow[], self: { pid: number; ppid: number }): ProcessRow[] {
+  const byPid = new Map(rows.map(row => [row.pid, row]));
+  const group = byPid.get(self.pid)?.pgid;
+  const chain: ProcessRow[] = [];
+  for (let next = byPid.get(self.ppid); next && next.pid > 1; next = byPid.get(next.ppid)) {
+    if (chain.some(row => row.pid === next!.pid)) break;
+    if (chain.length > 0 && next.pgid !== group) break;
+    chain.push(next);
+  }
+  return chain;
+}
+
+/**
+ * A process of the launch chain has exited or now has a different parent. An
+ * exited process that nobody has reaped yet still lists with its old parent,
+ * but its child in the chain has already been handed to another one.
+ */
+export function launchChainBroken(chain: readonly ProcessRow[], current: readonly ProcessRow[]): boolean {
+  const parents = new Map(current.map(row => [row.pid, row.ppid]));
+  return chain.some(row => parents.get(row.pid) !== row.ppid);
+}
+
 type Control = { origin: string; token: string; sessionId: string };
 
 async function readControl(path: string): Promise<Control> {
@@ -591,13 +692,21 @@ async function readState(control: Control, args: Record<string, unknown> = {}): 
 }
 
 function say(message: string) { process.stdout.write(`${message}\n`); }
-/** Piped stdout is asynchronous, so exiting without draining it drops the last lines. */
-const flush = () => new Promise<void>(done => { process.stdout.write('', () => done()); });
+/**
+ * Piped stdout is asynchronous, so exiting without draining it drops the last
+ * lines. A reader that stopped reading must not hold the exit, so the wait is capped.
+ */
+const flush = () => Promise.race([new Promise<void>(done => { process.stdout.write('', () => done()); }), realSleep(1_000)]);
 
 async function main(options: QuestOptions, bundled = false): Promise<void> {
+  // Read who started this run before anything slow, so a launcher that is
+  // stopped during the checks below is still noticed once the host exists.
+  const self = { pid: process.pid, ppid: process.ppid };
+  const chain = launchChain(await readProcessTable() ?? [], self);
   say('Stereofold · checking this machine');
   const report = await runDoctor({ root: pluginRoot, port: options.lanPort, controlFile: undefined });
-  const problems = preflightProblems(report, options.allowStaleBuild);
+  const problems = preflightProblems(report, options.allowStaleBuild,
+    report.port.state === 'listening' ? await findPortHolder(options.lanPort) : undefined);
   if (problems.length > 0) {
     say(formatDoctor(report));
     say('');
@@ -618,7 +727,7 @@ async function main(options: QuestOptions, bundled = false): Promise<void> {
   // default is often not the one holding that session.
   const browserChoice = chooseBrowser({ explicit: options.browser });
   say(formatBrowserChoice(browserChoice));
-  // Say what a grip press will do before the headset can press one, and name
+  // Say what a talk press will do before the wearer can make one, and name
   // what is missing when this Mac cannot transcribe.
   if (options.pushToTalk) {
     say(`  ${pushToTalkTranscriberFromEnv(process.env).describe()}`);
@@ -638,8 +747,12 @@ async function main(options: QuestOptions, bundled = false): Promise<void> {
     options.source, options.statePath, ...(options.lessonPath ? [options.lessonPath] : []),
     ...(options.densityPath ? ['--density', options.densityPath] : []),
     ...(options.assemblyId ? ['--assembly', options.assemblyId] : []),
-    ...(options.pushToTalk ? ['--ptt'] : ['--no-ptt']), ...(options.remember ? [] : ['--no-remember']),
-  ], { cwd: pluginRoot, env: questHostEnv(options), detached: hostProcessGroup, stdio: ['ignore', 'pipe', 'pipe'] });
+    ...questHostVoiceFlags(options), ...(options.remember ? [] : ['--no-remember']),
+  ], { cwd: pluginRoot, env: { ...questHostEnv(options), [HOST_LIFELINE_ENV]: '1' }, detached: hostProcessGroup, stdio: ['pipe', 'pipe', 'pipe'] });
+  // The host runs in its own session, so a terminal's Ctrl-C or hangup never
+  // reaches it. Its stdin is this process's lifeline: if this process dies
+  // without stopping it (SIGKILL, a crash), the pipe closes and the host stops.
+  host.stdin?.on('error', () => undefined);
 
   let browser: { close(): Promise<void> } | undefined;
   let stopRelay: (() => Promise<void>) | undefined;
@@ -653,6 +766,10 @@ async function main(options: QuestOptions, bundled = false): Promise<void> {
   const stop = async (code: number, reason?: string) => {
     if (stopping) return;
     stopping = true;
+    // After the terminal closes, every write to it fails. Nothing printed from
+    // here on may take this process down before the host is reaped.
+    process.stdout.on('error', () => undefined);
+    process.stderr.on('error', () => undefined);
     say('');
     if (reason) say(reason);
     say('Stopping. The session and the private Wi-Fi listener close with it.');
@@ -677,13 +794,26 @@ async function main(options: QuestOptions, bundled = false): Promise<void> {
     await flush();
     process.exit(code);
   };
-  process.on('SIGINT', () => void stop(0));
-  process.on('SIGTERM', () => void stop(0));
+  // SIGHUP is the terminal closing. Without a handler it ends this process at
+  // once and leaves the host, which is in its own session, holding the port.
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => void stop(0));
 
-  // Run from an agent, this command is usually a grandchild of whatever gets
-  // signalled, and a signal sent to the wrapper alone never reaches here. Being
-  // reparented to init is the reliable sign that nobody is driving any more.
-  const orphanWatch = setInterval(() => { if (process.ppid === 1) void stop(0, 'The process that started this command is gone.'); }, 2_000);
+  // Run from another program or a package script, this command sits under wrappers,
+  // and a wrapper killed at the top passes nothing down. A process of the
+  // launch chain exiting, or this process being handed to a new parent, is
+  // the reliable sign that nobody is driving any more.
+  const gone = 'The process that started this command is gone.';
+  let reading = false;
+  const orphanWatch = setInterval(() => {
+    if (stopping || reading) return;
+    if (process.ppid !== self.ppid) { void stop(0, gone); return; }
+    if (chain.length === 0) return;
+    reading = true;
+    void readProcessTable(chain.map(row => row.pid)).then(current => {
+      reading = false;
+      if (current && launchChainBroken(chain, current)) void stop(0, gone);
+    });
+  }, 2_000);
   orphanWatch.unref();
 
   let hostErrors = '';
@@ -849,6 +979,9 @@ async function main(options: QuestOptions, bundled = false): Promise<void> {
     if (wantedTour) say(`  ${wantedTour} starts in the headset as soon as it pairs. Only one panel runs a tour at a time.`);
     else if (lessonTour) say(`  no tour plays by itself. Say "play the tour" in the headset, or restart with --play-tour.`);
     say('Ctrl-C stops sharing and closes the session.');
+    // A signal sent to pnpm's own process alone can be held there until its
+    // child exits, so name the one process that stops all of this from elsewhere.
+    say(`  From another terminal or program: kill ${process.pid}`);
 
     let known = new Set<string>();
     let started = false;

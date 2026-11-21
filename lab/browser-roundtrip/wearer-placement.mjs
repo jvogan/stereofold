@@ -21,6 +21,14 @@
 export const PLACEMENT_TAKEOVER_REASONS = Object.freeze(['grab', 'voice-move', 'voice-turn', 'voice-scale', 'menu']);
 
 /**
+ * Holds that last only for the chapter they were taken in. An agent's move
+ * shows the wearer something in this chapter; the next chapter, a start and
+ * Done open at their own views. The wearer's own moves are not listed: they
+ * carry across ordinary chapters.
+ */
+export const CHAPTER_PLACEMENT_REASONS = Object.freeze(['agent-placement']);
+
+/**
  * The wearer's placement hold.
  *
  * `holdsPlacement()` retains manual placement across ordinary chapters and
@@ -34,18 +42,25 @@ export function createPlacementHold({ now = () => Date.now() } = {}) {
   let chapter = 0, heldChapter = -1, held = false, reason, at = 0, moves = 0;
   const checkpoints = new WeakSet();
   const newOwner = () => Object.freeze({});
+  // Changes at every chapter end: a chapter hold from an earlier one has expired.
+  let era = newOwner();
   let owner = newOwner();
   return {
     // Opaque, page-local history metadata. Never included in a scientific capture.
     ownership() {
-      const value = Object.freeze({ token: owner, held, chapter, heldChapter, reason });
+      const value = Object.freeze({ token: owner, held, chapter, heldChapter, reason, era });
       checkpoints.add(value); return value;
     },
-    restoreOwnership(value) {
+    // `renew` brings that ownership back under a new owner token, for a
+    // placement that returns to an earlier owner's pose without undoing to it.
+    restoreOwnership(value, { renew = false } = {}) {
       if (!checkpoints.has(value)) throw new TypeError('Unknown placement owner.');
-      held = value.held; reason = value.reason;
+      // A hold taken for a chapter that has since ended stays ended: history
+      // brings back its pose and owner, never its hold.
+      const expired = value.held && CHAPTER_PLACEMENT_REASONS.includes(value.reason) && value.era !== era;
+      held = value.held && !expired; reason = expired ? 'chapter-ended' : value.reason;
       heldChapter = held && value.heldChapter === value.chapter ? chapter : -1;
-      at = now(); owner = value.token;
+      at = now(); owner = renew ? newOwner() : value.token;
     },
     /**
      * The wearer moved the structure. `reason` is one of
@@ -62,6 +77,33 @@ export function createPlacementHold({ now = () => Date.now() } = {}) {
     release(value = 'reset') {
       held = false; heldChapter = -1; reason = value; at = now(); owner = newOwner();
       return { held, chapter, reason };
+    },
+    /**
+     * The chapter ended (Next, Back, a start, Done). A hold taken for that
+     * chapter alone ends with it; the wearer's own hold stays. Returns the
+     * release, or undefined when nothing was released.
+     */
+    endChapter(value = 'chapter-ended') {
+      era = newOwner();
+      if (held && !CHAPTER_PLACEMENT_REASONS.includes(reason)) return undefined;
+      // Nothing held: the owner still changes, so an undo or redo of an
+      // agent move from the chapter that ended cannot bring its hold back.
+      if (!held) { owner = newOwner(); return undefined; }
+      held = false; heldChapter = -1; reason = value; at = now(); owner = newOwner();
+      return { held, chapter, reason };
+    },
+    /**
+     * A chapter change failed and put back the pose it found: the owner it
+     * found comes back with that pose. `found` and `ended` are `ownership()`
+     * read just before and just after `endChapter`; anything that has taken
+     * the placement since (a hand, a spoken move, Reset) stands instead.
+     */
+    resumeChapter(found, ended) {
+      if (!checkpoints.has(found) || !checkpoints.has(ended) || ended.token !== owner) return false;
+      held = found.held; reason = found.reason;
+      heldChapter = held && found.heldChapter === found.chapter ? chapter : -1;
+      at = now(); owner = found.token; era = found.era;
+      return true;
     },
     /** Whether a lesson chapter may frame the structure automatically. */
     allowsChapterFraming() { return !(held && heldChapter === chapter); },

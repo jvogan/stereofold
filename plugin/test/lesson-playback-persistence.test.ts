@@ -144,7 +144,9 @@ function panel(xr = false, molecularAnimation?: any) {
       const end = inspectorSource.indexOf('      installedLesson=panelCustomTour;', start);
       expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
       const c = vm.createContext({ data:{scene:checked,customTour:tour},tourPlayer:player,TOURS:[],isCompanion:xr,
-        densityReferencePreview:false,panelCustomTour:tour,options:{},
+        densityReferencePreview:false,panelCustomTour:tour,
+        // A reconnect calls hydrate without options: no autoplay continuation.
+        options:{},
         closed:false,generation:1,ownGeneration:1,restoredLessonPlayback:false });
       await vm.runInContext(ts.transpileModule(`(async()=>{${inspectorSource.slice(start,end)}})()`,
         {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
@@ -175,6 +177,8 @@ describe('saved lesson handoff and reconnect', () => {
       performance, localInteractionSerial:0, panelEntering, sameEntryScene, recordHeadsetEvent:noop,
       binding:{serverEpoch:'epoch',sourceToken:'source',stateRevision:1,inspectionRevision:1},savedScene:h.capture(),
       outcome:{textContent:''},showOutcome:noop });
+    // A headset page that cannot follow reloads the host's saved view.
+    page.reloads=0;page.followRecovery=false;page.recoveryPanel=undefined;page.busyBeat=async()=>{};page.beatCompletion=undefined;page.retryFollowRecovery=()=>{page.reloads++;};
     // Keep the real admission condition as it evolves. A missing string marker
     // used to silently extract an empty body and make every peer follow a no-op.
     const candidates:ts.IfStatement[]=[];
@@ -469,7 +473,12 @@ describe('saved lesson handoff and reconnect', () => {
       let release!:()=>void;p.queue.queue=new Promise<void>(resolve=>{release=resolve;});
       const pending=p.follow(incoming);
       h.registry.control({speed:2});const local=h.capture();
-      release();await expect(pending).rejects.toThrow('Local work changed');
+      release();
+      // A desktop blocks behind Retry. A headset page, which has no reachable
+      // Retry, reloads the host's saved view instead; the edit is kept until
+      // that view is drawn over it.
+      if(xr) { await pending; expect(p.page.reloads).toBe(1); expect(p.page.followRecovery).toBe(true); expect(p.page.blocked).toBe(false); }
+      else await expect(pending).rejects.toThrow('Local work changed');
       expect(h.capture()).toEqual(local);expect(h.registry.snapshot().state).toBe('playing');
       expect(p.page.binding.inspectionRevision).toBe(1);expect(p.page.remote).toBe(false);
     } finally {h.player.pause();h.cleanup();vi.useRealTimers();}
@@ -669,7 +678,7 @@ describe('saved lesson handoff and reconnect', () => {
     try {
       await player.select(lesson.id); await player.start(false, 0);
       const c: any = vm.createContext({ workspace:h.workspace, savedScene:h.capture(),
-        entryScene:undefined,failedSourceLoad:undefined,
+        entryScene:undefined,failedSourceLoad:undefined,followRecovery:false,recoveryPanel:undefined,
         loading:false,remote:false,closed:false,reloading:false,dirty:false,blocked:false,edits:0,timer:undefined,
         binding:{serverEpoch:'epoch',sourceToken:'source',stateRevision:1,inspectionRevision:1},
         sent:{serverEpoch:'epoch',sourceToken:'source',baseStateRevision:1,baseInspectionRevision:1},

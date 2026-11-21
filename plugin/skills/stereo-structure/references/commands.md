@@ -60,6 +60,7 @@ actual source. Read the handoff reference before using its tools.
 | Session | Enter VR for a wearer on the flat page | `manage_companion` | `{"action":"enter-vr"}` |
 | Eyes | Both eyes as the wearer sees them | `capture_headset_view` | `{"source":"device","maxWidth":1600}` |
 | Eyes | The rendered scene, from the page | `capture_headset_view` | `{"source":"page","maxWidth":480}` |
+| Eyes | "Show the view here": a live picture beside the chat | `show_live_view` | `{}`; give the person the returned path to open once from Files, This computer in Claude Science, where it reloads by itself |
 | Eyes | Why a control did nothing | `read_headset_browser` | `{"consoleMs":1200}` |
 | Eyes | What the page logged on its heartbeat | `read_headset_log` | `{"limit":40}` |
 | Voice | Wait for the wearer to speak into the headset microphone | `listen_voice` | `{"timeoutSeconds":20,"cursor":0}` |
@@ -217,8 +218,8 @@ fetched from the demo index and checked against its digest. The filament tier
 requires a separately prepared EMD-6347 density map; the live player refuses
 to prepare that asset. Use `tip` directly from `wall` when the map is absent.
 
-For incremental assembly at fixed coordinates, open `microtubule-arrival`
-at its `build` stage. Its seven reveal chapters add cumulative tubulin chains
+For "microtubule growth", the animation of tubulin units building a wall at
+fixed coordinates, open `microtubule-arrival` at its `build` stage. Its seven reveal chapters add cumulative tubulin chains
 without replacing the wall source. Use `control_tour` Next/Back for these
 chapters; `grow_structure {"stage":"density"}` changes to its final EMDB
 source. Supply the companion's reported `device` class. Prepare that map
@@ -229,7 +230,8 @@ the atomic `tube` stage belongs to the separate `microtubule-growth` demo.
 The staged Quest 2 growth workflow refuses tiers above 43,066 atom sites; the
 tip tier at that count was exercised. This threshold belongs to this staged
 path and does not establish an arbitrary-structure rendering ceiling. The tube
-tier is refused without changing the scene. Other or unknown device classes
+tier, at 177,268 atom sites, has also opened on a Quest 2 and is admitted as
+that one exact structure. Other or unknown device classes
 have no assigned Quest 2 threshold. For other structures or devices, check
 actual rendering behavior instead of inferring a capacity from this workflow.
 The authored growth color key is alpha tubulin blue, beta tubulin amber, EB3

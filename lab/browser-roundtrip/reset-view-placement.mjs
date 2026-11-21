@@ -1,5 +1,5 @@
 import { SUBJECT_CENTRE_TANGENT } from './placement-fit-envelope.mjs';
-import { PLACEMENT_MIN_SCALE, PLACEMENT_MAX_TRANSLATION } from './placement-limits.mjs';
+import { PLACEMENT_MIN_SCALE, PLACEMENT_MAX_TRANSLATION, WEARER_SCALE_RANGE } from './placement-limits.mjs';
 import { applyMatrix4, invertMatrix4 } from './room-lock.mjs';
 import { SUBJECT_SHIFT_LIMIT, lensTangent } from './plate-standoff.mjs';
 import { ENTRY_STANDOFF_RANGE } from './room-anchor.mjs';
@@ -272,6 +272,11 @@ function fitViewPlacement(options) {
     const mid = (low + high) / 2, candidate = atScale(mid);
     if (candidate) { best = candidate; low = mid; } else high = mid;
   }
+  // A new structure's entry seat may not shrink below the smallest size the
+  // wearer could choose by hand. A sliver that clears the outgoing glass is
+  // no fit: the recovery in `resetViewPlacement` moves or hides the menu.
+  if (options.entryFloor && best.scale < seat.scale / WEARER_SCALE_RANGE)
+    throw Error('Could not reset: the entry size cannot fit inside both eyes and clear the menu within 4 m. Press Fit, or move the menu.');
   return best;
 }
 

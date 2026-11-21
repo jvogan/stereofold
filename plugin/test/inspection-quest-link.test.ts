@@ -157,6 +157,47 @@ describe('QuestLink bounded HTTPS transport', () => {
     expect(proxyPort).toBeGreaterThan(0);
   });
 
+  it('ends a startup that a close overtakes before its proxy is bound, including one queued behind another', async () => {
+    const target = await listen((_request, response) => response.end('ok'));
+    cleanups.push(() => new Promise(resolve => target.server.close(() => resolve())));
+    const createServer = http.createServer;
+    const proxies: http.Server[] = [];
+    const created = vi.spyOn(http, 'createServer').mockImplementation(((...args: any[]) => {
+      const server = (createServer as any).apply(http, args); proxies.push(server); return server;
+    }) as any);
+    cleanups.push(async () => created.mockRestore());
+    const children: FakeCloudflared[] = [];
+    let holdFirstUrl = false;
+    const link = new QuestLink({ dnsGraceMs:0, spawn: (() => {
+      const child = new FakeCloudflared(); children.push(child);
+      if (!(holdFirstUrl && children.length === 1)) queueMicrotask(() => child.stderr.write(`INF tunnel available at ${publicOrigin}\n`));
+      return child as any;
+    }) as any, randomToken: () => '3'.repeat(64), probe: readyProbe });
+    cleanups.push(() => link.close());
+    const url = `http://127.0.0.1:${target.port}/#${targetToken}`;
+    const nothingRuns = () => {
+      expect(proxies.length).toBeGreaterThan(0);
+      expect(proxies.filter(server => server.listening)).toEqual([]);
+      expect(children.filter(child => child.killed.length === 0)).toEqual([]);
+    };
+
+    // A close in the same turn as the open lands before any listener exists.
+    const opening = link.open({ url }); opening.catch(() => undefined);
+    await link.close();
+    await expect(opening).rejects.toThrow('closed while starting');
+    nothingRuns();
+
+    // A second open waits behind a first that is still starting; one close ends both.
+    proxies.length = 0; children.length = 0; holdFirstUrl = true;
+    const first = link.open({ url }); first.catch(() => undefined);
+    while (children.length === 0) await new Promise(resolve => setImmediate(resolve));
+    const second = link.open({ url }); second.catch(() => undefined);
+    await link.close();
+    await expect(first).rejects.toThrow('closed while starting');
+    await expect(second).rejects.toThrow('closed while starting');
+    nothingRuns();
+  });
+
   it('does not spawn or leave an exposed proxy for a malformed generated token, and returns 502 for an unavailable upstream', async () => {
     const target = await listen((_request, response) => response.end('ok'));
     const port = target.port;

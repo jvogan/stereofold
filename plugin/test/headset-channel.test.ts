@@ -55,7 +55,7 @@ async function fixture(linked = true) {
   await t.call('poll_inspection',{...binding,panelId,availability:'ready'});
   let connected = linked;
   // Synthetic paired transport; no listeners, browsers, or physical devices.
-  const status = {url:'https://192.168.1.2:8443/',host:'192.168.1.2',port:8443,fingerprint:'test',
+  const status = {url:'https://192.168.77.2:8443/',host:'192.168.77.2',port:8443,fingerprint:'test',
     sessionExpiresAt:'2099-01-01T00:00:00.000Z',sessionMaxExpiresAt:'2099-01-01T00:00:00.000Z',pairingExpiresAt:'2099-01-01T00:00:00.000Z',launchId:randomUUID(),
     clients:[{id:'test-client',deviceClass:'quest2',lastUsedAt:new Date().toISOString()}]};
   vi.spyOn(InspectionCompanionHttp.prototype,'open').mockResolvedValue({url:'http://127.0.0.1:1234/#test',port:1234});

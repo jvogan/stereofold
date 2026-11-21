@@ -262,7 +262,7 @@ it('rejects an oversized otherwise valid manifest and keeps the installed defini
 });
 
 // These integration fixtures use the installed demo cache when present; no download is implicit.
-for (const [demo, coordinate] of [['hemoglobin-switch', 'hemoglobin-tr-motion.cif'], ['atp-synthase-rotor', 'atp-synthase-rotor-motion.cif'], ['kinesin-walk', 'kinesin-walk-motion.cif']]) {
+for (const [demo, coordinate] of [['hemoglobin-switch', 'hemoglobin-tr-motion.cif'], ['atp-synthase-rotor', 'atp-synthase-rotor-motion.cif'], ['kinesin-walk', 'kinesin-walk-motion.cif'], ['daraxonrasib-assembly', 'daraxonrasib-assembly-motion.cif']]) {
   it(`edits ${demo} live through install_lesson`, async context => {
     const { demoCoordinatePath, readGrowthIndex } = await import('../src/molecular-growth.js');
     const { readAddressedDemoFile } = await import('../src/addressed-demo-cache.js');
@@ -446,16 +446,19 @@ it('a failed explicit reframe restores the prior camera and placement', async ()
   } finally {await t.close();}
 });
 
-it('delivers a lesson install to a busy molecular drag without waiting for release',async()=>{
+it('holds a lesson install while the wearer drags the molecule and delivers it once they let go',async()=>{
   const t=await setup();
   try {
     const state=textState(await t.call('get_inspection_state',{sessionId:t.sessionId}));
     const panelId=state.panels[0].panelId;
-    const beat=()=>t.call('poll_inspection',{...t.bind,panelId,availability:'busy'});
-    await beat();
+    const beat=(availability:'busy'|'ready')=>t.call('poll_inspection',{...t.bind,panelId,availability});
+    await beat('busy');
     const installed=await t.call('install_lesson',{sessionId:t.sessionId,lesson:manifest(),start:{autoplay:false,narration:false}});
     expect(installed.isError).not.toBe(true);
-    const delivery=(await beat())._meta[KEY].delivery;
+    // A hand on the molecule keeps the lesson queued; the grab is the wearer's.
+    expect((await beat('busy'))._meta[KEY].delivery).toBeUndefined();
+    expect(textState(installed).command.status).toBe('queued');
+    const delivery=(await beat('ready'))._meta[KEY].delivery;
     expect(delivery?.change.kind).toBe('lesson');
     const failure=await t.call('complete_inspection',{...t.bind,panelId,commandId:delivery.commandId,claimToken:delivery.claimToken,
       failure:'render_failed',failureReason:'Test cleanup'});
@@ -525,7 +528,7 @@ it.each(['ready', 'busy'] as const)('settles a vanished hidden %s page lesson an
 
 it.each(['page-hidden', 'headset-hidden'].flatMap(hidden =>
   (['ready', 'busy'] as const).map(availability => ({ hidden, availability }))))(
-  'keeps a slowly polling $availability $hidden lesson for ten minutes and renders on wake', async ({ hidden, availability }) => {
+  'keeps a slowly polling $availability $hidden lesson while the wearer is briefly away and renders on wake', async ({ hidden, availability }) => {
   let now = 1_000_000;
   const t = await setup(undefined, cif, undefined, { now: () => now });
   try {
@@ -536,8 +539,9 @@ it.each(['page-hidden', 'headset-hidden'].flatMap(hidden =>
     const queued = textState(await t.call('install_lesson', { sessionId: t.sessionId, lesson: manifest() }));
     // A second mounted page is not proof this still-polling page has gone.
     await t.call('attach_inspection', { ...t.bind, surface: 'companion' });
-    const interval = availability === 'busy' ? 100_000 : 30_000;
-    for (let elapsed = 0; elapsed < 600_000; elapsed += interval) {
+    // The lesson waits two minutes, or the busy page's longer heartbeat allowance.
+    const interval = availability === 'busy' ? 50_000 : 30_000, hold = availability === 'busy' ? 180_000 : 120_000;
+    for (let elapsed = interval; elapsed < hold; elapsed += interval) {
       now += interval;
       const reply = await t.call('poll_inspection', { ...t.bind, panelId, availability, xrStartup: report });
       expect(reply.structuredContent.attached).toBe(true);

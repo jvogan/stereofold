@@ -3,12 +3,10 @@ import { connectionStatus, markTalkLinkLost, TALK_LINK_LOST } from './connection
 /**
  * Hold a Quest face button to signal push-to-talk to the Mac.
  *
- * This was once the left grip, which is a guaranteed misfire: a wearer
- * squeezing the left grip to steady a two-hand scale opened a microphone. Both
- * grips now grab the structure and push-to-talk is holding A or X. The button
- * reader is
- * `xr-buttons.mjs`; it calls `start()` and `stop()` below, which are the same
- * two calls the grip edge used to make, so the transport is unchanged.
+ * Push-to-talk is holding A or X, not a grip: both grips grab the structure,
+ * and a wearer squeezing a grip to steady a two-hand scale must not open a
+ * microphone. The button reader is `xr-buttons.mjs`; it calls `start()` and
+ * `stop()` below.
  *
  * `pushToTalkBinding()` publishes the live binding for the frame loop that
  * reads the buttons. The viewer builds the button reader and the immersive
@@ -16,7 +14,7 @@ import { connectionStatus, markTalkLinkLost, TALK_LINK_LOST } from './connection
  *
  * The page sends `push_to_talk` with `{state:'down'}` and `{state:'up'}`
  * through the same authenticated JSON `/tool` route every other companion
- * action uses. The grip edge itself carries no audio. In an authenticated
+ * action uses. The edge itself carries no audio. In an authenticated
  * companion, optional microphone capture starts from the same user gesture
  * and sends a bounded PCM recording only after browser permission. The Mac
  * decides what the press means.

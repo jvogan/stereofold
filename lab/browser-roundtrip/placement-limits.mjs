@@ -9,13 +9,22 @@ export const PLACEMENT_MAX_SCALE = 1e6;
 export const PLACEMENT_MAX_TRANSLATION = 1e6;
 /** The farthest an automatic XR fit may seat a structure from the eye, in metres: a room holds it. */
 export const XR_ROOM_MAX_METRES = 8;
-/** Wearer resizing spans one fifth to five times the committed XR entry size.
+/** Wearer resizing spans one twelfth to twelve times the committed XR entry size.
  * The reference stays fixed across releases and authored placements; a fresh
  * entry establishes a new one. Outside the band, hold outward gestures and
  * allow gradual inward gestures, without snapping to the nearest boundary.
  * Automatic framing and assistant placements use the absolute numerical range.
+ *
+ * The band keeps a held stick or repeated pinches from shrinking the
+ * structure out of sight, and leaves room for the two sizes a wearer reaches
+ * for: small enough to hold, and overhead and far larger than the room. This
+ * one factor sets both ends, and the tests read it. An entry is about 2.3 to
+ * 3.0 m across its bounding sphere, or 1.2 to 1.7 m when name plates cap it.
+ * Twelve gives 0.19 to 0.25 m at the small end and 28 to 36 m at the large
+ * end (0.1 m and 14 m from the smallest entry). Five gave 0.46 to 0.6 m, too
+ * large to hold, and 11.7 to 15 m (6 m from the smallest entry).
  */
-export const WEARER_SCALE_RANGE = 5;
+export const WEARER_SCALE_RANGE = 12;
 export function clampPlacementScale(value, entryScale, currentScale) {
   const reference = Number.isFinite(entryScale) && entryScale > 0
     ? Math.min(PLACEMENT_MAX_SCALE, Math.max(PLACEMENT_MIN_SCALE, entryScale)) : undefined;

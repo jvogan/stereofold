@@ -174,3 +174,59 @@ test('failed attachment restores the stock object and discovery delegates normal
     assert.equal(calls, 1);
   } finally { adapter.restore(); XRManager.prototype.update = original; }
 });
+
+test('without an external draw the pointer is shown in the molecule pass exactly as before', () => {
+  const plain = harness(), external = harness();
+  const a = attachXrPointerHelper(plain), b = attachXrPointerHelper(external);
+  b.setExternal(false);
+  for (const h of [plain, external]) h.helper.update(rays, [[0, 0, -1]], [0, 0, -1]);
+  const visible = h => [...h.objects].map(object => object.state.visible);
+  assert.deepEqual(visible(plain), [true, true, true]);
+  assert.deepEqual(visible(external), visible(plain));
+  assert.equal(plain.updates.length, external.updates.length, 'the same scene updates');
+  a.restore(); b.restore();
+});
+
+test('an external draw keeps the pointer out of the molecule pass and draws it from the given eye at scale 1', () => {
+  const h = harness();
+  const calls = [];
+  h.helper.camera = { scale: 1 };
+  h.helper.setCamera = camera => { calls.push(['setCamera', camera.name]); h.helper.camera.scale = 1; };
+  const renderer = {
+    update: (camera, scene) => calls.push(['update', camera === h.helper.camera, scene === h.helper.scene]),
+    renderBlended: (scene, camera) => calls.push(['renderBlended', scene === h.helper.scene, camera === h.helper.camera,
+      [...h.objects].map(object => object.state.visible)]),
+  };
+  const adapter = attachXrPointerHelper(h);
+  const objects = [...h.objects];
+  adapter.setExternal(true);
+  h.helper.update(rays, [], [0, 0, -1]);
+  assert.ok(objects.every(object => object.state.visible === false), 'the molecule pass skips every pointer object');
+  assert.equal(adapter.drawExternal(renderer, { name: 'left-eye' }), true);
+  assert.deepEqual(calls, [['setCamera', 'left-eye'], ['update', true, true], ['renderBlended', true, true, [true, true, true]]]);
+  assert.ok(objects.every(object => object.state.visible === false), 'hidden again after the external draw');
+  h.helper.update([], [], undefined);
+  calls.length = 0;
+  assert.equal(adapter.drawExternal(renderer, { name: 'left-eye' }), false, 'nothing to draw');
+  assert.deepEqual(calls, []);
+  // Given back to the molecule pass.
+  h.helper.update(rays, [], undefined);
+  adapter.setExternal(false);
+  assert.deepEqual(objects.map(object => object.state.visible), [true, true, false]);
+  assert.equal(adapter.drawExternal(renderer, { name: 'left-eye' }), false);
+  adapter.restore();
+});
+
+test('an external draw asked for before the helper is discovered applies once it is', () => {
+  const h = harness(), original = XRManager.prototype.update;
+  XRManager.prototype.update = function () { return true; };
+  const pointer = installXrPointer(h);
+  try {
+    pointer.setExternal(true);
+    assert.equal(pointer.drawExternal({}, {}), false);
+    XRManager.prototype.update.call({ webgl: h.canvas.webgl, pointerHelper: h.helper });
+    h.helper.update(rays, [], undefined);
+    assert.ok([...h.objects].every(object => object.state.visible === false));
+    pointer.restore();
+  } finally { XRManager.prototype.update = original; }
+});

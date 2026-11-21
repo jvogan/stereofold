@@ -129,7 +129,10 @@ describe('restarting a lesson', () => {
       await new Promise(resolve => setTimeout(resolve, 400));
       await applyTourCommand(player, { action: 'next' });
       expect(player.getState().step).toBe(2);
-      expect(Math.abs(yaw % 360)).toBeGreaterThan(30);
+      // Leaving the spin played out the turn it had left: chapter three is unturned.
+      expect(Math.abs(((yaw % 360) + 540) % 360 - 180)).toBeLessThan(1e-6);
+      // The view then turned outside the lesson.
+      yaw += 50;
       const turned = yaw;
       await applyTourCommand(player, { action: 'start', tourId: spin.id, autoplay: false, narration: false });
       expect(player.getState()).toMatchObject({ step: 0, active: true, navigating: false });

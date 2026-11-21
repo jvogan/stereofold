@@ -30,7 +30,7 @@ afterEach(() => { setConnectionStatus(); vi.useRealTimers(); });
 
 const inspectorSource = await readFile(new URL('../src/inspector.ts', import.meta.url), 'utf8');
 const inspectorAst = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
-const WANTED = ['armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'poll', 'problemMessage', 'showProblem',
+const WANTED = ['retryFollowRecovery', 'armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'poll', 'problemMessage', 'showProblem',
   'showConnectionProblem', 'registerComparisonSources', 'stepAsideWhileHidden'];
 const beatFunctions = inspectorAst.statements
   .filter(node => ts.isFunctionDeclaration(node) && WANTED.includes(node.name?.text ?? ''))
@@ -51,7 +51,7 @@ function companionPage(options: { slow?: () => Promise<any>; delivery?: () => an
   const beats: Sent[] = [], calls: string[] = [], received: any[] = [];
   const scene = { representation: 'cartoon' };
   let hung = false;
-  const h: any = vm.createContext({
+  const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     failedSourceLoad: undefined, pollBackoff: createPollBackoff(() => Date.now(), () => 0.5),
     // Page state the extracted functions read and write.
     closed: false, experiencePreparing: false, pollInFlight: false, beatInFlight: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, pollTimer: undefined,
@@ -59,7 +59,9 @@ function companionPage(options: { slow?: () => Promise<any>; delivery?: () => an
     heldComparisons: new Map(), comparisonRegistration: 0,
     binding: { sessionId: 's', serverEpoch: 'e', sourceToken: 't', stateRevision: 1, inspectionRevision: 1 },
     panelId: 'panel', savedScene: scene, pendingReceipt: undefined, pendingReceiptFields: undefined,
-    isCompanion: true, repairNeeded: false, nextRepairAt: 0, replyOnThisBeat: false,
+    isCompanion: true, repairNeeded: false, nextRepairAt: 0, replyOnThisBeat: false, desktopRetrySource: undefined, desktopRetryAttempt: 0,
+    // Only a desktop panel posts live view pictures; a headset page has none.
+    liveViewCapture: undefined,
     hiddenSince: undefined, steppedAside: undefined, HIDDEN_STEP_ASIDE_MS: 10_000,
     voiceReadyBinding: '', connectionRecoveryLine: '', connectionNotice: false,
     retryHydrationId: undefined, loadErrorDetails: '', problemRetryKind: 'save',
@@ -379,6 +381,8 @@ it('claims through the real command queue inside the deadline the queue itself s
 function hiddenMacPage(detached: boolean) {
   const page = companionPage();
   page.h.isCompanion = false;
+  // A desktop panel always has a live view capture; no picture is asked for here.
+  page.h.liveViewCapture = { update: () => {}, stop: () => {} };
   page.h.document.visibilityState = 'hidden';
   page.h.workspace.snapshot = () => ({ ready: true, interactionActive: false, xrPresenting: false });
   const detaches: Sent[] = [];
@@ -452,7 +456,7 @@ it('the registered capture sender requires host acknowledgement, including store
   expect(inspectorSource).toContain('setHeadsetViewSender(sendHeadsetViewCapture)');
   let response: any = { structuredContent: { accepted: true } };
   const calls: any[] = [];
-  const h: any = vm.createContext({ Error, expected: () => ({ sessionId: 's', sourceToken: 't', serverEpoch: 'e' }), panelId: 'panel',
+  const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined, Error, expected: () => ({ sessionId: 's', sourceToken: 't', serverEpoch: 'e' }), panelId: 'panel',
     call: async (...args: any[]) => { calls.push(args); return response; } });
   vm.runInContext(ts.transpileModule(node.getText(inspectorAst), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, h);
   await h.sendHeadsetViewCapture({ requestId: 'capture', status: 'captured', data: 'jpeg' });

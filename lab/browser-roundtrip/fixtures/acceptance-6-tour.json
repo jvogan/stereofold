@@ -1,6 +1,5 @@
 {
-  "revision": "396595e",
-  "note": "Unmodified layout, drawn and update entries from acceptance-6 action windows. SHA-256 identifies each complete source action file. Null anchors and absent focus are retained.",
+  "note": "Unmodified layout, drawn and update entries from recorded headset action windows. SHA-256 identifies each complete source action file. Null anchors and absent focus are retained.",
   "actions": [
     {
       "file": "08-tour-run1-opening.json",

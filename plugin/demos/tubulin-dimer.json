@@ -132,7 +132,7 @@
     {
       "id": "highlight",
       "title": "Highlight",
-      "caption": "The surface shows the flat faces that make lateral contacts with the neighbouring protofilament in an assembled microtubule.",
+      "caption": "The surface shows the side faces that make lateral contacts with the neighbouring protofilament in an assembled microtubule.",
       "durationSeconds": 9,
       "changes": [
         {

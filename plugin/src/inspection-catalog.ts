@@ -3,6 +3,7 @@ import { CIF } from './compatible-cif.js';
 import { trajectoryFromMmCIF } from 'molstar/lib/commonjs/mol-model-formats/structure/mmcif.js';
 import { Symmetry } from 'molstar/lib/commonjs/mol-model/structure/model.js';
 import { createCatalogExtractor } from '../../lab/identity/extract-core.cjs';
+import { MAX_INSPECTION_CATALOG_ROWS, MAX_INSPECTION_DECLARED_ROWS, inspectionCatalogRowsRefusal } from './inspection-catalog-codec-server.js';
 
 // Keep this paired with the pinned `molstar` dependency in plugin/package.json.
 // The lab wrapper reads the installed manifest at runtime; the plugin bundle
@@ -40,12 +41,26 @@ const extractor = createCatalogExtractor({
   molstarVersion: MOLSTAR_VERSION,
   sha256: (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex'),
   yieldToHost,
+  // A catalog past this many rows cannot fit the decode policy, so a source
+  // that declares more is refused before the rows are built. An assembly is
+  // judged by its own rows, within a wider bound on the whole entry.
+  rowBudget: { maximumRows: MAX_INSPECTION_CATALOG_ROWS, maximumDeclaredRows: MAX_INSPECTION_DECLARED_ROWS,
+    refuse: inspectionCatalogRowsRefusal },
 });
 
 export const extractInspectionCatalogBytes: (
   input: Uint8Array | string,
   options?: { sourceLabel?: string | null; expectedHash?: string; assemblyId?: string },
 ) => Promise<unknown> = extractor.extractBytes;
+
+/**
+ * Refuse mmCIF text whose declarations expand past the rows Mol* may walk
+ * before it builds a model, the bound an inspected assembly's entry is held to,
+ * with the catalog's refusal. For the plain stereo viewer, which hands the text
+ * to Mol* in the panel without extracting a catalog.
+ */
+export const admitDeclaredStructureRows = (text: string): Promise<void> =>
+  extractor.admitDeclaredRows(text, MAX_INSPECTION_DECLARED_ROWS);
 
 /** Read the deposited identity, including local mmCIF sessions without a PDB request. */
 export async function inspectionSourcePdbId(text: string): Promise<string | undefined> {

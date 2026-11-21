@@ -15,10 +15,13 @@ import { plateLineEm, plateMarginEm } from '../label-layout.mjs';
  * Text widths are inverted from the recorded half extents through the same
  * plate geometry the solver uses, one identical line per recorded line.
  *
- * A record without `anchors` predates this field (acceptance 5 and earlier):
+ * Pass `outlines`, the `component-label-outline` record of the same pass, to
+ * replay a layout that placed plates by their parts' outlines.
+ *
+ * A record without `anchors` predates this field (`acceptance-5-overprint.json`, for example):
  * it cannot be replayed on real inputs, only checked at its outputs.
  */
-export function replayOptionsFromLayoutRecord(record, { measureText } = {}) {
+export function replayOptionsFromLayoutRecord(record, { measureText, outlines } = {}) {
   assert.ok(Array.isArray(record?.anchors) && record?.inputs, 'a replayable layout record carries anchors and inputs');
   const { inputs } = record;
   const lineEm = plateLineEm(), margin = plateMarginEm();
@@ -26,7 +29,12 @@ export function replayOptionsFromLayoutRecord(record, { measureText } = {}) {
     a.w === null || a.h === null ? 1 : a.w / a.h * ((a.lines - 1) + lineEm) - 2 * margin]));
   return {
     plates: record.anchors.map(a => ({ id: a.id, text: Array.from({ length: a.lines }, () => a.id),
-      anchor: a.z === null ? [0, 0, 1] : [a.x * a.z, a.y * a.z, -a.z], radius: a.r, focused: a.focused === true })),
+      anchor: a.z === null ? [0, 0, 1] : [a.x * a.z, a.y * a.z, -a.z], radius: a.r, focused: a.focused === true,
+      // The `component-label-outline` record beside it: each part's padded
+      // outline as tangent x, y pairs under `part:<id>`, placed at the anchor's
+      // depth with no further pad.
+      ...(a.z !== null && outlines?.[`part:${a.id}`]?.length ? { points: Array.from({ length: outlines[`part:${a.id}`].length / 2 },
+        (_, i) => [outlines[`part:${a.id}`][2 * i] * a.z, outlines[`part:${a.id}`][2 * i + 1] * a.z, -a.z]) } : {}) })),
     eye: [0, 0, 0], target: [0, 0, -1], up: [0, 1, 0],
     characterUnits: inputs.characterUnits, minSizeScale: inputs.minSizeScale,
     contextAlpha: inputs.contextAlpha, standoff: inputs.standoff,

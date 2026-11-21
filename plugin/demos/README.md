@@ -21,6 +21,10 @@ paths and coordinate URLs with their expected SHA-256 digests are in
 | `glucose-transporter` | 4PYP | Human GLUT1, a membrane transporter with its cavity |
 | `microtubule-growth` | 5SYF, 3JAK, EMD-6347 | Seven tiers, monomer to complete tube to EB3 on the lattice |
 | `microtubule-arrival` | 5SYF, EMD-6347 | Tubulin copies appear in place, followed by a large density tube overhead |
+| `hemoglobin-switch` | 2DN2, 2DN1 | Hemoglobin switches from T to R |
+| `atp-synthase-rotor` | 6N2Y, 6N2Z, 6N30 | ATP synthase: the rotor turns |
+| `kinesin-walk` | 5SYF, 9L7M, 8RHB, 1BG2, 3KIN | Kinesin walks hand over hand |
+| `daraxonrasib-assembly` | 9AX6 | The drug settles onto cyclophilin A, that pair docks on KRAS, then its two measured contacts and the deposited complex |
 | `binder-gallery` | Pinned published binder dataset | 17 study-qualified designs with toxin names, Adaptyv KD labels and a fixed-target comparison |
 | `binder-gallery-extended` | Same dataset | The 17 first, then one representative pairing for each other tested design, in bounded local batches |
 
@@ -61,7 +65,8 @@ Each tier is a whole lesson with its own coordinates. Ask the assistant to open
 the desired tier by name.
 The `filament` tier needs a separately prepared density asset; a live session
 does not prepare it. If the map is absent, skip that tier by naming `tip` from
-`wall`. The `tube` tier exceeds the Quest 2 size budget.
+`wall`. The `tube` tier is past the Quest 2 atom-site ceiling, but it has opened
+on a Quest 2 and is allowed there; watch the frame rate as the wearer explores it.
 
 | Stage | Coordinates | Atom sites | Catalog rows | Source bytes | Tier |
 | --- | --- | ---: | ---: | ---: | --- |
@@ -70,7 +75,7 @@ does not prepare it. If the map is absent, skip that tier by naming `tip` from
 | `protofilament` | 5SYF assembly 1, operators 1 and 14 | 13,636 | 1,734 | 1,650,023 | any |
 | `wall` | 5SYF assembly 1, operators 2-7 | 40,908 | 5,202 | 4,885,890 | any |
 | `filament` | EMD-6347 density, downsampled 4x, beside 3JAK | 0 | — | 178,236 triangles | any |
-| `tube` | 5SYF assembly 1, all 26 operators | 177,268 | 22,542 | 775,288 | classes other than Quest 2 |
+| `tube` | 5SYF assembly 1, all 26 operators | 177,268 | 22,542 | 775,288 | any |
 | `tip` | 3JAK | 43,066 | 5,800 | 4,533,400 | any |
 
 `filament` is a density map rather than atoms, so its size is a triangle count
@@ -102,9 +107,12 @@ and applies that chapter's framing. An inactive lesson keeps the room placement
 and applies the incoming colour key without chapter framing.
 
 `device` decides what is allowed. A `quest2`-class headset is refused anything
-over 43,066 atom sites, which is the `tip` tier exactly, so on a Quest 2 the one
-refused tier is `tube`. The refusal comes back with a line short enough to speak
-instead of an attempt that would drop the session with the headset on. The tiers
+over 43,066 atom sites, which is the `tip` tier exactly, except the exact `tube`
+structure, which has opened on a Quest 2, so no tier of this demo is refused on a
+Quest 2 today. A call that leaves `device` out is held to the class the session's
+headset page reports; a session with no headset page is not held to the Quest 2
+ceiling. A refusal comes back with a line short enough to speak instead of an
+attempt that could drop the session with the headset on. The tiers
 are ordinary demo stages, so growing only ever opens a coordinate file the index
 already records with its digest; nothing is generated.
 
@@ -160,7 +168,10 @@ The wall also shades its three strands so their lateral arrangement is visible.
 
 Later chapters focus individual contacts. The wall's surface chapter highlights
 the added lateral strand, operators 6 and 7, and fades the other strands to
-context opacity. The `tip` tier focuses its two EB3 chains and fades the tubulin
+context opacity. Its cargo chapter lights the GTP, GDP and Taxol of all six
+copies and fades the protein, so the ligands are not lost inside their own
+subunit's color. Its closing chapter holds until Done and invites the wearer to
+grow the wall into the whole tube or move it overhead. The `tip` tier focuses its two EB3 chains and fades the tubulin
 context. These highlights explain the deposited structures; the tier transitions
 are staged source changes, not a recording of polymerisation.
 The room anchor uses each tier's bounds; it does not align corresponding tubulin
@@ -191,8 +202,8 @@ centre, use named tiers with the lesson inactive:
 8. Optional: With the density asset prepared, request `filament` by name and
    inspect its hollow tube. Dynamic density transitions remain experimental;
    check the actual headset rendering. Request `tip` by name to compare the
-   deposited EB3-bound lattice. On Quest 2, `next` from `filament` requests the
-   unsupported `tube` and is refused.
+   deposited EB3-bound lattice. `next` from `filament` requests the `tube`,
+   which also opens on a Quest 2.
 
 Starting a lesson again restores chapter framing and motion. To show the wall's
 added strand, start its lesson and advance to the surface chapter; return to the
@@ -203,9 +214,12 @@ inactive route before placing the molecule for another walk around it.
 Ask **“Open the build stage of microtubule-arrival on my headset.”** Its `build` stage loads the
 six-dimer wall once and reveals the deposited subunits in seven chapters,
 followed by a held view of the completed wall:
-alpha tubulin, its beta partner, a second dimer along the strand, then two
-neighboring strands. Earlier subunits keep their coordinates and size. Blue
-marks alpha tubulin; amber marks beta tubulin.
+alpha tubulin, its beta partner, a second dimer at the beta (plus) end of the
+strand, then two neighboring strands, each growing at its beta end. Each newly
+revealed piece flies 40 to 60 Angstrom into its deposited position over 1.5
+seconds, along the strand, from the side or both, and ends exactly on the
+deposited coordinates. Earlier subunits keep their
+coordinates. Blue marks alpha tubulin; amber marks beta tubulin.
 
 Prepared maps are not included in installed plugins or shares. The source
 checkout's demo launcher prepares both stages in the local cache on the
@@ -216,8 +230,9 @@ reduces it on the computer. Later runs reuse the verified cache.
 
 Pause the lesson for a narrated demonstration and use **Next** to add each
 piece. The opening chapter sets one viewing angle so the dimer is easy to see.
-Later reveals hold the molecule still without changing placement or the camera.
-Place the structure where you want it, release the grip, and advance
+Later reveals keep the camera and the rotation. Unless you hold the structure,
+each reveal refits its size so the growing wall and the incoming piece stay in
+view. Place the structure where you want it, release the grip, and advance
 the reveal while walking around it. **Back** restores an earlier saved chapter,
 including its placement; use forward reveals to keep a newly chosen placement.
 
@@ -231,7 +246,7 @@ For the final reveal:
    incoming source's rendered receipt and a current, ready companion panel.
    Its opening chapter can fit the map when you have not chosen a room
    placement; a placement held after your grab is retained.
-3. Choose **Above us** in the headset. This requests an overhead object about
+3. In the headset, choose **Done**, then **Menu**, then **Above us**. This requests an overhead object about
    four metres across, subject to the renderer's placement limits. Rotate it
    so the tube runs across your view and you can see its open end.
 4. Hold the tube still for the final walk around it. Scaling changes the
@@ -299,9 +314,12 @@ new absolute rotation lands as one jump and then sits still.
 
 `narration` is one spoken line, rendered by the Mac and played in the headset as
 the scene starts. A Quest 2 reports no speech voices, so a page cannot say this
-for itself, and a lesson without narration simply runs on its captions. Keep a
-line under eighteen words: a caption page holds fifteen characters on three
-lines and dwells three seconds, so a long line is what makes a chapter drag.
+for itself, and a lesson without narration simply runs on its captions. The
+headset card shows this line, not the caption, so anything a wearer must be
+told belongs here. Keep a line under eighteen words, in sentences that each fit
+one card line (about 44 characters) where you can: the card pages whole
+sentences, each page stays up seven seconds, and autoplay holds a chapter until
+its last page has had that time, so a long line is what makes a chapter drag.
 
 `crispr-cas9.json` and all seven `microtubule-growth` tiers carry narration and
 motion. The growth tiers keep the cinematic 8-to-15-second chapter, so their
@@ -319,8 +337,11 @@ and `index.json` repeats them in a `sources` array with the citation title.
 
 RCSB biological assembly 1 of 5SYF expands one tubulin dimer through 26 helical
 operators into a closed 13-protofilament tube of 177,268 atom sites. The
-expanded file is 21,070,967 bytes and this plugin fetches at most 16,777,216
-bytes as its own download policy, so that file is not fetched.
+expanded file is 21,070,967 bytes. The demo launcher and a live grow cap each
+coordinate download at 64 MiB (67,108,864 bytes), and the launcher caps a
+density map download at 256 MiB (268,435,456 bytes). The operator subsets
+below are cut from the downloaded expanded file; the `tube` stage opens as a
+named assembly instead.
 
 **A deposited chain subset** keeps only the chains of the named entities of the
 deposited entry. The `monomer` tier is entity 1 of 5SYF, the alpha-tubulin
@@ -337,40 +358,66 @@ result.
 in `index.json` reaches `inspect_lesson` as an `assemblyId` argument, and Mol\*
 builds the assembly from the operator list the entry itself deposits. The
 `tube` stage therefore opens all 26 operators and 177,268 atom sites from the
-775,288-byte asymmetric unit. Nothing counts those repeated residue positions
-against a ceiling any more. The 30,000-row bound a named assembly used to get
-and the 200,000-atom-site cap beside it were never measured against a viewer,
-so both are gone; the source-byte download policy is unchanged. What a headset
-will actually hold is the measured ceiling above: `tube` is the one tier a
-quest2-class device is refused.
+775,288-byte asymmetric unit. No row or atom-site cap applies to the repeated
+residue positions of a named assembly; the source-byte download policy still
+applies. What a headset holds is the measured ceiling above; `tube` is past it
+and is admitted on a quest2-class device because that exact structure has
+opened there.
+
+## Demo stages
+
+`microtubule-growth` and `microtubule-arrival` list their stages in their own
+sections. The other staged demos have the following stages. Name a stage to
+open it. Without a name, a demo opens its default stage, or with `--device`
+the stage that fits that headset: `kinesin-walk` opens `motion` by default,
+`flipbook` with `--device quest2` and `cycle` with `--device quest3`.
+
+| Demo | Stage | Shows |
+| --- | --- | --- |
+| `kinesin-walk` | `motion` | Kinesin walks hand over hand |
+| `kinesin-walk` | `flipbook` | Kinesin's steps, one at a time |
+| `kinesin-walk` | `cycle` | One kinesin step, four states |
+| `atp-synthase-rotor` | `motion` | The rotor turns |
+| `atp-synthase-rotor` | `flipbook` | Three rotor positions |
+| `atp-synthase-rotor` | `figure` | Three rotor states side by side |
+| `hemoglobin-switch` | `motion` | Hemoglobin switches from T to R |
+| `hemoglobin-switch` | `flipbook` | T state to R state |
+| `hemoglobin-switch` | `figure` | T and R side by side |
+| `daraxonrasib-assembly` | `motion` | Daraxonrasib glues cyclophilin A to KRAS |
+| `binder-gallery` | `steady-target` | Steady target · three-second slideshow |
+| `binder-gallery` | `original-pairs` | Original published pairs |
+| `binder-gallery-extended` | `selected17` | 17 qualified binders · published results |
+| `binder-gallery-extended` | `batch-01` to `batch-10` | Other tested designs, in ten batches |
 
 ## Composite demos
 
 `kinesin-walk` defaults to **Kinesin walks hand over hand** (`motion`):
-a two-step clip in its `two-steps` chapter. The chapter lasts 28 seconds and
-contains a 7-second, non-looping rigid-body animation. Its first moving
-keyframes begin about 0.35 seconds after the clip starts. The animation clock
-then stops at the final pose; it does not add a separate timed end hold. When
-the tour advances automatically, that pose stays on screen for the rest of the
-chapter before the still `both-bound` overview. When navigating manually, it
-stays until **Next**. The motion composite has 27,232 atom sites.
+a two-step clip in its `two-steps` chapter. The chapter lasts 27 seconds and
+contains a 9-second, looping rigid-body animation. Its first moving
+keyframes begin about 0.35 seconds after the clip starts. Its last keyframes
+are at 7 seconds, so both heads hold still for 2 seconds before it replays. When
+the tour advances automatically, the clip plays three times before the still
+`both-bound` overview. When navigating manually, it
+replays until **Next**. The motion composite has 27,232 atom sites.
 **Kinesin's steps, one at a time** (`flipbook`) holds nine chapters using
 36,672 atom sites. Both use a 5SYF protofilament, a 9L7M
 empty head, an 8RHB AMP-PNP head, a 1BG2 ADP head and the 3KIN neck coiled
 coil (residues 339-370 of chains B and D, rat kinesin-1). The coil placement,
 its path and the free-head path are illustrative; AMP-PNP stands in for ATP
-and ADP·Pi. Both stages include schematic neck linkers from `kinesin-walk/motion-model.cif`:
-four rigid pieces per head, three based on 8RHB's docked geometry and one
-containing modelled L335–T336. Gold marks resolved linker residues and pale
-ribbons mark the modelled portions. An idealised poly-Ala coiled coil supplies
-the short stalk; distal stalk and cargo are omitted. The animated chapter has
-no dashed tethers. Its paths and timing are authored illustrations.
+and ADP·Pi. Both stages take their neck linkers from
+`kinesin-walk/motion-model.cif`: four rigid pieces per head, three from 8RHB's
+docked geometry and one containing modelled L335–T336. Gold marks the resolved
+linker residues and pale marks the modelled ones. An idealised poly-Ala coiled
+coil supplies the short stalk; the distal stalk and cargo are omitted. Only the two heads, neck coiled coil, microtubule and plus end
+have plates during walking. The still overview tells the resolved linker
+residues from the modelled ones and says the stalk is modelled.
 The recipes retain tubulin backbone and C-beta atoms to stay within the atom
 budget; neither stage is an energy-minimized model or a measured trajectory.
 
-The distance readout uses Angstroms, with separate labels in nanometres:
+The flipbook's distance lines use Angstroms, and its captions give nanometres:
 81.5 Å between adjacent sites (8.2 nm rounded), and 163 Å between alternate
-sites. The latter is measured from the loaded atoms; the schema's
+sites. Only the `track` chapter prints a readout; the other lines have no
+text. The alternate-site length is measured from the loaded atoms; the schema's
 `expectedAngstrom` field is capped at 100, so it is omitted for that distance.
 
 Animated chapters may add `animation.tethers: [{"id":"dimer","from":{"chain":"H1","residue":325,"atom":"CA"},"to":{"chain":"H2","residue":325,"atom":"CA"},"color":"#ffffff","label":"Dimer"}]`, using author chain ids, author residue numbers and atom names that each resolve to one loaded atom.
@@ -394,6 +441,19 @@ the dashed line and its endpoints stay attached to their atoms. Pose and sizing
 updates reuse stored vectors and uniforms without rebuilding geometry. Tethers
 appear only while both endpoint bodies are visible, and disappear in chapters
 without animation.
+
+`daraxonrasib-assembly` opens **Daraxonrasib glues cyclophilin A to KRAS**
+(`motion`). Its first chapter shows the three pieces of 9AX6 as rigid bodies
+in a 9-second clip: daraxonrasib travels to cyclophilin A, then that pair turns
+and docks on KRAS, which stays in place. The clip ends on the deposited
+coordinates, plays once in its 10-second chapter (Play replays it), and three still
+chapters then hold them: the two contacts the illustrated `daraxonrasib` lesson
+measures, the whole complex, and a view to enlarge. The order
+follows the two binding steps measured in the entry's primary citation (the
+drug to cyclophilin A, then that pair to KRAS). The starting positions and
+approach paths are illustrative; no intermediate is a measured structure. The
+composite keeps 2,725 atom sites of assembly 1 under one shared transform and
+leaves out waters.
 
 A composite ships a version-1 JSON recipe: source ids, RCSB download URLs and
 SHA-256 digests, followed by bodies in output order. Each body selects author

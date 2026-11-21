@@ -115,7 +115,7 @@ In a new conversation, the legacy stereo-viewer tools are registered as
 logs name them `mcp__stereo_structure__stereo_structure_<verb>`; a Claude Code
 plugin install names them
 `mcp__plugin_stereofold_stereo_structure__stereo_structure_<verb>`. These are
-five of the plugin's 68 registered tools, 41 of them model-visible; see
+five of the plugin's 70 registered tools, 42 of them model-visible; see
 [README.md](../README.md) for the full list, including the focused inspector's
 `inspect`, `inspect_file`, `inspect_scene`, and `inspect_lesson`. Discover tool availability from the live connection.
 

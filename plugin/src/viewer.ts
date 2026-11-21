@@ -208,7 +208,7 @@ type ViewerMessage = {
  * height this app asks for instead.
  */
 const app = new App(
-  { name: 'Stereofold', version: '0.1.22' },
+  { name: 'Stereofold', version: '0.1.23' },
   { tools: { listChanged: false } },
   { autoResize: false },
 );

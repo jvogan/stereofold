@@ -160,28 +160,34 @@ describe('shipped demo captions in the headset layout', () => {
     }
   });
 
-  // A hidden chapter card leaves its labelled figure clear. Source metadata
-  // returns through the explicit chooser rather than replacing that card.
-  for (const subject of subjects) it(`${subject.pdbId} ${subject.title.slice(0, 20)}: a hidden card stays absent while loading and showing its figure`, () => {
+  // A hidden chapter card leaves the explanation to the labelled figure: a
+  // running lesson draws no card, and never substitutes the structure's own.
+  for (const subject of subjects) it(`${subject.pdbId} ${subject.title.slice(0, 20)}: a hidden chapter card draws no readout while its lesson runs`, () => {
     const tour = { active: true, selectedId: 'lesson-caption-test', selectedTitle: 'A lesson', title: 'Wide reveal', captionCard: 'hidden', progress: 'Scene 1 / 6', step: 0, total: 6 };
-    for (const state of [tour, { ...tour, active: false, navigating: true },
-      { ...tour, chapterPreview: { title: 'Next figure', bodyPage: 'Preparation', progress: 'Scene 2 / 6' } }]) {
-      const readout = runtime.tourReadout(state, subject);
-      expect(readout).toEqual([]);
-      const panel = createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed: true, tour: state }), readout, measureText: runtime.toolbarTextWidth });
-      expect(panel.readoutPoints).toEqual([]);
-      expect(panel.captionBacking).toBeUndefined();
+    const readout = runtime.tourReadout(tour, { ...subject, emphasisCount: 10, contextOpacity: 0.35 }, undefined, { descriptionPage: 0 });
+    expect(readout).toEqual([]);
+    const panel = createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed: true, tour }), readout, readoutPage: 0, measureText: runtime.toolbarTextWidth });
+    expect(panel.captionBacking).toBeUndefined();
+  });
+
+  // Outside a lesson the structure's own card takes the centered three-line forward seat.
+  for (const subject of subjects) it(`${subject.pdbId} ${subject.title.slice(0, 20)}: the resting structure readout pages every word inside both forward eyes`, () => {
+    const pages = structureDescriptionPages({ ...subject, emphasisCount: 10, contextOpacity: 0.35 });
+    for (let descriptionPage = 0; descriptionPage < Math.max(1, pages.length); descriptionPage++) {
+      const tour = { active: false, selectedId: null, title: 'Wide reveal', captionCard: 'hidden' };
+      const readout = runtime.tourReadout(tour, { ...subject, emphasisCount: 10, contextOpacity: 0.35 }, undefined, { descriptionPage });
+      const panels = cardPages(readoutPage => createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed: true, tour }), readout, readoutPage, measureText: runtime.toolbarTextWidth }));
+      const allowed = readout.map((line: any) => line.text).join(' ');
+      const rows = panels.flatMap(panel => expectReadableCard(panel, allowed, subject.pdbId));
+      expect(glyphs(rows.join(''))).toBe(glyphs(allowed));
+      for (const panel of panels) {
+        expect(panel.readoutPoints.length).toBeLessThanOrEqual(3);
+        expect(panel.readoutWrapWidth).toBeGreaterThanOrEqual(30);
+        expect(panel.captionBacking.point[0]).toBe(0);
+        expect(panel.captionBacking.point[1]).toBeGreaterThan(1.6);
+      }
+      expect(rows.at(-1)).toBe('10 parts emphasized · context 35%');
     }
-    const chooser = runtime.tourReadout({ ...tour, menuOpen: true }, subject);
-    expect(chooser[0].text).toBe('A lesson');
-    const descriptions = structureDescriptionPages(subject);
-    const shown = descriptions.map((description: string, descriptionPage: number) => {
-      const page = runtime.tourReadout({ ...tour, menuOpen: true }, subject, undefined, { descriptionPage });
-      const line = page.find((line: any) => glyphs(line.text) === glyphs(description));
-      expect(line).toBeDefined();
-      return line.text;
-    });
-    expect(glyphs(shown.join(''))).toBe(glyphs(subject.title));
   });
 
   it('keeps the reported flipbook opening phrase through its last word', () => {

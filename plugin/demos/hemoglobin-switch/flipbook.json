@@ -1492,7 +1492,7 @@
     {
       "id": "heme",
       "title": "Iron and oxygen",
-      "caption": "One alpha 1 heme: T (green) over R (violet). Gold: iron. In T the iron is 0.39 \u00c5 above the plane of the four ring nitrogens, toward His 87. In R it is 0.04 \u00c5 from that plane, with O2 1.82 \u00c5 from the iron. The other dashed line measures 2.70 \u00c5 between O2 and His 58.",
+      "caption": "One alpha 1 heme: T (green) over R (violet). Gold: iron. In T the iron is 0.39 \u00c5 above the plane of the four ring nitrogens, toward His 87. In R it is within 0.05 \u00c5 of that plane, with O2 1.82 \u00c5 from the iron. The other dashed line measures 2.70 \u00c5 between O2 and His 58.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -1725,9 +1725,12 @@
                 "componentId": "HEM",
                 "atomName": "FE"
               },
-              "offsetX": -12,
-              "offsetY": -10,
-              "sizeFactor": 0.8
+              "offsetX": 12,
+              "offsetY": 0.4,
+              "headsetOffsetY": -8,
+              "sizeFactor": 0.8,
+              "maxOffsetEm": 3,
+              "desktopSizePx": 14
             },
             {
               "id": "fe-r",
@@ -1742,9 +1745,11 @@
                 "componentId": "HEM",
                 "atomName": "FE"
               },
-              "offsetX": 12,
-              "offsetY": -10,
-              "sizeFactor": 0.8
+              "offsetX": -12,
+              "offsetY": -0.4,
+              "sizeFactor": 0.8,
+              "maxOffsetEm": 4,
+              "desktopSizePx": 14
             },
             {
               "id": "o2",
@@ -1759,9 +1764,27 @@
                 "componentId": "OXY",
                 "atomName": "O2"
               },
-              "offsetX": 6,
-              "offsetY": 10,
+              "offsetX": 0,
+              "offsetY": -10,
               "sizeFactor": 0.8
+            },
+            {
+              "id": "subunit",
+              "text": "Alpha 1 subunit",
+              "color": "#303840",
+              "target": {
+                "chain": "E",
+                "residues": {
+                  "from": 87,
+                  "to": 87
+                },
+                "componentId": "HIS",
+                "atomName": "CA"
+              },
+              "offsetX": 0,
+              "offsetY": 8,
+              "sizeFactor": 0.8,
+              "desktopSizePx": 14
             }
           ],
           "distances": [
@@ -1833,6 +1856,45 @@
                 "from": 142,
                 "to": 143
               }
+            }
+          ],
+          "contextRadius": 3,
+          "viewPlane": [
+            {
+              "chain": "E",
+              "residues": {
+                "from": 142,
+                "to": 142
+              },
+              "componentId": "HEM",
+              "atomName": "NA"
+            },
+            {
+              "chain": "E",
+              "residues": {
+                "from": 142,
+                "to": 142
+              },
+              "componentId": "HEM",
+              "atomName": "NB"
+            },
+            {
+              "chain": "E",
+              "residues": {
+                "from": 142,
+                "to": 142
+              },
+              "componentId": "HEM",
+              "atomName": "NC"
+            },
+            {
+              "chain": "E",
+              "residues": {
+                "from": 142,
+                "to": 142
+              },
+              "componentId": "HEM",
+              "atomName": "ND"
             }
           ]
         }

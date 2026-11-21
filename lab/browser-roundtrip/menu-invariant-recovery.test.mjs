@@ -696,14 +696,17 @@ for (const edge of ['menu', 'context-loss']) test(`stale appearance recovery can
     if (own === 3 && edge === 'context-loss') t.h.canvas.webgl.isContextLost = true;
     return result;
   };
-  await assert.rejects(t.h.inspectionMutation(() => t.h.applyInspectionAppearance()));
+  let refused;
+  await assert.rejects(t.h.inspectionMutation(() => t.h.applyInspectionAppearance()), error => { refused = error; return true; });
   assert.equal(calls, edge === 'menu' ? 4 : 3, 'at most one fresh-menu retry per original or recovery proof');
   assert.equal(t.h.state.status, edge === 'context-loss' ? 'context_lost' : 'ready');
   assert.equal(t.h.retainedPoseHidden, true);
   assert.equal(t.live.size, 0);
   if (edge === 'context-loss') assert.match(t.caption(), /structure remains hidden until the graphics context recovers\./);
   if (edge === 'menu') {
-    assert.match(t.caption(), /structure remains hidden\. Press Reset or Fit to show it\./);
+    assert.match(t.caption(), /If the structure is not showing, press Reset or Fit\./);
+    for (const text of [t.caption(), refused.message])
+      assert.equal(text.match(/press Reset or Fit/gi)?.length, 1, `the next step is said once: ${text}`);
     assert.equal(t.h.state.error, null);
     t.h.fitAppearanceInWorker = fit;
     await t.h.seatStructureForEntry({ resetMenu: true });
@@ -714,7 +717,40 @@ for (const edge of ['menu', 'context-loss']) test(`stale appearance recovery can
   }
 });
 
-const freshProgressMenu = [[-3,-1,-1],[-3,1,-1],[-2,-1,-1],[-2,1,-1]];
+// The menu moves after every fit, so the recovery proof retries once against
+// fresh glass and that retry is refused too. With `lost`, the graphics context
+// is lost during the retry's fit: after the recovery decided to retry, so the
+// refusal of the retry and the refusal of the recovery both see it.
+for (const lost of [false, true]) test(`a menu retry inside appearance recovery says the next step once: context lost in both=${lost}`, async () => {
+  const t = menuInvariantHarness({ productionRecovery: true });
+  const fit = t.h.fitAppearanceInWorker;
+  let calls = 0;
+  t.h.fitAppearanceInWorker = async (options, policy) => {
+    const own = ++calls;
+    const result = await fit(options, policy);
+    t.h.immersiveSession.platePoints = () => [[-3-own,-1,-1],[-3-own,1,-1],[-2-own,-1,-1],[-2-own,1,-1]];
+    if (own === 4 && lost) t.h.canvas.webgl.isContextLost = true;
+    return result;
+  };
+  let refused;
+  await assert.rejects(t.h.inspectionMutation(() => t.h.applyInspectionAppearance()), error => { refused = error; return true; });
+  assert.equal(calls, 4, 'the appearance fit and its retry, then the recovery proof and its retry');
+  assert.ok(t.events.some(event => event.outcome === 'retry-menu' && event.kind === 'appearance-recovery'));
+  const sentence = lost ? 'The structure remains hidden until the graphics context recovers.' : 'If the structure is not showing, press Reset or Fit.';
+  const other = lost ? /press Reset or Fit/i : /graphics context recovers/;
+  for (const text of [t.caption(), refused.message]) {
+    assert.equal(text.split(sentence).length - 1, 1, `the next step is said once: ${text}`);
+    assert.ok(text.endsWith(sentence), text);
+    assert.doesNotMatch(text, other);
+  }
+  assert.equal(refused.code, 'FIT_STALE');
+  assert.equal(refused.recoverablePlacement, lost ? undefined : true);
+  assert.equal(t.h.state.status, lost ? 'context_lost' : 'ready');
+  assert.equal(t.h.retainedPoseHidden, true);
+  assert.equal(t.live.size, 0);
+});
+
+const freshProgressMenu =[[-3,-1,-1],[-3,1,-1],[-2,-1,-1],[-2,1,-1]];
 test('an asynchronously drawn progress plate retries the production appearance fit once against fresh glass', async () => {
   const t = menuInvariantHarness();
   const fit = t.h.fitAppearanceInWorker, set = t.h.talkCaption.set;

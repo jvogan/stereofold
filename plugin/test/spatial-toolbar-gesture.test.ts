@@ -58,7 +58,7 @@ describe('spatial toolbar XR gesture tracker', () => {
 
 describe('controller aim arbitration', () => {
   // A Quest 2 reports two controllers and both rays cross the panel. The
-  // first physical session lost its hover to the resting hand, so the
+  // one physical session lost its hover to the resting hand, so the
   // highlight sat on a row the wearer was not pointing at.
   const ray = (x: number) => ({ origin: [x, 1.6, 0], direction: [0, 0, -1] });
 

@@ -30,3 +30,32 @@ it('a superseded source load cannot release the next load’s presentation hold'
   expect(panel.getPresentationState().navigating).toBe(true); second();
   expect(panel.getPresentationState().navigating).toBe(false); panel.dispose();
 });
+
+it('a different lesson opened over the one on screen holds the loading state a first opening holds, marked as an opening', () => {
+  const lesson = player('lesson'), experience = player('experience');
+  experience.change({ selectedTitle: 'Lesson', captionCard: 'shown', progress: 'Scene 2 / 3', step: 1, canBack: true,
+    autoplay: true, feedback: 'Playing.', bodyPageCount: 2, bodyPageIndex: 1 });
+  const panel = createPanelTourController(lesson as any, experience as any) as any;
+  const first = panel.beginSourceTransition(true);
+  const held = panel.getPresentationState();
+  expect(held).toMatchObject({ title: 'Loading structure', bodyPage: 'The next structure is being prepared.', step: 0, total: 1,
+    active: true, navigating: true, sourceTransition: true, progress: 'Tours', feedback: '', canBack: false, canNext: false,
+    autoplay: false, bodyPageCount: 1, bodyPageIndex: 0 });
+  expect(held.opening).toBe(true);
+  for (const key of ['selectedId', 'selectedTitle', 'captionCard']) expect(held).not.toHaveProperty(key);
+  first();
+  // The same lesson loading its next source still holds its chapter.
+  const release = panel.beginSourceTransition();
+  expect(panel.getPresentationState()).toMatchObject({ title: 'First chapter', selectedId: 'experience', step: 1 });
+  expect(panel.getPresentationState()).not.toHaveProperty('opening');
+  release(); panel.dispose();
+});
+
+it('a lesson that hides its caption card keeps it hidden while a different lesson opened over it loads', () => {
+  const lesson = player('lesson'), experience = player('experience');
+  experience.change({ captionCard: 'hidden' });
+  const panel = createPanelTourController(lesson as any, experience as any) as any;
+  const release = panel.beginSourceTransition(true);
+  expect(panel.getPresentationState()).toMatchObject({ opening: true, captionCard: 'hidden', title: 'Loading structure' });
+  release(); panel.dispose();
+});

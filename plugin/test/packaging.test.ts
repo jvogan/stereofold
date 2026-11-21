@@ -51,9 +51,9 @@ function expectCoordinateFreePublicResult(result: unknown, coordinates: string):
 
 describe('Stereofold packaging metadata', () => {
   it('keeps the documented tool totals aligned with the shipped inventory', async () => {
-    expect(REGISTERED_TOOL_NAMES).toHaveLength(68);
-    expect(MODEL_VISIBLE_TOOL_NAMES).toHaveLength(41);
-    expect(APP_ONLY_TOOL_NAMES).toHaveLength(27);
+    expect(REGISTERED_TOOL_NAMES).toHaveLength(70);
+    expect(MODEL_VISIBLE_TOOL_NAMES).toHaveLength(42);
+    expect(APP_ONLY_TOOL_NAMES).toHaveLength(28);
     expect(APP_ONLY_TOOL_NAMES).toContain('stereo_structure.report_detailed_selection');
     expect(APP_ONLY_TOOL_NAMES).toContain('stereo_structure.report_source_failure');
     expect(MODEL_VISIBLE_TOOL_NAMES).not.toContain('stereo_structure.report_source_failure');
@@ -67,9 +67,9 @@ describe('Stereofold packaging metadata', () => {
       new URL('../claude-code/skills/stereofold-quest/SKILL.md', import.meta.url),
     ].map(url => readFile(url, 'utf8')));
 
-    expect(readme).toContain('forty-one of the sixty-eight\nregistered tools; the other twenty-seven are app-only');
-    expect(inspector).toContain('forty-one model-visible tools');
-    expect(install).toContain('68 registered tools, 41 of them model-visible');
+    expect(readme).toContain('forty-two of the seventy\nregistered tools; the other twenty-eight are app-only');
+    expect(inspector).toContain('forty-two model-visible tools');
+    expect(install).toContain('70 registered tools, 42 of them model-visible');
     for (const text of [readme, inspector, install, ...skills]) {
       expect(text).not.toMatch(/\b55 registered tools\b|\b31 model-visible\b|\b24 app-only\b|fifty-eight\s+registered tools|twenty-four (?:are )?app-only/iu);
     }
@@ -130,7 +130,7 @@ describe('Stereofold packaging metadata', () => {
 
     expect(manifest).toMatchObject({
       name: 'stereofold',
-      version: '0.1.22',
+      version: '0.1.23',
       description: 'Explore molecular structures with Codex or Claude and keep changing the same scene on your computer and WebXR headset.',
       author: { name: 'Jacob Vogan' },
       skills: './skills/',
@@ -188,22 +188,23 @@ describe('Stereofold packaging metadata', () => {
     // transitive chain to grow without hiding duplicate or unstable sections.
     expect(noticeTitles).toEqual(expect.arrayContaining([
       '@modelcontextprotocol/ext-apps 1.7.5',
-      '@modelcontextprotocol/sdk 1.29.0',
+      '@modelcontextprotocol/sdk 1.32.2',
       'react 19.2.8',
       'react-dom 19.2.8',
       'react-markdown 10.1.0',
       'scheduler 0.27.0',
       'ajv 8.20.0',
       'ajv-formats 3.0.1',
+      'cross-spawn 7.0.6',
       'fast-deep-equal 3.1.3',
-      'fast-uri 3.1.6',
+      'fast-uri 3.1.9',
       'immutable 5.1.9',
       'json-schema-traverse 1.0.0',
       'molstar 5.11.0',
       'mutative 1.3.0',
       'rxjs 7.8.2',
       'tslib 2.8.1',
-      'zod 4.3.0',
+      'zod 4.6.7',
       'zod-to-json-schema 3.25.2',
       'SourceSans3 embedded fonts',
       'IBMPlexMono embedded fonts',
@@ -223,7 +224,7 @@ describe('Stereofold packaging metadata', () => {
     const manifest = JSON.parse(await readFile(claudeCodeManifestUrl, 'utf8')) as Record<string, unknown>;
     expect(manifest).toMatchObject({
       name: 'stereofold',
-      version: '0.1.22',
+      version: '0.1.23',
       license: 'MIT',
       author: { name: 'Jacob Vogan' },
       skills: ['./skills/', './claude-code/skills/'],

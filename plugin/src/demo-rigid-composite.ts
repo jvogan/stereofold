@@ -5,8 +5,11 @@ import { type CifCategory, type CifBlock } from 'molstar/lib/commonjs/mol-io/rea
 import { CIF } from './compatible-cif.js';
 import { superposeAtoms, type SuperpositionStats } from './structure-superposition.js';
 import { CifWriter } from 'molstar/lib/commonjs/mol-io/writer/cif.js';
+import { MAX_STRUCTURE_SOURCE_BYTES } from './inspection-limits.js';
 
-const name = z.string().min(1).refine(s => s === s.trim() && !/[\s\x00-\x1f]/.test(s) && s !== '.' && s !== '?', 'Expected a nonempty identifier without whitespace');
+// The longest identifier in the bundled recipes is 28 characters; 64 leaves
+// room while keeping identifiers, which every output row can repeat, short.
+const name = z.string().min(1).max(64).refine(s => s === s.trim() && !/[\s\x00-\x1f]/.test(s) && s !== '.' && s !== '?', 'Expected a nonempty identifier without whitespace');
 const uniqueNames = z.array(name).refine(v => v.length > 0, 'Expected at least one identifier').refine(a => new Set(a).size === a.length, 'Identifiers must be unique');
 const finite = z.number().finite();
 const row = z.array(finite).refine(v => v.length === 4, 'Expected four matrix columns').transform(v => v as [number, number, number, number]);
@@ -59,10 +62,22 @@ export const modelledCompositeSourceSchema = z.object({
 export type ModelledCompositeSource = z.infer<typeof modelledCompositeSourceSchema>;
 export const isModelledCompositeSource = (source: object): source is ModelledCompositeSource => 'file' in source;
 
+/**
+ * The most sources one recipe may name, inline or in a recipe file. Every
+ * source, up to 64 MiB each, is read or downloaded, parsed and held before any
+ * body is checked, so the count is refused before the first of them. The
+ * largest bundled recipe names six. A refinement rather than an array bound,
+ * so the published prepare_composite schema carries no maximum.
+ */
+export const MAX_COMPOSITE_SOURCES = 25;
+export const COMPOSITE_SOURCE_LIMIT_MESSAGE = `Expected at most ${MAX_COMPOSITE_SOURCES} sources`;
+export const withinCompositeSourceLimit = (sources: readonly unknown[]) => sources.length <= MAX_COMPOSITE_SOURCES;
+
 export const rigidCompositeRecipeSchema = z.object({
   version: z.literal(1), id: name, title: z.string().trim().min(1),
   sources: z.array(z.union([depositedCompositeSourceSchema, modelledCompositeSourceSchema]))
-    .refine(v => v.length > 0, 'Expected at least one item'),
+    .refine(v => v.length > 0, 'Expected at least one item')
+    .refine(withinCompositeSourceLimit, COMPOSITE_SOURCE_LIMIT_MESSAGE),
   bodies: z.array(z.object({
     id: name.optional().describe('Unique body id; defaults to chain.'), source: name, authChains: uniqueNames,
     residues: z.object({ from: z.number().safe().int(), to: z.number().safe().int() }).strict()
@@ -137,6 +152,28 @@ function fixedCoordinate(value: number): string {
   return digits + '0'.repeat(Number(exponent) - fractional) + '.000';
 }
 
+/** The refusal for a composite whose output would pass the 64 MiB source policy. */
+export const COMPOSITE_OVER_SOURCE_POLICY = 'Composite exceeds the 64 MiB source policy. Reduce its bodies, residue ranges or atom detail.';
+/**
+ * The fewest UTF-8 bytes `encode` writes for one row: each value's encoded
+ * bytes, one byte for an empty or absent one, and the space after it. The sum
+ * over the rows kept is a floor on the output bytes.
+ */
+function rowBytes(r: Row): number {
+  let bytes = 0;
+  for (const key in r) bytes += Buffer.byteLength(r[key] || '?', 'utf8') + 1;
+  return bytes;
+}
+/**
+ * The most atom sites an output within the 64 MiB policy can hold. Every atom
+ * row keeps the required source columns plus a serial and a model number, each
+ * at least one character, and three coordinates of at least `0.000`, so no row
+ * is shorter than this record. Derived from the byte policy, not chosen.
+ */
+export const MAX_COMPOSITE_ATOM_SITES = Math.floor(MAX_STRUCTURE_SOURCE_BYTES / rowBytes({ id: '1', auth_asym_id: 'A',
+  label_asym_id: 'A', label_entity_id: '1', label_comp_id: 'A', label_atom_id: 'A', auth_seq_id: '1',
+  Cartn_x: fixedCoordinate(0), Cartn_y: fixedCoordinate(0), Cartn_z: fixedCoordinate(0), pdbx_PDB_model_num: '1' }));
+
 function encode(id: string, categories: Map<string, Row[]>): string {
   const encoder = CifWriter.createEncoder({ binary: false });
   encoder.startDataBlock(id);
@@ -183,7 +220,18 @@ export async function buildRigidComposite(
     sources.set(source.id, parsed.result.blocks[0]);
   }
   const categories = new Map<string, Row[]>();
-  const add = (name: string, data: Row[]) => categories.set(name, [...(categories.get(name) ?? []), ...data]);
+  // Every output row is counted as it is kept, so a recipe whose output would
+  // pass the source policy is refused while it is built, not after encoding.
+  let outputBytes = 0;
+  const keep = (r: Row): Row => {
+    outputBytes += rowBytes(r);
+    if (outputBytes > MAX_STRUCTURE_SOURCE_BYTES) throw Error(COMPOSITE_OVER_SOURCE_POLICY);
+    return r;
+  };
+  const add = (name: string, data: Row[], kept = false) => {
+    if (!kept) data.forEach(keep);
+    categories.set(name, [...(categories.get(name) ?? []), ...data]);
+  };
   const usedComponents = new Map<string, { frame: CifBlock }>();
   const usedElements = new Map<string, CifBlock>();
   const confTypes = new Map<string, Row>();
@@ -191,6 +239,9 @@ export async function buildRigidComposite(
   let atomId = 0, entityId = 0, connectionId = 0;
   const usedLabelChains = new Set(recipe.bodies.map(b => b.chain));
   const connectionTypes = new Map<string, Row>();
+  // Atom sites are counted as each body is selected, before any body is placed
+  // or built. Without a caller budget the source policy still bounds them.
+  let selectedSites = 0;
   const selections = recipe.bodies.map((body, bodyIndex) => {
     const frame = sources.get(body.source)!;
     const all = readRows(frame.categories.atom_site);
@@ -211,6 +262,10 @@ export async function buildRigidComposite(
     });
     if (!selected.length) throw Error(`recipe.bodies[${bodyIndex}] (${body.chain}): selection matches no atoms`);
     for (const chain of body.authChains) if (!selected.some(a => a.auth_asym_id === chain)) throw Error(`recipe.bodies[${bodyIndex}] (${body.chain}): selection of ${chain} matches no atoms`);
+    selectedSites += selected.length;
+    if (options.maximumAtomSites !== undefined && selectedSites > options.maximumAtomSites)
+      throw Error(`recipe.bodies[${bodyIndex}]: composite exceeds maximumAtomSites budget ${options.maximumAtomSites}`);
+    if (selectedSites > MAX_COMPOSITE_ATOM_SITES) throw Error(COMPOSITE_OVER_SOURCE_POLICY);
     return { frame, entities, isPolymer, selected };
   });
   const poses = new Map<number, { matrix: CompositeMatrix; superposition?: CompositeBodyIdentity['superposition'] }>();
@@ -244,8 +299,6 @@ export async function buildRigidComposite(
   for (const [bodyIndex, body] of recipe.bodies.entries()) {
     const { frame, entities, isPolymer, selected } = selections[bodyIndex];
     const pose = poses.get(bodyIndex)!;
-    if (options.maximumAtomSites !== undefined && atomId + selected.length > options.maximumAtomSites)
-      throw Error(`recipe.bodies[${bodyIndex}]: composite exceeds maximumAtomSites budget ${options.maximumAtomSites}`);
     // One label chain per retained source asym; author chain addresses the body.
     // Reserve every body's primary id so suffixes cannot collide across bodies.
     const entityMap = new Map<string, string>();
@@ -284,11 +337,11 @@ export async function buildRigidComposite(
       if (!usedComponents.has(a.label_comp_id)) usedComponents.set(a.label_comp_id, { frame });
       if (present(a.type_symbol) && !usedElements.has(a.type_symbol)) usedElements.set(a.type_symbol, frame);
       const fixed = moved.map(fixedCoordinate);
-      return { ...a, id: String(++atomId), label_asym_id: labelMap.get(a.label_asym_id)!, auth_asym_id: body.chain,
+      return keep({ ...a, id: String(++atomId), label_asym_id: labelMap.get(a.label_asym_id)!, auth_asym_id: body.chain,
         label_entity_id: entityMap.get(keyOf(a))!, pdbx_PDB_model_num: '1',
-        Cartn_x: fixed[0], Cartn_y: fixed[1], Cartn_z: fixed[2] };
+        Cartn_x: fixed[0], Cartn_y: fixed[1], Cartn_z: fixed[2] });
     });
-    add('atom_site', transformed);
+    add('atom_site', transformed, true);
     // Connections only survive when both deposited endpoint atoms survive in
     // this body. Crystal mates are not present in these rigid coordinate copies.
     const endpoint = (r: Row, side: 'ptnr1' | 'ptnr2') => selected.find(a => {
@@ -367,7 +420,11 @@ export async function buildRigidComposite(
   }
   for (const [symbol, frame] of usedElements) add('atom_type', [readRows(frame.categories.atom_type).find(r => r.symbol === symbol) ?? { symbol }]);
   const text = encode(recipe.id, categories);
-  return { text, sha256: compositeSha256(text), bytes: Buffer.byteLength(text, 'utf8'), atomSites: atomId, bodies };
+  // Headers and quoting add to the rows counted above, so every caller gets
+  // only text within the policy.
+  const bytes = Buffer.byteLength(text, 'utf8');
+  if (bytes > MAX_STRUCTURE_SOURCE_BYTES) throw Error(COMPOSITE_OVER_SOURCE_POLICY);
+  return { text, sha256: compositeSha256(text), bytes, atomSites: atomId, bodies };
 }
 
 /** Display provenance keeps local models distinct from deposited entries. */

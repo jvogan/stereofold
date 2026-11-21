@@ -157,21 +157,18 @@ export function walkClashes(chapter, atoms, limit = 2.5) {
   };
 }
 
-// Where a walking-kinesin plate may overlap a body. A head plate may cross a
-// linker piece, the neck coil or the stalk for a moment (bounded by the
-// tests). When ATP binds a head (its T copy appears), the other head is still
-// waiting free behind it, where the bound head's plate stands for the rest of
-// the walk; that plate may cover the waiting head until it swings past.
-export const WAITING_SECONDS = .8;
-export function walkPlateAllowance(chapter) {
-  const tracks = chapter.animation?.tracks ?? [];
-  const binds = h => (tracks.find(t => t.id === `k${h}t`)?.visibility ?? []).filter(v => v.visible && v.t > 0).map(v => v.t);
-  return (labelId, bodyId, t) => {
+// Where a walking-kinesin plate may overlap a body. A plate may sit on a part
+// it names: a head plate on any copy of its own head or its docked linker. A
+// head plate may cross a linker piece, the neck coil or the stalk for a moment
+// (bounded by the tests). It never sits on the other head. A bound head's ATP
+// plate rides its docked linker, so it is hidden while the other head swings
+// past and the swinging head carries only its own name.
+export function walkPlateAllowance() {
+  return (labelId, bodyId) => {
     const head = /^k([12])[tad]-name$/.exec(labelId)?.[1];
     if (!head) return false;
+    if (new RegExp(`^K${head}[TADL]$`).test(bodyId)) return 'own';
     if (/^(N[12][a-d]|NC[12]|ST[12])$/.test(bodyId)) return 'crossing';
-    const other = head === '1' ? '2' : '1';
-    if (labelId === `k${head}t-name` && bodyId === `K${other}D` && binds(head).some(at => t >= at && t - at <= WAITING_SECONDS)) return 'waiting';
     return false;
   };
 }

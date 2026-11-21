@@ -7,10 +7,10 @@ const require = createRequire(new URL('../../plugin/package.json', import.meta.u
 const { tsImport } = require('tsx/esm/api');
 const { mountTourPlayer } = await tsImport('../../plugin/src/tour-player.ts', import.meta.url);
 const { molecularLessonToTour } = await tsImport('../../plugin/src/molecular-lesson-tour.ts', import.meta.url);
-const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url))));
+const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../../plugin/test/fixtures/telomerase-haca-plates.json', import.meta.url))));
 const flush = async () => { for (let i = 0; i < 300; i++) await Promise.resolve(); };
 
-for (const reason of ['done', 'completed']) test(`acceptance 6 ${reason}: restores the complete resting column and emits seat evidence`, async t => {
+for (const reason of ['done', 'completed']) test(`recorded ${reason}: restores the complete resting column and emits seat evidence`, async t => {
   const h = await recordedTourSeat(mountTourPlayer, tour);
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: recordedEndings.completed.entries[0].at });
   try {

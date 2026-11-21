@@ -25,7 +25,7 @@
     {
       "id": "alpha",
       "title": "Alpha arrives",
-      "caption": "5SYF reveal: blue alpha appears first; assembly adds preformed alpha-beta dimers.",
+      "caption": "Blue: one alpha tubulin from 5SYF. Cells add whole alpha-beta pairs; this reveal shows one half first.",
       "durationSeconds": 5,
       "changes": [
         {
@@ -37,13 +37,13 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2"
+            "A-3"
           ],
           "classes": [
             "polymer"
           ]
         },
-        "narration": "Blue alpha tubulin. Walk around it. This reveal is illustrative; real growth adds alpha-beta pairs.",
+        "narration": "Blue alpha tubulin. Real growth adds whole alpha-beta pairs.",
         "motion": "hold",
         "appearance": {
           "representation": "cartoon",
@@ -61,7 +61,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -71,7 +71,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -81,7 +81,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -91,7 +91,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -101,7 +101,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -111,7 +111,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -121,7 +121,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -131,7 +131,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -141,7 +141,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -151,7 +151,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -161,7 +161,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -171,7 +171,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -190,28 +190,167 @@
       }
     },
     {
+      "animation": {
+        "version": 1,
+        "durationSeconds": 1.5,
+        "tracks": [
+          {
+            "id": "arrive",
+            "chains": [
+              "B-3"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -40.0
+                ]
+              },
+              {
+                "t": 0.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -20.48
+                ]
+              },
+              {
+                "t": 0.6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -8.64
+                ]
+              },
+              {
+                "t": 0.9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -2.56
+                ]
+              },
+              {
+                "t": 1.2,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -0.32
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "in-place",
+            "chains": [
+              "A-3"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        }
+      },
       "id": "dimer",
       "title": "Its partner arrives",
-      "caption": "Amber beta and blue alpha form a preformed tubulin dimer.",
-      "durationSeconds": 5,
+      "caption": "Amber beta completes the dimer. Paths and order are illustrative; every end position is measured.",
+      "durationSeconds": 7,
       "changes": [
         {
           "kind": "hold",
-          "durationSeconds": 5
+          "durationSeconds": 7
         }
       ],
       "immersive": {
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2"
+            "A-3",
+            "B-3"
           ],
           "classes": [
             "polymer"
           ]
         },
-        "narration": "Beta appears beside alpha, its preformed dimer partner.",
+        "narration": "Amber beta completes the dimer. Paths and order are illustrative; end positions are measured.",
         "motion": "hold",
         "emphasis": {
           "parts": [
@@ -219,7 +358,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -229,7 +368,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -239,7 +378,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -249,7 +388,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -259,7 +398,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -269,7 +408,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -279,7 +418,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -289,7 +428,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -299,7 +438,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -309,7 +448,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -319,7 +458,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -329,7 +468,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -341,9 +480,150 @@
       }
     },
     {
+      "animation": {
+        "version": 1,
+        "durationSeconds": 1.5,
+        "tracks": [
+          {
+            "id": "arrive",
+            "chains": [
+              "A-2",
+              "B-2"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -60.0
+                ]
+              },
+              {
+                "t": 0.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -30.72
+                ]
+              },
+              {
+                "t": 0.6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -12.96
+                ]
+              },
+              {
+                "t": 0.9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -3.84
+                ]
+              },
+              {
+                "t": 1.2,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  -0.48
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "in-place",
+            "chains": [
+              "A-3",
+              "B-3"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        }
+      },
       "id": "extend",
       "title": "Extend the strand",
-      "caption": "Another alpha-beta pair extends the strand. The first pair stays in place.",
+      "caption": "Another alpha-beta pair adds at the beta end, the plus end, where microtubules grow fastest.",
       "durationSeconds": 6,
       "changes": [
         {
@@ -355,16 +635,16 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2",
             "A-3",
-            "B-3"
+            "B-3",
+            "A-2",
+            "B-2"
           ],
           "classes": [
             "polymer"
           ]
         },
-        "narration": "Another pair extends the strand without moving the first.",
+        "narration": "Another pair adds at the beta end, the plus end, where microtubules grow fastest.",
         "motion": "hold",
         "emphasis": {
           "parts": [
@@ -372,7 +652,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -382,7 +662,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -392,7 +672,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -402,7 +682,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -412,7 +692,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -422,7 +702,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -432,7 +712,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -442,7 +722,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -452,7 +732,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -462,7 +742,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -472,7 +752,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -482,7 +762,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -494,6 +774,157 @@
       }
     },
     {
+      "animation": {
+        "version": 1,
+        "durationSeconds": 1.5,
+        "tracks": [
+          {
+            "id": "arrive",
+            "chains": [
+              "A-5",
+              "B-5"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -55.86,
+                  21.84,
+                  0
+                ]
+              },
+              {
+                "t": 0.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -28.6,
+                  11.182,
+                  0
+                ]
+              },
+              {
+                "t": 0.6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -12.066,
+                  4.717,
+                  0
+                ]
+              },
+              {
+                "t": 0.9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -3.575,
+                  1.398,
+                  0
+                ]
+              },
+              {
+                "t": 1.2,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -0.447,
+                  0.175,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "in-place",
+            "chains": [
+              "A-3",
+              "B-3",
+              "A-2",
+              "B-2"
+            ],
+            "selector": {
+              "residues": [
+                {
+                  "from": 200,
+                  "to": 200
+                }
+              ]
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        }
+      },
       "id": "neighbor",
       "title": "A neighboring strand",
       "caption": "A neighboring strand begins beside the first, following the real microtubule geometry.",
@@ -508,12 +939,12 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2",
             "A-3",
             "B-3",
-            "A-4",
-            "B-4"
+            "A-2",
+            "B-2",
+            "A-5",
+            "B-5"
           ],
           "classes": [
             "polymer"
@@ -527,7 +958,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -537,7 +968,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -547,7 +978,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -557,7 +988,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -567,7 +998,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -577,7 +1008,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -587,7 +1018,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -597,7 +1028,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -607,7 +1038,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -617,7 +1048,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -627,7 +1058,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -637,7 +1068,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -649,6 +1080,159 @@
       }
     },
     {
+      "animation": {
+        "version": 1,
+        "durationSeconds": 1.5,
+        "tracks": [
+          {
+            "id": "arrive",
+            "chains": [
+              "A-4",
+              "B-4"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -41.9,
+                  16.38,
+                  -40.0
+                ]
+              },
+              {
+                "t": 0.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -21.453,
+                  8.387,
+                  -20.48
+                ]
+              },
+              {
+                "t": 0.6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -9.05,
+                  3.538,
+                  -8.64
+                ]
+              },
+              {
+                "t": 0.9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -2.682,
+                  1.048,
+                  -2.56
+                ]
+              },
+              {
+                "t": 1.2,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -0.335,
+                  0.131,
+                  -0.32
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "in-place",
+            "chains": [
+              "A-3",
+              "B-3",
+              "A-2",
+              "B-2",
+              "A-5",
+              "B-5"
+            ],
+            "selector": {
+              "residues": [
+                {
+                  "from": 200,
+                  "to": 200
+                }
+              ]
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        }
+      },
       "id": "neighbor-extend",
       "title": "Extend the neighbor",
       "caption": "The neighboring strand extends. Blue marks alpha tubulin; amber marks beta tubulin.",
@@ -663,14 +1247,14 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2",
             "A-3",
             "B-3",
-            "A-4",
-            "B-4",
+            "A-2",
+            "B-2",
             "A-5",
-            "B-5"
+            "B-5",
+            "A-4",
+            "B-4"
           ],
           "classes": [
             "polymer"
@@ -684,7 +1268,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -694,7 +1278,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -704,7 +1288,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -714,7 +1298,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -724,7 +1308,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -734,7 +1318,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -744,7 +1328,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -754,7 +1338,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -764,7 +1348,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -774,7 +1358,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -784,7 +1368,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -794,7 +1378,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -806,6 +1390,161 @@
       }
     },
     {
+      "animation": {
+        "version": 1,
+        "durationSeconds": 1.5,
+        "tracks": [
+          {
+            "id": "arrive",
+            "chains": [
+              "A-7",
+              "B-7"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -39.3,
+                  45.36,
+                  0
+                ]
+              },
+              {
+                "t": 0.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -20.122,
+                  23.224,
+                  0
+                ]
+              },
+              {
+                "t": 0.6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -8.489,
+                  9.798,
+                  0
+                ]
+              },
+              {
+                "t": 0.9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -2.515,
+                  2.903,
+                  0
+                ]
+              },
+              {
+                "t": 1.2,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -0.314,
+                  0.363,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "in-place",
+            "chains": [
+              "A-3",
+              "B-3",
+              "A-2",
+              "B-2",
+              "A-5",
+              "B-5",
+              "A-4",
+              "B-4"
+            ],
+            "selector": {
+              "residues": [
+                {
+                  "from": 200,
+                  "to": 200
+                }
+              ]
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        }
+      },
       "id": "third-strand",
       "title": "The third strand",
       "caption": "A third strand appears beside the others, adding another piece of the curved wall.",
@@ -820,16 +1559,16 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2",
             "A-3",
             "B-3",
-            "A-4",
-            "B-4",
+            "A-2",
+            "B-2",
             "A-5",
             "B-5",
-            "A-6",
-            "B-6"
+            "A-4",
+            "B-4",
+            "A-7",
+            "B-7"
           ],
           "classes": [
             "polymer"
@@ -843,7 +1582,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -853,7 +1592,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -863,7 +1602,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -873,7 +1612,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -883,7 +1622,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -893,7 +1632,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -903,7 +1642,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -913,7 +1652,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -923,7 +1662,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -933,7 +1672,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -943,7 +1682,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -953,7 +1692,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -965,6 +1704,163 @@
       }
     },
     {
+      "animation": {
+        "version": 1,
+        "durationSeconds": 1.5,
+        "tracks": [
+          {
+            "id": "arrive",
+            "chains": [
+              "A-6",
+              "B-6"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -29.5,
+                  34.0,
+                  -40.0
+                ]
+              },
+              {
+                "t": 0.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -15.104,
+                  17.408,
+                  -20.48
+                ]
+              },
+              {
+                "t": 0.6,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -6.372,
+                  7.344,
+                  -8.64
+                ]
+              },
+              {
+                "t": 0.9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -1.888,
+                  2.176,
+                  -2.56
+                ]
+              },
+              {
+                "t": 1.2,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  -0.236,
+                  0.272,
+                  -0.32
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "in-place",
+            "chains": [
+              "A-3",
+              "B-3",
+              "A-2",
+              "B-2",
+              "A-5",
+              "B-5",
+              "A-4",
+              "B-4",
+              "A-7",
+              "B-7"
+            ],
+            "selector": {
+              "residues": [
+                {
+                  "from": 200,
+                  "to": 200
+                }
+              ]
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1.5,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ],
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        }
+      },
       "id": "wall",
       "title": "A wall of tubulin",
       "caption": "The last pair completes three neighboring strands, each two dimers long.",
@@ -979,18 +1875,18 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2",
             "A-3",
             "B-3",
-            "A-4",
-            "B-4",
+            "A-2",
+            "B-2",
             "A-5",
             "B-5",
-            "A-6",
-            "B-6",
+            "A-4",
+            "B-4",
             "A-7",
-            "B-7"
+            "B-7",
+            "A-6",
+            "B-6"
           ],
           "classes": [
             "polymer"
@@ -1004,7 +1900,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1014,7 +1910,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1024,7 +1920,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1034,7 +1930,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1044,7 +1940,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1054,7 +1950,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1064,7 +1960,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1074,7 +1970,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1084,7 +1980,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1094,7 +1990,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1104,7 +2000,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1114,7 +2010,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1128,7 +2024,7 @@
     {
       "id": "inspect",
       "title": "Walk around the wall",
-      "caption": "Pause and use Next or Back to replay the build. Walk around the wall or move it.",
+      "caption": "Walk around the wall or use Back to replay it. Then say grow it for the cryo-EM tube.",
       "durationSeconds": 15,
       "changes": [
         {
@@ -1140,24 +2036,24 @@
         "visibility": {
           "op": "only",
           "chains": [
-            "A-2",
-            "B-2",
             "A-3",
             "B-3",
-            "A-4",
-            "B-4",
+            "A-2",
+            "B-2",
             "A-5",
             "B-5",
-            "A-6",
-            "B-6",
+            "A-4",
+            "B-4",
             "A-7",
-            "B-7"
+            "B-7",
+            "A-6",
+            "B-6"
           ],
           "classes": [
             "polymer"
           ]
         },
-        "narration": "The wall stays still. Walk around, or step back through the build.",
+        "narration": "Walk around the wall. Then say grow it for the whole tube.",
         "motion": "hold",
         "emphasis": {
           "parts": [
@@ -1165,7 +2061,7 @@
               "id": "alpha-tubulin",
               "label": "Alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-2",
+              "chain": "A-3",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1175,7 +2071,7 @@
               "id": "beta-tubulin",
               "label": "Beta tubulin",
               "color": "#f5a623",
-              "chain": "B-2",
+              "chain": "B-3",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1185,7 +2081,7 @@
               "id": "alpha-above",
               "label": "Alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-3",
+              "chain": "A-2",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1195,7 +2091,7 @@
               "id": "beta-above",
               "label": "Beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-3",
+              "chain": "B-2",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1205,7 +2101,7 @@
               "id": "middle-alpha",
               "label": "Alpha tubulin, middle strand",
               "color": "#4a90e2",
-              "chain": "A-4",
+              "chain": "A-5",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1215,7 +2111,7 @@
               "id": "middle-beta",
               "label": "Beta tubulin, middle strand",
               "color": "#f5a623",
-              "chain": "B-4",
+              "chain": "B-5",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1225,7 +2121,7 @@
               "id": "middle-alpha-above",
               "label": "Alpha tubulin, middle strand above",
               "color": "#4a90e2",
-              "chain": "A-5",
+              "chain": "A-4",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1235,7 +2131,7 @@
               "id": "middle-beta-above",
               "label": "Beta tubulin, middle strand above",
               "color": "#f5a623",
-              "chain": "B-5",
+              "chain": "B-4",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1245,7 +2141,7 @@
               "id": "new-alpha",
               "label": "The new alpha tubulin",
               "color": "#4a90e2",
-              "chain": "A-6",
+              "chain": "A-7",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1255,7 +2151,7 @@
               "id": "new-beta",
               "label": "The new beta tubulin",
               "color": "#f5a623",
-              "chain": "B-6",
+              "chain": "B-7",
               "residues": {
                 "from": 1,
                 "to": 436
@@ -1265,7 +2161,7 @@
               "id": "new-alpha-above",
               "label": "The new alpha tubulin above",
               "color": "#4a90e2",
-              "chain": "A-7",
+              "chain": "A-6",
               "residues": {
                 "from": 1,
                 "to": 437
@@ -1275,7 +2171,7 @@
               "id": "new-beta-above",
               "label": "The new beta tubulin above",
               "color": "#f5a623",
-              "chain": "B-7",
+              "chain": "B-6",
               "residues": {
                 "from": 1,
                 "to": 436

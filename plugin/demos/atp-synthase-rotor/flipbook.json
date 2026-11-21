@@ -318,7 +318,8 @@
               "color": "#4a90e2",
               "sizeFactor": 1.0,
               "offsetX": -16,
-              "offsetY": 8
+              "offsetY": 16,
+              "maxOffsetEm": 4
             },
             {
               "id": "beta-dp1",
@@ -638,7 +639,8 @@
               "color": "#4a90e2",
               "sizeFactor": 1.0,
               "offsetX": -16,
-              "offsetY": 8
+              "offsetY": 16,
+              "maxOffsetEm": 4
             },
             {
               "id": "beta-d1",
@@ -679,7 +681,7 @@
     {
       "id": "state-2",
       "title": "State 2",
-      "caption": "In 6N2Z gamma has turned about 120 degrees counterclockwise, seen from the head, the direction of ATP synthesis, and the c-ring about 108 degrees. The closed, putative-phosphate and empty conformations have each moved one beta subunit round with gamma. Each chapter is a deposited state; the motion between them was not observed.",
+      "caption": "In 6N2Z gamma has turned about 120 degrees counterclockwise, seen from the head, the direction of ATP synthesis. Measured against subunit a, the c-ring has moved three c subunits, about 108 degrees. The closed, putative-phosphate and empty conformations have each moved one beta subunit round with gamma. Each chapter is a deposited state; the motion between them was not observed.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -1317,7 +1319,7 @@
       ],
       "immersive": {
         "motion": "hold",
-        "narration": "Back to state one: ten c subunits, ten protons, one full turn.",
+        "narration": "Ten c subunits, ten protons, one full turn.",
         "visibility": {
           "op": "only",
           "chains": [
@@ -1981,7 +1983,7 @@
       ],
       "immersive": {
         "motion": "hold",
-        "narration": "Proton exit and closed catalytic site are 11 nanometres apart.",
+        "narration": "Proton exit to the closed site: 11 nanometres.",
         "visibility": {
           "op": "only",
           "chains": [

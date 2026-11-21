@@ -72,6 +72,11 @@ export function attachXrPointerHelper({ canvas, helper, menuPoint = () => undefi
   const batches = [rays, dots, hitDot], objects = batches.map(batch => batch.object);
   const matrix = Mat4.identity(), inverseView = Mat4.identity(), direction = Vec3(), menu = Vec3();
   let restored = false;
+  // Drawn by the controls' own XR layer (`drawExternal`) instead of in the
+  // molecule's pass, where atoms would hide it and the controls layer would
+  // cover it. Off unless that layer asks.
+  let external = false;
+  const hideFromMolecularPass = () => { if (external) for (const object of objects) object.state.visible = false; };
   function put(batch, point, ray) {
     if (!finitePoint(point)) return;
     if (ray && finitePoint(ray) && Vec3.magnitude(ray) > 1e-6) {
@@ -116,11 +121,39 @@ export function attachXrPointerHelper({ canvas, helper, menuPoint = () => undefi
     for (const batch of batches) upload(batch);
     this.scene.update(objects, false);
     this.scene.syncVisibility();
+    hideFromMolecularPass();
   };
   return {
     applied: true,
+    /**
+     * Leave the molecule's pass for `drawExternal`, or come back to it. The
+     * molecule's pass skips an invisible object, so the objects stay hidden
+     * there and are shown only for the external draw.
+     */
+    setExternal(on) {
+      if (restored || external === Boolean(on)) return;
+      external = Boolean(on);
+      if (external) hideFromMolecularPass();
+      else for (const batch of batches) batch.object.state.visible = batch.count > 0;
+    },
+    /**
+     * Draw this frame's rays and dots with `renderer` from `camera`, into
+     * whatever target is bound, as Mol*'s draw pass does after the controls:
+     * the helper's camera at scale 1, depth-tested against what is there.
+     */
+    drawExternal(renderer, camera) {
+      if (restored || !external || !batches.some(batch => batch.count > 0)) return false;
+      for (const batch of batches) batch.object.state.visible = batch.count > 0;
+      try {
+        helper.setCamera(camera);
+        renderer.update(helper.camera, helper.scene);
+        renderer.renderBlended(helper.scene, helper.camera);
+      } finally { for (const object of objects) object.state.visible = false; }
+      return true;
+    },
     restore() {
       if (restored) return;
+      external = false;
       restored = true;
       helper.update = original;
       for (const object of objects) helper.scene.remove(object);
@@ -144,8 +177,8 @@ function releaseDiscoveryHook() {
 /** Canvas3D's public facade omits its helper. Discover only this canvas's
  * pinned XRManager on its first update, then remove the discovery hook. */
 export function installXrPointer({ canvas, menuPoint, onManager } = {}) {
-  if (!canvas?.webgl || typeof XRManager.prototype.update !== 'function') return { applied: false, restore() {} };
-  let adapter, managerAdapter, restored = false;
+  if (!canvas?.webgl || typeof XRManager.prototype.update !== 'function') return { applied: false, restore() {}, setExternal() {}, drawExternal: () => false };
+  let adapter, managerAdapter, restored = false, external = false;
   const pending = { webgl: canvas.webgl, attach(manager) {
     // Share discovery with instance-scoped input adapters, before this
     // manager's first update can dispatch a synchronous release pick.
@@ -154,6 +187,7 @@ export function installXrPointer({ canvas, menuPoint, onManager } = {}) {
     }
     try {
       adapter = attachXrPointerHelper({ canvas, helper: manager.pointerHelper, menuPoint });
+      if (external) adapter.setExternal?.(true);
       try { globalThis.__stereofoldDiagnostics?.record?.('xr-pointer', { applied: adapter.applied, geometry: 'instanced', radiusMeters: XR_POINTER_RADIUS_METERS }); } catch {}
     } catch (error) {
       try { globalThis.__stereofoldDiagnostics?.record?.('xr-pointer', { applied: false, error: error?.message }); } catch {}
@@ -176,6 +210,9 @@ export function installXrPointer({ canvas, menuPoint, onManager } = {}) {
   }
   return {
     get applied() { return adapter?.applied === true; },
+    /** See `attachXrPointerHelper`; kept for a helper discovered later. */
+    setExternal(on) { external = Boolean(on); adapter?.setExternal?.(external); },
+    drawExternal: (renderer, camera) => adapter?.drawExternal?.(renderer, camera) ?? false,
     restore() {
       if (restored) return;
       restored = true;

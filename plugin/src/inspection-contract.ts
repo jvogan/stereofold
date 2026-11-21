@@ -555,7 +555,7 @@ const replaceInspectionSourceFields = inspectionBindingSchema.extend({
    */
   waitForRenderMs:z.number().int().min(0).max(SOURCE_RENDER_WAIT_CEILING_MS).optional(),
   pdbId:z.string().regex(/^[A-Za-z0-9]{4}$/u).optional(),
-  demo:z.string().min(1).max(128).optional().describe('Bundled demo name from demos/index.json. Loads verified coordinates and starts its lesson in this session.'),
+  demo:z.string().min(1).max(128).optional().describe('Bundled demo id from demos/index.json, or a plain name that fits one demo by the start of its id or a whole word of its id or title ("telomerase" opens telomerase-haca); a name that fits several is refused with the candidates, and the answer names the id opened. For "microtubule growth" use microtubule-arrival (tubulin units arrive and build a wall); microtubule-growth opens on a finished wall that grow_structure grows into a tube. Loads verified coordinates and starts its lesson in this session.'),
   stage:z.string().min(1).max(128).optional().describe('Optional indexed stage, for example motion or monomer; only with demo.'),
   source:structureSourceSchema.describe(SOURCE_DESCRIPTION).optional(),
   ...structureSelectionShape,
@@ -573,7 +573,8 @@ export const replaceInspectionSourceRequestSchema = withImplicitBinding(replaceI
  * `device` is the paired headset's class; it is what decides whether a tier is
  * refused. Only `quest2` has a measured ceiling, so only `quest2` is refused;
  * a class this Mac has not identified is not held to a ceiling it was never
- * measured against.
+ * measured against. Omitted, the host uses the classes this session's
+ * headset pages report (`growthDeviceTier` in `molecular-growth.ts`).
  */
 export const growStructureSchema = inspectionBindingSchema.extend({
   panelId:z.string().uuid(),
@@ -609,8 +610,8 @@ export const acknowledgeExperienceStepSchema = inspectionBindingSchema.extend({
   stepIndex:z.number().int().nonnegative().max(255),
 }).strict();
 /**
- * One headset grip event. The only field a request carries is which edge it
- * is; nothing here names a command, a device, or any audio.
+ * One headset talk button event. The only field a request carries is which
+ * edge it is; nothing here names a command, a device, or any audio.
  */
 /**
  * WHAT THE PERSON MEANT BY "THIS", captured when they started
@@ -666,7 +667,7 @@ export type RequestPointing = z.output<typeof requestPointingSchema>;
 /** The words a caller may use for the captured referent instead of a name. */
 export const REFERENT_PRONOUNS = Object.freeze(['this','that','this part','that part','it','this one','that one']);
 export const pushToTalkSchema = z.object({ sessionId:sessionIdSchema, state:z.enum(['down','up']),
-  // What the wearer was pointing at as the grip went down. The
+  // What the wearer was pointing at as the talk press began. The
   // down edge IS the start of the request, so this is the only honest moment
   // to read it. Optional: a page that reports nothing still captures the
   // selection, and a page built before this sends the same two fields it did.
@@ -1414,6 +1415,15 @@ export function matchesInspectionChange(scene:InspectionScene, expected:Inspecti
     expected = structuredClone(expected);
     if (scene.inspection.emphasis) expected.inspection.emphasis = structuredClone(scene.inspection.emphasis);
     else delete expected.inspection.emphasis;
+  }
+  // A playback control does not own the placement either. A headset page may
+  // slide the structure aside to keep its menu in view while a restarted clip
+  // draws, and saves it where it drew it. A slide keeps the orientation and
+  // size; a structure turned or resized under a playback control is refused.
+  if (change.kind === 'animation') {
+    const drawn = scene.inspection.placement, requested = expected.inspection.placement;
+    if (inspectionJson(drawn.rotation) === inspectionJson(requested.rotation) && drawn.scale === requested.scale)
+      expected.inspection.placement = structuredClone(drawn);
   }
   if (change.kind === 'animation' || change.kind === 'measurement') {
     // Playback is checked against the requested controls by the receipt gate.

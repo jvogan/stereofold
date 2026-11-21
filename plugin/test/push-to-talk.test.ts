@@ -35,7 +35,7 @@ function finish(call: Call, code = 0, out = '', err = '') {
 
 const SESSION = 'session-1';
 
-describe('headset grip push-to-talk', () => {
+describe('headset talk button push-to-talk', () => {
   it('runs the configured commands once per press and reports what they printed', async () => {
     const { calls, spawn } = recorder();
     const logs: string[] = [];
@@ -92,7 +92,7 @@ describe('headset grip push-to-talk', () => {
     await Promise.resolve();
     finish(calls[0]);
     await first;
-    // A second down while the grip is held is a repeat, not a new press.
+    // A second down while the talk button is held is a repeat, not a new press.
     expect(await ptt.handle('down', SESSION)).toMatchObject({ accepted: false, reason: 'repeat' });
 
     const release = ptt.handle('up', SESSION);
@@ -120,7 +120,7 @@ describe('headset grip push-to-talk', () => {
     expect(result).toMatchObject({ accepted: true, reason: 'failed', ran: true, timedOut: true });
     expect(calls[0].child.killed).toEqual(['SIGKILL']);
     expect(logs.some(line => line.includes('killed after 5 ms'))).toBe(true);
-    // A killed down still leaves the grip held, so the matching up is accepted.
+    // A killed down still leaves the talk button held, so the matching up is accepted.
     expect(ptt.listening()).toBe(true);
   });
 
@@ -154,6 +154,6 @@ describe('headset grip push-to-talk', () => {
     const logs: string[] = [];
     const oversized = pushToTalkFromEnv({ [PUSH_TO_TALK_ENABLED_ENV]: '1', [PUSH_TO_TALK_DOWN_ENV]: 'x'.repeat(4096) }, { spawn, log: line => logs.push(line) });
     expect(oversized.configured).toBe(false);
-    expect(logs.some(line => line.includes('Logging grip events only'))).toBe(true);
+    expect(logs.some(line => line.includes('Logging talk presses only'))).toBe(true);
   });
 });

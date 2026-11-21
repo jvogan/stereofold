@@ -1,11 +1,10 @@
 // Face buttons and thumbsticks on the Touch controllers.
 //
-// The face buttons used to do nothing: nothing read them, and nothing read a
-// thumbstick except Mol*'s own camera dolly, which is retired in
-// `xr-locomotion.mjs`.
+// Mol*'s own camera dolly, the only stock reader of a thumbstick, is retired
+// in `xr-locomotion.mjs`.
 //
-// A now holds push-to-talk, so that both grips can grab the structure instead
-// of one of them opening a microphone.
+// A or X holds push-to-talk, so both grips can grab the structure without
+// either of them opening a microphone.
 //
 // Both live here because both arrive on the same stream. `XRManager.update`
 // publishes one tracked pointer per controller carrying a `buttons` bitmask
@@ -55,13 +54,11 @@ export const RESET_HOLD_MS = 500;
 /**
  * The longest release that still counts as a tap on an upper face button.
  *
- * It was the full 500 ms of the reset hold, so that no press fell between the
- * two actions. That cost more than it bought: a wearer holding for a reset who
- * let go at 400 ms got the menu hidden instead — the one thing they had not
- * asked for, at the moment they were already lost. A press that long is a hold
- * that fell short, and the 250-500 ms band now says so in a caption rather than
- * doing something else. Under 250 ms is a thumb that went down and came back
- * up, which is the menu.
+ * It is not the full 500 ms of the reset hold: a wearer holding for a reset
+ * who lets go at 400 ms must not get the menu hidden instead, the one thing
+ * they had not asked for. A press that long is a hold that fell short, and the
+ * 250-500 ms band says so in a caption rather than doing something else. Under
+ * 250 ms is a thumb that went down and came back up, which is the menu.
  */
 export const TAP_MAX_MS = 250;
 /**

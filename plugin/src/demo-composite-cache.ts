@@ -1,5 +1,6 @@
 /** The launcher and live growth rebuild the same recipe from verified sources. */
 import { dirname } from 'node:path';
+import { confinedDemoPath } from './addressed-demo-cache.js';
 import { buildRigidComposite, compositeSha256, isModelledCompositeSource } from './demo-rigid-composite.js';
 import { readCompositeRecipe, readModelledCompositeSource } from './demo-composite-files.js';
 import { readInspectionFile } from './inspection-file.js';
@@ -18,7 +19,7 @@ export type CompositeCacheHooks = {
  * Prepared outputs use addressed-demo-cache (indexed) or composites/<digest>.cif
  * (handles); no recipe publishes to an unversioned coordinate name. */
 export async function resolveCompositeSource(source: { id: string; url: string; sha256: string }, hooks: CompositeCacheHooks): Promise<string> {
-  const path = hooks.cachePath(`composite-sources/${source.sha256}-${source.id}.cif`);
+  const path = confinedDemoPath(hooks.cachePath, `composite-sources/${source.sha256}-${source.id}.cif`);
   let text = await readInspectionFile(path).then(value => value.structureText, () => undefined);
   if (text === undefined || compositeSha256(text) !== source.sha256) {
     hooks.log?.(`  fetching ${source.url}`);

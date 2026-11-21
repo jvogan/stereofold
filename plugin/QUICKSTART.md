@@ -440,8 +440,9 @@ and prepares the map on the computer hosting the session; later runs reuse its
 verified cache. Check the launcher's prefetch result before putting on the
 headset. A live session does not prepare a missing map. If it is absent, ask
 for `tip` directly from `wall` to skip it. A tier a Quest 2 cannot hold is refused out loud —
-"Too big for this headset. Staying here." — and nothing changes. On a Quest 2
-that size refusal applies to the `tube` tier.
+"Too big for this headset. Staying here." — and nothing changes. No
+`microtubule-growth` tier is refused on a Quest 2; the `tube` tier is past the
+size ceiling but has opened there.
 
 Treat live density transitions as experimental. Verify a current, ready
 companion and its rendered receipt before continuing.

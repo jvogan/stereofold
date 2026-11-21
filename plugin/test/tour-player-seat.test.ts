@@ -5,7 +5,7 @@ import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { diagnosticEntrySchema, salvageDiagnosticEntries } from '../src/headset-diagnostics.js';
 // @ts-ignore Page production closures; only rendering I/O is adapted.
 import { recordedEndings, recordedTourSeat } from '../../lab/browser-roundtrip/fixtures/recorded-tour-seat.mjs';
-const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8')));
+const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('./fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8')));
 
 it('recorded Done and completion restore identical seats and send accepted clearance evidence', async () => {
   const restored = [];

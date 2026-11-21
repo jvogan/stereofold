@@ -979,6 +979,10 @@ const BOOTSTRAP = String.raw`
      * on a revision the host has moved past is refused, which is why a beat
      * that finds the panel gone calls this again rather than going quiet.
      */
+    // The host's report that the person started this share with --no-ptt.
+    // Any answer that carries it sets it; only a successful attach without it
+    // clears it. Hold to talk opens no microphone while it holds.
+    let microphoneRefused = false;
     const attach = async () => {
       if (attaching) return undefined;
       attaching = true;
@@ -994,6 +998,7 @@ const BOOTSTRAP = String.raw`
         const attached = await call('attach_inspection', Object.assign({surface: 'detailed'}, binding));
         panelId = attached.structuredContent && attached.structuredContent.panelId;
         if (!panelId) throw Error('The Mac issued no panel for this page.');
+        microphoneRefused = session.microphoneRefusedAfter(microphoneRefused, attached, true);
         // A fresh panel has seen nothing yet, so the wearer's current pick is
         // sent again rather than held back as already reported.
         selectionReporter.reset();
@@ -1035,6 +1040,7 @@ const BOOTSTRAP = String.raw`
         const answer = await call('poll_inspection', Object.assign({panelId: panelId,
           availability: rendering ? 'busy' : 'ready', diagnostics: selectionReporter.diagnostics()}, sent));
         if (answer.structuredContent) selectionReporter.acknowledge(answer.structuredContent.diagnosticsAck);
+        microphoneRefused = session.microphoneRefusedAfter(microphoneRefused, answer, false);
         const read = session.readBeat(answer, scene);
         if (read.binding) binding = read.binding;
         if (!read.attached) {
@@ -1097,6 +1103,7 @@ const BOOTSTRAP = String.raw`
       }),
       Recorder: window.MediaRecorder,
       getMedia: () => navigator.mediaDevices.getUserMedia({audio: true}),
+      refused: () => microphoneRefused,
       mimeTypes: ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg'],
       say: text => showCaption({text: text, holdSeconds: 4, speak: false}),
       // "Say return when done", kept by the page.

@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createHeadsetViewStore } from '../src/headset-view.js';
+import { createHeadsetViewStore, unlitPageFrame } from '../src/headset-view.js';
+import { DEVICE_LIT_FLOOR } from '../src/headset-view-device.js';
 // @ts-ignore Shared JavaScript headset view capture.
-import { xrSnapshotFrame, requestHeadsetViewCapture, setHeadsetViewSender, releaseHeadsetView, headsetViewState, uploadHeadsetView, flatColor, HEADSET_VIEW_DEFAULT_WIDTH } from '../../lab/browser-roundtrip/xr-snapshot.mjs';
+import { xrSnapshotFrame, requestHeadsetViewCapture, setHeadsetViewSender, releaseHeadsetView, headsetViewState, uploadHeadsetView, flatColor, eyeLight, HEADSET_VIEW_DEFAULT_WIDTH, HEADSET_VIEW_LIT_FLOOR } from '../../lab/browser-roundtrip/xr-snapshot.mjs';
+
+// The layer stack a session has behind `?xrLayers=1`. Sessions not listed
+// here have none, which is every session on the stock path.
+const layerStacks = new WeakMap<object, any>();
+vi.mock('../../lab/browser-roundtrip/xr-layers.mjs', () => ({ getXrLayerStack: (session: object) => layerStacks.get(session) ?? null }));
 
 /**
  * A WebGL2 context that records what the capture asked of it.
@@ -190,9 +196,9 @@ describe('the headset snapshot inside the XR frame', () => {
     expect(HEADSET_VIEW_DEFAULT_WIDTH).toBe(480);
   });
 
-  // The black stills of 2026-09-24 and 2026-09-28. The observer runs
-  // after every XR callback, and the frame-rate watcher's runs before Mol*'s,
-  // so the capture was read from a framebuffer Mol* had not drawn into yet.
+  // Black stills: the observer runs after every XR callback, and the
+  // frame-rate watcher's runs before Mol*'s, so a capture taken after the
+  // watcher's callback reads a framebuffer Mol* has not drawn into yet.
   it('waits for the callback that drew, and takes that frame', () => {
     setHeadsetViewSender(() => Promise.resolve({}));
     const gl = fakeGl();
@@ -216,6 +222,79 @@ describe('the headset snapshot inside the XR frame', () => {
     requestHeadsetViewCapture({ id: 'req-probe-2' });
     xrSnapshotFrame({ frame, space, session, gl, drawn: true });
     expect(probes()).toBe(2);
+  });
+});
+
+describe('a still taken while the controls are on XR layers of their own', () => {
+  beforeEach(() => { releaseHeadsetView(); setHeadsetViewSender(() => Promise.resolve({})); });
+  const layered = (paintCapture: (still: any) => unknown) => {
+    const own = { renderState: { baseLayer: layer } };
+    layerStacks.set(own, { paintCapture });
+    return own;
+  };
+
+  it('has the layers painted over the molecule before it is read, and says so in its path', () => {
+    const gl = fakeGl();
+    const stills: any[] = [], order: string[] = [];
+    const own = layered(still => { stills.push(still); order.push(`paint after ${gl.calls.filter((c: any) => c.name === 'blitFramebuffer').length} blit`); return true; });
+    requestHeadsetViewCapture({ id: 'layers-1', maxWidth: 480 });
+    xrSnapshotFrame({ frame, space, session: own, gl });
+    expect(stills).toHaveLength(1);
+    // The still is the capture's own small target, and the view is the eye it shows.
+    expect(stills[0]).toMatchObject({ view: { eye: 'left' }, width: 480, height: 533 });
+    expect(stills[0].framebuffer).toEqual({ kind: 'fbo' });
+    expect(order).toEqual(['paint after 1 blit']);
+    const names = gl.calls.map((call: any) => call.name);
+    expect(names.lastIndexOf('readPixels')).toBeGreaterThan(names.indexOf('blitFramebuffer'));
+    expect(headsetViewState().pending).toMatchObject({ phase: 'fenced', path: 'blit-pack-fence+controls' });
+  });
+
+  it('hands the painter the scissor test it borrowed and takes it back for the read', () => {
+    const gl = fakeGl();
+    let during: boolean | undefined;
+    const own = layered(() => { during = gl.scissorState(); return true; });
+    requestHeadsetViewCapture({ id: 'layers-2' });
+    xrSnapshotFrame({ frame, space, session: own, gl });
+    // The renderer's state cache believes the scissor test is on, as Mol* left it.
+    expect(during).toBe(true);
+    expect(gl.scissorState()).toBe(true);
+    expect(gl.getParameter(gl.READ_FRAMEBUFFER_BINDING)).toBe(null);
+    expect(gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING)).toBe(null);
+  });
+
+  it('says when the controls could not be added, and still delivers the molecule', () => {
+    const gl = fakeGl();
+    requestHeadsetViewCapture({ id: 'layers-3' });
+    xrSnapshotFrame({ frame, space, session: layered(() => false), gl });
+    expect(headsetViewState().pending).toMatchObject({ phase: 'fenced', path: 'blit-pack-fence+no-controls' });
+    releaseHeadsetView();
+    setHeadsetViewSender(() => Promise.resolve({}));
+    // A resolve fallback keeps its own name in front.
+    const refused = fakeGl({ blitFails: true });
+    requestHeadsetViewCapture({ id: 'layers-4' });
+    xrSnapshotFrame({ frame, space, session: layered(() => true), gl: refused });
+    expect(headsetViewState().pending).toMatchObject({ path: 'resolve-blit-pack-fence+controls' });
+  });
+
+  it('leaves the path and the GL calls alone when no layer holds a control', () => {
+    const plain = fakeGl(), stacked = fakeGl();
+    requestHeadsetViewCapture({ id: 'layers-5' });
+    xrSnapshotFrame({ frame, space, session, gl: plain });
+    expect(headsetViewState().pending).toMatchObject({ path: 'blit-pack-fence' });
+    releaseHeadsetView();
+    setHeadsetViewSender(() => Promise.resolve({}));
+    // A stack whose controls went back into the molecule's pass has no painter.
+    requestHeadsetViewCapture({ id: 'layers-6' });
+    xrSnapshotFrame({ frame, space, session: layered(() => undefined), gl: stacked });
+    expect(headsetViewState().pending).toMatchObject({ path: 'blit-pack-fence' });
+    // Without a stack the capture makes exactly the calls it always made.
+    const plainAgain = fakeGl();
+    releaseHeadsetView();
+    setHeadsetViewSender(() => Promise.resolve({}));
+    requestHeadsetViewCapture({ id: 'layers-7' });
+    xrSnapshotFrame({ frame, space, session, gl: plainAgain });
+    expect(plainAgain.calls.map((call: any) => call.name)).toEqual(plain.calls.map((call: any) => call.name));
+    expect(plain.calls.filter((call: any) => call.name === 'enable' || call.name === 'disable').map((call: any) => call.name)).toEqual(['disable', 'enable']);
   });
 });
 
@@ -436,6 +515,27 @@ describe('snapshot encoder lifetime', () => {
     expect(sent).toEqual([]);
   });
 
+  it('reads every pixel it took and sends the count with the frame, which the Mac refuses when almost nothing is lit', async () => {
+    const gl = fakeGl(); gl.clientWaitSync = () => 0x911a;
+    // Black apart from nine pixels, each where a sample of every seventh pixel lands.
+    gl.getBufferSubData = (_target: number, _offset: number, pixels: Uint8Array) => {
+      if (pixels.length === 4) return;
+      for (let k = 0; k < 9; k++) pixels.set([230, 160, 60, 255], k * 7_000 * 4);
+    };
+    requestHeadsetViewCapture({ id: 'counted' });
+    xrSnapshotFrame({ frame, space, session, gl, drawn: true });
+    await vi.advanceTimersByTimeAsync(0);
+    workers[0].onmessage({ data: { encoded: new Uint8Array([255, 216, 255, 217]).buffer } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ requestId: 'counted', status: 'captured', width: 480, height: 533, flatChecked: true, litPixels: 9 });
+    expect(sent[0]).not.toHaveProperty('flatColor');
+    // The centre probe read [0,0,0,0] here, and is reported beside the count.
+    expect(sent[0]).toMatchObject({ probeLit: false });
+    expect(unlitPageFrame({ ...sent[0], directReadable: true })).toEqual({ still: 'black',
+      reason: "the page's frame was almost entirely black (9 of 255,840 pixels lit), and its centre pixel read empty" });
+  });
+
   it('encodes only once after worker failure and ignores retired worker callbacks', async () => {
     const callbacks: ((blob: any) => void)[] = [];
     vi.stubGlobal('ImageData', class {});
@@ -466,6 +566,65 @@ describe('a frame of one flat colour', () => {
     for (let offset = 0; offset < pixels.length; offset += 4) pixels.set(rgba, offset);
     return pixels;
   };
+
+  it('reads every pixel: a structure between the old sample points is found and counted', () => {
+    const pixels = eye(640, 704, [0, 0, 0, 255]);
+    // A small structure, 40 rows of 40 pixels, drawn only where a sample of
+    // every seventh pixel never lands: that sample called this eye flat black.
+    let drawn = 0;
+    for (let y = 300; y < 340; y++) for (let x = 300; x < 340; x++) {
+      const index = y * 640 + x;
+      if (index % 7 !== 0) { pixels.set([120, 90, 200, 255], index * 4); drawn++; }
+    }
+    expect(flatColor(pixels)).toBeUndefined();
+    expect(eyeLight(pixels)).toEqual({ pixels: 450_560, lit: drawn });
+  });
+
+  it('counts by the floor the Mac uses, as the JPEG shows each pixel over black', () => {
+    expect(HEADSET_VIEW_LIT_FLOOR).toBe(DEVICE_LIT_FLOOR);
+    const pixels = new Uint8Array([
+      3, 3, 3, 255, // below the floor
+      0, 0, 4, 255, // blue alone at the floor
+      200, 10, 10, 0, // transparent: black as shown, whatever it carries
+      8, 0, 0, 128, // half alpha: 4.02, shown at 4
+      7, 0, 0, 128, // half alpha: 3.51, which the JPEG rounds to 4, as the flat check does
+      6, 0, 0, 128, // half alpha: 3.01, shown at 3, below the floor
+      0, 0, 0, 0, 255, 255, 255, 255,
+    ]);
+    expect(eyeLight(pixels)).toEqual({ pixels: 8, lit: 4 });
+    // A view that is not word-aligned takes the byte loop, which agrees.
+    const shifted = new Uint8Array(pixels.length + 1); shifted.set(pixels, 1);
+    expect(eyeLight(shifted.subarray(1))).toEqual({ pixels: 8, lit: 4 });
+    // A translucent structure shown at level 4 is drawn, not black.
+    const translucent = eye(640, 704, [0, 0, 0, 255]);
+    for (let y = 200; y < 400; y++) for (let x = 200; x < 400; x++) translucent.set([7, 7, 7, 128], (y * 640 + x) * 4);
+    expect(eyeLight(translucent)).toEqual({ pixels: 450_560, lit: 40_000 });
+    // Runs of equal pixels count once each, in both loops.
+    const runs = eye(64, 64, [0, 0, 0, 255]); runs.fill(90, 0, 4 * 100); runs.fill(90, 4 * 2000, 4 * 2050);
+    const unaligned = new Uint8Array(runs.length + 1); unaligned.set(runs, 1);
+    expect(eyeLight(runs)).toEqual({ pixels: 4096, lit: 150 });
+    expect(eyeLight(unaligned.subarray(1))).toEqual({ pixels: 4096, lit: 150 });
+    // Flat within two levels everywhere is still flat, in both loops; three levels apart is not.
+    const near = eye(16, 16, [25, 39, 52, 255]); near.set([27, 37, 54, 255], 4 * 200);
+    const nearShifted = new Uint8Array(near.length + 1); nearShifted.set(near, 1);
+    expect(eyeLight(near)).toEqual({ pixels: 256, lit: 256, flatColor: '#192734' });
+    expect(eyeLight(nearShifted.subarray(1))).toEqual({ pixels: 256, lit: 256, flatColor: '#192734' });
+    near.set([28, 39, 52, 255], 4 * 255);
+    expect(eyeLight(near).flatColor).toBeUndefined();
+    expect(eyeLight(new Uint8Array(0))).toEqual({ pixels: 0, lit: 0 });
+  });
+
+  it('costs about a millisecond on the largest eye the page reads, outside the XR frame', () => {
+    for (const [width, height] of [[640, 704], [1832, 1920]] as const) {
+      const pixels = eye(width, height, [25, 39, 52, 255]);
+      for (let offset = 0; offset < pixels.length; offset += 4 * 3) pixels[offset] = (offset >> 2) & 0xff;
+      eyeLight(pixels);
+      const started = performance.now();
+      expect(eyeLight(pixels).lit).toBe(width * height);
+      // Measured at about 1 ms and 5 ms; the bound only catches a pass gone quadratic or allocating per pixel.
+      expect(performance.now() - started).toBeLessThan(250);
+    }
+  });
 
   it('names the colour of an all-black or all-background eye', () => {
     expect(flatColor(eye(640, 704, [0, 0, 0, 0]))).toBe('#000000');

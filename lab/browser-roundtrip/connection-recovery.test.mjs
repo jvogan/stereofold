@@ -179,7 +179,7 @@ function page(responses, { dirty = false } = {}) {
   const scene = { molecule: 'fixture', selection: [1], camera: [0, 0, 5] };
   const binding = { sessionId: 'session', sourceToken: 'source', serverEpoch: 'epoch', stateRevision: 1, inspectionRevision: 1 };
   const blank = () => ({ hidden: true, textContent: '' });
-  const h = vm.createContext({ failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, beatCompletion:undefined, desktopReceiptInFlight:false, desktopReceiptBeat:undefined, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined, clearTimeout(id) { cancelledTimers.add(id); },
+  const h = vm.createContext({ followRecovery:false,recoveryPanel:undefined, failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, beatCompletion:undefined, desktopReceiptInFlight:false, desktopReceiptBeat:undefined, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined, clearTimeout(id) { cancelledTimers.add(id); },
     connectionStatus, setConnectionStatus, LINK_LOST, PAIR_AGAIN, recoverCompanionConnection:async()=>false, registerComparisonSources:async sources=>{assert.equal(sources,undefined);}, exports: {}, Error, AbortSignal, AbortController, Response,
     readPageKey: () => ({ key: 'a'.repeat(64) }),
     fetch: async () => { const next = responses.shift(); if (next instanceof Error) throw next;
@@ -187,7 +187,9 @@ function page(responses, { dirty = false } = {}) {
     setTimeout: fn => { timers.push(fn); return timers.length; },
     closed: false, generation: 1, blocked: false, dirty, pendingReceipt: undefined, saveAttempts: 0,
     problemRetryKind: 'save', PRIVATE_KEY: 'stereo_structure/inspection',
-    loading: false, remote: false, isCompanion: true, panelId: 'panel', binding,
+    loading: false, remote: false, isCompanion: true, panelId: 'panel', binding, desktopRetrySource: undefined, desktopRetryAttempt: 0,
+    // Only a desktop panel posts live view pictures; a headset page has none.
+    liveViewCapture: undefined,
     // The caption plate holds a delivered reply until a drop
     // outlives the heartbeat deadline, so these functions read a clock. `clock`
     // is the seam; unset means real time.
@@ -223,7 +225,7 @@ function page(responses, { dirty = false } = {}) {
   vm.runInContext(compile(functions('plugin/src/inspector.ts',
     // `poll` arms its own next tick and hands a beat it cannot
     // serve to `busyBeat`, so both travel with it.
-    ['showProblem', 'showConnectionProblem', 'clearConnectionProblem', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'armPoll', 'problemMessage', 'poll'])), h);
+    ['showProblem', 'showConnectionProblem', 'clearConnectionProblem', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'armPoll', 'problemMessage', 'poll', 'retryFollowRecovery'])), h);
   return { h, captions, timers, cancelledTimers, mutations, scene, clock };
 }
 
@@ -334,10 +336,9 @@ test('late failures and unrelated refusals cannot replace the current recovery n
   assert.deepEqual(p.captions, []);
 });
 
-// Parent baseline: 25f6744's test fails on 25f6744~1 at its line 290
-// exact-status assertion: parent inspector.ts:1599 emits the old thirteen-word
-// "Tool control is paused; your visible view is preserved" guidance.
-// The replacement behavior itself is also covered by mutation testing.
+// A 401 poll shows the expired-share notice. A 409 busy refusal on the next
+// poll replaces it with the exact refusal guidance, and every recovery line
+// stays at twelve words or fewer.
 test('poll replaces an expired-share notice with a subsequent busy refusal', async () => {
   const p = page([new Response('', { status: 401 }),
     Response.json({ error: 'request_failed', message: 'The panel is busy.' }, { status: 409 })]);

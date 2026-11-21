@@ -80,6 +80,195 @@ test('real worker keeps the requested molecule and clears the relocated full men
   } finally { await t.toolbar.dispose(); }
 });
 
+test('after a molecular move is put back, every menu seat draws the glass it was measured as', async () => {
+  // The agent moves the molecule in a lesson chapter: the menu keeps the
+  // glass it had, turned as it was drawn. The agent puts the molecule back:
+  // nothing holds it, so the menu is an ordinary seat again. The next
+  // chapter's proof may move the menu to a seat it measured, and that seat
+  // must draw that same glass, as in a chapter whose molecule never moved.
+  // Otherwise the commit finds other glass and refuses the chapter.
+  const tour = { selectedId: 'lesson', active: true, step: 3, total: 5, title: 'Close-up', body: 'Read this chapter.',
+    canNext: true, canBack: true };
+  // A head at rest still turns a little between draws: here 2 degrees.
+  const turn = 2 * Math.PI / 180, now = [...head];
+  [now[0], now[2], now[8], now[10]] = [Math.cos(turn), -Math.sin(turn), Math.sin(turn), Math.cos(turn)];
+  // The seat search may also come before the menu has redrawn since the
+  // put-back (the next command at once, or a redraw that failed). The glass
+  // drawn while the move held it is still on screen then, and stays there
+  // until a checked seat replaces it.
+  for (const how of ['never moved', 'put back', 'put back, not yet redrawn']) {
+    const state = { placementMoves: 0, placementHeld: false, voice: { state: 'idle' }, tour };
+    const count = await (async () => {
+      const t = await menu({ state });
+      try { return t.toolbar.prepareRelocation({ headInRoom: now }).length; } finally { await t.toolbar.dispose(); }
+    })();
+    assert.ok(count > 2, 'the menu offers seats');
+    for (let index = 0; index < count; index++) {
+      const t = await menu({ state });
+      try {
+        if (how !== 'never moved') {
+          t.setState({ ...state, placementMoves: 1, placementHeld: true }); await t.toolbar.update();
+          const held = t.toolbar.platePoints();
+          t.setState({ ...state, placementMoves: 1, placementHeld: false });
+          if (how === 'put back') await t.toolbar.update();
+          else {
+            t.toolbar.prepareRelocation({ headInRoom: now });
+            assert.deepEqual(t.toolbar.platePoints(), held, `${how}: the drawn glass stays until a seat replaces it`);
+          }
+        }
+        const candidate = t.toolbar.prepareRelocation({ headInRoom: now })[index];
+        if (!candidate || candidate.hide) continue;
+        const where = `${how}, seat ${candidate.id}`;
+        await assert.doesNotReject(t.toolbar.commitRelocation(candidate), where);
+        assert.deepEqual(t.toolbar.platePoints(), candidate.points, `${where}: drawn glass equals the measured glass`);
+      } finally { await t.toolbar.dispose(); }
+    }
+  }
+});
+
+// The unit normal of the drawn glass, sign-free: the first plate's spread.
+const glassNormal = points => {
+  const sub = (a, b) => a.map((v, i) => v - b[i]);
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const [origin] = points, far = points.reduce((best, p) => Math.hypot(...sub(p, origin)) > Math.hypot(...sub(best, origin)) ? p : best);
+  const normal = points.map(p => cross(sub(far, origin), sub(p, origin))).reduce((best, n) => Math.hypot(...n) > Math.hypot(...best) ? n : best);
+  const length = Math.hypot(...normal), sign = Math.sign(normal[2]) || 1;
+  return normal.map(v => v * sign / length);
+};
+const closeTo = (actual, expected, message) =>
+  assert.ok(actual.every((v, i) => Math.abs(v - expected[i]) < 1e-6), `${message}: ${actual} is not ${expected}`);
+const lessonTour = { selectedId: 'lesson', active: true, step: 3, total: 5, title: 'Close-up', body: 'Read this chapter.',
+  canNext: true, canBack: true };
+const chapterPose = { headInRoom: head, renderFromRoom: identity, labelViews: views() };
+// A lesson chapter whose molecule a move held, controls opened while it held
+// the menu, then the molecule put back with no redraw since: the glass on
+// screen, and the options it was drawn from, still carry the held turn.
+async function putBackUndrawn(options = {}) {
+  const state = { placementMoves: 0, placementHeld: false, voice: { state: 'idle' }, tour: lessonTour };
+  const t = await menu({ state, ...options });
+  t.setState({ ...state, placementMoves: 1, placementHeld: true }); await t.toolbar.update();
+  t.toolbar.runAction({ kind: 'collapse', value: false });
+  await new Promise(resolve => setImmediate(resolve)); await t.toolbar.update();
+  assert.equal(t.toolbar.isCollapsed(), false, 'the controls opened while the move held the menu');
+  t.setState({ ...state, placementMoves: 1, placementHeld: false });
+  return t;
+}
+// A right hand whose ray meets the middle of the drawn menu, grip at the head.
+function gripOnMenu(t) {
+  const drawn = t.toolbar.drawnMenuPoints();
+  const aim = drawn.reduce((sum, p) => sum.map((v, i) => v + p[i] / drawn.length), [0, 0, 0]);
+  const matrix = [...identity];
+  for (let axis = 0; axis < 3; axis++) matrix[8 + axis] = -(aim[axis] - [0, 1.6, 0][axis]);
+  const source = { handedness: 'right', targetRaySpace: { pose: { emulatedPosition: false, transform: { matrix, position: { x: 0, y: 1.6, z: 0 } } } },
+    gripSpace: { pose: { emulatedPosition: false, transform: { position: { x: 0, y: 1.6, z: 0 } } } } };
+  t.session.inputSources = [source];
+  return { source, dispatch: type => t.session.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { inputSource: source, frame: t.frame })) };
+}
+
+test('before the menu redraws after a put-back, the next chapter measures its card seats as they will be drawn', async () => {
+  // The chapter's framing asks for card seats from the options the held
+  // glass was drawn with. Each seat is drawn facing the wearer, so it is
+  // measured that way, the same as once the menu has redrawn.
+  const t = await putBackUndrawn();
+  try {
+    const before = t.toolbar.chapterCardSeats(chapterPose);
+    assert.ok(before.length > 2, 'the chapter is offered card seats');
+    await t.toolbar.update();
+    assert.deepEqual(before, t.toolbar.chapterCardSeats(chapterPose), 'the seats measured before the redraw are the seats after it');
+  } finally { await t.toolbar.dispose(); }
+});
+
+test('a menu the wearer is dragging is offered no seat and keeps the glass it is drawn as', async () => {
+  // The same chapter, and the wearer takes the menu in hand. The dragged
+  // glass keeps the turn it was drawn with. No chapter card seat is offered
+  // and no relocation is prepared or committed, from grip-down on, before
+  // any frame of the drag has run, so none is measured in another plane.
+  const t = await putBackUndrawn({ presentation: { setRoomOffset() {} } });
+  try {
+    const candidate = t.toolbar.prepareRelocation({ headInRoom: head }).find(seat => !seat.hide);
+    assert.ok(candidate, 'a seat is offered before the grip');
+    const held = glassNormal(t.toolbar.platePoints());
+    const { source, dispatch } = gripOnMenu(t);
+    dispatch('squeezestart');
+    assert.equal(t.toolbar.isHandOnPanel('right'), true, 'the grip holds the menu');
+    for (const when of ['at grip-down', 'while dragging']) {
+      assert.deepEqual(t.toolbar.chapterCardSeats(chapterPose), [], `${when}: no chapter card seat`);
+      assert.deepEqual(t.toolbar.prepareRelocation({ headInRoom: head }), [], `${when}: no menu seat`);
+      await assert.rejects(t.toolbar.commitRelocation(candidate), error => error.code === 'FIT_STALE', `${when}: no seat replaces it`);
+      closeTo(glassNormal(t.toolbar.platePoints()), held, `${when}: the glass keeps its turn`);
+      source.gripSpace.pose.transform.position.x = -.1;
+      t.toolbar.syncInput(t.frame);
+    }
+    dispatch('squeezeend');
+    for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(t.toolbar.menuDraggedByWearer(), true, 'the released menu is the wearer\'s');
+    assert.ok(t.toolbar.platePoints().length > 0, 'the released menu is drawn');
+    closeTo(glassNormal(t.toolbar.platePoints()), held, 'released, the glass keeps the turn it was dragged with');
+  } finally { await t.toolbar.dispose(); }
+});
+
+// A spinning chapter's proof waits for headset frames, and the wearer can
+// take the menu in hand meanwhile. The proof is told the menu is held and
+// ends cancelled, the menu in hand is not proven again, and a seat is
+// written only once the toolbar has drawn it.
+test('a seat proven while the wearer takes the menu in hand is not written', async () => {
+  let gate, release, held, written = 0, proofs = 0, key = 'scale-1';
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(resolve => setImmediate(resolve)); };
+  const t = await menu({ state: { voice: { state: 'idle' }, tour: lessonTour }, presentation: { setRoomOffset() {} },
+    getEntryGeometry: () => ({ clearanceKey: key }), beforeMenuDraw: async options => {
+    if (!gate) return undefined;
+    await gate;
+    proofs++;
+    // As the viewer answers: a proof of a menu in hand ends cancelled.
+    held = options.menuHeld?.();
+    return held ? { cancelled: true } : { committed: () => { written++; } };
+  } });
+  try {
+    gate = new Promise(resolve => { release = resolve; });
+    t.toolbar.runAction({ kind: 'collapse', value: false });
+    release(); await settle();
+    assert.equal(held, false, 'the proof is told the menu is free');
+    assert.equal(written, 1, 'the drawn seat is written');
+    const { dispatch } = gripOnMenu(t);
+    gate = new Promise(resolve => { release = resolve; });
+    held = undefined; key = 'scale-1.2';
+    void t.toolbar.update(); await settle();
+    dispatch('squeezestart');
+    assert.equal(t.toolbar.isHandOnPanel('right'), true, 'the grip holds the menu');
+    release(); await settle();
+    assert.equal(held, true, 'the proof is told the menu is held');
+    assert.equal(proofs, 2, 'the menu in hand is not proven again');
+    assert.equal(written, 1, 'no seat is written');
+    dispatch('squeezeend'); await settle();
+  } finally { release?.(); await t.toolbar.dispose(); }
+});
+
+test('a seat checked before the grip, committed at grip-down, leaves the released menu where the wearer put it', async () => {
+  // The seat was checked from a head turned a little. Its commit comes after
+  // grip-down but before any frame of the drag, and the wearer lets go before
+  // it could draw. The menu the wearer let go of is the same menu as when no
+  // seat search came at all.
+  const turn = 2 * Math.PI / 180, now = [...head];
+  [now[0], now[2], now[8], now[10]] = [Math.cos(turn), -Math.sin(turn), Math.sin(turn), Math.cos(turn)];
+  const letGo = async commit => {
+    const t = await putBackUndrawn({ presentation: { setRoomOffset() {} } });
+    try {
+      const candidate = t.toolbar.prepareRelocation({ headInRoom: now }).find(seat => !seat.hide);
+      const { source, dispatch } = gripOnMenu(t);
+      dispatch('squeezestart');
+      const outcome = commit ? t.toolbar.commitRelocation(candidate).then(() => 'moved', error => error.code) : undefined;
+      source.gripSpace.pose.transform.position.x = -.1;
+      dispatch('squeezeend');
+      for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve));
+      return { outcome: await outcome, points: t.toolbar.platePoints(), mine: t.toolbar.menuDraggedByWearer() };
+    } finally { await t.toolbar.dispose(); }
+  };
+  const alone = await letGo(false), raced = await letGo(true);
+  assert.equal(raced.outcome, 'FIT_STALE', 'the seat is refused');
+  assert.equal(raced.mine, true, 'the released menu is the wearer\'s');
+  assert.deepEqual(raced.points, alone.points, 'the released menu is the menu let go of with no seat search');
+});
+
 test('a stale menu candidate never moves the glass', async () => {
   const t = await menu();
   try {
@@ -130,6 +319,31 @@ test('viewer applies the checked menu seat without replacing the wearer pose or 
     assert.deepEqual(placement, before);
     assert.deepEqual(canvas.camera, camera);
     assert.ok(t.toolbar.seatAnchor()[0] > 0, 'the menu yielded to the intentional molecule pose');
+  } finally { await t.toolbar.dispose(); }
+});
+
+test('a pose proven as it stands is refused at an overlapping menu, and the menu is not moved for it', async () => {
+  const t = await menu();
+  t.toolbar.runAction({ kind: 'collapse', value: false });
+  await new Promise(resolve => setImmediate(resolve));
+  try {
+    const options = fitInput(t.toolbar.platePoints(), t.toolbar.seatAnchor(), []);
+    const placement = options.seat, scene = { placement }, seat = [...t.toolbar.seatAnchor()];
+    const canvas = { xr: { isPresenting: { value: true } }, webgl: { xr: { session: t.session } }, camera: { scale: 1 } };
+    const h = vm.createContext({ now: () => performance.now(), canvas, placementViewWaiters: new Set(), state: { generation: 1, status: 'ready' }, sourceRecord: { sha256: 'fixture' },
+      latestRoomPlacementPose: { headInRoom: head, renderFromRoom: identity, labelViews: views() },
+      inspectionSnapshot: () => scene, wearerPlacement: { holdsPlacement: () => false },
+      loadedSphere: () => ({ center: [0, 0, 0], radius: 1 }),
+      scientificRepresentations: () => [{ renderObjects: options.geometry.objects }],
+      presentationTransform: () => identity, placementTransform: () => identity,
+      fitAppearanceInWorker: async input => solveAppearanceFit(input),
+      immersiveSession: { platePoints: () => t.toolbar.platePoints(),
+        toolbarRelocationCandidates: pose => t.toolbar.prepareRelocation(pose),
+        relocateToolbar: candidate => t.toolbar.commitRelocation(candidate) },
+    });
+    vm.runInContext(pageFunction(viewer, 'clearHeldPlatePlacement'), h);
+    await assert.rejects(h.clearHeldPlatePlacement(placement, { keepWearer: true, allowOffscreen: true, keepClearSeat: true, fixedMenu: true, announce: false }));
+    assert.deepEqual(t.toolbar.seatAnchor(), seat, 'the menu stays where it was');
   } finally { await t.toolbar.dispose(); }
 });
 

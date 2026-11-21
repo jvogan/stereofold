@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 // @ts-ignore Shared XR focus placement maths.
 import { FOCUS_FRAMINGS, GROWTH_TILT_DEGREES, GROWTH_TURN_MAX_MS, GROWTH_TURN_MIN_MS, GROWTH_WALL_AZIMUTH_DEGREES, focusPlacement, focusRotation, focusTravel, growthTurnDurationMs, longestAxis, obliqueGrowthTurn } from '../../lab/browser-roundtrip/focus-placement.mjs';
@@ -20,7 +19,7 @@ const base = {
   targetCenter: [0,0,0], targetRadius: 69.282,
 };
 
-// Acceptance 3, ring-v2 #365: the menu ends at lens y .319 and x -.162.
+// Recorded ring-v2 #365: the menu ends at lens y .319 and x -.162.
 // With no caption, the old menu dodge raised a level target to y ~.64.
 // Room height is intentionally varied: the local XR origin need not be a floor.
 describe('acceptance focus stays in the middle lens band', () => {
@@ -619,13 +618,9 @@ describe('the viewer spends the turn on a landed tier only', () => {
 
   it('owes a turn after a source swap that kept the room placement', () => {
     expect(viewer).toContain("inspectionState.place(sourceAnchor.placement, 'source-transition');");
-    const pending = viewer.match(/pendingGrowthTurn = !sourceAnchor\.preservesCoordinateFrame;/)?.[0];
-    expect(pending).toBeDefined();
-    for (const preservesCoordinateFrame of [false, true]) {
-      const context = { sourceAnchor: { preservesCoordinateFrame }, pendingGrowthTurn: false };
-      vm.runInNewContext(pending!, context);
-      expect(context.pendingGrowthTurn).toBe(!preservesCoordinateFrame);
-    }
+    // A source that shares the previous tier's coordinate frame already
+    // stands in the right orientation; every other kept placement owes one.
+    expect(viewer).toContain('pendingGrowthTurn = !sourceAnchor.preservesCoordinateFrame;');
   });
 
   it('spends it on the next framing and never on the chapter after that', () => {

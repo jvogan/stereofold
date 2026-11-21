@@ -67,6 +67,7 @@ In Claude Code or Codex, ask: “Open the kinesin-walk demo on my Quest.”
 | `kinesin-walk` | Two kinesin heads trade the lead along a microtubule, 8.2 nm per step, then rest with both heads bound. |
 | `atp-synthase-rotor` | The gamma stalk and a ring of ten c subunits turn under the catalytic head of ATP synthase, in three 120° steps per turn. |
 | `hemoglobin-switch` | One alpha-beta pair of hemoglobin turns 14 degrees against the other into the R state, with O2 on every heme, then turns back. |
+| `daraxonrasib-assembly` | The drug daraxonrasib settles onto cyclophilin A, then that pair docks on KRAS and ends on the measured complex. |
 | `binder-gallery` | Seventeen designs meeting the published study's binding criteria, with toxin names and measured Adaptyv KD labels; an aligned comparison keeps each reference target fixed. |
 | `binder-gallery-extended` | The same 17 first, then one representative intended-target pairing for each of the other 194 tested designs, in ten additional batches. |
 | `microtubule-growth` | Say “grow it” and the next tier replaces the last: one tubulin, a dimer, a strand, then a wall three strands wide. |
@@ -76,10 +77,12 @@ In Claude Code or Codex, ask: “Open the kinesin-walk demo on my Quest.”
 | `nucleosome` | 147 base pairs of DNA wrapped not quite twice around eight histones, then cut open to the core. |
 | `daraxonrasib` | KRAS G12D and cyclophilin A held together by the drug, with its two contacts measured at 3.38 Å and 2.90 Å. |
 
-The three moving demos have more stages: `flipbook` and `cycle` for
-`kinesin-walk`, `flipbook` and `figure` for the other two. Name a stage to open
-it, for example “Open the cycle stage of kinesin-walk.” Their authored rigid-body
-paths illustrate motion; they are not measured trajectories. Coordinates download
+Three of the four moving demos have more stages: `flipbook` and `cycle` for
+`kinesin-walk`, and `flipbook` and `figure` for `atp-synthase-rotor` and
+`hemoglobin-switch`. `daraxonrasib-assembly` has only its `motion` stage. Name a
+stage to open it, for example “Open the cycle stage of kinesin-walk.” The moving
+demos' authored rigid-body paths illustrate motion; they are not measured
+trajectories. Coordinates download
 from RCSB on first use, while the binder galleries ship their published predicted
 coordinates. All coordinate sources must match the digests in
 [`plugin/demos/index.json`](plugin/demos/index.json).
@@ -295,7 +298,8 @@ For Claude Code and Codex, do the following:
 6. Wait for the page to pair. If no page arrives, open the address that the
    agent reports in Quest Browser and type the eight-digit pairing code. The
    code works once and expires after ten minutes.
-7. Tap **Enter VR**, and allow the microphone if Quest Browser asks. Your room
+7. Tap **Enter VR**. If Quest Browser asks for the microphone, answer it and
+   tap **Enter VR** again. Your room
    stays visible behind the molecule; **Enter plain VR**, under **More
    options**, hides it.
 

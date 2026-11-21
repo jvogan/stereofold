@@ -462,6 +462,8 @@ describe('a grow waiting for permission against a host that watches the beat', (
     const source = await readFile(new URL('../src/inspector.ts', import.meta.url), 'utf8');
     const grow = source.slice(source.indexOf('async function growStructure'), source.indexOf('function expected()'));
     // The flag goes on where the host accepts the post, and nowhere earlier.
+    // A wearer-driven continuation marks its transition begun at the same
+    // instant, before the flag, with nothing awaited in between.
     expect(grow).toMatch(/call\('grow_structure',growStructureArgs\(stage\)\);\n\s*hooks\?\.continuation\?\.beginTransition\(\);\n\s*remote=true;/);
     expect(grow.slice(0, grow.indexOf('retryWhileNotYet'))).not.toContain('remote=true');
     // The between-tries beat reports the panel; it no longer declares it busy.

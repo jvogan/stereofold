@@ -43,7 +43,8 @@ export async function recordedTourSeat(mountTourPlayer, tour) {
     onAction: action => action.kind === 'tour-done' ? h.dispatchDone(player) : undefined,
     onActionError: error => { throw error; } });
   // Run the production page and session seams. The empty baseline closure is
-  // intentional: at 396595e the player never requests a column restoration.
+  // intentional: in the recorded tour the player never requests a column
+  // restoration.
   const options = replayOptionsFromLayoutRecord(baselineLayout);
   const subject = options.subject;
   subject.points = [-1, 1].flatMap(x => [-1, 1].map(y =>

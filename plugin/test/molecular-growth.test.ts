@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_TIER_BY_DEVICE, createGrowthCaptionMailbox, growthConfirmation, growthLessonId, growthManifestId, growthStageOfLesson, growthStages,
+import { DEMO_TIER_BY_DEVICE, createGrowthCaptionMailbox, growthConfirmation, growthDeviceTier, growthLessonId, isHeadsetDeviceClass, growthManifestId, growthStageOfLesson, growthStages, openedOnQuest2,
   readGrowthIndex, resolveGrowthTarget, stageFitsTier, stageSize, QUEST2_ATOM_SITE_CEILING,
   QUEST2_TRIANGLE_CEILING } from '../src/molecular-growth.js';
 import type { DemoStage } from '../scripts/quest-demo.js';
@@ -12,6 +12,33 @@ const at = (id: string) => {
   if (!found) throw Error(`microtubule-growth has no ${id} tier.`);
   return found;
 };
+
+describe('the device class a grow is held to', () => {
+  it('keeps the class the caller names', () => {
+    expect(growthDeviceTier('quest2', ['quest3'])).toEqual({ tier: 'quest2', deviceClass: 'quest2', from: 'caller' });
+    expect(growthDeviceTier('quest3', ['quest2'])).toEqual({ tier: 'quest3', deviceClass: 'quest3', from: 'caller' });
+    expect(growthDeviceTier('unknown', ['quest2'])).toEqual({ tier: 'quest3', deviceClass: 'unknown', from: 'caller' });
+  });
+
+  it('holds a grow that names none to a Quest 2 any headset page reports', () => {
+    expect(growthDeviceTier(undefined, ['quest2'])).toEqual({ tier: 'quest2', deviceClass: 'quest2', from: 'headset' });
+    expect(growthDeviceTier(undefined, ['quest3', 'unknown', 'quest2'])).toEqual({ tier: 'quest2', deviceClass: 'quest2', from: 'headset' });
+    // Any tier past the ceiling other than the exact tube a Quest 2 has opened.
+    const oversized = { ...at('tube').stage, tiers: ['quest2', 'quest3'], coordinates: { ...at('tube').stage.coordinates, sha256: 'f'.repeat(64) } } as DemoStage;
+    expect(stageFitsTier(oversized, growthDeviceTier(undefined, ['vision-pro', 'quest2']).tier)).toBe(false);
+  });
+
+  it('knows only the device classes the tier table names', () => {
+    for (const known of Object.keys(DEMO_TIER_BY_DEVICE)) expect(isHeadsetDeviceClass(known)).toBe(true);
+    for (const value of ['quest2 ', 'QUEST2', 'constructor', '__proto__', '', 42, undefined, null, {}]) expect(isHeadsetDeviceClass(value)).toBe(false);
+  });
+
+  it('leaves a grow that names none unheld when no page reports a Quest 2', () => {
+    expect(growthDeviceTier(undefined, [])).toEqual({ tier: 'quest3', deviceClass: 'unknown', from: 'none' });
+    expect(growthDeviceTier(undefined, ['vision-pro', 'quest3'])).toEqual({ tier: 'quest3', deviceClass: 'vision-pro', from: 'headset' });
+    expect(growthDeviceTier(undefined, ['a class nobody reports'])).toMatchObject({ tier: 'quest3', from: 'headset' });
+  });
+});
 
 describe('the growth tiers', () => {
   it('reads the checked-in demo index and names every tier by its lesson id', () => {
@@ -38,13 +65,21 @@ describe('the growth tiers', () => {
     expect(growthStageOfLesson(index, 'lesson-crispr-cas9')).toBeUndefined();
   });
 
-  it('holds the Quest 2 ceiling at the tip and keeps the tube off it', () => {
+  it('holds the Quest 2 ceiling at the tip and admits the tube a Quest 2 has opened', () => {
     expect(QUEST2_ATOM_SITE_CEILING).toBe(at('tip').stage.coordinates.atomSites);
-    for (const id of ['monomer', 'dimer', 'protofilament', 'wall', 'tip']) expect(stageFitsTier(at(id).stage, 'quest2')).toBe(true);
-    expect(stageFitsTier(at('tube').stage, 'quest2')).toBe(false);
+    for (const id of ['monomer', 'dimer', 'protofilament', 'wall', 'tube', 'tip']) expect(stageFitsTier(at(id).stage, 'quest2')).toBe(true);
     expect(stageFitsTier(at('tube').stage, 'quest3')).toBe(true);
+    // The tube is past the ceiling and admitted as that exact structure only.
+    expect(at('tube').stage.coordinates.atomSites).toBeGreaterThan(QUEST2_ATOM_SITE_CEILING);
+    expect(at('tube').stage.tiers).toContain('quest2');
+    expect(openedOnQuest2(at('tube').stage)).toBe(true);
+    for (const id of ['monomer', 'dimer', 'protofilament', 'wall', 'filament', 'tip']) expect(openedOnQuest2(at(id).stage)).toBe(false);
+    const tube = at('tube').stage;
+    for (const coordinates of [{ ...tube.coordinates, sha256: '0'.repeat(64) }, { ...tube.coordinates, assemblyId: '2' },
+      { ...tube.coordinates, atomSites: tube.coordinates.atomSites + 1 }])
+      expect(stageFitsTier({ ...tube, coordinates } as DemoStage, 'quest2')).toBe(false);
     // The tip carries 43,066 sites and holds 68-72 fps on a Quest 2, so "cap
-    // it" is allowed there; the tube (177K) is not.
+    // it" is allowed there.
     expect(at('tip').stage.tiers).toContain('quest2');
     expect(stageFitsTier(at('tip').stage, 'quest2')).toBe(true);
     // An unidentified headset is not held to the Quest 2 ceiling: only the
@@ -68,12 +103,20 @@ describe('the growth tiers', () => {
   });
 
   it('refuses a tier past the device with a line short enough to speak', () => {
+    // No microtubule-growth tier is past what a Quest 2 has opened, so the refusal is
+    // shown on a copy of the tube whose coordinates a Quest 2 has not opened.
+    const held = stages.map(entry => entry.demo === 'microtubule-growth' && entry.stage.id === 'tube'
+      ? { ...entry, stage: { ...entry.stage, coordinates: { ...entry.stage.coordinates, sha256: '0'.repeat(64) } } as DemoStage }
+      : entry);
+    const heldAt = (id: string) => held.find(entry => entry.demo === 'microtubule-growth' && entry.stage.id === id)!;
     for (const [from, request] of [['filament', 'next'], ['wall', 'tube'], ['tip', 'back']] as const) {
-      const refusal = resolveGrowthTarget(stages, at(from), request, 'quest2');
+      const refusal = resolveGrowthTarget(held, heldAt(from), request, 'quest2');
       expect(refusal.refused, `${from} -> ${request} on a Quest 2`).toBe(true);
       if (!refusal.refused) throw Error('unreachable');
       expect(refusal.spoken.split(/\s+/).length).toBeLessThan(12);
       expect(refusal.spoken).not.toMatch(/EB1/);
+      // The shipped tube is admitted by the same three routes.
+      expect(resolveGrowthTarget(stages, at(from), request, 'quest2').refused, `${from} -> ${request} on a Quest 2`).toBe(false);
     }
     // The tip (43,066 sites) is under the Quest 2 ceiling, so "cap it" lands.
     for (const request of ['last', 'tip'] as const) {
@@ -92,6 +135,8 @@ describe('the growth tiers', () => {
     const grown = resolveGrowthTarget(stages, at('wall'), 'next', 'quest2');
     expect(grown.refused).toBe(false);
     expect(grown.refused === false && grown.target.stage.id).toBe('filament');
+    const tubed = resolveGrowthTarget(stages, at('filament'), 'next', 'quest2');
+    expect(tubed.refused === false && tubed.target.stage.id).toBe('tube');
   });
 
   it('grows the wall into a whole microtubule, as density', () => {
@@ -111,8 +156,8 @@ describe('the growth tiers', () => {
     expect(stageSize(at('wall').stage)).toEqual({ count: 40_908, unit: 'atom sites', ceiling: QUEST2_ATOM_SITE_CEILING });
     expect(stageSize(at('filament').stage)).toEqual({ count: 178_236, unit: 'triangles', ceiling: QUEST2_TRIANGLE_CEILING });
     // The filament carries no atoms at all, so an atom-site budget would wave
-    // a mesh of any size through; a triangle budget applied to the atomic tube
-    // would wave through the tier that drops the session. Both directions:
+    // a mesh of any size through; a triangle budget applied to an atomic tier
+    // would wave through any number of atoms. Both directions:
     const coordinates = at('filament').stage.coordinates;
     if (!coordinates.volume) throw Error('Expected a density tier');
     const huge: DemoStage = { ...at('filament').stage,
@@ -121,7 +166,8 @@ describe('the growth tiers', () => {
     expect(stageFitsTier(huge, 'quest2')).toBe(false);
     expect(stageFitsTier(huge, 'quest3')).toBe(true);
     expect(at('tube').stage.coordinates.volume).toBeUndefined();
-    expect(stageFitsTier(at('tube').stage, 'quest2')).toBe(false);
+    const unopened: DemoStage = { ...at('tube').stage, coordinates: { ...at('tube').stage.coordinates, sha256: '0'.repeat(64) } } as DemoStage;
+    expect(stageFitsTier(unopened, 'quest2')).toBe(false);
   });
 
   it('refuses a density tier in the unit it is actually measured in', () => {

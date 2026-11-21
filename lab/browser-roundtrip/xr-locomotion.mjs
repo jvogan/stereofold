@@ -356,11 +356,10 @@ export const PASSTHROUGH_KEY = 'StereofoldPassthrough';
 /**
  * The `togglePassthrough` binding, rebound rather than cleared.
  *
- * A single button for passthrough is what this build lost and had to get back.
- * The earlier build entered `immersive-ar` and Mol*'s stock `togglePassthrough`
- * on `GamepadA` flipped the transparent clear. Clearing that binding along with
- * `exit` and `gestureScale`, because A had become push-to-talk, took the only
- * route to the toggle with it.
+ * Mol*'s stock `togglePassthrough` binding sits on `GamepadA` and flips the
+ * transparent clear. A is push-to-talk here, so `exit` and `gestureScale` are
+ * cleared; clearing `togglePassthrough` with them would remove the only route
+ * to the toggle, so it is rebound instead.
  *
  * Mol* keeps the passthrough flag in a Canvas3D closure variable and writes it
  * over `transparentBackground` on every XR frame (`canvas3d.js:503`), so

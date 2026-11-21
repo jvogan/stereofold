@@ -1,6 +1,7 @@
 import { chainIdentityKey, chainIdentityLabel, hiddenRowKeys, normalizeVisibility } from './inspection-visibility.mjs';
 import { READOUT_PAGE_LINE_WIDTH, pageCaptionText } from './spatial-toolbar-geometry.mjs';
 import { demoSourceIdentity } from './demo-source-identity.mjs';
+import { structureTitleSource, unescapeStructureMarkup } from './structure-markup.mjs';
 
 /** Coordinate-free subject, cached by rendered source/model; never scan residues per frame. */
 export function createStructureSubjectReader() {
@@ -10,7 +11,10 @@ export function createStructureSubjectReader() {
     const assembly = snapshot.assemblyId ?? source.catalog?.assemblyId;
     if (source !== priorSource || model !== priorModel || snapshot.modelNumber !== priorModelNumber || assembly !== priorAssembly) {
       priorSource = source; priorModel = model; priorModelNumber = snapshot.modelNumber; priorAssembly = assembly;
-      const title = model?.sourceData?.data?.db?.struct?.title?.value(0);
+      // Mol* parsed the escaped copy of the file (structure-markup.mjs).
+      const parsedTitle = model?.sourceData?.data?.db?.struct?.title?.value(0);
+      // The title's own value decides its spelling; the whole file is the fallback.
+      const title = typeof parsedTitle === 'string' ? unescapeStructureMarkup(parsedTitle, structureTitleSource(source.cif) ?? source.cif) : parsedTitle;
       const displayProvenance = demoSourceIdentity(source.sha256);
       const entry = (displayProvenance?.kind === 'bundled-file' ? [displayProvenance.pdbId] : [displayProvenance?.pdbId, source.pdbId, source.code, model?.entryId])
         .find(value => typeof value === 'string' && /^[a-z0-9]{4}$/iu.test(value) && value.toUpperCase() !== 'XXXX');

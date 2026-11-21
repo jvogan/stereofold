@@ -6,12 +6,13 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { cameraSnapshot } from './camera-snapshot.mjs';
-import { createLessonMotionHold, lessonCameraMove, lessonMotionApplies, normalizeLessonMotion } from './lesson-motion.mjs';
+import { createLessonMotionHold, lessonCameraMove, lessonMotionApplies, lessonMoveFrame, lessonMoveFromFrame, normalizeLessonMotion } from './lesson-motion.mjs';
 import { createPlacementHold } from './wearer-placement.mjs';
 import { createSelectionAdapter } from './selection.mjs';
 import { availableChains, emptyVisibility, hiddenRowKeys, normalizeVisibility, resolveVisibility, sameVisibility } from './inspection-visibility.mjs';
 import { createDrawnSubsetCache, createVisibleStageBoundsCache } from './visible-stage-bounds.mjs';
 import { pageFunction } from './fixtures/label-action-harness.mjs';
+import { workClock, fastestPerSample, RUNS } from './fixtures/work-clock.mjs';
 import extraction from '../identity/extract.cjs';
 
 const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
@@ -90,7 +91,7 @@ function headsetFixture({ presenting = true, animation, held = false } = {}) {
   const mutations = [], subsets = new Set(), lociRequests = [];
   const cachedDrawnSubset = createDrawnSubsetCache();
   const h = vm.createContext({
-    Mat4, Vec3, cameraSnapshot, lessonCameraMove, lessonMotionApplies, normalizeLessonMotion,
+    Mat4, Vec3, cameraSnapshot, lessonCameraMove, lessonMotionApplies, lessonMoveFrame, lessonMoveFromFrame, normalizeLessonMotion,
     availableChains, emptyVisibility, hiddenRowKeys, normalizeVisibility, resolveVisibility, sameVisibility,
     lessonMotionHold: createLessonMotionHold(),
     wearerPlacement,
@@ -152,6 +153,31 @@ const head = [0.05, 0.02, 0.1];
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const percentile95 = values => [...values].sort((x, y) => x - y)[Math.floor(values.length * .95)];
 
+// A tick's cost is read two ways over identical runs of one turn, so that
+// other processes on a busy machine cannot inflate it: its own work in every
+// run, and its fastest elapsed time over the runs.
+function assertWork({ costs }, message) {
+  const p95 = percentile95(costs);
+  assert.ok(p95 < 2, message(p95, 'of work'));
+  return p95;
+}
+function assertFastest(runs, message) {
+  const p95 = percentile95(fastestPerSample(runs.map(({ elapsed }) => elapsed)));
+  assert.ok(p95 < 2, message(p95, `elapsed, the fastest of ${RUNS} runs at each tick`));
+  return p95;
+}
+
+/** Run one timed turn `RUNS` times from scratch, checking each run as it goes. Returns the worse p95. */
+async function tickCost(turn, message) {
+  const runs = [], work = [];
+  for (let run = 0; run < RUNS; run++) {
+    const turned = await turn();
+    work.push(assertWork(turned, message));
+    runs.push(turned);
+  }
+  return Math.max(assertFastest(runs, message), ...work);
+}
+
 test('held XR orbit, turntable and camera-spin chapters turn in place without changing placement or ownership', async t => {
   for (const reason of ['grab', 'voice-move', 'voice-scale']) {
     for (const ticks of [
@@ -160,22 +186,23 @@ test('held XR orbit, turntable and camera-spin chapters turn in place without ch
       // A lesson's desktop camera spin, carried to the headset about its own axis.
       Array.from({ length: 60 }, () => ({ kind: 'orbit', axis: [0, -1, 0], degrees: 6 })),
     ]) {
-      const fixture = headsetFixture({ held: true });
-      fixture.h.wearerPlacement.takeover(reason);
-      const owner = fixture.h.wearerPlacement.ownership().token;
-      const heldPlacement = structuredClone(fixture.placement);
-      const before = fixture.camera.getSnapshot();
-      const { drift, costs } = await follow(fixture, ticks, () => hemoglobin.sphere.center);
-      assert.notDeepEqual(fixture.camera.getSnapshot().position, before.position, `${reason}: the chapter must turn`);
-      assert.ok(drift < 1e-6, `${reason}: the drawn centre stays in place`);
-      assert.deepEqual(fixture.placement, heldPlacement, 'held translation and scale stay exact');
-      assert.equal(fixture.h.wearerPlacement.ownership().token, owner);
-      fixture.h.wearerPlacement.chapterStart();
-      assert.equal(fixture.h.wearerPlacement.holdsPlacement(), true, 'later chapters still respect the hold');
-      assert.equal(fixture.subsets.size, 0, 'no atom scans for the full drawn structure');
-      const p95 = percentile95(costs);
+      const p95 = await tickCost(async () => {
+        const fixture = headsetFixture({ held: true });
+        fixture.h.wearerPlacement.takeover(reason);
+        const owner = fixture.h.wearerPlacement.ownership().token;
+        const heldPlacement = structuredClone(fixture.placement);
+        const before = fixture.camera.getSnapshot();
+        const turned = await follow(fixture, ticks, () => hemoglobin.sphere.center);
+        assert.notDeepEqual(fixture.camera.getSnapshot().position, before.position, `${reason}: the chapter must turn`);
+        assert.ok(turned.drift < 1e-6, `${reason}: the drawn centre stays in place`);
+        assert.deepEqual(fixture.placement, heldPlacement, 'held translation and scale stay exact');
+        assert.equal(fixture.h.wearerPlacement.ownership().token, owner);
+        fixture.h.wearerPlacement.chapterStart();
+        assert.equal(fixture.h.wearerPlacement.holdsPlacement(), true, 'later chapters still respect the hold');
+        assert.equal(fixture.subsets.size, 0, 'no atom scans for the full drawn structure');
+        return turned;
+      }, (ms, reading) => `held pose work costs ${ms} ms at p95 ${reading}`);
       t.diagnostic(`${reason}: ${ticks.length} ticks, p95 ${p95.toFixed(3)} ms`);
-      assert.ok(p95 < 2, `held pose work costs ${p95} ms at p95`);
     }
   }
 });
@@ -228,49 +255,54 @@ test('the hold exception is XR-only; desktop keeps its existing orbit and dolly 
 });
 
 test('a held turn follows the drawn subset and never rescans atoms on steady ticks', async () => {
-  const fixture = headsetFixture({ held: true });
-  const { h } = fixture;
-  let guardAtoms = false;
-  h.selection.rows = h.selection.rows.map(row => ({ ...row, get atomSites() {
-    assert.equal(guardAtoms, false, 'a held turn must not rescan atoms');
-    return row.atomSites;
-  } }));
-  await h.setSceneVisibility(resolveVisibility(h.visibilityState, { op: 'only', chains: ['A'] }, h.visibilityChains()));
   const center = rowsCentre(row => row.identity.labelChain === 'A');
-  h.drawnCenter(); // Measure the new subset before its steady ticks.
-  const measured = fixture.subsets.size;
-  guardAtoms = true;
-  const before = fixture.camera.getSnapshot();
-  const { drift, costs } = await follow(fixture, turntableTicks(), () => center);
-  assert.notDeepEqual(fixture.camera.getSnapshot(), before);
-  assert.ok(drift < 1e-6, 'the drawn chain, not the full assembly, stays in place');
-  assert.equal(fixture.subsets.size, measured);
-  assert.ok(percentile95(costs) < 2);
+  await tickCost(async () => {
+    const fixture = headsetFixture({ held: true });
+    const { h } = fixture;
+    let guardAtoms = false;
+    h.selection.rows = h.selection.rows.map(row => ({ ...row, get atomSites() {
+      assert.equal(guardAtoms, false, 'a held turn must not rescan atoms');
+      return row.atomSites;
+    } }));
+    await h.setSceneVisibility(resolveVisibility(h.visibilityState, { op: 'only', chains: ['A'] }, h.visibilityChains()));
+    h.drawnCenter(); // Measure the new subset before its steady ticks.
+    const measured = fixture.subsets.size;
+    guardAtoms = true;
+    const before = fixture.camera.getSnapshot();
+    const turned = await follow(fixture, turntableTicks(), () => center);
+    assert.notDeepEqual(fixture.camera.getSnapshot(), before);
+    assert.ok(turned.drift < 1e-6, 'the drawn chain, not the full assembly, stays in place');
+    assert.equal(fixture.subsets.size, measured);
+    return turned;
+  }, (ms, reading) => `a held subset tick costs ${ms} ms at p95 ${reading}`);
 });
 
 /** Turn through `ticks`, following the room position of whatever `centre()` names now. */
 async function follow(fixture, ticks, centre) {
   const start = fixture.toRoom(centre());
   let drift = 0, nearest = distance(start, head), degrees = 0;
-  const costs = [];
+  const costs = [], elapsed = [];
   for (const tick of ticks) {
-    const began = performance.now();
+    const began = workClock(), started = performance.now();
     await fixture.tick(tick);
-    costs.push(performance.now() - began);
+    elapsed.push(performance.now() - started);
+    costs.push(workClock() - began);
     degrees += tick.degrees;
     const now = fixture.toRoom(centre());
     drift = Math.max(drift, distance(now, start));
     nearest = Math.min(nearest, distance(now, head));
   }
-  return { start, drift, nearest, degrees, startDistance: distance(start, head), costs };
+  return { start, drift, nearest, degrees, startDistance: distance(start, head), costs, elapsed };
 }
 
 test('a headset lesson turn keeps the molecule centre fixed in the room and never brings it closer', async t => {
-  const fixture = headsetFixture();
-  const { drift, nearest, startDistance, costs } = await follow(fixture, turntableTicks(), () => hemoglobin.sphere.center);
-  const p95 = percentile95(costs);
+  let fixture, turned;
+  const p95 = await tickCost(async () => {
+    fixture = headsetFixture();
+    return turned = await follow(fixture, turntableTicks(), () => hemoglobin.sphere.center);
+  }, (ms, reading) => `a turn tick costs ${ms} ms at p95 ${reading}`);
+  const { drift, nearest, startDistance } = turned;
   t.diagnostic(`room drift ${(drift * 100).toFixed(4)} cm; nearest ${nearest.toFixed(3)} m of ${startDistance.toFixed(3)} m; tick p95 ${p95.toFixed(3)} ms`);
-  assert.ok(p95 < 2, `a turn tick costs ${p95} ms at p95`);
   assert.ok(startDistance > 3 && startDistance < 4.5, `fixture seats the molecule ${startDistance.toFixed(2)} m out`);
   assert.ok(drift <= 0.02, `presented centre drifted ${(drift * 100).toFixed(2)} cm in the room during the turn`);
   assert.ok(nearest >= startDistance - 1e-6,
@@ -312,7 +344,14 @@ test('a chain hidden mid-turn, then a selection shown alone, each stays put for 
   // part left on screen swings around the empty middle of the assembly.
   const stagePivot = headsetFixture();
   stagePivot.h.drawnCenter = () => stagePivot.h.pivotCenter();
-  const phases = await hideThenShowOnly(fixture), swung = await hideThenShowOnly(stagePivot);
+  const runs = [];
+  const message = name => (ms, reading) => `${name}: a turn tick costs ${ms} ms at p95 ${reading}`;
+  for (let run = 0; run < RUNS; run++) {
+    const timed = await hideThenShowOnly(run ? headsetFixture() : fixture);
+    for (const [name, phase] of timed) assertWork(phase, message(name));
+    runs.push(timed);
+  }
+  const [phases] = runs, swung = await hideThenShowOnly(stagePivot);
   phases.forEach(([name, phase], index) => {
     const before = swung[index][1];
     t.diagnostic(`${name}: ${phase.degrees.toFixed(1)} degrees; drift ${(phase.drift * 100).toFixed(4)} cm `
@@ -320,7 +359,7 @@ test('a chain hidden mid-turn, then a selection shown alone, each stays put for 
     assert.ok(phase.degrees > 20 && before.drift > 0.02, `${name} is a discriminating part of the turn`);
     assert.ok(phase.drift <= 0.02, `${name}: the visible part drifted ${(phase.drift * 100).toFixed(2)} cm in the room`);
     assert.ok(phase.nearest >= phase.startDistance - 1e-6, `${name}: the turn brought the visible part closer to the head`);
-    assert.ok(percentile95(phase.costs) < 2, `${name}: a turn tick costs ${percentile95(phase.costs)} ms at p95`);
+    assertFastest(runs.map(run => run[index][1]), message(name));
   });
   assert.equal(fixture.mutations.length, 3, 'only the three visibility edits were saved');
   assert.equal(fixture.subsets.size, 3, 'the drawn rows were measured once per visibility change, not once per tick');
@@ -437,4 +476,80 @@ test('removing animation pivots on the static t=0 copy and reuses its measuremen
   assert.equal(fixture.subsets.size, measured + 1, 'a new static mask remeasures once');
   mask = [];
   assert.deepEqual(Array.from(h.drawnCenter()), Array.from(hemoglobin.sphere.center));
+});
+
+/**
+ * A lesson's turns and push-ins, then each chapter seated somewhere else, then
+ * the moves handed back newest first. `framed` hands each back with the frame
+ * the viewer reported for it; otherwise each comes back about the molecule's
+ * centre at the time, which is what Done's starting view puts somewhere else.
+ * `outside` turns the view as the agent's rotate does, between lesson moves;
+ * `rescale` changes the scene scale and rebases render space before the
+ * moves come back, as a scene-scale change and a source rebase do.
+ */
+async function madeThenTakenBack(fixture, { framed, rescale = 1, offset = [0, 0, 0], outside = false }) {
+  const { h } = fixture;
+  const seat = placement => { h.inspectionState = { ...h.inspectionState, placement: () => placement }; };
+  const seats = [
+    { scale: 1.8, rotation: [0, 0, 0], translation: [0.4, -0.3, 1.2] },
+    { scale: 0.7, rotation: [0, 0, 0], translation: [-0.6, 0.5, -1.4] },
+  ];
+  const made = [];
+  let agentTurn;
+  const make = async move => { made.push({ move, result: await h.applyLessonMotion(move) }); };
+  await make({ kind: 'orbit', axis: 'y', degrees: 60 });
+  seat(seats[0]);
+  if (outside) { agentTurn = { pivot: Array.from(h.headsetTurnPivot()), axis: 'x', degrees: 30 }; await h.orbit('x', 30); }
+  await make({ kind: 'dolly', factor: 0.8 });
+  await make({ kind: 'orbit', axis: 'x', degrees: 25 });
+  // Done's starting view seats the molecule elsewhere again.
+  seat(seats[1]);
+  if (rescale !== 1 || offset.some(Boolean)) {
+    const state = fixture.camera.getSnapshot(), factor = 1 / rescale;
+    fixture.camera.scale *= rescale;
+    fixture.camera.setState({ position: state.position.map((value, axis) => value * factor + offset[axis]),
+      target: state.target.map((value, axis) => value * factor + offset[axis]) });
+  }
+  for (const { move, result } of made.reverse()) {
+    const frame = framed ? { frame: result.frame } : {};
+    await h.applyLessonMotion(move.kind === 'orbit' ? { ...move, degrees: -move.degrees, ...frame }
+      : { kind: 'dolly', factor: 1 / move.factor, ...frame });
+  }
+  return { made, agentTurn };
+}
+
+const offBy = (after, expected) => Math.max(...['position', 'target', 'up']
+  .flatMap(key => after[key].map((value, axis) => Math.abs(value - expected[key][axis]))));
+
+test('a headset move handed back with its frame undoes it exactly, wherever the molecule is seated now', async () => {
+  for (const [rescale, offset] of [[1, [0, 0, 0]], [0.5, [0, 0, 0]], [2, [3, -2, 5]]]) {
+    const fixture = headsetFixture();
+    const before = fixture.camera.getSnapshot();
+    const { made } = await madeThenTakenBack(fixture, { framed: true, rescale, offset });
+    for (const { result } of made) {
+      assert.equal(result.lessonMotionApplied, true);
+      assert.equal(result.frame.pivot.length, 3);
+      assert.equal(result.frame.axis?.length ?? 3, 3);
+    }
+    const expected = { position: before.position.map((value, axis) => value / rescale + offset[axis]),
+      target: before.target.map((value, axis) => value / rescale + offset[axis]), up: before.up };
+    const off = offBy(fixture.camera.getSnapshot(), expected);
+    assert.ok(off < 1e-7, `scale x${rescale}, offset ${offset}: camera came back within ${off}`);
+  }
+  // Taken back about the centre the molecule has now, the same moves leave the camera slid off.
+  const fixture = headsetFixture();
+  const before = fixture.camera.getSnapshot();
+  await madeThenTakenBack(fixture, { framed: false });
+  const slid = Vec3.distance(Vec3.create(...fixture.camera.getSnapshot().position), Vec3.create(...before.position));
+  assert.ok(slid > 10, `about today's centre the camera ends ${slid.toFixed(1)} render units off`);
+});
+
+test('an agent turn made between lesson moves is all that is left once they are handed back', async () => {
+  const fixture = headsetFixture();
+  const before = fixture.camera.getSnapshot();
+  const { agentTurn } = await madeThenTakenBack(fixture, { framed: true, outside: true });
+  // The agent's turn, as it was made, applied to the camera the lesson found.
+  const expected = { ...before, ...lessonCameraMove(before, { kind: 'orbit', axis: agentTurn.axis, degrees: agentTurn.degrees }, { pivot: agentTurn.pivot }) };
+  const off = offBy(fixture.camera.getSnapshot(), expected);
+  assert.ok(off < 1e-7, `the camera holds the agent's turn within ${off}`);
 });

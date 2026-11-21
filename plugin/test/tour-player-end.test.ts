@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
-import { mountTourPlayer, type Tour } from '../src/tour-player.js';
+import { mountTourPlayer, tourEndFigure, type Tour } from '../src/tour-player.js';
+import { lessonFigureSchema } from '../src/lesson-figure.js';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { diagnosticEntrySchema, salvageDiagnosticEntries } from '../src/headset-diagnostics.js';
 // @ts-ignore Source page closures and browser diagnostics, with only I/O adapted.
 import { tourEndHarness } from '../../lab/browser-roundtrip/fixtures/tour-end-harness.mjs';
 
-const manifest = JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8'));
+const manifest = JSON.parse(readFileSync(new URL('./fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8'));
 const lesson = molecularLessonToTour(manifest);
 
 for (const xr of [true, false]) it(`ends telomerase after the final dwell and preserves its receipt (XR=${xr})`, async () => {
@@ -97,4 +98,97 @@ it('a failed restore reports no successful end and permits Done to retry', async
     expect(player.getState().active).toBe(false);
     expect(h.spoken).toHaveLength(1);
   } finally { player.pause(); vi.useRealTimers(); h.cleanup(); }
+});
+
+// The shipped lesson ends on its plain starting view. These cases use it with
+// the closing names asked for.
+const shippedManifest = JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8'));
+const liveManifest = { ...shippedManifest, presentation: { ...shippedManifest.presentation, endFigure: 'last' } };
+
+it('the shipped lesson leaves no names on the starting view after Done', async () => {
+  const shipped = molecularLessonToTour(shippedManifest);
+  expect(shipped.presentation?.endFigure).toBeUndefined();
+  vi.useFakeTimers(); const h = tourEndHarness();
+  const player = mountTourPlayer({ ...h, tours: [shipped] });
+  try {
+    await h.install(shipped); const baseline = h.capture();
+    await player.select(shipped.id); await player.start(true);
+    await h.dispatchDone(player);
+    expect(player.getState()).toMatchObject({ active: false, step: -1 });
+    expect(h.capture()).toEqual(baseline);
+  } finally { player.pause(); vi.useRealTimers(); h.cleanup(); }
+});
+
+it('Done keeps the closing chapter\'s names on the starting view when the lesson asks for them', async () => {
+  const live = molecularLessonToTour(liveManifest);
+  expect(live.presentation?.endFigure).toBe('last');
+  const closing = live.steps.at(-1)!.figure!;
+  expect(closing.labels?.length).toBeGreaterThan(0);
+  expect(closing.focus).toBeUndefined();
+  vi.useFakeTimers(); const h = tourEndHarness();
+  const player = mountTourPlayer({ ...h, tours: [live] });
+  try {
+    await h.install(live); const baseline = h.capture();
+    expect(baseline.inspection).toBeUndefined();
+    await player.select(live.id); await player.start(true);
+    expect(h.figures.at(-1).value).toEqual(live.steps[0].figure);
+    await h.dispatchDone(player);
+    expect(player.getState()).toMatchObject({ active: false, step: -1 });
+    expect(h.figures.at(-1)).toEqual({ value: closing, options: { frame: false } });
+    // The starting view, its placement and resting key, with the names drawn on it.
+    expect(h.capture()).toEqual({ ...baseline, inspection: { lessonFigure: closing } });
+    expect(h.spoken).toEqual(['Tour complete. Explore freely.']);
+    // A second visit starts from that view and ends on it again.
+    await player.start(true);
+    await vi.advanceTimersByTimeAsync(1);
+    await h.dispatchDone(player);
+    expect(h.capture()).toEqual({ ...baseline, inspection: { lessonFigure: closing } });
+  } finally { player.pause(); vi.useRealTimers(); h.cleanup(); }
+});
+
+it('completing the lesson keeps its closing names too, and Restore start and other lessons do not', async () => {
+  const live = molecularLessonToTour(liveManifest);
+  const closing = live.steps.at(-1)!.figure!;
+  vi.useFakeTimers();
+  let h = tourEndHarness();
+  let player = mountTourPlayer({ ...h, tours: [live] });
+  try {
+    await h.install(live); await player.select(live.id); await player.start(true, 'last');
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(player.getState().active).toBe(false);
+    expect(h.figures.at(-1)).toEqual({ value: closing, options: { frame: false } });
+  } finally { player.pause(); h.cleanup(); }
+  h = tourEndHarness(); player = mountTourPlayer({ ...h, tours: [live] });
+  try {
+    await h.install(live); const baseline = h.capture();
+    await player.select(live.id); await player.start(true);
+    await player.restoreStart();
+    expect(h.figures.at(-1).value).toBeUndefined();
+    expect(h.capture()).toEqual(baseline);
+  } finally { player.pause(); h.cleanup(); }
+  const plain = molecularLessonToTour({ ...liveManifest, presentation: { captionCard: 'shown' } });
+  h = tourEndHarness(); player = mountTourPlayer({ ...h, tours: [plain] });
+  try {
+    await h.install(plain); const baseline = h.capture();
+    await player.select(plain.id); await player.start(true);
+    await h.dispatchDone(player);
+    expect(h.figures.at(-1).value).toBeUndefined();
+    expect(h.capture()).toEqual(baseline);
+  } finally { player.pause(); vi.useRealTimers(); h.cleanup(); }
+});
+
+it('the closing figure of a close-up chapter is still a valid figure once its framing is left out', () => {
+  // A close-up's figure may carry a focus, a context radius and a view plane;
+  // the last two need the focus, so all three go together.
+  const closeUp = structuredClone(liveManifest);
+  const figure = closeUp.chapters.at(-1).immersive.figure;
+  Object.assign(figure, { focus: [figure.labels[0].target], contextRadius: 8, viewPlane: [figure.labels[0].target] });
+  const tour = molecularLessonToTour(closeUp);
+  expect(tour.steps.at(-1)!.figure).toMatchObject({ contextRadius: 8 });
+  const drawn = tourEndFigure(tour)!;
+  expect(drawn).not.toHaveProperty('focus');
+  expect(drawn).not.toHaveProperty('contextRadius');
+  expect(drawn).not.toHaveProperty('viewPlane');
+  expect(() => lessonFigureSchema.parse(drawn)).not.toThrow();
+  expect(drawn.labels).toEqual(tour.steps.at(-1)!.figure!.labels);
 });

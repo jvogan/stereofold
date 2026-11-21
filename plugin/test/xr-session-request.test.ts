@@ -212,7 +212,7 @@ it('waits for Safari\'s consent prompt instead of closing the session it grants'
 
 it('passes the feature list and deadline the immersive entry chose for this browser',async()=>{
   const source=await readFile(new URL('../../lab/browser-roundtrip/immersive-session.mjs',import.meta.url),'utf8');
-  expect(source).toMatch(/requestHeadsetSession\(runtime, xrMode, \{ optionalFeatures: headsetOptionalFeatures\(globalThis\.navigator\),\s+timeoutMs: headsetEntryDeadlineMs\(globalThis\.navigator\)/);
+  expect(source).toMatch(/requestHeadsetSession\(runtime, xrMode, \{ optionalFeatures: withXrLayersFeature\(headsetOptionalFeatures\(globalThis\.navigator\)\),\s+timeoutMs: headsetEntryDeadlineMs\(globalThis\.navigator\)/);
 });
 
 it('asks for the strongest fixed foveation levels Meta gates behind a feature',()=>{

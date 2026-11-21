@@ -585,10 +585,11 @@ optional voice or unsupported hardware checks as not tested, with the reason.
 13. After pairing, ask for `manage_companion` status. **Pass:** the paired
     headset is reported with its device class, `quest2` on a Quest 2.
 14. On a Quest 2, ask to grow the `microtubule-growth` demo to its full tube.
-    **Pass:** the current measured atom budget refuses the 177,268-site tube,
-    preserves the current scene and reports its reason. If the wearer chooses
-    the `wall` tier, describe it as a portion of the tube. Do not apply that
-    Quest 2 ceiling to another or unidentified headset.
+    **Pass:** the 177,268-site tube opens in the same session with its
+    placement and scale kept, a `rendered` receipt arrives, and each of its
+    chapters steps without the view freezing. If the wearer chooses the `wall`
+    tier, describe it as a portion of the tube. Do not apply the Quest 2
+    atom ceiling to another or unidentified headset.
 15. Recenter with a long press on the Oculus button, mid-session. **Pass:**
     the scene reappears correctly framed; the session does not end.
 16. Exit VR with the headset's own system gesture, not the page. **Pass:**

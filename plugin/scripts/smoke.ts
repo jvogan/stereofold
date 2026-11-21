@@ -280,7 +280,7 @@ try {
     arguments: sessionArguments({ diagnostics: { ...sampleDiagnostics, camera: { ...sampleDiagnostics.camera, unexpected: 1 } } }),
   });
   assert.equal(rejectedNested.isError, true, 'report_diagnostics must reject an unknown nested field');
-  assert.match(JSON.stringify(rejectedNested.content), /unrecognized_keys/u);
+  assert.match(JSON.stringify(rejectedNested.content), /Unrecognized key/u);
   const stillVerbatim = await client.callTool({ name: 'stereo_structure.get_state', arguments: sessionArguments({}) });
   assert.deepEqual(
     (stillVerbatim.structuredContent as { diagnostics?: unknown }).diagnostics,

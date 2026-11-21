@@ -664,6 +664,77 @@ test('a missing input source retains the shorter cancellation bound despite its 
   } finally { await t.toolbar.dispose(); }
 });
 
+test('the menu plate is the drawn column glass, drag included, with the depth its content spans', async () => {
+  const t = await menu();
+  try {
+    const p = panel(t), plate = t.toolbar.menuPlate();
+    const close = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
+    assert.ok(close(plate.point, p.backing.point));
+    assert.equal(plate.halfWidth, p.backing.halfWidth);
+    assert.equal(plate.halfHeight, p.backing.halfHeight);
+    assert.ok(close(plate.right, p.right) && close(plate.up, p.up) && close(plate.normal, p.normal));
+    assert.ok(plate.front > 0 && plate.back >= 0 && Array.isArray(plate.seat));
+    // Every button sits on the glass, and the cursor's aim point lies inside
+    // the slab the plate describes.
+    for (const button of p.buttons) {
+      const offset = button.point.map((v, i) => v - plate.point[i]);
+      const along = axis => offset.reduce((sum, v, i) => sum + v * axis[i], 0);
+      assert.ok(Math.abs(along(plate.right)) + button.halfWidth <= plate.halfWidth + 1e-9);
+      assert.ok(Math.abs(along(plate.up)) + button.halfHeight <= plate.halfHeight + 1e-9);
+    }
+    const source = pointer(p.buttons[0].point, 'left'); t.session.inputSources = [source];
+    t.toolbar.syncInput(t.frame);
+    const lift = t.toolbar.aimPoint().reduce((sum, v, i) => sum - (v - plate.point[i]) * plate.normal[i], 0);
+    assert.ok(lift > 0 && lift <= plate.front, `aim lift ${lift}`);
+    // A drag moves the plate with the drawn glass.
+    const gap = pointer(gapPoint(t), 'right'); t.session.inputSources = [gap];
+    press(t, gap);
+    gap.targetRaySpace.pose.transform.position.x = -.08;
+    t.toolbar.syncInput(t.frame);
+    assert.ok(Math.abs(t.toolbar.menuPlate().point[0] - plate.point[0] + .08) < 1e-9);
+    release(t, gap); await tick();
+    assert.ok(Math.abs(t.toolbar.menuPlate().point[0] - plate.point[0] + .08) < 1e-9);
+    t.toolbar.setHidden(true);
+    assert.equal(t.toolbar.menuPlate(), undefined);
+  } finally { await t.toolbar.dispose(); }
+});
+
+test('a drawer that takes the column apart gets its glass and plates alone, and every part of it marked', async () => {
+  const subject = { title: 'Crambin', pdbId: '1CRN', chains: 1, assembly: '1' };
+  async function added(apart) {
+    const adds = [];
+    const t = await menu({ state: { voice: { state: 'idle' }, subject },
+      presentation: { add(representation, options) { adds.push({ representation, options }); },
+        ...(apart ? { separatesMenuColumn: () => true } : {}) } });
+    try {
+      const hovered = pointer(panel(t).buttons[0].point, 'left'); t.session.inputSources = [hovered];
+      t.toolbar.syncInput(t.frame);
+      for (let i = 0; i < 4; i++) await tick();
+      return { adds: adds.map(({ representation, options }) => ({ name: representation.shape?.name,
+        triangles: representation.shape?.geometry?.triangles?.length ?? 0, options })) };
+    } finally { await t.toolbar.dispose(); }
+  }
+  const whole = await added(false), split = await added(true);
+  const plates = run => run.adds.filter(a => a.name === 'Stereofold toolbar plates');
+  // As it has always been drawn: one plate mesh, and nothing marked.
+  assert.equal(plates(whole).length, 1);
+  assert.ok(whole.adds.length >= 4);
+  for (const add of whole.adds) assert.deepEqual(add.options, { roomLocked: true });
+  // Taken apart: the column's glass and row plates in one mesh, the caption
+  // card's glass in another, and between them every triangle of the whole mesh.
+  const [column, cards] = plates(split);
+  assert.equal(plates(split).length, 2);
+  assert.deepEqual(column.options, { roomLocked: true, menuColumn: true });
+  assert.deepEqual(cards.options, { roomLocked: true });
+  assert.ok(cards.triangles > 0 && column.triangles > cards.triangles);
+  assert.equal(column.triangles + cards.triangles, plates(whole)[0].triangles);
+  const marked = name => split.adds.filter(a => a.name === name).map(a => a.options.menuColumn === true);
+  assert.deepEqual(marked('Stereofold spatial toolbar'), [true], 'row labels belong to the column');
+  assert.deepEqual(marked('Stereofold toolbar readout'), [false], 'card text does not');
+  assert.deepEqual(marked('Stereofold toolbar highlight'), [true], 'the hover plate belongs to the column');
+  assert.equal(whole.adds.filter(a => a.name === 'Stereofold toolbar highlight').length, 1);
+});
+
 for (const hand of ['left', 'right']) test(`${hand} released menu owns its seat through clearance, tour updates and Menu expansion`, async () => {
   let automaticRelocation = false, clearanceCalls = 0;
   const t = await menu({ beforeMenuDraw: async ({ relocationCandidates }) => {
@@ -853,6 +924,56 @@ for (const priorMoves of [0, 7]) test(`untouched lesson menu stays placed throug
     closePoints([t.toolbar.seatAnchor()], [anchor], 'agent placement cannot silently summon the menu');
     await t.toolbar.runAction({ kind: 'recenter-menu', reason: 'menu' });
     assert.ok(clearanceCalls > calls, 'explicit menu summon still permits a fresh seat');
+  } finally { await t.toolbar.dispose(); }
+});
+
+test('the menu claim from a molecular move ends when that placement is released', async () => {
+  // Done, Reset, Fit, a new source or a move put back release the molecule.
+  // The menu then stays where it is, but the next chapter or lesson may seat
+  // its card again instead of dodging a card left from the previous lesson.
+  const state = { placementMoves: 0, placementHeld: false, voice: { state: 'idle' }, tour: { selectedId: 'test', active: true,
+    step: 0, title: 'Contact', body: 'Read this chapter.', canNext: true } };
+  const t = await menu({ state, beforeMenuDraw: () => undefined });
+  try {
+    await tick(); await t.toolbar.update();
+    const anchor = [...t.toolbar.seatAnchor()];
+    assert.ok(t.toolbar.prepareRelocation({ headInRoom: identity }).length > 1, 'an untouched menu offers seats');
+    t.setState({ ...state, placementMoves: 1, placementHeld: true });
+    assert.deepEqual(t.toolbar.prepareRelocation({ headInRoom: identity }), [], 'a held molecular move owns the menu seat');
+    t.setState({ ...state, placementMoves: 1, placementHeld: false });
+    assert.ok(t.toolbar.prepareRelocation({ headInRoom: identity }).length > 1, 'a released move gives the seat back');
+    await t.toolbar.update();
+    closePoints([t.toolbar.seatAnchor()], [anchor], 'releasing the claim does not move the menu');
+    // An undo that hands the placement back to the wearer, with no new move,
+    // claims the seat again.
+    t.setState({ ...state, placementMoves: 1, placementHeld: true });
+    assert.deepEqual(t.toolbar.prepareRelocation({ headInRoom: identity }), [], 'a placement held again owns the seat again');
+    t.setState({ ...state, placementMoves: 1, placementHeld: false });
+    assert.ok(t.toolbar.prepareRelocation({ headInRoom: identity }).length > 1);
+    // A state without the field (an older page) keeps the claim as before.
+    t.setState({ ...state, placementMoves: 2, placementHeld: true });
+    assert.deepEqual(t.toolbar.prepareRelocation({ headInRoom: identity }), []);
+    t.setState({ placementMoves: 2, voice: { state: 'idle' }, tour: state.tour });
+    assert.deepEqual(t.toolbar.prepareRelocation({ headInRoom: identity }), []);
+  } finally { await t.toolbar.dispose(); }
+});
+
+test('a dragged menu stays the wearer\'s after a molecular placement is released', async () => {
+  const state = { placementMoves: 0, placementHeld: false, voice: { state: 'idle' } };
+  const t = await menu({ state });
+  try {
+    const source = pointer(gapPoint(t), 'left');
+    t.session.inputSources = [source];
+    press(t, source);
+    source.targetRaySpace.pose.transform.position.x = -.08;
+    t.toolbar.syncInput(t.frame);
+    release(t, source); await tick();
+    const anchor = [...t.toolbar.seatAnchor()];
+    t.setState({ ...state, placementMoves: 1, placementHeld: true });
+    t.setState({ ...state, placementMoves: 1, placementHeld: false });
+    assert.deepEqual(t.toolbar.prepareRelocation({ headInRoom: identity }), [], 'the drag still owns the seat');
+    await t.toolbar.update();
+    closePoints([t.toolbar.seatAnchor()], [anchor], 'the dragged seat is kept');
   } finally { await t.toolbar.dispose(); }
 });
 

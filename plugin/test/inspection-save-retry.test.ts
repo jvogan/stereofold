@@ -11,7 +11,7 @@ import { movedBy, sharedPanelSession } from './helpers/shared-panel-session.js';
 
 const source = readFileSync(new URL('../src/inspector.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
-const names = ['scheduleSave', 'recoverSave', 'save', 'poll', 'clearConnectionProblem'];
+const names = ['scheduleSave', 'recoverSave', 'reloadSharedView', 'retryFollowRecovery', 'save', 'poll', 'clearConnectionProblem'];
 const functions = ast.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text ?? ''))
   .map(node => node.getText(ast)).join('\n');
 afterEach(() => vi.useRealTimers());
@@ -22,7 +22,7 @@ function page() {
   let scene = { sourceSha256: 'a'.repeat(64), inspection: { placement: { scale: 4.66 } } };
   const captures: number[] = [], posts: { at: number; args: any }[] = [];
   let fail = true;
-  const h: any = vm.createContext({
+  const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     failedSourceLoad: undefined, pollBackoff: createPollBackoff(() => Date.now(), () => 0.5),
     Date, Promise, JSON, Math, setTimeout, clearTimeout,
     saveRetryAdmission: createSaveRetryAdmission(), saveFailureRecovery,
@@ -265,7 +265,7 @@ function receiver(options: { deferLocalSave?: boolean; player?: boolean } = {}) 
   // The lesson player, which records what its last action left on screen.
   const player = { pause() {}, restorePlayback() {}, drawnScene: () => state.drawnScene };
   const calls: string[] = [], receipts: any[] = [];
-  const h: any = vm.createContext({
+  const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     // The page's errors are this realm's, so `inspectionFailureReceipt` reads their sentences.
     performance, Date, Error, localInteractionSerial: 0, lastLocalEditAt: -Infinity,
     panelEntering, sameEntryScene, waitForPanelRender, withWearerEdits, inspectionFailureReceipt,
@@ -380,7 +380,7 @@ describe('a held grip or stick when Claude’s start arrives', () => {
       source.indexOf('\n  captureNamedView:')).trim().replace(/,$/, '');
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
-    const queue: any = vm.createContext({ queue: Promise.resolve(), closing: false, busy: false,
+    const queue: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined, queue: Promise.resolve(), closing: false, busy: false,
       moleculeCanvas: { style: {} }, $$: () => [],
       // The headset queue has no desktop sequence group; keep the DOM lookup.
       $: (selector: string) => { expect(selector).toBe('.sequence-items'); return null; },
@@ -464,7 +464,7 @@ describe('a headset viewer left in error', () => {
     const scene = { sourceSha256: 'a'.repeat(64), inspection: { placement: { scale: 1 } } };
     const state = { status: 'error', error: 'The molecular figure surroundings changed while preparing its layers.' };
     const events: any[] = [];
-    const h: any = vm.createContext({ Date, Promise, JSON, String, setTimeout, Error,
+    const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined, Date, Promise, JSON, String, setTimeout, Error,
       VIEWER_RECOVERY_BACKOFF_MS: [0, 5_000, 15_000, 60_000], viewerErrorRecovery: undefined,
       isCompanion: true, closed: false, remote: false, loading: false, reloading: false, experiencePreparing: false,
       activePreviewRecording: undefined, pendingReceipt: undefined, dirty: false, rendering: Promise.resolve(),
@@ -491,7 +491,7 @@ describe('a headset viewer left in error', () => {
   it('reloads the saved scene by drawing the source again when the viewer cannot redraw', async () => {
     const v = viewer(async () => { throw Error('recovery failed'); });
     await v.h.recoverViewerError(); await v.h.rendering;
-    expect(v.h.hydrate).toHaveBeenCalledWith('session', undefined, undefined, { restoreExactScene: true, redraw: true });
+    expect(v.h.hydrate).toHaveBeenCalledWith('session', undefined, undefined, { restoreExactScene: true, redraw: true, keepPanel: true });
     expect(v.h.dirty).toBe(false); expect(v.h.reloading).toBe(false);
     expect(v.events.map(event => event.phase)).toEqual(['recover', 'recover-failed', 'reload', 'reloaded']);
   });

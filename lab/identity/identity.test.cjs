@@ -296,6 +296,320 @@ test('a host that supplies yieldToHost gets a turn between residues and the same
   assert.throws(() => createCatalogExtractor({ ...dependencies, yieldToHost: 'later' }), /yieldToHost must be a function/);
 });
 
+const ATOM_FIELDS = ['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id',
+  'label_entity_id', 'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv',
+  'auth_seq_id', 'auth_comp_id', 'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num'].map(field => `_atom_site.${field}`);
+const OPERATOR_FIELDS = ['id', 'type', 'matrix[1][1]', 'matrix[1][2]', 'matrix[1][3]', 'vector[1]', 'matrix[2][1]', 'matrix[2][2]',
+  'matrix[2][3]', 'vector[2]', 'matrix[3][1]', 'matrix[3][2]', 'matrix[3][3]', 'vector[3]'].map(field => `_pdbx_struct_oper_list.${field}`);
+
+// Every chain declares the same entity's whole sequence and one atom stands in
+// each model, so the source grows with chains plus positions while its rows
+// grow with chains times positions, times operators and models.
+function declaredRows({ chains, positions, operators = 0, models = 1, expression = `(1-${operators})`, copied = chains }) {
+  const chainIds = Array.from({ length: chains }, (_, c) => `C${c}`);
+  const lines = ['data_declared_rows', 'loop_', '_entity.id', '_entity.type', '1 polymer', '#',
+    'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id',
+    ...Array.from({ length: positions }, (_, p) => `1 ${p + 1} ALA`), '#',
+    'loop_', '_struct_asym.id', '_struct_asym.entity_id', ...chainIds.map(id => `${id} 1`), '#'];
+  if (operators) lines.push('loop_', '_pdbx_struct_assembly.id', '_pdbx_struct_assembly.details', "1 'translated copies'", '#',
+    'loop_', '_pdbx_struct_assembly_gen.assembly_id', '_pdbx_struct_assembly_gen.oper_expression', '_pdbx_struct_assembly_gen.asym_id_list',
+    `1 '${expression}' ${chainIds.slice(0, copied).join(',')}`, '#', 'loop_', ...OPERATOR_FIELDS,
+    ...Array.from({ length: operators }, (_, o) => `${o + 1} 'translation' 1 0 0 ${o} 0 1 0 0 0 0 1 0`), '#');
+  lines.push('loop_', ...ATOM_FIELDS,
+    ...Array.from({ length: models }, (_, m) => `ATOM 1 C CA . ALA C0 1 1 ? 0 0 0 1 10 1 ALA C0 CA ${m + 1}`), '#', '');
+  return lines.join('\n');
+}
+
+// One declared position matched by several scheme rows and several observed
+// residues. Each scheme row fills the residues' missing author chain
+// differently, so the rows grow with scheme rows times residues.
+function schemeBySites({ schemes, sites }) {
+  return ['data_scheme_sites', 'loop_', '_entity.id', '_entity.type', '1 polymer', '#',
+    'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id', '1 1 ALA', '#',
+    'loop_', '_struct_asym.id', '_struct_asym.entity_id', 'A 1', '#',
+    'loop_', ...['asym_id', 'entity_id', 'seq_id', 'mon_id', 'auth_seq_num', 'pdb_strand_id', 'pdb_ins_code'].map(field => `_pdbx_poly_seq_scheme.${field}`),
+    ...Array.from({ length: schemes }, (_, s) => `A 1 1 ALA ? S${s} .`), '#',
+    'loop_', ...ATOM_FIELDS,
+    ...Array.from({ length: sites }, (_, a) => `ATOM ${a + 1} C CA . ALA A 1 1 ? ${a} 0 0 1 10 ${a + 1} ALA ? CA 1`), '#', ''].join('\n');
+}
+
+test('a host row budget refuses a source whose declarations expand past it before building those rows', async () => {
+  const { createHash } = require('node:crypto');
+  const { createRequire } = require('node:module');
+  const { createCatalogExtractor } = require('./extract-core.cjs');
+  const fromPlugin = createRequire(resolve(__dirname, '../../plugin/package.json'));
+  const dependencies = {
+    CIF: fromPlugin('molstar/lib/commonjs/mol-io/reader/cif.js').CIF,
+    trajectoryFromMmCIF: fromPlugin('molstar/lib/commonjs/mol-model-formats/structure/mmcif.js').trajectoryFromMmCIF,
+    Symmetry: fromPlugin('molstar/lib/commonjs/mol-model/structure/model.js').Symmetry,
+    molstarVersion: fromPlugin('molstar/package.json').version,
+    sha256: bytes => createHash('sha256').update(bytes).digest('hex'),
+  };
+  let refused = [], turns = 0;
+  const budgeted = maximumRows => createCatalogExtractor({ ...dependencies, yieldToHost: () => { turns++; },
+    rowBudget: { maximumRows, refuse: rows => { refused.push(rows); return new Error(`over the row budget: ${rows}`); } } });
+  const check = async (text, maximumRows, options, expected) => {
+    refused = []; turns = 0;
+    await assert.rejects(budgeted(maximumRows).extractBytes(text, options), /over the row budget/);
+    assert.deepEqual(refused, [expected.refusedAt]);
+    assert.equal(turns, expected.turns, 'rows kept before the refusal');
+  };
+
+  // 30 chains by 40 positions declare 1,200 rows, counted before Mol* parses
+  // the model: a parse that walked them would see the stub below throw.
+  const counted = createCatalogExtractor({ ...dependencies, trajectoryFromMmCIF: () => { throw new Error('parsed the model'); },
+    rowBudget: { maximumRows: 1199, refuse: rows => new Error(`over the row budget: ${rows}`) } });
+  await assert.rejects(counted.extractBytes(declaredRows({ chains: 30, positions: 40 })), /over the row budget: 1200/);
+  const product = declaredRows({ chains: 30, positions: 40 });
+  await check(product, 1199, {}, { refusedAt: 1200, turns: 0 });
+  const plain = await createCatalogExtractor(dependencies).extractBytes(product);
+  assert.equal(plain.rows.length, 1200);
+  assert.deepEqual(await budgeted(1200).extractBytes(product), plain, 'a source at the budget keeps the same catalog');
+
+  // Assembly operators multiply the rows: 2 chains by 10 positions in 60 copies.
+  const copies = declaredRows({ chains: 2, positions: 10, operators: 60 });
+  assert.equal((await budgeted(20).extractBytes(copies)).rows.length, 20);
+  await check(copies, 1199, { assemblyId: '1' }, { refusedAt: 1200, turns: 0 });
+
+  // Every coordinate model expands the declarations again: four models of 300.
+  await check(declaredRows({ chains: 10, positions: 30, models: 4 }), 1000, {}, { refusedAt: 1200, turns: 0 });
+
+  // Scheme rows times observed residues at one declared position.
+  await check(schemeBySites({ schemes: 40, sites: 40 }), 1000, {}, { refusedAt: 1001, turns: 0 });
+  assert.equal((await createCatalogExtractor(dependencies).extractBytes(schemeBySites({ schemes: 4, sites: 5 }))).rows.length, 20);
+
+  assert.throws(() => createCatalogExtractor({ ...dependencies, rowBudget: { maximumRows: 0, refuse: () => new Error('no') } }), /rowBudget requires/);
+  assert.throws(() => createCatalogExtractor({ ...dependencies, rowBudget: { maximumRows: 10, maximumDeclaredRows: 9, refuse: () => new Error('no') } }), /rowBudget requires/);
+
+  // An assembly is judged by its own rows; the chains it leaves out are held
+  // to the wider declared bound. 30 chains by 40 positions, one chain copied.
+  const oneChain = declaredRows({ chains: 30, positions: 40, operators: 1, copied: 1 });
+  const wide = (maximumRows, maximumDeclaredRows) => createCatalogExtractor({ ...dependencies,
+    rowBudget: { maximumRows, maximumDeclaredRows, refuse: (rows, maximum) => new Error(`over ${maximum}: ${rows}`) } });
+  // The wider bound also holds the 3 rows Mol* walks for the model's symmetry
+  // (one assembly scanning one generator, and one operator).
+  assert.equal((await wide(40, 1203).extractBytes(oneChain, { assemblyId: '1' })).rows.length, 40);
+  await assert.rejects(wide(40, 1202).extractBytes(oneChain, { assemblyId: '1' }), /over 1202: 1203/);
+  await assert.rejects(wide(39, 1203).extractBytes(oneChain, { assemblyId: '1' }), /over 39: 40/);
+  await assert.rejects(wide(40, 1199).extractBytes(oneChain, { assemblyId: '1' }), /over 1199: 1200/);
+  await assert.rejects(wide(40, 1200).extractBytes(oneChain), /over 40: 1200/);
+});
+
+// One entity of `positions` declared residues and `models` models as Mol*
+// builds them: contiguous model numbers, model numbers that alternate row by
+// row, rows of the integrative model list, or contiguous models with no
+// struct_asym table. Consecutive atoms alternate their name, so no model
+// repeats the hierarchy of the one before it and Mol* builds every model's
+// sequences again.
+function modelRows(shape, positions, models) {
+  const atom = (id, name, model) => `ATOM ${id} C ${name} . ALA A 1 1 ? 0 0 0 1 10 1 ALA A ${name} ${model}`;
+  const lines = ['data_model_rows', 'loop_', '_entity.id', '_entity.type', '1 polymer', '#',
+    'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id',
+    ...Array.from({ length: positions }, (_, p) => `1 ${p + 1} ALA`), '#'];
+  if (shape !== 'no-chains') lines.push('loop_', '_struct_asym.id', '_struct_asym.entity_id', 'A 1', '#');
+  if (shape === 'integrative') lines.push('loop_', '_ihm_model_list.model_id', '_ihm_model_list.model_name',
+    ...Array.from({ length: models }, (_, m) => `${m + 1} m${m + 1}`), '#');
+  lines.push('loop_', ...ATOM_FIELDS, ...Array.from({ length: shape === 'integrative' ? 1 : models },
+    (_, i) => atom(i + 1, i % 2 ? 'CB' : 'CA', shape === 'alternating' ? i % 2 + 1 : i + 1)), '#', '');
+  return lines.join('\n');
+}
+
+test('the declared row count multiplies by every model Mol* builds, before it builds one', async () => {
+  const { createHash } = require('node:crypto');
+  const { createRequire } = require('node:module');
+  const { createCatalogExtractor } = require('./extract-core.cjs');
+  const fromPlugin = createRequire(resolve(__dirname, '../../plugin/package.json'));
+  const { trajectoryFromMmCIF } = fromPlugin('molstar/lib/commonjs/mol-model-formats/structure/mmcif.js');
+  const { CIF } = fromPlugin('molstar/lib/commonjs/mol-io/reader/cif.js');
+  const dependencies = { CIF, trajectoryFromMmCIF, Symmetry: fromPlugin('molstar/lib/commonjs/mol-model/structure/model.js').Symmetry,
+    molstarVersion: fromPlugin('molstar/package.json').version, sha256: bytes => createHash('sha256').update(bytes).digest('hex') };
+  const counted = maximumRows => {
+    let built = 0;
+    const extractor = createCatalogExtractor({ ...dependencies, trajectoryFromMmCIF: frame => { built++; return trajectoryFromMmCIF(frame); },
+      rowBudget: { maximumRows, refuse: rows => new Error(`over the row budget: ${rows}`) } });
+    return { extractor, built: () => built };
+  };
+  const molstarModels = async text => (await trajectoryFromMmCIF((await CIF.parse(text).run()).result.blocks[0]).run()).frameCount;
+
+  // Each shape: 30 declared positions in 40 models Mol* builds, 1,200 rows.
+  // The integrative shape adds its one atom_site model, which Mol*'s
+  // missing-residue walk still visits: 1,230 declared. Its 40 models also
+  // each keep the one struct_asym row, which only the wider bound counts.
+  for (const [shape, declared, total] of [['alternating', 1200, 1200], ['integrative', 1230, 1270], ['no-chains', 1200, 1200], ['contiguous', 1200, 1200]]) {
+    const text = modelRows(shape, 30, 40);
+    assert.equal(await molstarModels(text), 40, shape);
+    for (const route of ['extractBytes', 'admitDeclaredRows']) {
+      const rows = route === 'extractBytes' ? declared : total, refusing = counted(rows - 1);
+      await assert.rejects(refusing.extractor[route](text), new RegExp(`over the row budget: ${rows}$`), `${shape} ${route}`);
+      assert.equal(refusing.built(), 0, `${shape} ${route}: refused before Mol* built a model`);
+      await counted(total).extractor.admitDeclaredRows(text);
+    }
+  }
+  // An integrative list shorter than the coordinate models still counts the
+  // models the missing-residue walk visits: 30 x 40, plus 30 for the one
+  // listed model, plus its one struct_asym row.
+  const fewer = modelRows('contiguous', 30, 40).replace('loop_\n_atom_site.',
+    'loop_\n_ihm_model_list.model_id\n_ihm_model_list.model_name\n1 m1\n#\nloop_\n_atom_site.');
+  assert.equal(await molstarModels(fewer), 1);
+  await assert.rejects(counted(1230).extractor.admitDeclaredRows(fewer), /over the row budget: 1231$/);
+  // A contiguous ensemble keeps the count it had: 10 chains by 30 positions in four models.
+  await assert.rejects(counted(1199).extractor.admitDeclaredRows(declaredRows({ chains: 10, positions: 30, models: 4 })), /over the row budget: 1200$/);
+  await counted(1200).extractor.admitDeclaredRows(declaredRows({ chains: 10, positions: 30, models: 4 }));
+  assert.equal((await counted(1200).extractor.extractBytes(declaredRows({ chains: 10, positions: 30, models: 4 }))).modelNumbers.length, 4);
+});
+
+// One declared residue on chain A, and a table Mol* walks again for every
+// model it builds:
+//  operator-mapping: `models` contiguous models, `rows` molstar_atom_site_operator_mapping rows;
+//  integrative-chains: `models` listed integrative models, `rows` more struct_asym rows;
+//  molecule: `models` contiguous models, `rows` entities and `rows` pdbx_molecule rows;
+//  repeated-model: `models` listed integrative models all named 1, `rows` atoms in model 1.
+// Returns the text and the rows the count is expected to reach.
+function perModelTables(term, models, rows) {
+  const atom = (id, name, model) => `ATOM ${id} C ${name} . ALA A 1 1 ? 0 0 0 1 10 1 ALA A ${name} ${model}`;
+  const entities = term === 'molecule' ? rows : term === 'integrative-chains' ? 2 : 1;
+  const lines = ['data_per_model_tables', 'loop_', '_entity.id', '_entity.type',
+    ...Array.from({ length: entities }, (_, e) => `${e + 1} ${e ? 'non-polymer' : 'polymer'}`), '#',
+    'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id', '1 1 ALA', '#',
+    'loop_', '_struct_asym.id', '_struct_asym.entity_id', 'A 1'];
+  if (term === 'integrative-chains') lines.push(...Array.from({ length: rows }, (_, a) => `X${a} 2`));
+  lines.push('#');
+  if (term === 'operator-mapping') lines.push('loop_', ...['label_asym_id', 'auth_asym_id', 'operator_name', 'suffix', 'assembly_id',
+    'assembly_operator_id', 'symmetry_operator_index', 'symmetry_hkl', 'ncs_id'].map(field => `_molstar_atom_site_operator_mapping.${field}`),
+  ...Array.from({ length: rows }, (_, r) => `Q${r} Q${r} op${r} s${r} 1 ${r + 1} ? '0 0 0' ?`), '#');
+  if (term === 'molecule') lines.push('loop_', '_pdbx_molecule.instance_id', '_pdbx_molecule.prd_id', '_pdbx_molecule.asym_id',
+    ...Array.from({ length: rows }, (_, p) => `${p + 1} PRD_${String(p).padStart(6, '0')} A`), '#');
+  if (term === 'group-names') lines.push('loop_', '_ihm_model_group.id', '_ihm_model_group.name',
+    ...Array.from({ length: rows }, (_, g) => `${g + 1} g${g + 1}`), '#', 'loop_', '_ihm_model_group_link.group_id', '_ihm_model_group_link.model_id',
+    ...Array.from({ length: rows }, (_, k) => `${k + 1} ${k + 1}`), '#');
+  if (term === 'assembly') lines.push('loop_', '_pdbx_struct_assembly.id', '_pdbx_struct_assembly.details', "1 'copies'", '#',
+    'loop_', '_pdbx_struct_assembly_gen.assembly_id', '_pdbx_struct_assembly_gen.oper_expression', '_pdbx_struct_assembly_gen.asym_id_list',
+    ...Array.from({ length: rows }, () => "1 '1' A"), '#', 'loop_', ...['id', 'type', 'matrix[1][1]', 'matrix[1][2]', 'matrix[1][3]', 'vector[1]',
+      'matrix[2][1]', 'matrix[2][2]', 'matrix[2][3]', 'vector[2]', 'matrix[3][1]', 'matrix[3][2]', 'matrix[3][3]', 'vector[3]'].map(field => `_pdbx_struct_oper_list.${field}`),
+    ...Array.from({ length: rows }, (_, o) => `${o + 1} 'translation' 1 0 0 ${o} 0 1 0 0 0 0 1 0`), '#');
+  const listed = term === 'integrative-chains' || term === 'repeated-model' || term === 'group-names';
+  if (listed) lines.push('loop_', '_ihm_model_list.model_id', '_ihm_model_list.model_name',
+    ...Array.from({ length: models }, (_, m) => `${term === 'repeated-model' ? 1 : m + 1} m${m + 1}`), '#');
+  const atoms = term === 'repeated-model' ? Array.from({ length: rows }, (_, i) => atom(i + 1, 'CA', 1))
+    : term === 'integrative-chains' || term === 'group-names' ? [atom(1, 'CA', 1)] : Array.from({ length: models }, (_, i) => atom(i + 1, i % 2 ? 'CB' : 'CA', i + 1));
+  lines.push('loop_', ...ATOM_FIELDS, ...atoms, '#', '');
+  const expected = { 'operator-mapping': models + rows * models, 'integrative-chains': 1 + models + (rows + 1) * models,
+    molecule: models + 2 * rows * models, 'repeated-model': 1 + 2 * models + (models - 1) * rows,
+    'group-names': 1 + 2 * models + 2 * rows * models, assembly: 2 * models + 2 * rows * models }[term];
+  return { text: lines.join('\n'), expected };
+}
+
+test('the declared row count adds the tables Mol* walks again for every model, before it builds one', async () => {
+  const { createHash } = require('node:crypto');
+  const { createRequire } = require('node:module');
+  const { createCatalogExtractor } = require('./extract-core.cjs');
+  const fromPlugin = createRequire(resolve(__dirname, '../../plugin/package.json'));
+  const { trajectoryFromMmCIF } = fromPlugin('molstar/lib/commonjs/mol-model-formats/structure/mmcif.js');
+  const { CIF } = fromPlugin('molstar/lib/commonjs/mol-io/reader/cif.js');
+  const dependencies = { CIF, trajectoryFromMmCIF, Symmetry: fromPlugin('molstar/lib/commonjs/mol-model/structure/model.js').Symmetry,
+    molstarVersion: fromPlugin('molstar/package.json').version, sha256: bytes => createHash('sha256').update(bytes).digest('hex') };
+  const counted = maximumRows => {
+    let built = 0;
+    const extractor = createCatalogExtractor({ ...dependencies, trajectoryFromMmCIF: frame => { built++; return trajectoryFromMmCIF(frame); },
+      rowBudget: { maximumRows, refuse: rows => new Error(`over the row budget: ${rows}`) } });
+    return { extractor, built: () => built };
+  };
+  const molstarModels = async text => (await trajectoryFromMmCIF((await CIF.parse(text).run()).result.blocks[0]).run()).frameCount;
+
+  for (const [term, models, rows] of [['operator-mapping', 4, 10], ['integrative-chains', 4, 9], ['molecule', 4, 5], ['repeated-model', 5, 10], ['group-names', 4, 10]]) {
+    const { text, expected } = perModelTables(term, models, rows);
+    assert.equal(await molstarModels(text), models, term);
+    for (const route of ['extractBytes', 'admitDeclaredRows']) {
+      const refusing = counted(expected - 1);
+      await assert.rejects(refusing.extractor[route](text), new RegExp(`over the row budget: ${expected}$`), `${term} ${route}`);
+      assert.equal(refusing.built(), 0, `${term} ${route}: refused before Mol* built a model`);
+      await counted(expected).extractor.admitDeclaredRows(text);
+    }
+  }
+  // An assembly catalog builds each model's symmetry: 4 models, 10 generators, 10 operators.
+  const assembly = perModelTables('assembly', 4, 10), refusing = counted(assembly.expected - 1);
+  await assert.rejects(refusing.extractor.extractBytes(assembly.text, { assemblyId: '1' }), new RegExp(`over the row budget: ${assembly.expected}$`));
+  assert.equal(refusing.built(), 0, 'assembly: refused before Mol* built a model');
+  assert.equal((await counted(4).extractor.extractBytes(assembly.text)).rows.length, 4, 'the asymmetric unit does not build symmetry');
+  // A contiguous ensemble without these tables keeps its count: 10 chains by 30 positions in four models.
+  await assert.rejects(counted(1199).extractor.extractBytes(declaredRows({ chains: 10, positions: 30, models: 4 })), /over the row budget: 1200$/);
+  assert.equal((await counted(1200).extractor.extractBytes(declaredRows({ chains: 10, positions: 30, models: 4 }))).modelNumbers.length, 4);
+});
+
+test('a host row budget counts assembly operator combinations before Mol* expands them', async () => {
+  const { createHash } = require('node:crypto');
+  const { createRequire } = require('node:module');
+  const { createCatalogExtractor } = require('./extract-core.cjs');
+  const fromPlugin = createRequire(resolve(__dirname, '../../plugin/package.json'));
+  const { Symmetry } = fromPlugin('molstar/lib/commonjs/mol-model/structure/model.js');
+  let expanded = 0;
+  // Reports each read of an assembly's operator groups, the read that makes
+  // Mol* expand every operator combination.
+  const watched = { ...Symmetry, findAssembly(model, id) {
+    const assembly = Symmetry.findAssembly(model, id);
+    return assembly && new Proxy(assembly, { get(target, key) {
+      if (key === 'operatorGroups') expanded++;
+      return Reflect.get(target, key, target);
+    } });
+  } };
+  const dependencies = {
+    CIF: fromPlugin('molstar/lib/commonjs/mol-io/reader/cif.js').CIF,
+    trajectoryFromMmCIF: fromPlugin('molstar/lib/commonjs/mol-model-formats/structure/mmcif.js').trajectoryFromMmCIF,
+    Symmetry: watched, molstarVersion: fromPlugin('molstar/package.json').version,
+    sha256: bytes => createHash('sha256').update(bytes).digest('hex'),
+  };
+  const refused = [];
+  const budgeted = maximumRows => createCatalogExtractor({ ...dependencies,
+    rowBudget: { maximumRows, refuse: rows => { refused.push(rows); return new Error(`over the row budget: ${rows}`); } } });
+
+  // One declared row and 20 operators combined three deep: 8,000 copies.
+  const cubed = declaredRows({ chains: 1, positions: 1, operators: 20, expression: '(1-20)(1-20)(1-20)' });
+  await assert.rejects(budgeted(7999).extractBytes(cubed, { assemblyId: '1' }), /over the row budget: 8000/);
+  assert.deepEqual(refused, [8000]);
+  assert.equal(expanded, 0, 'operator combinations were expanded before the budget refused them');
+  // The same count admits the assembly at the budget, with the same catalog.
+  const plain = await createCatalogExtractor(dependencies).extractBytes(cubed, { assemblyId: '1' });
+  assert.equal(plain.rows.length, 8000);
+  assert.deepEqual(await budgeted(8000).extractBytes(cubed, { assemblyId: '1' }), plain);
+
+  // Ranges and lists in one group, and a range whose end is not a safe integer.
+  refused.length = 0; expanded = 0;
+  await assert.rejects(budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 20, expression: '(1-10,12,15-20)(1-20)' }),
+    { assemblyId: '1' }), /over the row budget: 340/);
+  await assert.rejects(budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 2, expression: '(1-2)(100000000000000000-100000000000000000)' }),
+    { assemblyId: '1' }), /over the row budget: Infinity/);
+  // Mol* lists every name in every group before forming the product, so an
+  // empty group does not excuse a long range beside it.
+  await assert.rejects(budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 2, expression: '(1-100000)(5-1)' }),
+    { assemblyId: '1' }), /over the row budget: 100000/);
+  await assert.rejects(budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 2, expression: '(5-1)(100000000000000000-100000000000000000)' }),
+    { assemblyId: '1' }), /over the row budget: Infinity/);
+  // Mol* forms the product from the last group back to the first, so an empty
+  // group stops only the groups before it: this one forms no copy but walks
+  // 1 + 12 + 144 + 1,728 partial combinations first.
+  await assert.rejects(budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 12, expression: '(5-1)(1-12)(1-12)(1-12)' }),
+    { assemblyId: '1' }), /over the row budget: 1885/);
+  await assert.rejects(budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 12, expression: '(1-12)(5-1)(1-12)(1-12)' }),
+    { assemblyId: '1' }), /over the row budget: 157/);
+  // Six groups of 100 behind the empty group would walk about 10^12.
+  await assert.rejects(budgeted(1_000_000).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 100,
+    expression: '(5-1)(1-100)(1-100)(1-100)(1-100)(1-100)(1-100)' }), { assemblyId: '1' }), /over the row budget: 1010101010101/);
+  // A product that overflows before the empty group must not turn the counts
+  // into NaN, which no budget comparison refuses.
+  await assert.rejects(budgeted(1_000_000).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 100,
+    expression: '(1-100)'.repeat(155) + '(5-1)' + '(1-100)'.repeat(6) }), { assemblyId: '1' }), /over the row budget: 1010101010101/);
+  // The same across two generator rows of one assembly: the first forms no
+  // copy and must not hide the second.
+  const twoRows = declaredRows({ chains: 1, positions: 1, operators: 100, expression: '(1-100)'.repeat(155) + '(5-1)' })
+    .replace(/^(1 '[^']*' C0)$/mu, `$1\n1 '${'(1-100)'.repeat(6)}' C0`);
+  assert.equal(twoRows.split('(1-100)(1-100)(1-100)(1-100)(1-100)(1-100)\' C0').length, 2, 'the fixture holds the second generator row');
+  await assert.rejects(budgeted(1_000_000).extractBytes(twoRows, { assemblyId: '1' }), /over the row budget: 1000000000000/);
+  assert.equal(expanded, 0);
+  // An empty last group stops the walk at once: admitted, with no copies.
+  assert.equal((await budgeted(100).extractBytes(declaredRows({ chains: 1, positions: 1, operators: 12, expression: '(1-12)(1-12)(5-1)' }),
+    { assemblyId: '1' })).rows.length, 0);
+});
+
 test('sparse geometry tuples and inherited elements cannot produce NaN results', () => {
   const sparsePoint = [0, 0, 0];
   delete sparsePoint[1];

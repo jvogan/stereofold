@@ -116,16 +116,24 @@ export function createReplyVoiceCache({
       await rm(file(entry.key), { force: true }).catch(() => { /* Best effort. */ });
     }
   };
+  let initialSweep: Promise<void> | undefined;
+  const sweepOnFirstUse = () => initialSweep ??= prune().catch(() => { /* Best effort. */ });
 
   return {
     key(parts) { return createHash('sha256').update(parts.join(SEPARATOR)).digest('hex'); },
     async get(key) {
+      await sweepOnFirstUse();
       if (!KEY_SHAPE.test(key)) return undefined;
       const entry = await read(key);
-      if (!entry || entry.at <= now() - maxAgeMs) return undefined;
+      if (!entry) return undefined;
+      if (entry.at <= now() - maxAgeMs) {
+        await rm(file(key), { force: true }).catch(() => { /* Best effort. */ });
+        return undefined;
+      }
       return entry.clip;
     },
     async put(key, clip) {
+      await sweepOnFirstUse();
       if (!KEY_SHAPE.test(key) || !clipOf(clip)) return;
       const temporary = join(root, `.${randomUUID()}.tmp`);
       try {

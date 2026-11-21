@@ -28,7 +28,7 @@ Without `modelNumber` or `assemblyId`, the inspector starts with the first
 source model in the asymmetric unit.
 Its scientific identities retain author/label numbering and missing positions.
 
-Stereofold exposes forty-one model-visible tools, among them `inspect`,
+Stereofold exposes forty-two model-visible tools, among them `inspect`,
 `inspect_file`, `inspect_scene`, `inspect_lesson`, `inspect_experience`,
 `list_experiences`, `navigate_experience`, `grow_structure`, `manage_companion`,
 `open_companion`, `open_inspector`, `control_tour`, `get_inspection_state`, `get_readiness`,
@@ -195,7 +195,8 @@ fingerprint, expiry, paired devices and a
 **Stop sharing** control. Open that address in Quest Browser, accept the
 certificate warning, pair, and tap the primary **Enter VR** control for
 passthrough-first entry, or open **More options** for **Enter plain VR**, the
-opaque room. The first tap also asks for the microphone. Keep Codex running.
+opaque room. The first tap also asks for the microphone, unless this Mac
+has reported that no voice route will use it. Keep Codex running.
 The default `connection: "loopback"` stays on this Mac, and
 `connection: "https"` is an explicit Cloudflare relay, never a LAN fallback.
 Before describing the connection as ready, confirm that the headset entered XR

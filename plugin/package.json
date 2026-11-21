@@ -1,6 +1,6 @@
 {
   "name": "stereo-structure",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "private": true,
   "type": "module",
   "description": "A stereoscopic Mol* viewer that runs inside Codex, Claude, and any MCP Apps host.",
@@ -51,11 +51,11 @@
     "@stereo/geometry": "workspace:*",
     "@stereo/motion": "workspace:*",
     "@modelcontextprotocol/ext-apps": "1.7.5",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "molstar": "5.11.0",
-    "zod": "4.3.0"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -65,6 +65,6 @@
     "playwright": "^1.55.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "vitest": "4.1.12"
   }
 }

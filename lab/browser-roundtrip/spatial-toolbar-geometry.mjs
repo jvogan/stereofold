@@ -164,7 +164,7 @@ const TOOLBAR_DESIGN_LAYOUT = Object.freeze({
   // the rows at this seat, and on the shipped nine-row menu that is three.
   maxRows: 15, maxReadoutLines: 10, backgroundMargin: 0.12,
   // Physical target geometry. A wearer aims a hand-held ray whose angular
-  // jitter is a degree or more, and the first Quest 2 session found the old
+  // jitter is a degree or more, and a Quest 2 session found the old
   // glyph-sized targets unhittable. A row is therefore a plate, not its text
   // extent: uniform across its column, and tall enough that neighbouring
   // plates overlap slightly, so there is no dead band between two rows at
@@ -970,7 +970,7 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   const statusTopOffset = statusBottom + Math.max(0, statusLines.length - 1) * statusStepMeters;
   // Only controls belong on the menu backing. Status owns the separate reply
   // card below: including its old extent here leaves a large empty sheet over
-  // the menu after the reply moves inboard (acceptance 3, refusal #808).
+  // the menu after the reply moves inboard (recorded refusal #808).
   const spans = [
     ...buttons.map(button => ({
       dx: (button.column - (columns - 1) / 2) * constants.columnStepMeters, halfX: button.halfWidth,
@@ -1049,9 +1049,13 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   const chapterFloor = forwardCaption && peripheralCaption ? seatRange * 0.8 / TOOLBAR_READING_RANGE_METERS : 0;
   const chapterCard = forwardCaption || capForwardView || constants.chapterCardSide;
   // A chapter retains its title and three full-size prose lines regardless
-  // of the control grid. The narrow side card holds one prose line, as does
-  // the short lesson card a crowded chapter falls back to (`shortCard`).
-  const cardLines = constants.chapterCardSide || constants.shortCard ? 2 : forwardCaption ? 4 : 3;
+  // of the control grid. The narrow side card holds one prose line. The short
+  // lesson card a crowded chapter falls back to (`shortCard`) holds one, or
+  // the number of lines it is given (`menuRelocationCandidates` grows it,
+  // still short of the full card, to keep a caption in whole sentences).
+  const shortLines = constants.shortCard === true ? 1
+    : Number.isSafeInteger(constants.shortCard) && constants.shortCard > 0 ? constants.shortCard : 0;
+  const cardLines = constants.chapterCardSide ? 2 : shortLines ? 1 + shortLines : forwardCaption ? 4 : 3;
   const baseCaptionAnchor = chapterCard ? add(origin, scale(headNormal, seatRange)) : anchor;
   const fittedChapterCard = forwardCaption && constants.fitChapterCaption === true;
   const captionAnchor = fittedChapterCard ? add(baseCaptionAnchor, scale(y, Math.min(.015, seatRange * .01))) : baseCaptionAnchor;
@@ -1270,8 +1274,14 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
         }
         return end;
       });
+      // Each word's sentence, as its first word and the word after its end,
+      // so a break can tell whether it cuts a sentence a page holds whole.
+      const sentenceFrom = [], sentenceTo = [];
+      words.forEach((_, index) => { sentenceFrom[index] = index > 0 && !sentenceEnd(words[index - 1]) ? sentenceFrom[index - 1] : index; });
+      for (let index = words.length - 1; index >= 0; index--)
+        sentenceTo[index] = sentenceEnd(words[index]) || index === words.length - 1 ? index + 1 : sentenceTo[index + 1];
       const best = Array(words.length + 1);
-      best[words.length] = { cost: [0, 0, 0, 0, 0], ends: [] };
+      best[words.length] = { cost: [0, 0, 0, 0, 0, 0], ends: [] };
       const less = (a, b) => {
         for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i];
         return false;
@@ -1284,10 +1294,16 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
           const boundary = end === words.length || sentenceEnd(last) ? 0
             : /[;:—]["'”’)]?$/u.test(last) ? 1 : /,["'”’)]?$/u.test(last) ? 2
               : /^(?:and|but|while|whereas|because|which|so)$/iu.test(words[end]) ? 3 : 6;
-          // Avoid short pages and mid-clause breaks first. Among readable
+          // A sentence that fits a page of its own is never cut: the page
+          // ends before it and it starts the next one, at the cost of a page.
+          // A short whole sentence stood alone on the one-line card used to
+          // take the next sentence's first word (`Nucleases are inactive.
+          // Red…`), because a short page cost more than a split sentence.
+          const avoidable = boundary > 0 && reach[sentenceFrom[end - 1]] >= sentenceTo[end - 1] ? 1 : 0;
+          // Then avoid short pages and mid-clause breaks. Among readable
           // splits, keep the fewest pages, prefer stronger breaks, then balance.
-          const cost = [rest.cost[0] + Math.max(0, 4 - count), rest.cost[1] + (boundary === 6 ? 1 : 0),
-            rest.cost[2] + 1, rest.cost[3] + boundary, rest.cost[4] + count * count];
+          const cost = [rest.cost[0] + avoidable, rest.cost[1] + Math.max(0, 4 - count), rest.cost[2] + (boundary === 6 ? 1 : 0),
+            rest.cost[3] + 1, rest.cost[4] + boundary, rest.cost[5] + count * count];
           if (!best[start] || less(cost, best[start].cost)) best[start] = { cost, ends: [end, ...rest.ends] };
         }
       }
@@ -1378,6 +1394,13 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
   const readoutPages = (fitted.wrapped.length > fitted.budget || fitted.wrapped.some(row => row.cut))
     && fitted.budget > 0 && Number.isFinite(readoutPage)
     ? pageReadout(readoutFontMeters, fitted.entries, fitted.budget) : undefined;
+  // Whether a chapter card leaves the wearer inside a sentence of its prose:
+  // a page before the last that stops mid-sentence, or an unpaged block that
+  // lost words. The lesson card seats carry it into the kept-card rank
+  // (`clearChapterMenu`).
+  const readoutSplitsSentence = forwardCaption && (readoutPages
+    ? readoutPages.slice(0, -1).some(page => !/[.!?]["'”’)]?$/u.test(page.at(-1)?.text ?? ''))
+    : fitted.wrapped.length > fitted.budget || fitted.wrapped.some(row => row.cut));
   if (!readoutPages && fitted.wrapped.length > fitted.budget) fitted = fitAt(readoutFontMeters);
   const readoutPageCount = readoutPages?.length ?? 1;
   const readoutPageIndex = readoutPages ? ((Math.trunc(readoutPage) % readoutPageCount) + readoutPageCount) % readoutPageCount : 0;
@@ -1518,7 +1541,7 @@ export function createToolbarPanel({ rows, head, constants: baseConstants = SPAT
     buttons, statusPoint, statusPoints, readoutPoints, backing, menuObstacle, captionBacking, statusBacking, density,
     fontMeters: constants.fontMeters, readoutFontMeters, ...(assistantLines.length ? {assistantFontMeters} : {}),
     readoutWrapWidth: wrapWidthFor(readoutFontMeters), readoutLineBudget: fitted.budget,
-    readoutPageCount, readoutPageIndex, readoutPageCue,
+    readoutPageCount, readoutPageIndex, readoutPageCue, ...(readoutSplitsSentence ? { readoutSplitsSentence } : {}),
     captionEnvelope: envelope,
     plateCornerMeters: constants.plateCornerMeters ?? 0, plateBorderMeters: constants.plateBorderMeters ?? 0,
     plateInsetMeters: constants.rowStepMeters * (constants.plateInsetFactor ?? 0.06),

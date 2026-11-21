@@ -30,7 +30,8 @@ test('held microphone and pending transcription keep persistent talking feedback
     head: () => ({ position: { x: 0, y: 1.6, z: 0 }, matrix: identity }), now: () => now,
     clearance: () => ({ views: eyesAtHead(), renderFromRoom: identity }) });
   runtime.setTalkOutcomeSink(text => { outcomes.push(text); card.set({ outcome: text }); });
-  // Optional registration lets this regression execute against e506b87.
+  // The optional call lets this test run against a runtime that lacks
+  // `setTalkProgressSink`.
   runtime.setTalkProgressSink?.(state => card.set(state));
   assistantStatus.notePresence({ activeAssistant: 'Codex', voiceDelivery: { mode: 'polling', assistant: 'Codex' } });
   const talk = attachGripPushToTalk({ session: h.session, audio: null,

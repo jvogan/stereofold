@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { executeInspectionVoiceAction } from '../src/inspection-voice-actions.js';
+// @ts-ignore Production placement ownership.
+import { createPlacementHold } from '../../lab/browser-roundtrip/wearer-placement.mjs';
 
 function fixture(scale = 1) {
   const state = { active: true, autoplay: false, canNext: true, canBack: false };
@@ -62,6 +64,20 @@ it.each([4, 8, .1])('voice scaling continues from explored scale %s and saves th
   const f = fixture(prior);
   await executeInspectionVoiceAction('scale-larger', f.hooks);
   expect(f.place).toHaveBeenCalledWith({ scale: prior * 1.2 });
+  expect(f.save).toHaveBeenCalledOnce();
+});
+
+it.each(['scale-larger', 'scale-smaller'])('a spoken %s is the wearer\'s own size and outlasts the chapter', async command => {
+  // The page's placement rules: an unattributed `place` is the agent's
+  // chapter move; the wearer's size is held as a menu step is.
+  const hold = createPlacementHold(), f = fixture(), inspection = f.hooks.workspace().viewer.inspection as any;
+  f.place.mockImplementation(async () => { hold.takeover('agent-placement'); });
+  inspection.scaleForWearer = vi.fn(async () => { hold.takeover('voice-scale'); });
+  await executeInspectionVoiceAction(command, f.hooks);
+  expect(inspection.scaleForWearer).toHaveBeenCalledWith(command === 'scale-larger' ? 1.2 : 1 / 1.2);
+  hold.endChapter('chapter-ended');
+  expect(hold.holdsPlacement()).toBe(true);
+  expect(hold.state().reason).toBe('voice-scale');
   expect(f.save).toHaveBeenCalledOnce();
 });
 

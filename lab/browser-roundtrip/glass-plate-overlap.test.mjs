@@ -1,9 +1,10 @@
 /**
  * No seat is admitted where one glass plate covers another in either eye.
  *
- * Telomerase chapter 4 hides its chapter card, and its large subject left
- * only a compact corner seat: the Menu control was drawn over the narrow side
- * card, and its status plate, which rides with the control, over both.
+ * Telomerase chapter 4, while it hid its chapter card, had a large subject
+ * that left only a compact corner seat: the Menu control was drawn over the
+ * narrow side card, and its status plate, which rides with the control, over
+ * both. The chapter now shows its card; no compact seat may overlap either.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';

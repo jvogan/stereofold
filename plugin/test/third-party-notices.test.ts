@@ -39,10 +39,11 @@ describe('generateThirdPartyNotices package identity', () => {
   const cleanups: string[] = [];
   afterEach(async () => { await Promise.all(cleanups.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))); });
 
-  it('covers all four runtime bundles and includes host-only dependency notices', async () => {
+  it('covers all seven runtime bundles and includes host-only dependency notices', async () => {
     const { workDir, pluginRoot } = await fixtureRoot();
     cleanups.push(workDir);
-    const bundles = ['viewer.html', 'inspector.html', 'inspector-host.js', 'server.mjs'];
+    const bundles = ['viewer.html', 'inspector.html', 'inspector-host.js', 'server.mjs',
+      'headset-host.mjs', 'serve-inspection.mjs', 'scene-socket-relay.mjs'];
     const metafiles = await Promise.all(bundles.map(async (bundle, index) => {
       const name = `bundle-dependency-${index}`;
       await writePackage(join(pluginRoot, 'node_modules', name), name, '1.0.0', `${bundle} dependency license\n`);

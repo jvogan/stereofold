@@ -29,7 +29,7 @@ vm.runInNewContext(transpileModule(readFileSync(new URL('../../../plugin/src/ins
 
 /** Execute the production navigation and heartbeat closures; adapt only page/HTTP I/O. */
 export function journeyNavigationHarness(overrides = {}) {
-  const context = vm.createContext({ Promise, Error, Date, performance, localInteractionSerial:0, recordHeadsetEvent() {},
+  const context = vm.createContext({ followRecovery: false, recoveryPanel: undefined, Promise, Error, Date, performance, localInteractionSerial:0, recordHeadsetEvent() {},
     panelEntering:settleModule.exports.panelEntering, sameEntryScene:settleModule.exports.sameEntryScene,
     inspectionFailureReceipt: receiptModule.exports.inspectionFailureReceipt,
     pollBackoff: backoffModule.exports.createPollBackoff(() => (overrides.Date ?? Date).now()),
@@ -37,6 +37,12 @@ export function journeyNavigationHarness(overrides = {}) {
     panelId: 'panel', dirty: false, blocked: false, loading: false, remote: false, generation: 0, closed: false,
     experiencePreparing: false, experienceSourceChanged: false, tourCommandContext: undefined, experienceView: undefined,
     beatInFlight: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, isCompanion: false, replyOnThisBeat: false, PRIVATE_KEY: 'private',
+    // The companion keeps the host's microphone refusal across beats; same rule as xr-entry-microphone.ts.
+    hostMicrophoneRefused: false,
+    microphoneRefusedAfter: (previous, answer, attach) => {
+      const said = answer?.structuredContent?.microphoneRefused === true;
+      return attach ? said : previous || said;
+    },
     rendering: Promise.resolve(), save: async () => {}, attach: async () => {},
     workspace: { snapshot: () => ({ ready: true, interactionActive: false }),
       viewer: { inspection: { captureXrRecoveryFrame: () => undefined } } },

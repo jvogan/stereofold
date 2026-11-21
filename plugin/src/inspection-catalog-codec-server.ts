@@ -70,6 +70,43 @@ function factoredWire(catalog: any, canonical: Buffer): { catalogWire: Inspectio
 }
 
 const megabytes = (bytes: number) => `${(bytes / 1_000_000).toFixed(1)} MB`;
+const CATALOG_OVER_DECODE_LIMIT = 'Structure and sequence catalog exceeds the 64 MiB this plugin decodes in one browser.';
+/**
+ * The fewest bytes one residue row can occupy in either transport, with the
+ * comma that follows it. A factored row carries the row's identity with every
+ * value at its smallest except the source digest, which every row repeats in
+ * full, empty metadata and no atom references. A canonical row holds the same
+ * identity and metadata plus its key and atom sites, so it is never shorter.
+ * Computed from that record so it cannot drift from the encoder above.
+ */
+export const MIN_CATALOG_BYTES_PER_ROW = JSON.stringify({
+  identity: { sourceHash: '0'.repeat(64), modelNumber: 0, assemblyId: '', generatorIndex: 0, operatorIds: [], copyId: '',
+    entityId: '', labelChain: '', authorChain: '', labelSequenceId: 0, authorResidue: 0, insertionCode: '', componentId: '' },
+  entityType: '', sequenceDeclared: true, mappingOrigin: '', coordinateState: '', atomRefs: [],
+}).length + 1;
+/**
+ * The most residue rows a catalog can hold and still fit the 64 MiB decode
+ * policy in either transport. A catalog with more rows is refused by
+ * `inspectionCatalogWire` whatever its contents, so the extractor refuses it
+ * before building the rows. This derives from the byte policy and adds no
+ * limit of its own. The `+ 1` is the last row's absent separator.
+ */
+export const MAX_INSPECTION_CATALOG_ROWS = Math.floor(MAX_INSPECTION_CATALOG_UNCOMPRESSED_BYTES / MIN_CATALOG_BYTES_PER_ROW) + 1;
+/**
+ * The most residue rows a source may declare, across all its chains and
+ * models, when an assembly is requested. The assembly's own rows are still
+ * held to `MAX_INSPECTION_CATALOG_ROWS`; this bounds the rows Mol* and the
+ * extractor walk before the assembly selects its chains, so a small assembly
+ * of a large entry is not refused for chains it leaves out. It is about six
+ * times the catalog limit, and a source past it is refused from its
+ * declarations before Mol* builds a model.
+ */
+export const MAX_INSPECTION_DECLARED_ROWS = 1_000_000;
+/** The refusal for a source whose declarations expand past `maximum` rows. */
+export function inspectionCatalogRowsRefusal(rows: number, maximum = MAX_INSPECTION_CATALOG_ROWS): Error {
+  return new Error(`${CATALOG_OVER_DECODE_LIMIT} Its declarations expand to at least ${rows.toLocaleString('en-US')} residue rows;`
+    + ` at most ${maximum.toLocaleString('en-US')} fit. ${INSPECTION_SIZE_GUIDE}`);
+}
 /**
  * The compressed wire, whatever the catalog's size.
  *
@@ -85,8 +122,7 @@ export function inspectionCatalogWire(catalog: any,
   // to discard it blocked source delivery; legacy catalogs keep the plain path.
   const factored = factoredWire(catalog, json);
   return factored ?? plainWire(json, catalog)
-    ?? (() => { throw new Error('Structure and sequence catalog exceeds the 64 MiB this plugin decodes in one browser.'
-      + ` It is ${megabytes(json.byteLength)} uncompressed. ${INSPECTION_SIZE_GUIDE}`); })();
+    ?? (() => { throw new Error(`${CATALOG_OVER_DECODE_LIMIT} It is ${megabytes(json.byteLength)} uncompressed. ${INSPECTION_SIZE_GUIDE}`); })();
 }
 export function inspectionCatalogTransport(catalog: any): InspectionCatalogTransport {
   const json = Buffer.from(JSON.stringify(catalog), 'utf8');

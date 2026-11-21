@@ -9,8 +9,8 @@
       "lesson": "daraxonrasib.json",
       "coordinates": {
         "file": "9AX6.cif",
-        "sha256": "631d0ce3ea45229f42f2b063adccdb1a76156a122056eb9dff496c0af17d7c34",
-        "bytes": 1281002,
+        "sha256": "cd40d1936530c0f122faa575fc29a244e6cbf7652a769e82e2cf205d21972706",
+        "bytes": 1281457,
         "atomSites": 3052,
         "catalogRows": 661,
         "assemblyId": "1",
@@ -258,7 +258,7 @@
       ]
     },
     {
-      "title": "A microtubule growing above you",
+      "title": "A microtubule wall you can grow into a tube",
       "pdbId": "5SYF",
       "lesson": "microtubule-growth/wall.json",
       "coordinates": {
@@ -506,6 +506,7 @@
           "title": "The complete thirteen-protofilament tube",
           "pdbId": "5SYF",
           "tiers": [
+            "quest2",
             "quest3"
           ],
           "lesson": "microtubule-growth/tube.json",
@@ -597,7 +598,7 @@
         }
       ],
       "name": "microtubule-arrival",
-      "title": "Tubulin units build a wall, then the cryo-EM tube",
+      "title": "Microtubule growth: tubulin units build a wall, then the cryo-EM tube",
       "defaultStage": "build",
       "stages": [
         {
@@ -1006,8 +1007,8 @@
       "lesson": "kinesin-walk/motion.json",
       "coordinates": {
         "file": "kinesin-walk-motion.cif",
-        "sha256": "156d165def89f6966be7292f855b5996ae7e1da8f0dc3c8e2871e90886cfea75",
-        "bytes": 2841337,
+        "sha256": "4aa930c4c42f0bad1e739d5454ce3cb18283ad06c8fdb00e4663da1e50ff0f42",
+        "bytes": 2789858,
         "atomSites": 27232,
         "derivation": {
           "kind": "prepared-rigid-composite",
@@ -1066,6 +1067,11 @@
           "url": "https://doi.org/10.1038/365721a0"
         },
         {
+          "title": "Schnitzer and Block, Nature (1997)",
+          "doi": "10.1038/41111",
+          "url": "https://doi.org/10.1038/41111"
+        },
+        {
           "title": "Rice et al., Nature (1999)",
           "doi": "10.1038/45483",
           "url": "https://doi.org/10.1038/45483"
@@ -1104,6 +1110,11 @@
           "title": "Liu et al., eLife (2017)",
           "doi": "10.7554/eLife.24490",
           "url": "https://doi.org/10.7554/eLife.24490"
+        },
+        {
+          "title": "Wolff et al., Science (2023)",
+          "doi": "10.1126/science.ade2650",
+          "url": "https://doi.org/10.1126/science.ade2650"
         }
       ],
       "name": "kinesin-walk",
@@ -1121,8 +1132,8 @@
           "lesson": "kinesin-walk/motion.json",
           "coordinates": {
             "file": "kinesin-walk-motion.cif",
-            "sha256": "156d165def89f6966be7292f855b5996ae7e1da8f0dc3c8e2871e90886cfea75",
-            "bytes": 2841337,
+            "sha256": "4aa930c4c42f0bad1e739d5454ce3cb18283ad06c8fdb00e4663da1e50ff0f42",
+            "bytes": 2789858,
             "atomSites": 27232,
             "derivation": {
               "kind": "prepared-rigid-composite",
@@ -1181,6 +1192,11 @@
               "url": "https://doi.org/10.1038/365721a0"
             },
             {
+              "title": "Schnitzer and Block, Nature (1997)",
+              "doi": "10.1038/41111",
+              "url": "https://doi.org/10.1038/41111"
+            },
+            {
               "title": "Rice et al., Nature (1999)",
               "doi": "10.1038/45483",
               "url": "https://doi.org/10.1038/45483"
@@ -1219,6 +1235,11 @@
               "title": "Liu et al., eLife (2017)",
               "doi": "10.7554/eLife.24490",
               "url": "https://doi.org/10.7554/eLife.24490"
+            },
+            {
+              "title": "Wolff et al., Science (2023)",
+              "doi": "10.1126/science.ade2650",
+              "url": "https://doi.org/10.1126/science.ade2650"
             }
           ]
         },
@@ -1294,6 +1315,11 @@
               "url": "https://doi.org/10.1038/365721a0"
             },
             {
+              "title": "Schnitzer and Block, Nature (1997)",
+              "doi": "10.1038/41111",
+              "url": "https://doi.org/10.1038/41111"
+            },
+            {
               "title": "Rice et al., Nature (1999)",
               "doi": "10.1038/45483",
               "url": "https://doi.org/10.1038/45483"
@@ -1332,6 +1358,11 @@
               "title": "Liu et al., eLife (2017)",
               "doi": "10.7554/eLife.24490",
               "url": "https://doi.org/10.7554/eLife.24490"
+            },
+            {
+              "title": "Wolff et al., Science (2023)",
+              "doi": "10.1126/science.ade2650",
+              "url": "https://doi.org/10.1126/science.ade2650"
             }
           ]
         },
@@ -1407,6 +1438,11 @@
               "url": "https://doi.org/10.1038/365721a0"
             },
             {
+              "title": "Schnitzer and Block, Nature (1997)",
+              "doi": "10.1038/41111",
+              "url": "https://doi.org/10.1038/41111"
+            },
+            {
               "title": "Rice et al., Nature (1999)",
               "doi": "10.1038/45483",
               "url": "https://doi.org/10.1038/45483"
@@ -1445,6 +1481,73 @@
               "title": "Liu et al., eLife (2017)",
               "doi": "10.7554/eLife.24490",
               "url": "https://doi.org/10.7554/eLife.24490"
+            },
+            {
+              "title": "Wolff et al., Science (2023)",
+              "doi": "10.1126/science.ade2650",
+              "url": "https://doi.org/10.1126/science.ade2650"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pdbId": "9AX6",
+      "lesson": "daraxonrasib-assembly/motion.json",
+      "coordinates": {
+        "file": "daraxonrasib-assembly-motion.cif",
+        "sha256": "7de958d3893e82e50a2b5502234469f320e6d4952a519e6e1696f04354a4536e",
+        "bytes": 272770,
+        "atomSites": 2725,
+        "derivation": {
+          "kind": "prepared-rigid-composite",
+          "recipe": "daraxonrasib-assembly/motion-recipe.json"
+        }
+      },
+      "sources": [
+        {
+          "title": "RCSB PDB entry 9AX6",
+          "url": "https://www.rcsb.org/structure/9AX6"
+        },
+        {
+          "title": "Translational and Therapeutic Evaluation of RAS-GTP Inhibition by RMC-6236 in RAS-Driven Cancers. Cancer Discov, 2024.",
+          "doi": "10.1158/2159-8290.CD-24-0027",
+          "url": "https://doi.org/10.1158/2159-8290.CD-24-0027"
+        }
+      ],
+      "name": "daraxonrasib-assembly",
+      "title": "Daraxonrasib glues cyclophilin A to KRAS",
+      "defaultStage": "motion",
+      "stages": [
+        {
+          "id": "motion",
+          "order": "A",
+          "title": "Daraxonrasib glues cyclophilin A to KRAS",
+          "pdbId": "9AX6",
+          "tiers": [
+            "quest2",
+            "quest3"
+          ],
+          "lesson": "daraxonrasib-assembly/motion.json",
+          "coordinates": {
+            "file": "daraxonrasib-assembly-motion.cif",
+            "sha256": "7de958d3893e82e50a2b5502234469f320e6d4952a519e6e1696f04354a4536e",
+            "bytes": 272770,
+            "atomSites": 2725,
+            "derivation": {
+              "kind": "prepared-rigid-composite",
+              "recipe": "daraxonrasib-assembly/motion-recipe.json"
+            }
+          },
+          "sources": [
+            {
+              "title": "RCSB PDB entry 9AX6",
+              "url": "https://www.rcsb.org/structure/9AX6"
+            },
+            {
+              "title": "Translational and Therapeutic Evaluation of RAS-GTP Inhibition by RMC-6236 in RAS-Driven Cancers. Cancer Discov, 2024.",
+              "doi": "10.1158/2159-8290.CD-24-0027",
+              "url": "https://doi.org/10.1158/2159-8290.CD-24-0027"
             }
           ]
         }

@@ -15,37 +15,59 @@
  * `companion-browser.ts --render-budget` returned a 404 page rather than a
  * frame.
  *
- * So exactly one parameter is admitted on a page route, with the same charset
- * the harness flag already validates. It carries no capability: an attacker
- * who can set it can only make the wearer's own frame slower or uglier, and
- * the page ignores any value it cannot parse. Nothing else is widened.
+ * So a page route admits only the page settings below, each at most once,
+ * each with its own value pattern. None carries a capability: someone who can
+ * set one can only change how the wearer's own frame is drawn, and the page
+ * ignores any value it cannot parse. Nothing else is widened.
  */
 
-/** The one query parameter a page route may carry. */
+/** The render-budget knob list. */
 export const RENDER_BUDGET_PARAM = 'xrRenderBudget';
-
-/** Knob lists are `key:value` pairs separated by `,` or `;`. */
-const RENDER_BUDGET_VALUE = /^[A-Za-z0-9_.,;:=-]{1,128}$/u;
+/** The switch that draws the molecule into its own WebXR projection layer. */
+export const XR_LAYERS_PARAM = 'xrLayers';
+/**
+ * Where the headset controls are drawn when the molecule has its own layer:
+ * `quad` puts the menu column on a quad layer, `projection` keeps every
+ * control on one projection layer.
+ */
+export const XR_UI_PARAM = 'xrUi';
 
 /**
- * The same allowlist as an expression for a served page to evaluate: the
- * page's own `?xrRenderBudget=` re-spelled as a search string, or `''`.
- *
- * The pairing page redirects to `/viewer`, so without this the knobs a wearer
- * typed are dropped one hop before the page that reads them, and the route
- * widening above would buy nothing on hardware. Rebuilding the parameter
- * rather than forwarding `location.search` whole keeps the allowlist in one
- * place: nothing else a wearer can put in the address survives the hop.
+ * Every query parameter a page route may carry, with the values it accepts.
+ * Knob lists are `key:value` pairs separated by `,` or `;`.
  */
-export function renderBudgetSearchSource(): string {
-  return `(()=>{try{const v=new URLSearchParams(location.search).get(${JSON.stringify(RENDER_BUDGET_PARAM)});`
-    + `return v&&/${RENDER_BUDGET_VALUE.source}/u.test(v)`
-    + `?'?${RENDER_BUDGET_PARAM}='+encodeURIComponent(v):''}catch(error){return ''}})()`;
+const PAGE_SETTINGS: ReadonlyArray<readonly [string, RegExp]> = [
+  [RENDER_BUDGET_PARAM, /^[A-Za-z0-9_.,;:=-]{1,128}$/u],
+  [XR_LAYERS_PARAM, /^1$/u],
+  [XR_UI_PARAM, /^(?:quad|projection)$/u],
+];
+
+/** Whether a page route admits `value`, already decoded, for the setting `key`. */
+export function acceptsPageSetting(key: string, value: string): boolean {
+  return PAGE_SETTINGS.some(([name, pattern]) => name === key && pattern.test(value));
 }
 
 /**
- * Whether `url` addresses the page at `path`, with no query or with only a
- * well-formed `?xrRenderBudget=`.
+ * The same allowlist as an expression for a served page to evaluate: the
+ * page's own settings re-spelled as a search string, or `''`.
+ *
+ * The pairing page redirects to `/viewer`, so without this the settings a
+ * wearer typed are dropped one hop before the page that reads them, and the
+ * route widening above would buy nothing on hardware. Rebuilding the
+ * parameters rather than forwarding `location.search` whole keeps the
+ * allowlist in one place: nothing else a wearer can put in the address
+ * survives the hop.
+ */
+export function renderBudgetSearchSource(): string {
+  const settings = JSON.stringify(PAGE_SETTINGS.map(([key, pattern]) => [key, pattern.source]));
+  return `(()=>{try{const q=new URLSearchParams(location.search),out=[];`
+    + `for(const [k,p] of ${settings}){const v=q.get(k);if(v&&new RegExp(p,'u').test(v))out.push(k+'='+encodeURIComponent(v))}`
+    + `return out.length?'?'+out.join('&'):''}catch(error){return ''}})()`;
+}
+
+/**
+ * Whether `url` addresses the page at `path`, with no query or with only
+ * well-formed page settings, each at most once.
  *
  * @param url `request.url`, which is a path with an optional query
  * @param path the exact route, with no query of its own
@@ -54,14 +76,20 @@ export function isPageRoute(url: string | undefined, path: string): boolean {
   if (typeof url !== 'string') return false;
   if (url === path) return true;
   if (!url.startsWith(`${path}?`)) return false;
-  const query = url.slice(path.length + 1);
-  // One pair, that pair being the budget knobs. A second parameter, a repeat,
-  // or an empty value is not a page address. The value may itself contain `=`
-  // (`scale=0.6` is a knob), so only the first one separates the pair.
-  const split = query.indexOf('=');
-  if (split < 0 || query.slice(0, split) !== RENDER_BUDGET_PARAM) return false;
-  let value: string;
-  try { value = decodeURIComponent(query.slice(split + 1)); }
-  catch { return false; }
-  return RENDER_BUDGET_VALUE.test(value);
+  const seen = new Set<string>();
+  for (const pair of url.slice(path.length + 1).split('&')) {
+    // A value may itself contain `=` (`scale=0.6` is a knob), so only the
+    // first one separates the pair.
+    const split = pair.indexOf('=');
+    if (split < 0) return false;
+    const key = pair.slice(0, split);
+    const pattern = PAGE_SETTINGS.find(([name]) => name === key)?.[1];
+    if (!pattern || seen.has(key)) return false;
+    seen.add(key);
+    let value: string;
+    try { value = decodeURIComponent(pair.slice(split + 1)); }
+    catch { return false; }
+    if (!pattern.test(value)) return false;
+  }
+  return true;
 }

@@ -3,18 +3,18 @@
  *
  * The plates are root-level Mol* cells named deterministically
  * (`stereofold-component-labels-N`), so two rebuilds that overlap address the
- * same cells and destroy each other. That is exactly what a session edge used
- * to cause, and it is the defect `0cf026b` tried to fix and did not:
+ * same cells and destroy each other. A session edge causes exactly that when
+ * rebuilds are not serialized:
  *
- * - the old rebuild emptied its ref list synchronously and then awaited the
- *   deletes, so the list was empty for the whole of an in-flight rebuild;
- * - the `isPresenting` subscriber gated on that list being non-empty, so a
- *   session edge landing mid-rebuild was declined and nothing re-fired, and
- *   the plates finished at the desktop size the wearer cannot read;
- * - the same edge separately ran `applyInspectionAppearance`, which rebuilds
- *   plates too, so run A's deletes removed run B's freshly built cells, the
- *   surviving ref list named dead cells, the plates vanished, and the frame
- *   wait that counts live plates timed out.
+ * - a rebuild that empties its ref list synchronously and then awaits the
+ *   deletes leaves the list empty for the whole of an in-flight rebuild;
+ * - an `isPresenting` subscriber that gates on that list being non-empty
+ *   declines a session edge landing mid-rebuild, nothing re-fires, and the
+ *   plates finish at the desktop size the wearer cannot read;
+ * - the same edge also runs `applyInspectionAppearance`, which rebuilds plates
+ *   too, so run A's deletes remove run B's freshly built cells, the surviving
+ *   ref list names dead cells, the plates vanish, and the frame wait that
+ *   counts live plates times out.
  *
  * So this owns the whole lifecycle instead. Callers ask for a rebuild; they
  * never learn whether one was already running. Every pass re-reads the world

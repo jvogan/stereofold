@@ -29,7 +29,7 @@ function eyeProjection(solved, before, eye) {
   });
 }
 
-test('acceptance 6 scene 3 #177/#183/#184: both recorded eyes separate every plate', () => {
+test('recorded scene 3 #177/#183/#184: both recorded eyes separate every plate', () => {
   const before = record(177);
   const solved = layout.layoutComponentPlates({ ...replayOptionsFromLayoutRecord(before), clearance: .004 });
   assert.equal(solved.overlaps, 0);
@@ -44,7 +44,7 @@ test('acceptance 6 scene 3 #177/#183/#184: both recorded eyes separate every pla
   }
 });
 
-test('acceptance 6 scene windows: changed inputs solve and exact grow/follow repeats reuse', () => {
+test('recorded scene windows: changed inputs solve and exact grow/follow repeats reuse', () => {
   let options, solves = 0, suspended = 0;
   const events = [];
   const h = vm.createContext({ ...layout, componentLabelLayoutCache: null,
@@ -82,7 +82,7 @@ test('acceptance 6 scene windows: changed inputs solve and exact grow/follow rep
   assert.equal(solves, windows, 'one solve per distinct recorded input, none for exact repeats');
 });
 
-test('acceptance 6 #208/#217: close-up framing reserves a band for the focused plates', async () => {
+test('recorded #208/#217: close-up framing reserves a band for the focused plates', async () => {
   const { focusPlacement } = await import('./focus-placement.mjs');
   const demo = JSON.parse(readFileSync(new URL('../../plugin/demos/telomerase-haca.json', import.meta.url)));
   assert.deepEqual(demo.chapters[3].immersive.emphasis.focus, ['dyskerin-c', 'dyskerin-g']);
@@ -192,4 +192,32 @@ test('the page reserves whole-assembly label margin before a lesson focus travel
   assert.equal(input.targetRadius, input.radius, 'the faded assembly also needs a clear label band');
   assert.equal(input.enclosure, .4, 'a labelled lesson cannot spend the entire lens');
   assert.equal(h.records.filter(r => r.kind === 'xr-focus').length, 1);
+});
+
+test('the caption card and the assistant line block the plates as two plates of glass, not one box round both', () => {
+  const corners = (x0, x1, y0, y1) => [[x0, y0, -1], [x1, y0, -1], [x0, y1, -1], [x1, y1, -1]];
+  // The telomerase seat's glass: the card low and left, the assistant line
+  // beside the menu. Between them, under the molecule, is open glass.
+  const card = corners(-0.5, -0.2, -0.95, -0.7), assistant = corners(0.35, 0.7, -0.45, -0.35);
+  const captionPoints = Object.assign([...assistant, ...card], { plates: [card, assistant] });
+  let options;
+  const events = [];
+  const h = vm.createContext({ ...layout, componentLabelLayoutCache: null, talkCaption: { suspend() {} },
+    menuResolveReason: null, componentLabelTextWidth: text => options.measureText(text),
+    componentLabelViewBasis: () => ({ eye: [0, 0, 0], target: [0, 0, -1], basis: 'head' }),
+    immersiveSession: { menuRows: () => [], captionPoints: () => captionPoints,
+      presentation: () => ({ roomMatrix: () => [] }) },
+    applyMatrix4: p => p, recordCost: (kind, detail) => events.push({ kind, detail }),
+    layoutComponentPlates: input => layout.layoutComponentPlates(input),
+  });
+  vm.runInContext(pageFunction(source, 'componentLabelLayout'), h);
+  options = replayOptionsFromLayoutRecord(record(99));
+  const next = h.componentLabelLayout(options.plates, options, { transparency: .65 }, options.subject,
+    'placement', undefined, options.standoff);
+  assert.equal(next.failed, undefined);
+  const obstacles = events.filter(e => e.kind === 'component-label-layout').at(-1).detail.obstacles;
+  assert.equal(obstacles.length, 2, JSON.stringify(obstacles));
+  const covers = (x, y) => obstacles.some(o => Math.abs(x - o.x) < o.hw && Math.abs(y - o.y) < o.hh);
+  assert.ok(covers(-0.35, -0.8) && covers(0.5, -0.4), 'each plate of glass still blocks its own place');
+  assert.ok(!covers(0, -0.55), 'the open glass between them stays free for name plates');
 });

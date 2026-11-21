@@ -30,6 +30,20 @@ function projected(out, canvas, values, point, offsetZ = 0, start = 0) {
   return out;
 }
 
+// Mol* clips a whole billboard whose centre is nearer than the camera near
+// plane. Return `lift` unchanged when its centre clears that plane; otherwise
+// the largest lift, never below zero, that keeps the centre just beyond it.
+function nearPlaneLift(out, canvas, values, lift) {
+  const camera = canvas.camera, anchor = projected(out, canvas, values, values.aPosition.ref.value);
+  if (!anchor) return lift;
+  const scale = camera.scale ?? 1, depth = -anchor.eye[2], orthographic = camera.state.mode === 'orthographic';
+  const distance = Vec3.magnitude(anchor.eye);
+  if ((orthographic ? depth - lift * scale : depth * (1 - lift * scale / distance)) > camera.near) return lift;
+  const nearest = camera.near + (camera.far - camera.near) * 1e-3;
+  const limit = orthographic ? (depth - nearest) / scale : distance * (1 - nearest / depth) / scale;
+  return Math.min(lift, Math.max(0, limit));
+}
+
 const overlaps = (a, b) => a.left < b.right + 3 && a.right > b.left - 3
   && a.bottom < b.top + 3 && a.top > b.bottom - 3;
 
@@ -128,11 +142,13 @@ export function createDesktopAnnotationSizing({ enabled = true, topInset = 0, bo
           if (group === 1 && !object.state.stereofoldLessonLabel) {
             object.state.stereofoldLessonLabel = true; changed = true;
           }
-          const p = repr.props, authoredSize = p.sizeFactor ?? 1;
-          const offsetZ = annotationRadius(repr) * Mat4.getMaxScaleOnAxis(v.matrix.ref.value) + (p.offsetZ ?? 0);
+          const p = repr.props, authoredSize = p.sizeFactor ?? 1, depthLift = (v.aDepth.ref.value[0] ?? 0) * .95;
+          const authoredZ = annotationRadius(repr) * Mat4.getMaxScaleOnAxis(v.matrix.ref.value) + (p.offsetZ ?? 0);
+          // A plate the near plane does not reach keeps its exact lift.
+          const limitedZ = nearPlaneLift(second, canvas, v, authoredZ + depthLift);
+          const offsetZ = limitedZ < authoredZ + depthLift ? limitedZ - depthLift : authoredZ;
           set(v.uOffsetZ, offsetZ);
-          const at = projected(first, canvas, v, v.aPosition.ref.value,
-            offsetZ + (v.aDepth.ref.value[0] ?? 0) * .95);
+          const at = projected(first, canvas, v, v.aPosition.ref.value, offsetZ + depthLift);
           if (!at) continue;
           const desktopSizePx = annotationDesktopSize(repr);
           const pixels = desktopLabelPixels(authoredSize, desktopSizePx), unit = pixels / em;

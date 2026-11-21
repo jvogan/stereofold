@@ -12,10 +12,9 @@ import { createReplyAudioSynthesizer } from '../src/headset-reply-audio.js';
 import { PRIVATE_INSPECTION_META_KEY as KEY, cameraPose } from '../src/inspection-contract.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 import { readStructureHeading } from '../src/structure-heading.js';
-import { lessonSourceInitialization } from '../src/lesson-source-initialization.js';
-import { lessonEntryCameraScene } from '../src/lesson-entry-camera.js';
 import { mountExperiencePlayer } from '../src/experience-player.js';
 import { savedLessonPlayback, stopUnanimatedLessonPlayback } from '../src/tour-player.js';
+import { lessonSourceInitialization } from '../src/lesson-source-initialization.js';
 import { TOURS } from '../src/tour-catalog.js';
 import { abortableSwapPhase, createSourceSwapTrace, SWAP_PHASE_TIMEOUT_MS } from '../src/source-swap-trace.js';
 import { followsSourceTransition } from '../src/inspection-panel-recovery.js';
@@ -38,7 +37,7 @@ import { installSpatialMenuHook } from '../../lab/browser-roundtrip/spatial-menu
 // @ts-ignore Real toolbar/action chain with GPU adapters.
 import { toolbarFrameRuntime, toolbarFrameHarness } from '../../lab/browser-roundtrip/fixtures/toolbar-frame-runtime.mjs';
 // @ts-ignore The page caption writer used by the inspector.
-import { showHeadsetCaption, setHeadsetCaptionSink } from '../../lab/browser-roundtrip/xr-manipulate.mjs';
+import { showHeadsetCaption, setHeadsetCaptionSink, recordManipulation } from '../../lab/browser-roundtrip/xr-manipulate.mjs';
 // @ts-ignore Real Mol* source staging with a controlled canvas/XR scheduler.
 import { sourceLoadHarness } from '../../lab/browser-roundtrip/fixtures/source-load-harness.mjs';
 // @ts-ignore The wearer plate's own copy, so the test reads what the headset reads.
@@ -114,7 +113,7 @@ async function toolbarMenu(t: Awaited<ReturnType<typeof setup>>) {
   const captions: string[] = [], plates: string[] = [];
   const live = toolbarFrameHarness(toolbarRuntime, { state: { tour: t.context.panelTour.getState() },
     onAction: async (action: any) => {
-      try { await vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: t.context.panelTour, recordManipulation() {}, talkCaption: undefined }); complete?.(); }
+      try { await vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: t.context.panelTour, recordManipulation, talkCaption: undefined }); complete?.(); }
       catch (error) { fail?.(error); throw error; }
     } });
   // Let the real serialized action wait for an XR frame. Yield between frames
@@ -146,7 +145,7 @@ function menu(player: ReturnType<typeof mountExperiencePlayer>) {
     readRows: () => spatialToolbarRows({ tour: player.getState(), collapsed: false }),
     readState: () => ({ tour: player.getState() }),
     runAction: (action: any) => {
-      pending = vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: player, recordManipulation() {}, talkCaption: undefined });
+      pending = vm.runInNewContext(`(async()=>{${viewerSource.slice(start, end)}})()`, { action, spatialTour: player, recordManipulation, talkCaption: undefined });
     },
   });
   return { detach, press: async (id: string) => {
@@ -194,7 +193,9 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
       highlightColor: '#ffff00', opacity: 1, labels: false, clipping: 0, fog: 0 }, placement: { translation: [.2, 0, 0], rotation: [0, 30, 0], scale: 1.2 } } };
   const originalScene = structuredClone(scene);
   const context = journeyNavigationHarness({ PRIVATE_KEY: KEY, binding: bound(initial), savedScene: scene,
-    tourHeartbeat, applyTourCommand, savedLessonPlayback, stopUnanimatedLessonPlayback, TOURS, lessonSourceInitialization, lessonEntryCameraScene, inspectionRefusalCaption, shouldCaptionInspectionRefusal, isCompanion: true, console: { warn() {} },
+    tourHeartbeat, applyTourCommand, savedLessonPlayback, stopUnanimatedLessonPlayback, TOURS, inspectionRefusalCaption, shouldCaptionInspectionRefusal, isCompanion: true, desktopRetrySource: undefined, desktopRetryAttempt: 0, desktopInput: 0, desktopCleanInput: 0, desktopLastInputAt: 0, DESKTOP_QUIET_MS: 5_000, desktopPersonEditing: () => false, console: { warn() {} },
+    // A headset page has no live view capture; no case here asks the host for a live view picture.
+    liveViewCapture: undefined,
     toolResultError: (result: any) => result.isError ? result.content[0].text : undefined,
     publishModelContext() {}, detailedView: { note() {} }, updateReadinessStrip() {},
     voiceCommandSpeaker: () => undefined,
@@ -242,6 +243,8 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
     syncHandoff() {}, handoffVersion: 0, registerComparisonSources: async () => {},
     decodeInspectionCatalog, verifyInspectionCatalogSource: async () => {}, sceneImportLoadSettings: () => ({}),
     beginSourceSwapTrace: () => ({ phase: async (_phase: string, task: any) => task, skip() {}, fail() {} }),
+    // The inspector imports this lesson-intent builder at module scope.
+    lessonSourceInitialization,
     parseNativeStructureViewerHandoff: () => undefined, noteNamedViews() {}, updateSceneImportNotice() {}, openGrownTier: async () => {},
     hostTakesPageBuild: true, rejectsPageBuild: () => false,
     abortableSwapPhase,
@@ -279,7 +282,7 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
       await confirm(scene);
     },
   });
-  install(context, 'hydrate');
+  install(context, 'hydrate'); install(context, 'noteSavedViewInstalled');
   install(context, 'reconcileExperience');
   install(context, 'announceSourceGeometryBudget');
   if (livePage) {
@@ -295,7 +298,7 @@ async function setup(sameSource: boolean, livePage = false, now = Date.now, netw
       xrStartupReport: () => ({ phase: 'active', pending: false, reloadRequired: false, mode: 'immersive-ar', gestureActive: true, presenting: true }), handoffSpokenRequest() {}, followsSourceTransition,
       recoverSave: (_kind: string, message: string) => { throw Error(message); },
     });
-    for (const name of ['scheduleSave', 'save', 'recoverSave', 'attach', 'detach', 'poll', 'beatSuspended']) install(context, name);
+    for (const name of ['scheduleSave', 'save', 'recoverSave', 'reloadSharedView', 'retryFollowRecovery', 'attach', 'detach', 'poll', 'beatSuspended']) install(context, name);
     execute(context, inspectorSource.match(/^const voiceBindingKey=.*$/m)![0]);
     context.workspace.restoreShared = async (saved: any, admit: () => void, preserveCamera: boolean, restorePlacement: boolean) => {
       admit(); await context.workspace.restore(saved, { preserveCamera, restorePlacement });
@@ -471,7 +474,7 @@ for (const failDraw of [false, true]) it(`returning to the entry seat releases t
     if (failDraw) throw Error('Entry seat draw failed');
     return { rendered: true };
   });
-  const context = vm.createContext({
+  const context = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     assertReady() {}, canvas: { xr: { isPresenting: { value: true } }, camera: { scale: 1 } },
     performance: { now: () => 0 }, latestHeadSample: 0, latestRoomPlacementPose: {},
     loadedSphere: () => ({ center: [0, 0, 0], radius: 1 }), roomAnchor: undefined,
@@ -1292,7 +1295,7 @@ async function savedJourneyFollower(t: Awaited<ReturnType<typeof setup>>) {
       }},select:async(keys:string[])=>{scene={...scene,selectionKeys:keys};}},
     },
   });
-  for(const name of ['call','hydrate','scheduleSave','save','recoverSave','attach','detach','poll','busyBeat','beatSuspended'])install(follower,name);
+  for(const name of ['call','hydrate','noteSavedViewInstalled','scheduleSave','save','recoverSave','reloadSharedView','retryFollowRecovery','attach','detach','poll','busyBeat','beatSuspended'])install(follower,name);
   follower.panelId=(await t.call('attach_inspection',{...follower.expected(),surface:'desktop'})).structuredContent.panelId;
   return {follower,calls,edit:()=>{scene.selectionKeys=[];scene.inspection.appearance={...scene.inspection.appearance,color:'uniform',uniformColor:'#12ab34'};},
     close:()=>clearTimeout(follower.timer)};
@@ -2190,6 +2193,143 @@ it(`ended-journey acknowledgement refuses ${invalid}`, async () => {
 });
 
 
+// Another panel saved first, so this headset page's save was refused and it
+// reloads the host's view. The saved pose is used when a fit clears it; else
+// the pose this page drew when that clears as it stands; else the saved pose
+// is seated as a chapter seats it, which moves the menu. The structure is
+// never hidden and never drawn through the menu.
+it.each([
+  ['the saved pose clears', [1.2, 3], 3, [{ scale: 3 }]],
+  ['only the pose it drew clears', [1.2], 1.2, [{ scale: 3 }, { scale: 1.2, exact: true }]],
+  ['neither clears', [], 3, [{ scale: 3 }, { scale: 1.2, exact: true }, { scale: 3, chapter: true, menuMustMove: true }]],
+] as const)('reloads after a refused save: %s', async (_case, clear, kept, tries) => {
+  const t = await setup(true, true);
+  try {
+    const other = structuredClone(t.originalScene);
+    other.inspection.placement = { translation: [0, -1, -3], rotation: [0, 0, 0], scale: 3 };
+    await t.call('sync_inspection', { ...t.context.expected(), scene: other });
+    const restore = t.context.workspace.restore, drawn: any[] = [];
+    let chapter = 0;
+    t.context.workspace.viewer.inspection.runChapter = async (action: () => Promise<unknown>) => {
+      chapter++; try { return await action(); } finally { chapter--; }
+    };
+    // The viewer: a preserved placement is drawn unchecked; any other pose is
+    // proven against the menu, and only a chapter may move the menu for it.
+    t.context.workspace.restore = async (saved: any, options: any = {}) => {
+      const pose = options.preservePlacement ? t.context.workspace.capture().inspection.placement : saved.inspection.placement;
+      const clears = (clear as readonly number[]).includes(pose.scale);
+      drawn.push({ scale: pose.scale, ...(options.exactPlacement ? { exact: true } : {}), ...(chapter ? { chapter: true } : {}),
+        ...(options.menuMustMove ? { menuMustMove: true } : {}),
+        ...(options.preservePlacement ? { unchecked: true } : {}) });
+      if (!options.preservePlacement && !clears && !chapter)
+        throw Object.assign(Error('The requested room placement would cover the menu. Move the menu, then try again.'), { fitRefusal: true });
+      if (!clears) t.events.push(chapter ? 'menu-moved' : 'drawn-through-menu');
+      return restore({ ...saved, inspection: { ...saved.inspection, placement: structuredClone(pose) } }, options);
+    };
+    expect(t.context.reloadSharedView()).toBe(true);
+    await t.context.rendering;
+    expect(drawn).toEqual(tries);
+    expect(t.context.workspace.capture().inspection.placement.scale).toBe(kept);
+    expect(t.events).not.toContain('drawn-through-menu');
+    expect(t.events.includes('menu-moved')).toBe(clear.length === 0);
+    expect(t.events.filter(event => event.includes('press Reset or Fit'))).toEqual([]);
+    expect(t.context.blocked).toBe(false);
+  } finally { await t.close(); }
+});
+
+// No fit cleared the other panel's saved pose, so the reload kept the pose
+// this page drew. The host checks the next command against its saved pose,
+// so the page saves the pose it shows before it attaches.
+it('a reload that keeps the pose it drew saves that pose before attaching, and the next command is confirmed', async () => {
+  const t = await setup(true, true);
+  try {
+    const other = structuredClone(t.originalScene);
+    other.inspection.placement = { translation: [0, -1, -3], rotation: [0, 0, 0], scale: 3 };
+    await t.call('sync_inspection', { ...t.context.expected(), scene: other });
+    const restore = t.context.workspace.restore;
+    t.context.workspace.restore = async (saved: any, options: any = {}) => {
+      if (saved.inspection.placement.scale === 3)
+        throw Object.assign(Error('Could not reset: the entry size cannot fit inside both eyes and clear the menu within 4 m.'), { fitRefusal: true });
+      return restore(saved, options);
+    };
+    const drawn = structuredClone(t.context.workspace.capture().inspection.placement), order: string[] = [];
+    const attach = t.context.attach;
+    t.context.attach = async (...args: any[]) => { order.push(`attach:${(await t.read()).scene.inspection.placement.scale}`); return attach(...args); };
+    expect(t.context.reloadSharedView()).toBe(true);
+    await t.context.rendering;
+    const host = await t.read();
+    expect(t.context.workspace.capture().inspection.placement).toEqual(drawn);
+    expect(host.scene.inspection.placement).toEqual(drawn);
+    expect(t.context.binding.inspectionRevision).toBe(host.inspectionRevision);
+    expect(order).toEqual([`attach:${drawn.scale}`]);
+    expect((await t.colour()).command.status).toBe('rendered');
+  } finally { await t.close(); }
+});
+
+// The reload's fit refused: the caption names the menu only when the solver
+// refused the pose, not when the fit never answered.
+it.each([
+  ['the solver refused the pose', {}, 'The view could not be placed clear of the menu. If the structure is not showing, press Reset or Fit.'],
+  ['the fit timed out', { fitUnanswered: true }, 'Could not restore the view. If the structure is not showing, press Reset or Fit.'],
+  ['the menu moved while fitting', { code: 'FIT_STALE' }, 'Could not restore the view. If the structure is not showing, press Reset or Fit.'],
+  // The menu moved again after the fit's one retry; the re-check at the kept
+  // pose failed and left the structure hidden, with no fit refusal on the error.
+  ['the re-check after the menu moved failed', { fitRefusal: undefined, recoverablePlacement: true },
+    'Could not restore the view. If the structure is not showing, press Reset or Fit.'],
+])('words a refused reload by its cause: %s', async (_cause, marks, caption) => {
+  const t = await setup(true, true);
+  try {
+    const other = structuredClone(t.originalScene);
+    other.inspection.placement = { translation: [0, -1, -3], rotation: [0, 0, 0], scale: 3 };
+    await t.call('sync_inspection', { ...t.context.expected(), scene: other });
+    t.context.workspace.restore = async () => { throw Object.assign(Error('The fit did not answer.'), { fitRefusal: true, ...marks }); };
+    expect(t.context.reloadSharedView()).toBe(true);
+    await t.context.rendering;
+    expect(t.events.filter(event => event.includes('press Reset or Fit'))).toEqual([caption]);
+  } finally { await t.close(); }
+});
+
+// The first save of a new source this page drew is not accepted: either the
+// session moved on first (another panel saved that source's first scene), or
+// the host committed it but its answer never reached the page. The grow record
+// says which, and never that the host accepted or refused what it did not.
+const NOT_CURRENT = 'Not saved: the session moved on before this save arrived (a newer revision or source).';
+const UNCONFIRMED = 'This save could not be confirmed: its answer did not reach this page.';
+it.each([['another panel saved first', 'conflict', NOT_CURRENT], ['the answer was lost', 'error', UNCONFIRMED]] as const)(
+  'records an unaccepted first save of a new source as what it was, never as saved: %s', async (_case, kind, failed) => {
+  const network = inMemoryCompanionNetwork(); transport.lan = true;
+  let t: Awaited<ReturnType<typeof setup>> | undefined;
+  try {
+    t = await setup(true, true, Date.now, network);
+    const owner = t.context.panelId, sessionId = t.context.binding.sessionId, records: any[] = [], recoveries: string[] = [];
+    t.context.beginSourceSwapTrace = () => createSourceSwapTrace({ record: (_kind: string, detail: any) => { records.push(detail); } });
+    await t.call('replace_inspection_source', { ...t.context.expected(), panelId: owner, pdbId: '1CRN' });
+    if (kind === 'conflict') {
+      const load = t.context.workspace.loadSource;
+      t.context.workspace.loadSource = async (next: any, options: any) => {
+        await load(next, options);
+        const host = await t!.read();
+        const scene = structuredClone(t!.context.workspace.capture());
+        scene.inspection.placement = { ...scene.inspection.placement, scale: 2 };
+        await t!.call('sync_inspection', { sessionId, serverEpoch: host.serverEpoch, baseStateRevision: host.stateRevision,
+          baseInspectionRevision: host.inspectionRevision, sourceToken: host.sourceToken, scene });
+      };
+    } else {
+      const call = t.context.call;
+      t.context.call = async (name: string, args: any) => {
+        const answer = await call(name, args);
+        if (name === 'sync_inspection') throw Error('The connection closed before the answer arrived.');
+        return answer;
+      };
+    }
+    t.context.recoverSave = (recovery: string) => { recoveries.push(recovery); };
+    await t.context.poll();
+    expect(recoveries).toEqual([kind]);
+    const saved = records.filter(record => record.phase === 'saved');
+    expect(saved).toEqual([expect.objectContaining({ failed })]);
+  } finally { await t?.close(); network.close(); transport.lan = false; vi.unstubAllGlobals(); forgetCompanionPageKey(); }
+});
+
 it('poll delivers Done before reconciling a same-source ended journey', async () => {
   const t = await setup(true, true);
   try {
@@ -2348,7 +2488,7 @@ async function drawnCorrectionPage(t: Awaited<ReturnType<typeof setup>>, network
   const rebaseStart = viewerSource.indexOf('    rebaseOperation: ');
   const rebaseEnd = viewerSource.indexOf('\n    rollbackOperation:', rebaseStart);
   const rebaseOperation = rebaseStart < 0 ? undefined : new Function('inspectionState', `return (${viewerSource.slice(rebaseStart + '    rebaseOperation: '.length, rebaseEnd).trim().replace(/,$/, '')});`)(inspectionState);
-  const motion: any = vm.createContext({
+  const motion: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     inspectionState: {}, reducedMotionQuery: undefined, motionContextPaused: false, motionMutationPaused: false,
     motionToolPaused: false, motionUserPaused: false, motionDocumentPaused: false, motionXrExplicit: false,
     state: { status: 'ready' }, representation: { obj: {} }, canvas: { xr: { isPresenting: { value: true } } },

@@ -77,7 +77,7 @@ function harness({ presenting = true } = {}) {
   });
   vm.runInContext(`${intent}\n${clear}\n${place}\n${configure}\n${compound}\n${undo}\n${redo}
     async function applyInspectionAppearance({explicitPlacement = false, preservePlacement = false, signal} = {}) {
-      const recoverWithoutFit = false, hiddenCells = [], check = () => {};
+      const recoverWithoutFit = false, fixedMenu = false, glassMustMove = false, hiddenCells = [], check = () => {};
       applyInspectionTransform();
       ${admission}
     }
@@ -257,4 +257,24 @@ test('menu nudge takes one physical takeover instead of agent plus physical owne
   h.c.clampPlacementTranslation = value => value;
   await nudge({ kind: 'nudge', mode: 'move', axis: 'x', direction: 1 });
   assert.equal(h.hold.state().reason, 'menu'); assert.equal(h.hold.state().moves, 1);
+});
+
+test('an agent move put back exactly gives the placement back without re-seating the menu', async () => {
+  const h = harness(), requests = [];
+  h.c.immersiveSession.toolbarAction = action => { requests.push(action); };
+  h.c.componentLabels.transaction = async fn => fn();
+  await h.placeInspection(pose(.5));
+  const start = structuredClone(h.inspection.snapshot().placement);
+  h.hold.release('authored-chapter');
+  await h.placeInspection(pose(.6));
+  assert.equal(h.hold.holdsPlacement(), true);
+  assert.deepEqual([requests.at(-1)?.kind, requests.at(-1)?.reason], ['recenter-menu', 'placement'], 'an agent move still asks for its menu check');
+  const asked = requests.length;
+  await h.placeInspection(start);
+  assert.equal(JSON.stringify(h.inspection.snapshot().placement), JSON.stringify(start));
+  assert.equal(h.hold.holdsPlacement(), false, 'the molecule is back where the chapter left it');
+  assert.equal(requests.length, asked, 'putting it back does not move the menu');
+  await h.placeInspection(pose(.7));
+  assert.equal(h.hold.holdsPlacement(), true);
+  assert.equal(requests.length, asked + 1);
 });

@@ -68,10 +68,10 @@ test('each sequence subpage stays pointable in the existing toolbar geometry',()
 });
 
 /**
- * `cap-p1-sequence-left.png` shows three residue rows and a live `Next`. On a
- * hemoglobin chain that puts residue 141 forty-seven presses away. These pin
- * the two things that fix it: a page sized from the plate rather than from a
- * constant, and one action that lands on a named residue.
+ * A page of three residue rows and a live `Next` puts residue 141 of a
+ * hemoglobin chain forty-seven presses away. These pin the two things that
+ * prevent it: a page sized from the plate rather than from a constant, and one
+ * action that lands on a named residue.
  */
 test('a page is the plate capacity, and Previous and Next carry their own row ids', () => {
   const {nav,run}=fixture(Array.from({length:141},(_,n)=>residue(n+1)));

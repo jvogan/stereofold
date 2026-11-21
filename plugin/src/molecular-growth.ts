@@ -57,6 +57,32 @@ export const DEMO_TIER_BY_DEVICE: Readonly<Record<string, DemoTier>> = Object.fr
   'hand-only': 'quest3', unknown: 'quest3',
 });
 
+/** Whether a value is one of the device classes the tier table knows. */
+export function isHeadsetDeviceClass(value: unknown): value is string {
+  return typeof value === 'string' && Object.hasOwn(DEMO_TIER_BY_DEVICE, value);
+}
+
+/** Where the device class a grow is held to came from. */
+export type GrowthDeviceSource = 'caller' | 'headset' | 'none';
+
+/**
+ * The tier a grow is held to, and which device class decided it.
+ *
+ * A `device` the caller names wins. A caller that names none, such as an
+ * agent growing from the Mac, is held to the classes this session's own
+ * headset pages report (`reported`). A source change reaches every page that
+ * follows the session, so one Quest 2 among them is enough to hold the grow
+ * to the Quest 2 ceiling. With no headset page reporting, the grow is not
+ * held to it, which keeps a desktop-only session as it was.
+ */
+export function growthDeviceTier(device: string | undefined, reported: readonly string[]):
+  { tier: DemoTier; deviceClass: string; from: GrowthDeviceSource } {
+  if (device !== undefined) return { tier: DEMO_TIER_BY_DEVICE[device] ?? 'quest2', deviceClass: device, from: 'caller' };
+  const page = reported.includes('quest2') ? 'quest2' : reported[0];
+  if (page === undefined) return { tier: DEMO_TIER_BY_DEVICE.unknown, deviceClass: 'unknown', from: 'none' };
+  return { tier: DEMO_TIER_BY_DEVICE[page] ?? DEMO_TIER_BY_DEVICE.unknown, deviceClass: page, from: 'headset' };
+}
+
 /** The lesson id a staged demo gives one tier: `<demo>-<stage>`. */
 export function growthLessonId(demoName: string, stageId: string): string {
   return `${demoName}-${stageId}`;
@@ -67,14 +93,12 @@ export function growthLessonId(demoName: string, stageId: string): string {
  * compiles a lesson into the tour a session actually loads
  * (`molecular-lesson-tour.ts:12`).
  *
- * This prefix is why `grow_structure` refused every real session
- * before it was accounted for: the tier identity is the lesson id, the manifest spells it
+ * The tier identity is the lesson id. The manifest spells it
  * `microtubule-growth-monomer`, and the loaded `customTour.id` spells the same
- * lesson `lesson-microtubule-growth-monomer`. Comparing the two spellings
- * matched nothing, so every grow in a live session answered "This session is
- * not playing a staged lesson" — including the first one the emulator drove.
- * The unit tests passed because they asked with a manifest id, which is not the
- * id the server ever reads.
+ * lesson `lesson-microtubule-growth-monomer`. Compared without this prefix
+ * removed, the two spellings match nothing, and every grow in a live session
+ * answers "This session is not playing a staged lesson". A test that asks
+ * with a manifest id misses this, because the server reads the tour id.
  */
 export const TOUR_LESSON_PREFIX = 'lesson-';
 /** The manifest id behind a loaded tour id, whichever of the two spellings arrives. */
@@ -120,6 +144,27 @@ export function growthStageOfLesson(index: DemoIndex, lessonId: string | undefin
 export const QUEST2_ATOM_SITE_CEILING = 43_066;
 
 /**
+ * Atomic structures above the Quest 2 ceiling that a Quest 2 has opened.
+ *
+ * The `tube` tier (5SYF assembly 1, all 26 operators, 177,268 atom sites)
+ * opened and drew on a Quest 2 without dropping the immersive session, so
+ * exactly that structure is admitted. Each entry names the coordinate digest,
+ * the assembly and the atom-site count, so only those exact coordinates pass.
+ * The ceiling itself is unchanged, so no other tier gains anything.
+ */
+export const QUEST2_OPENED_ABOVE_CEILING: ReadonlyArray<{ sha256: string; assemblyId: string; atomSites: number }> = Object.freeze([
+  { sha256: 'd5a603bcd6087e93c9f2492ba7922c9a0866358c2927ad44546d640f8c16f6db', assemblyId: '1', atomSites: 177_268 },
+]);
+
+/** Whether a tier is one of the exact atomic structures a Quest 2 has opened above the ceiling. */
+export function openedOnQuest2(stage: DemoStage): boolean {
+  const coordinates = stage.coordinates;
+  if (coordinates.volume) return false;
+  return QUEST2_OPENED_ABOVE_CEILING.some(entry => entry.sha256 === coordinates.sha256
+    && entry.assemblyId === coordinates.assemblyId && entry.atomSites === coordinates.atomSites);
+}
+
+/**
  * The Quest 2 ceiling, in triangles, for a tier that has no atoms.
  *
  * A density tier is one static marching-cubes mesh, built once
@@ -128,8 +173,8 @@ export const QUEST2_ATOM_SITE_CEILING = 43_066;
  * above is measuring. The two units are not convertible and must never be
  * compared to each other: the `filament` tier carries ZERO atom sites and
  * 178,236 triangles, so an atom-site test would wave through a mesh of any
- * size, and a triangle test applied to an atomic tier would wave through the
- * 177,268-site tube that drops the session.
+ * size, and a triangle test applied to an atomic tier would wave through an
+ * atomic tier of any size.
  *
  * 500,000 is the standing static-mesh budget for this headset — the measured
  * `xr-render-budget.mjs` surface table puts a `medium` marching-cubes surface
@@ -172,7 +217,7 @@ export function stageFitsTier(stage: DemoStage, tier: DemoTier): boolean {
   if (!stage.tiers.includes(tier)) return false;
   if (tier !== 'quest2') return true;
   const size = stageSize(stage);
-  return size.count <= size.ceiling;
+  return size.count <= size.ceiling || openedOnQuest2(stage);
 }
 
 /**
@@ -180,8 +225,8 @@ export function stageFitsTier(stage: DemoStage, tier: DemoTier): boolean {
  *
  * `next` and `back` step one tier; any other value names a tier by id. The
  * device tier is checked here rather than in the headset, because by the time
- * a Quest 2 is parsing 177,268 atom sites the wearer has already lost the
- * session.
+ * a Quest 2 is parsing a tier past its ceiling the wearer may already have
+ * lost the session.
  */
 export function resolveGrowthTarget(stages: readonly GrowthStage[], current: GrowthStage,
   request: GrowthRequest, tier: DemoTier): GrowthResolution | GrowthRefusal {
@@ -230,8 +275,8 @@ export function growthConfirmation(target: GrowthStage, grew: boolean): string {
  * Mac asked for (`headset-drive.ts` `host.agent('grow_structure')`, or an
  * agent following "Say this in the headset") is not: the tool returns to
  * the Mac, the structure does not change, and the page's 1 Hz poll sees
- * nothing. The 91bdaff `grow-refused.png` is that gap: the wearer heard
- * the line (or the driver recorded it) and the plate stayed on Wall 1/5.
+ * nothing. In that gap the wearer hears the line (or the driver records it)
+ * while the caption plate keeps the previous chapter, such as Wall 1/5.
  *
  * This mailbox rides `poll_inspection` the same way `say_to_headset` does.
  * A connected companion panel claims the next notice; a panel that has

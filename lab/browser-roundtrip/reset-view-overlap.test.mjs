@@ -1099,5 +1099,87 @@ test('Reset clears a cutaway beyond the room before fitting a visible structure'
     assert.equal(clipping, 0);
     assert.ok(view.snapshot().placement.scale >= .01);
     assert.equal(view.cameraWrites.length, 0);
+    assert.ok(view.talkLines.some(line => /^View reset\..* Cutaway removed to fit the structure\.$/u.test(line.outcome ?? '')),
+      'the wearer is told why the cut is gone');
+    assert.ok(view.records.some(record => record.kind === 'outcome' && record.status === 'adjusted'
+      && record.reason === 'Cutaway removed to fit the structure.'));
+  } finally { await view.menu.toolbar.dispose(); }
+});
+
+// A cutaway whose near plane leaves room for a seat is what the chapter, or the
+// assistant, is showing. Fit, Reset and Done's fallback seat must leave it on.
+function cutawayHarness(view, { beyondRoom = false, opens = true } = {}) {
+  const { h } = view;
+  view.measureGrabGeometry();
+  const cutaway = { clipping: 25, changes: [] };
+  const snapshot = h.inspectionSnapshot;
+  h.inspectionSnapshot = () => ({ ...snapshot(), appearance: { clipping: cutaway.clipping } });
+  const open = structuredClone(h.latestRoomPlacementPose.labelViews);
+  const cut = () => { for (const v of h.latestRoomPlacementPose.labelViews) {
+    const n = 5, f = 50;
+    v.projectionMatrix[10] = -(f+n)/(f-n); v.projectionMatrix[14] = -2*f*n/(f-n);
+  } };
+  if (beyondRoom) cut();
+  h.configureInspection = async patch => {
+    cutaway.changes.push(patch.clipping); cutaway.clipping = patch.clipping;
+    if (patch.clipping === 0 && opens) h.latestRoomPlacementPose.labelViews = structuredClone(open);
+  };
+  return cutaway;
+}
+
+for (const route of ['reset', 'fit', 'done', 'chapter']) test(`${route} keeps a cutaway that leaves room for the seat`, async () => {
+  const view = await resetHarness({ collapsed: true, active: route !== 'fit' });
+  const { h } = view;
+  try {
+    const cutaway = cutawayHarness(view);
+    h.inspectionState.place({ translation: [2, 1.6, -2], rotation: [12, 31, 4] }, 'wearer edit');
+    h.applyInspectionTransform();
+    const before = structuredClone(view.snapshot().placement);
+    if (route === 'reset') await view.pressReset();
+    else if (route === 'fit') await h.onSpatialAction({ kind: 'fit' });
+    else await h.seatStructureForEntry(route === 'done' ? { bounded: true } : { chapter: true });
+    assert.deepEqual(view.errors, []);
+    assert.notDeepEqual(view.snapshot().placement.translation, before.translation, 'the structure was seated');
+    assert.deepEqual([cutaway.clipping, cutaway.changes], [25, []]);
+    assert.equal(view.talkLines.some(line => /Cutaway removed/u.test(line.outcome ?? '')), false);
+  } finally { await view.menu.toolbar.dispose(); }
+});
+
+test('Fit removes a cutaway beyond the room and says so', async () => {
+  const view = await resetHarness({ collapsed: true, active: false });
+  const { h } = view;
+  try {
+    const cutaway = cutawayHarness(view, { beyondRoom: true });
+    const seat = await h.onSpatialAction({ kind: 'fit' });
+    assert.deepEqual([cutaway.clipping, cutaway.changes], [0, [0]]);
+    assert.equal(seat.cutawayNotice, 'Cutaway removed to fit the structure.');
+    assert.ok(view.talkLines.some(line => line.outcome === 'Cutaway removed to fit the structure.'));
+  } finally { await view.menu.toolbar.dispose(); }
+});
+
+test('a seat refused even without the cutaway puts the cutaway back', async () => {
+  const view = await resetHarness({ collapsed: true, active: false });
+  const { h } = view;
+  try {
+    // The views stay closed after the cutaway is removed: it was not what stood in the way.
+    const cutaway = cutawayHarness(view, { beyondRoom: true, opens: false });
+    const before = structuredClone(view.snapshot().placement);
+    await assert.rejects(h.onSpatialAction({ kind: 'fit' }), /Could not reset: the entry size cannot fit/u);
+    assert.deepEqual([cutaway.clipping, cutaway.changes], [25, [0, 25]]);
+    assert.deepEqual(view.snapshot().placement, before);
+  } finally { await view.menu.toolbar.dispose(); }
+});
+
+test('a seat that fails to draw after its cutaway was removed puts the cutaway back', async () => {
+  const view = await resetHarness({ collapsed: true, active: false });
+  const { h } = view;
+  try {
+    const cutaway = cutawayHarness(view, { beyondRoom: true });
+    const before = structuredClone(view.snapshot().placement);
+    h.mutate = async (_kind, operation) => { await operation(); throw Error('seat render failed'); };
+    await assert.rejects(h.seatStructureForEntry(), /seat render failed/u);
+    assert.deepEqual([cutaway.clipping, cutaway.changes], [25, [0, 25]]);
+    assert.deepEqual(view.snapshot().placement, before);
+    assert.equal(view.talkLines.some(line => /Cutaway removed/u.test(line.outcome ?? '')), false);
   } finally { await view.menu.toolbar.dispose(); }
 });

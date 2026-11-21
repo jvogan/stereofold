@@ -66,6 +66,15 @@ function textRect(canvas, object) {
   }
   return {height:.8*size*factor,left:Math.min(...xs),right:Math.max(...xs),bottom:Math.min(...ys),top:Math.max(...ys)};
 }
+// Eye-space depth of the billboard centre (text.vert), the value Mol* clips at the near plane.
+function eyeDepth(canvas, object, offsetZ=object.values.uOffsetZ.ref.value) {
+  const v=object.values, camera=canvas.camera;
+  const eye=Vec3.transformMat4(Vec3(),Vec3.scale(Vec3(),Vec3.transformMat4(Vec3(),v.aPosition.ref.value.subarray(0,3),v.aTransform.ref.value),camera.scale),camera.view);
+  const z=(offsetZ+v.aDepth.ref.value[0]*.95)*camera.scale;
+  if(camera.state.mode==='orthographic')eye[2]+=z;
+  else Vec3.scaleAndAdd(eye,eye,Vec3.normalize(Vec3(),eye),-z);
+  return -eye[2];
+}
 function readable(canvas, representations) {
   const rects=representations.flatMap(r=>r.renderObjects).filter(o=>o.type==='text').map(o=>textRect(canvas,o));
   assert.ok(rects.length);
@@ -280,7 +289,7 @@ for(const [stage,chapter] of [['flipbook','heme'],['motion','overlay']]){
   });
 }
 
-for(const demo of ['kinesin-walk','atp-synthase-rotor','hemoglobin-switch'])for(const stage of ['motion','flipbook','cycle','figure']){
+for(const demo of ['kinesin-walk','atp-synthase-rotor','hemoglobin-switch','daraxonrasib-assembly'])for(const stage of ['motion','flipbook','cycle','figure']){
   const lessonPath=process.env.STEREOFOLD_DEMO_ROOT ? `${process.env.STEREOFOLD_DEMO_ROOT}/${demo}/${stage}.json`
     : new URL(`../../plugin/demos/${demo}/${stage}.json`,import.meta.url);
   test(`${demo} ${stage} overview labels fit the desktop size band`,{skip:!process.env.STEREOFOLD_DEMO_CACHE || !existsSync(lessonPath)},async()=>{
@@ -341,6 +350,50 @@ test('desktop chain and residue plates clear the target radius at scaled placeme
   }
 }));
 
+test('a desktop chain plate lifted past the camera near plane is drawn just behind it at its pixel size',async()=>fixture(async({figure,canvas,fit,structure})=>{
+  // An outside-figure plate on a whole chain, as in a binder comparison slide:
+  // its lift toward the eye is the chain's radius plus 3 Å.
+  const authored={...label('Binder 02 · KD ≤3.1 nM',25),target:{chain:'A'},desktopSizePx:32,maxOffsetEm:5,placement:'outside-figure'};
+  await figure.install({layers:[],distances:[],labels:[authored]});
+  const reprs=figure.annotations(), object=reprs[0].renderObjects[0], v=object.values, size=createDesktopAnnotationSizing();
+  const scene=structure.obj.data.boundary.sphere, lift=StructureElement.Loci.getBoundingSphere(resolveFigureLoci(authored.target,structure.obj.data)).radius+3;
+  const toward=Vec3.normalize(Vec3(),Vec3.sub(Vec3(),scene.center,v.aPosition.ref.value.subarray(0,3)));
+  const up=Vec3.normalize(Vec3(),Vec3.cross(Vec3(),toward,[0,0,1]));
+  const camera=canvas.camera;
+  // Clip to the whole structure, seen from the chain's side (1) or the far side (-1).
+  const view=(mode,side)=>{
+    camera.setState({...camera.getInvariantFocus(scene.center,scene.radius,up,Vec3.scale(Vec3(),toward,side)),mode,radiusMax:1000});
+    camera.update();
+    assert.equal(camera.state.mode,mode);
+  };
+  const drawn=mode=>{
+    assert.ok(eyeDepth(canvas,object)>camera.near,`${mode} plate centre at ${eyeDepth(canvas,object)} is clipped by the near plane at ${camera.near}`);
+    assert.ok(eyeDepth(canvas,object)<eyeDepth(canvas,object,0),'the plate stays in front of its anchor');
+    assert.ok(Math.abs(textRect(canvas,object).height-32)<.01,`expected 32px, got ${textRect(canvas,object).height}`);
+    assert.equal(size(canvas,reprs),false,'the near-plane limit settles without a redraw loop');
+    assert.equal(reprs[0].props.offsetZ,3,'saved/authored offset stays unchanged');
+  };
+  for(const mode of ['perspective','orthographic']){
+    view(mode,1);
+    assert.ok(eyeDepth(canvas,object,lift)<camera.near,'the authored lift alone crosses the near plane');
+    size(canvas,reprs);drawn(mode);
+    assert.ok(v.uOffsetZ.ref.value<lift);
+    // Put the near plane 0.01 in front of the lifted plate, inside the inset
+    // margin: the plate is not clipped, so it keeps its exact lift.
+    camera.setState({radius:Vec3.distance(camera.state.position,camera.state.target)-eyeDepth(canvas,object,lift)+.01});camera.update();
+    const depth=eyeDepth(canvas,object,lift);
+    assert.ok(depth>camera.near && depth<camera.near+(camera.far-camera.near)*1e-3,`${depth} lies between the near plane ${camera.near} and its inset`);
+    size(canvas,reprs);
+    assert.equal(v.uOffsetZ.ref.value,lift,`${mode} plate just behind the near plane keeps its exact lift`);
+    drawn(mode);
+    view(mode,-1);
+    assert.ok(eyeDepth(canvas,object,lift)>camera.near);
+    size(canvas,reprs);
+    assert.equal(v.uOffsetZ.ref.value,lift,`${mode} plate far behind the near plane keeps its exact lift`);
+    drawn(mode);
+  }
+}));
+
 // Exercise every shipped measurement style through actual Mol* geometry.
 // Substitute local atom targets only, so the check needs no network/cache.
 test('all authored lesson measurements use dark readout ink and retain their line colours in flat and XR figures',async()=>fixture(async({figure,canvas,fit})=>{
@@ -375,7 +428,7 @@ test('all authored lesson measurements use dark readout ink and retain their lin
   // The connected kinesin motion no longer authors a distance marker.
   assert.deepEqual([...checked].sort(),[
     'atp-synthase-rotor/flipbook.json','atp-synthase-rotor/motion.json',
-    'daraxonrasib.json','hemoglobin-switch/flipbook.json','kinesin-walk/flipbook.json',
+    'daraxonrasib-assembly/motion.json','daraxonrasib.json','hemoglobin-switch/flipbook.json','kinesin-walk/flipbook.json',
   ]);
 }));
 

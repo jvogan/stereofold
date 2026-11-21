@@ -225,7 +225,7 @@ describe('the line the wearer is shown', () => {
     // plate, so the wearer read a coordinate string -- "Operators 2 to 7, at
     // 166.20, 138.50" -- while the voice said "Three strands side by side;
     // thirteen close the tube." The plate follows the voice now.
-    expect(wide.narration).toBe('Three strands side by side; thirteen close the tube.');
+    expect(wide.narration).toBe('Thirteen strands make a tube. Say grow it, or move overhead.');
     // The coordinates live in provenance.note, so neither the body nor the
     // plate carries them any more.
     expect(wide.body ?? '').not.toContain('166.20');
@@ -303,10 +303,10 @@ describe('applying one scene to the workspace', () => {
   });
 
   it('Wide reveal preserves the held smaller placement without requesting XR framing', async () => {
-    // Acceptance 3 #667 and #682-686 retain the top-edge silhouette. This
+    // Recorded #667 and #682-686 retain the top-edge silhouette. This
     // opening has no framing: preserving that hold is a compatibility check,
     // while the framed companion below is the parent-failing regression.
-    const manifest = JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8'));
+    const manifest = JSON.parse(readFileSync(new URL('./fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8'));
     const opening = molecularLessonToTour(manifest).steps[0];
     const h = tourFocusHarness();
     await h.wearerMove();
@@ -1430,10 +1430,10 @@ describe('cinematic playback & motion scheduling', () => {
     } finally { dom.restore(); }
   });
 
-  it.each([false, true])('keeps every telomerase chapter\'s plates on first play and cached replay (omit emphasis: %s)', async omitEmphasis => {
+  it.each([false, true])('keeps every chapter\'s plates of a ten-part plate lesson on first play and cached replay (omit emphasis: %s)', async omitEmphasis => {
     const dom = setupMockDom();
     const { workspace } = createMockWorkspace();
-    const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8')));
+    const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('./fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8')));
     if (omitEmphasis) for (const step of tour.steps.slice(1)) delete step.emphasis;
     // One plate per part the chapter names; a chapter without emphasis keeps the first chapter's.
     const platesAt = (i: number) => (tour.steps[i]!.emphasis ?? tour.steps[0]!.emphasis)!.parts!.length;

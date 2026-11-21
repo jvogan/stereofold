@@ -1,17 +1,18 @@
 # Motion label and CPU regression notes
 
-CPU validation on 2026-10-11, against baseline `3fc2143` (desktop annotation sizing).
-No new headset or GPU measurements are claimed.
+The Before and After columns are local CPU measurements: Before is the motion
+and label code that preceded desktop annotation sizing, and After includes it.
+This file reports no headset or GPU measurements.
 
 ## Label diagnosis and policy
 
-The recorded XR session already held head rotation at zero. Mol* expands the
+The XR presentation layer already holds head rotation at zero. Mol* expands the
 text/background quad in each eye's screen plane, independently of body rotation;
 the plate geometry is not intrinsically edge-on. Figure labels instead used
 `scaleByRadius:false` (zero `aDepth`) and only a 3 Å stand-off, leaving the plate
 inside the fold where depth testing cuts it into strips. Fixed molecular-unit
 text also shrank with the source-derived XR scale: hemoglobin .02421, ATP
-.00777, kinesin .00504 metres per scene unit in the supplied device evidence.
+.00777, kinesin .00504 metres per scene unit in device measurements.
 
 Immersive figure and tether text now uses
 `sizeFactor = authoredSize * 6 * .02421 / camera.scale`; text offsets use the
@@ -29,7 +30,7 @@ Both cases are covered by CPU geometry tests.
 
 ## Motion benchmark
 
-`node lab/browser-roundtrip/motion-benchmark.mjs --baseline 3fc2143`
+`node lab/browser-roundtrip/motion-benchmark.mjs --baseline <commit>`
 
 The portable fixture has six deposited dimer copies (13,152 atoms, twelve
 cartoon chain visuals), six labels and six labeled tethers. Two bodies and two
@@ -63,7 +64,7 @@ From `plugin/`, run:
 
 ```sh
 node --import tsx ../lab/browser-roundtrip/figure-install-benchmark.mjs \
-  --baseline 3fc2143 --source /path/composite.cif --lesson /path/flipbook.json
+  --baseline <commit> --source /path/composite.cif --lesson /path/flipbook.json
 ```
 
 The profile uses the actual ATP and kinesin flipbook composites and chapter
@@ -90,13 +91,13 @@ Distance annotations are still rebuilt.
 Expected savings concentrate on repeated selections and unchanged annotations:
 71% ATP / 80% kinesin warm figure CPU locally. Newly introduced molecular
 geometry still costs preparation time. The device's 1.7–2.3-second transitions
-need remeasurement; no proportional device-time guarantee is implied.
+were measured without these savings, and no proportional device-time saving is
+claimed.
 
 ## Validation
 
-107 targeted tests passed, including actual composite label sizes for all
-three demos, desktop regression checks, visibility/seek swaps, hidden bounds
-versions, buffer identities, extra transforms/nonserial instance order,
-batched uploads, staging cleanup, transparent ordering, label reuse, source
-invalidation and rollback. Plugin `tsc --noEmit` and bundle rebuild passed.
-The build emits the existing appearance-worker `import.meta`/IIFE warning.
+Tests cover actual composite label sizes for all three demos, desktop
+regression checks, visibility/seek swaps, hidden bounds versions, buffer
+identities, extra transforms/nonserial instance order, batched uploads, staging
+cleanup, transparent ordering, label reuse, source invalidation and rollback.
+The build emits an `import.meta`/IIFE warning for the appearance worker.

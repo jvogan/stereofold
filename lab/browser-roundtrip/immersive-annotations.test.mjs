@@ -82,7 +82,7 @@ test('solid tethers exceed two native eye pixels without changing measurement st
   }finally{await h.dispose();}
 });
 
-for(const [demo,scale] of [['hemoglobin-switch',.02421],['atp-synthase-rotor',.00777],['kinesin-walk',.00504]]){
+for(const [demo,scale] of [['hemoglobin-switch',.02421],['atp-synthase-rotor',.00777],['kinesin-walk',.00504],['daraxonrasib-assembly',.02386]]){
   test(`${demo} actual composite figures retain hemoglobin's physical glyph size`,{skip:!process.env.STEREOFOLD_DEMO_CACHE},async()=>{
     const {readFileSync}=await import('node:fs');
     const root=process.env.STEREOFOLD_DEMO_ROOT??new URL('../../plugin/demos/',import.meta.url).pathname;
@@ -164,8 +164,7 @@ test('a wide XR plate anchors on the surface that faces the wearer, re-picked pa
 });
 
 
-test('ATP chapter 6 measurement spans its endpoints with a 2-3 pixel XR stroke and no motion rebuild',
-  { skip: !process.env.STEREOFOLD_DEMO_CACHE && 'requires the verified public demo coordinate cache' }, async () => {
+test('ATP chapter 6 measurement spans its endpoints with a 2-3 pixel XR stroke and no motion rebuild',{skip:!process.env.STEREOFOLD_DEMO_CACHE && 'needs STEREOFOLD_DEMO_CACHE'}, async () => {
   const { readFileSync } = await import('node:fs');
   const chapter = JSON.parse(readFileSync(new URL('../../plugin/demos/atp-synthase-rotor/motion.json', import.meta.url))).chapters[5];
   const h = await motionFixture({ source: readCachedDemoCoordinates('atp-synthase-rotor', 'motion'), animation: null });
@@ -212,6 +211,66 @@ test('ATP chapter 6 measurement spans its endpoints with a 2-3 pixel XR stroke a
   } finally { await h.dispose(); }
 });
 
+test('heme close-up distances stay dashes: no wider than their dashes are long, no thinner than at the default seat',{skip:!process.env.STEREOFOLD_DEMO_CACHE && 'needs STEREOFOLD_DEMO_CACHE'}, async () => {
+  const { readFileSync } = await import('node:fs');
+  const chapter = JSON.parse(readFileSync(new URL('../../plugin/demos/hemoglobin-switch/flipbook.json', import.meta.url))).chapters.find(c => c.id === 'heme');
+  const h = await motionFixture({ source: readCachedDemoCoordinates('hemoglobin-switch', 'flipbook'), animation: null });
+  try {
+    // The chapter's recorded headset seat: 0.0241 m per scene unit, placement 1.007, eye 1.38 m away.
+    const scale = .0241, placement = 1.007;
+    h.canvas.camera.scale = scale;
+    await h.figure.install({ layers: [], labels: [], distances: chapter.immersive.figure.distances });
+    const lines = h.figure.annotations().filter(repr => repr.renderObjects.some(o => o.type === 'cylinders'));
+    assert.equal(lines.length, 2, 'Fe-O1 and O2-His58');
+    const focalPixels = 1832 * .85 / (2 * Math.tan(55 * Math.PI / 180));
+    const defaultSeatPixels = .02 * focalPixels / 4.6;
+    for (const line of lines) {
+      line.setState({ visible: true, transform: Mat4.fromScaling(Mat4(), [placement, placement, placement]) });
+      const v = line.renderObjects[0].values, geometry = line.geometryVersion;
+      const diameter = () => 2 * getMaxSize(v) * v.uSizeFactor.ref.value * scale * cylinderRadiusScale(v.matrix.ref.value);
+      const centre = Vec3.transformMat4(Vec3(), v.invariantBoundingSphere.ref.value.center, v.matrix.ref.value);
+      const eyeAt = metres => Vec3.add(Vec3(), centre, Vec3.create(0, 0, metres / scale));
+      const starts = v.aStart.ref.value, ends = v.aEnd.ref.value;
+      const dash = Math.hypot(...[0, 1, 2].map(i => ends[i] - starts[i])) * placement * scale;
+      // Install-time sizing has no eye: the fixed 20 mm floor.
+      sizeImmersiveAnnotation(line, h.canvas);
+      assert.ok(Math.abs(diameter() - .02) < 1e-6, `no eye: ${diameter()}`);
+      sizeImmersiveAnnotation(line, h.canvas, eyeAt(1.38));
+      const pixels = diameter() * focalPixels / 1.38;
+      assert.ok(pixels >= defaultSeatPixels - .01 && pixels < 3.5, `close-up width ${pixels} px, default seat ${defaultSeatPixels} px`);
+      assert.ok(dash >= diameter() - 1e-6, `0.35 Å dashes (${dash * 1000} mm) are at least as long as the stroke is wide (${diameter() * 1000} mm)`);
+      // A motion pose update sizes without the eye: it keeps the close-up width, not 20 mm.
+      const closeUp = diameter(), poseVersion = v.uSizeFactor.ref.version;
+      line.setState({ transform: Mat4.mul(Mat4(), Mat4.fromTranslation(Mat4(), [.2, 0, 0]), Mat4.fromScaling(Mat4(), [placement, placement, placement])) });
+      sizeImmersiveAnnotation(line, h.canvas);
+      assert.ok(Math.abs(diameter() - closeUp) < 1e-9 && v.uSizeFactor.ref.version === poseVersion, `motion sizing: ${diameter()}`);
+      line.setState({ transform: Mat4.fromScaling(Mat4(), [placement, placement, placement]) });
+      sizeImmersiveAnnotation(line, h.canvas, eyeAt(1.38));
+      // A small head movement keeps the uniform; stepping back far enough
+      // that the default-seat angle outgrows the dashes re-sizes it.
+      const version = v.uSizeFactor.ref.version;
+      sizeImmersiveAnnotation(line, h.canvas, eyeAt(1.41));
+      assert.equal(v.uSizeFactor.ref.version, version);
+      sizeImmersiveAnnotation(line, h.canvas, eyeAt(2.4));
+      assert.ok(v.uSizeFactor.ref.version > version && Math.abs(diameter() - .02 * 2.4 / 4.6) < 1e-6, `2.4 m: ${diameter()}`);
+      // Where the eye angle sets the width, a small head movement followed by a
+      // motion pose update (no eye) writes nothing either.
+      const settled = v.uSizeFactor.ref.version;
+      sizeImmersiveAnnotation(line, h.canvas, eyeAt(2.43));
+      line.setState({ transform: Mat4.mul(Mat4(), Mat4.fromTranslation(Mat4(), [.2, 0, 0]), Mat4.fromScaling(Mat4(), [placement, placement, placement])) });
+      sizeImmersiveAnnotation(line, h.canvas);
+      assert.equal(v.uSizeFactor.ref.version, settled, 'motion sizing applies no angle the eye hook held back');
+      line.setState({ transform: Mat4.fromScaling(Mat4(), [placement, placement, placement]) });
+      // At or past the default seat the room width is the unchanged 20 mm.
+      for (const metres of [4.6, 6.5, 12]) {
+        sizeImmersiveAnnotation(line, h.canvas, eyeAt(metres));
+        assert.ok(Math.abs(diameter() - .02) < 1e-6, `${metres} m: ${diameter()}`);
+      }
+      assert.equal(line.geometryVersion, geometry, 'sizing changes a uniform, never the dashes');
+    }
+  } finally { await h.dispose(); }
+});
+
 
 test('per-label maxOffsetEm raises only its XR cap and updates on a cap-only edit', async()=>{
   const h=await motionFixture({animation:null});
@@ -248,5 +307,44 @@ test('per-label maxOffsetEm raises only its XR cap and updates on a cap-only edi
     const [raised,defaultPlate]=h.figure.annotations().map(r=>r.renderObjects[0].values);
     assert.equal(raised.uOffsetX.ref.value,defaultPlate.uOffsetX.ref.value,'the headset cap leaves desktop offsets unchanged');
     assert.equal(raised.uOffsetY.ref.value,defaultPlate.uOffsetY.ref.value);
+  } finally {await h.dispose();}
+});
+
+test('a headset plate offset moves only the XR plate, per axis and under the cap', async()=>{
+  const h=await motionFixture({animation:null});
+  const label={id:'iron',text:'Fe, T',target:{chain:'H0',residues:{from:10,to:10},atomName:'CA'},
+    color:'#246080',sizeFactor:.8,offsetX:12,offsetY:.4,maxOffsetEm:3,headsetOffsetY:-8};
+  const plain={...label,id:'plain'};delete plain.headsetOffsetY;
+  const figure={layers:[],distances:[],labels:[label,plain]};
+  const text=repr=>repr.renderObjects.find(o=>o.type==='text');
+  try {
+    await h.figure.install(figure);
+    for(const scale of [.02421,.00777,.00504]) {
+      h.canvas.camera.scale=scale;
+      const gain=FIGURE_REFERENCE_SCALE/scale;
+      const [moved,kept]=h.figure.annotations();
+      for(const repr of [moved,kept]) {repr.setState({visible:true});sizeImmersiveAnnotation(repr,h.canvas);}
+      const v=text(moved).values,em=.8*getMaxSize(v)*v.uSizeFactor.ref.value;
+      assert.ok(Math.abs(v.uOffsetX.ref.value-Math.min(12*gain,3*em))<1e-6,'no headset x: offsetX under the cap');
+      assert.ok(Math.abs(v.uOffsetY.ref.value-Math.max(-8*gain,-3*em))<1e-6,`headset y: ${v.uOffsetY.ref.value}`);
+      assert.ok(Math.abs(text(kept).values.uOffsetY.ref.value-.4*gain)<1e-6,'a plate without one keeps offsetY');
+      const bounds=annotationFieldBounds(moved,text(moved),scale,1);
+      assert.ok(Math.abs(bounds.offset[1]-v.uOffsetY.ref.value)<1e-6,'fitting uses the drawn offset');
+    }
+    // Editing only the headset offsets redraws the plate with the new values:
+    // an explicit zero, a value under the cap, and one past it.
+    const gain=FIGURE_REFERENCE_SCALE/h.canvas.camera.scale;
+    for(const [x,y] of [[0,-1],[-40,-1]]) {
+      await h.figure.install({...figure,labels:[{...label,headsetOffsetX:x,headsetOffsetY:y},plain]});
+      const repr=h.figure.annotations()[0];repr.setState({visible:true});sizeImmersiveAnnotation(repr,h.canvas);
+      const v=text(repr).values,em=.8*getMaxSize(v)*v.uSizeFactor.ref.value;
+      assert.ok(Math.abs(v.uOffsetX.ref.value-Math.max(Math.min(x*gain,3*em),-3*em))<1e-6,`headset x ${x}: ${v.uOffsetX.ref.value}`);
+      assert.ok(Math.abs(v.uOffsetY.ref.value-y*gain)<1e-6,`headset y ${y}: ${v.uOffsetY.ref.value}`);
+      if(x) assert.ok(x*gain<-3*em,'the second edit tests the cap');
+    }
+    h.canvas.xr.isPresenting.value=false;await h.figure.install(figure);
+    const [desk,deskPlain]=h.figure.annotations().map(r=>text(r).values);
+    assert.equal(desk.uOffsetY.ref.value,deskPlain.uOffsetY.ref.value,'the desktop keeps offsetY');
+    assert.equal(desk.uOffsetX.ref.value,deskPlain.uOffsetX.ref.value);
   } finally {await h.dispose();}
 });

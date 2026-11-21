@@ -90,6 +90,32 @@ describe('the certificate warning, from one tab', () => {
     expect(certificateWarningFor({ target: errorTab, page: WARNING_PAGE })).toBeUndefined();
   });
 
+  it('does not report an error tab whose warning names another host as the share', () => {
+    const errorTab = target('71', 'chrome-error://chromewebdata/', 'Privacy error');
+    const elsewhere = { ...WARNING_PAGE, named: 'Proceed to 192.168.77.245 (unsafe)' };
+    expect(certificateWarningFor({ target: errorTab, page: elsewhere, expectedOrigin: origin })).toBeUndefined();
+    expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named: 'Proceed to example.com (unsafe)' },
+      expectedOrigin: origin })).toBeUndefined();
+    expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named: 'Weiter zu 192.168.77.24 (unsicher)' },
+      expectedOrigin: origin })).toMatchObject({ address: origin, tab: '71' });
+    expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named: 'Proceed to 192.168.77.24:8443 (unsafe)' },
+      expectedOrigin: origin })).toMatchObject({ address: origin, tab: '71' });
+    expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named: 'Proceed to 192.168.77.245:8443 (unsafe)' },
+      expectedOrigin: origin })).toBeUndefined();
+    // Another port on the share's host, or a longer name that starts with it, is another site.
+    const otherPort = new URL(origin).port === '9443' ? '9444' : '9443';
+    for (const named of [`Proceed to 192.168.77.24:${otherPort} (unsafe)`, 'Proceed to 192.168.77.24_other.example (unsafe)',
+      'Proceed to 192.168.77.24.example.com (unsafe)', 'Proceed to a192.168.77.24 (unsafe)',
+      'Proceed to 192.168.77.24- (unsafe)', 'Proceed to 192.168.77.24-other (unsafe)', 'Proceed to 192.168.77.24.-x (unsafe)']) {
+      expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named }, expectedOrigin: origin }), named).toBeUndefined();
+    }
+    expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named: 'Proceed to 192.168.77.24 (unsafe).' },
+      expectedOrigin: origin })).toMatchObject({ address: origin, tab: '71' });
+    // A host that ends a sentence is still the share's host.
+    expect(certificateWarningFor({ target: errorTab, page: { ...WARNING_PAGE, named: 'This page is at 192.168.77.24. Go back.' },
+      expectedOrigin: origin })).toMatchObject({ address: origin, tab: '71' });
+  });
+
   it('without a share origin, needs a Stereofold path or a pairing fragment', () => {
     expect(certificateWarningFor({ target: target('71', `${origin}/viewer`, 'Privacy error') })).toMatchObject({ address: origin });
     expect(certificateWarningFor({ target: target('71', launchUrl, 'Privacy error') })).toMatchObject({ address: origin });
@@ -112,6 +138,16 @@ describe('the page expression', () => {
     expect(run({ protocol: 'chrome-error:', href: 'chrome-error://chromewebdata/' },
       { title: 'Privacy error', body: { innerText: 'Your connection is not private\nNET::ERR_CERT_AUTHORITY_INVALID\nAdvanced' } }))
       .toEqual({ href: 'chrome-error://chromewebdata/', title: 'Privacy error', code: 'NET::ERR_CERT_AUTHORITY_INVALID' });
+  });
+
+  it('reads the host the warning offers to proceed to, and only on an error page', () => {
+    const paragraph = { textContent: 'Proceed to 192.168.77.24 (unsafe)' };
+    const runWith = (protocol: string) => new Function('location', 'document', `return ${CERTIFICATE_PAGE_EXPRESSION};`)(
+      { protocol, href: protocol === 'https:' ? `${origin}/viewer` : 'chrome-error://chromewebdata/' },
+      { title: 'Privacy error', body: { innerText: 'NET::ERR_CERT_AUTHORITY_INVALID' },
+        getElementById: (id: string) => id === 'final-paragraph' ? paragraph : null }) as CertificatePage;
+    expect(runWith('chrome-error:').named).toBe('Proceed to 192.168.77.24 (unsafe)');
+    expect(runWith('https:').named).toBeUndefined();
   });
 
   it('never reads the text of a page that loaded', () => {
@@ -146,6 +182,14 @@ describe('looking for the warning on the headset', () => {
     const { transport } = fakeDevtools([], {}, Error('connect ECONNREFUSED 127.0.0.1:9333'));
     expect(await readCertificateWarning(transport, { port: 9333, expectedOrigin: origin }))
       .toEqual({ read: false, reason: 'connect ECONNREFUSED 127.0.0.1:9333' });
+  });
+
+  it('passes over an error tab for another site and finds the share\'s warning behind it', async () => {
+    const { transport } = fakeDevtools([target('71', 'chrome-error://chromewebdata/', 'Privacy error'),
+      target('72', 'chrome-error://chromewebdata/', 'Privacy error')],
+    { 71: { ...WARNING_PAGE, named: 'Proceed to 192.168.77.24 (unsafe)' }, 72: { ...WARNING_PAGE, named: 'Proceed to example.com (unsafe)' } });
+    expect(await readCertificateWarning(transport, { port: 9333, expectedOrigin: origin }))
+      .toMatchObject({ read: true, warning: { tab: '71', address: origin } });
   });
 
   it('asks at most three frozen pages', async () => {

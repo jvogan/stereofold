@@ -22,6 +22,8 @@ import { inspectionRefusalCaption } from '../src/inspection-refusal-caption.js';
 import { companionStartupMessage } from '../src/companion-startup.js';
 import { sceneImportPreflightView } from '../src/scene-import-preflight-view.js';
 import { createSaveRetryAdmission } from '../src/inspection-save-retry.js';
+import { desktopProblemRetry, DESKTOP_RETRY_DELAYS_MS } from '../src/inspection-panel-recovery.js';
+import { isRendererHeartbeatFailure } from '../src/renderer-tab.js';
 
 // Only the socket and packaged HTML boundaries are replaced. Capability
 // issuance, request parsing, dispatch, session expiry and scene storage run.
@@ -69,7 +71,7 @@ const inspectorAst = ts.createSourceFile('inspector.ts', inspectorSource, ts.Scr
 const recoveryFunctions = inspectorAst.statements.filter(node => ts.isFunctionDeclaration(node)
   // `poll` now arms its own next tick and hands a stuck beat
   // to `busyBeat`, so both travel with it into this harness.
-  && ['registerComparisonSources', 'poll', 'armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'problemMessage', 'showProblem', 'showConnectionProblem', 'refreshGrowBinding', 'recoverConfirmation', 'rebindCompanionSession'].includes(node.name?.text ?? ''))
+  && ['retryFollowRecovery', 'registerComparisonSources', 'poll', 'armPoll', 'beatSuspended', 'registerPollState', 'receivePollDelivery', 'busyBeat', 'problemMessage', 'showProblem', 'showConnectionProblem', 'refreshGrowBinding', 'recoverConfirmation', 'rebindCompanionSession'].includes(node.name?.text ?? ''))
   .map(node => node.getText(inspectorAst)).join('\n');
 const reloadListener = inspectorAst.statements.find(node =>
   node.getText(inspectorAst).startsWith("reload.addEventListener('click'"))!.getText(inspectorAst);
@@ -85,7 +87,7 @@ function failedPoll(kind: 'save' | 'poll' | 'reconnect', error: Error) {
   // Date never reaches them. `clock.value` is the seam: unset means real time.
   const realNow = Date.now;
   const clock: { value?: number } = {};
-  const h = vm.createContext({ pollBackoff:createPollBackoff(()=>clock.value??realNow(),()=>0.5), clock, Date: { now: () => clock.value ?? realNow() },
+  const h = vm.createContext({ followRecovery: false, recoveryPanel: undefined, pollBackoff:createPollBackoff(()=>clock.value??realNow(),()=>0.5), clock, Date: { now: () => clock.value ?? realNow() },
     failedSourceLoad:undefined, experiencePreparing:false, pollInFlight:false, beatInFlight:false, beatCompletion:undefined, desktopReceiptInFlight:false, desktopReceiptBeat:undefined, repairNeeded:false, nextRepairAt:0, connectionWatchdog:undefined,
     connectionStatus, setConnectionStatus, LINK_LOST, PAIR_AGAIN, Error, thrownErrorMessage, closed: false, binding: { sessionId: 'session' },
     loading: false, isCompanion: true, remote: false, generation: 1, dirty: kind === 'save', blocked: false,
@@ -105,6 +107,9 @@ function failedPoll(kind: 'save' | 'poll' | 'reconnect', error: Error) {
     rendering: Promise.resolve(), saving: Promise.resolve(), PRIVATE_KEY: KEY,
     requestedId: 'session', hydrate: fail, confirmReceipt: fail,
     confirmFailureRecovery: () => ({ action: 'block' }), registerComparisonSources: async () => {},
+    armDesktopRetry: vi.fn(), desktopRetryAttempt: 0, desktopRetrySource: undefined,
+    // Only a desktop panel posts live view pictures; a headset page has none.
+    liveViewCapture: undefined,
   });
   vm.runInContext(ts.transpileModule(recoveryFunctions,
     { compilerOptions: { target: ts.ScriptTarget.ES2022, alwaysStrict: true } }).outputText, h);
@@ -272,7 +277,7 @@ it.each(['save', 'poll', 'reconnect'] as const)('%s failures offer their matchin
 it('requires a deliberate Pair again click before leaving a disconnected loaded scene', () => {
   const navigations: string[] = [];
   let click!: () => void;
-  const h = vm.createContext({ pairAgain: { addEventListener(_event: string, listener: () => void) { click = listener; } },
+  const h = vm.createContext({ followRecovery: false, recoveryPanel: undefined, pairAgain: { addEventListener(_event: string, listener: () => void) { click = listener; } },
     location: { search: '?xrRenderBudget=scale:0.5', assign: (path: string) => navigations.push(path) } });
   runInspector(h, pairAgainListener);
   expect(navigations).toEqual([]);
@@ -433,12 +438,200 @@ function runInspector(h: vm.Context, text: string) {
   vm.runInContext(ts.transpileModule(text,
     { compilerOptions: { target: ts.ScriptTarget.ES2022, alwaysStrict: true } }).outputText, h);
 }
+/**
+ * A visible Mac panel stayed behind "Your view is preserved; choose Retry"
+ * for a whole recording after one failed host request, following nothing
+ * while the headset followed every change. It now recovers by itself.
+ */
+function desktopPanel(error: Error) {
+  const h = failedPoll('reconnect', error);
+  const timers: Array<{ run: () => Promise<void>; ms: number }> = [];
+  const pressed: string[] = [];
+  Object.assign(h, { isCompanion: false, dirty: false, desktopRetryAttempt: 0, desktopRetryTimer: undefined, desktopRetryError: undefined,
+    desktopInput: 0, desktopCleanInput: 0, desktopLastInputAt: 0, DESKTOP_QUIET_MS: 5_000, desktopHeldPointers: new Set<number>(), reloading: false, desktopProblemRetry, isRendererHeartbeatFailure,
+    setTimeout: vi.fn((run: () => void, ms: number) => { timers.push({ run: async () => { run(); await h.rendering; }, ms }); return timers.length; }),
+    clearTimeout: vi.fn() });
+  h.retry.click = () => { pressed.push('retry'); h.notice.hidden = true; };
+  h.reload.click = () => { pressed.push('reload'); h.notice.hidden = true; };
+  runInspector(h, inspectorAst.statements.filter(node => ts.isFunctionDeclaration(node) && ['armDesktopRetry', 'desktopRetryDecision', 'sourceMovedDuringDelivery', 'desktopPersonEditing'].includes(node.name?.text ?? ''))
+    .map(node => node.getText(inspectorAst)).join('\n'));
+  return { h, timers, pressed };
+}
+const refusedRegistration = 'The panel must draw this inspection’s verified coordinates or density map.';
+const refusedSave = 'This session changed in another panel. Your visible work is unsaved. Load the saved view to continue.';
+
+it('a clean desktop panel loads the saved view by itself after each failure, waiting longer each time, then leaves the buttons', async () => {
+  const failure = Error(refusedRegistration);
+  const { h, timers, pressed } = desktopPanel(failure);
+  for (const [attempt, wait] of DESKTOP_RETRY_DELAYS_MS.entries()) {
+    h.showProblem(h.problemMessage('reconnect', failure), 'reconnect', failure);
+    expect(h.blocked).toBe(true);
+    expect(timers).toHaveLength(attempt + 1);
+    expect(timers[attempt]!.ms).toBe(wait);
+    await timers[attempt]!.run();
+    expect(pressed).toHaveLength(attempt + 1);
+  }
+  // Retry would send the refused registration again; the saved view draws the current source.
+  expect(new Set(pressed)).toEqual(new Set(['reload']));
+  h.showProblem(h.problemMessage('reconnect', failure), 'reconnect', failure);
+  expect(timers).toHaveLength(DESKTOP_RETRY_DELAYS_MS.length);
+  expect(h.notice.hidden).toBe(false);
+  expect(h.retry.hidden).toBe(false);
+  expect(h.message.textContent).toBe('Your view is preserved; choose Retry.');
+});
+
+it('a failure that repeats every beat keeps the one wait and spends no press', async () => {
+  const failure = Error('Wrong session');
+  const { h, timers, pressed } = desktopPanel(failure);
+  for (let beat = 0; beat < 12; beat++) h.showProblem(h.problemMessage('poll', failure), 'poll', failure);
+  expect(timers).toHaveLength(1);
+  expect(h.desktopRetryAttempt).toBe(0);
+  await timers[0]!.run();
+  expect(pressed).toEqual(['reload']);
+  expect(h.desktopRetryAttempt).toBe(1);
+});
+
+it('a desktop panel whose press neither recovered nor failed, a deferred hydration, waits and presses again', async () => {
+  const failure = Error('Save the initial rendered inspection before attaching.');
+  const { h, timers, pressed } = desktopPanel(failure);
+  h.reload.click = () => { pressed.push('reload'); };
+  h.showProblem(h.problemMessage('reconnect', failure), 'reconnect', failure);
+  await timers[0]!.run();
+  expect(pressed).toEqual(['reload']);
+  expect(timers.map(timer => timer.ms)).toEqual(DESKTOP_RETRY_DELAYS_MS.slice(0, 2));
+  // Every wait used, the banner and its buttons stay.
+  for (let attempt = 1; attempt < DESKTOP_RETRY_DELAYS_MS.length; attempt++) await timers[attempt]!.run();
+  expect(timers).toHaveLength(DESKTOP_RETRY_DELAYS_MS.length);
+  expect(h.notice.hidden).toBe(false);
+});
+
+it('a desktop panel with the person\'s input since it stood clean, or an unconfirmed command, presses Retry, which keeps them', async () => {
+  const failure = Error('Local host request failed (503)');
+  for (const state of [{ desktopInput: 1 }, { dirty: true, desktopInput: 3 }, { pendingReceipt: { commandId: 'command' } }]) {
+    const { h, timers, pressed } = desktopPanel(failure);
+    h.showProblem(h.problemMessage('poll', failure), 'poll', failure);
+    // The input arrives while the banner waits, after the failure.
+    Object.assign(h, state);
+    await timers[0]!.run();
+    expect(pressed).toEqual(['retry']);
+  }
+});
+
+it('a desktop panel whose load of another session failed retries that load, not its current view', async () => {
+  const failure = Error('Local host request failed (503)');
+  const { h, timers, pressed } = desktopPanel(failure);
+  h.retryHydrationId = 'next-session';
+  h.showProblem(h.problemMessage('loading', failure), 'loading', failure);
+  await timers[0]!.run();
+  expect(pressed).toEqual(['retry']);
+});
+
+it('a desktop panel does not press for a banner something else already cleared, nor for a refused save of the person\'s edit', async () => {
+  const failure = Error(refusedRegistration);
+  const { h, timers, pressed } = desktopPanel(failure);
+  h.showProblem(h.problemMessage('reconnect', failure), 'reconnect', failure);
+  // The person pressed Load saved view first; it ran before the wait ended.
+  h.notice.hidden = true;
+  await timers[0]!.run();
+  expect(pressed).toEqual([]);
+  // The person dragged the molecule after the panel last stood on the saved scene.
+  h.desktopInput = 1; h.dirty = true;
+  h.showProblem(h.problemMessage('save', refusedSave), 'save', refusedSave);
+  expect(timers).toHaveLength(1);
+  // A save that never reached the host is sent again, keeping the edit.
+  const dropped = Error('Local host request failed (503)');
+  h.showProblem(h.problemMessage('save', dropped), 'save', dropped);
+  expect(timers).toHaveLength(2);
+  await timers[1]!.run();
+  expect(pressed).toEqual(['retry']);
+});
+
+it('a wait armed for a dropped save does not press once the host has refused that save', async () => {
+  const dropped = Error('Local host request failed (503)');
+  const { h, timers, pressed } = desktopPanel(dropped);
+  h.desktopInput = 1; h.dirty = true;
+  h.showProblem(h.problemMessage('save', dropped), 'save', dropped);
+  h.showProblem(h.problemMessage('save', refusedSave), 'save', refusedSave);
+  await timers[0]!.run();
+  expect(pressed).toEqual([]);
+});
+
+it('an untouched desktop panel whose lesson drawing the host refused loads the saved view by itself', async () => {
+  const { h, timers, pressed } = desktopPanel(Error(refusedSave));
+  h.dirty = true;
+  h.showProblem(h.problemMessage('save', refusedSave), 'save', refusedSave);
+  expect(timers).toHaveLength(1);
+  await timers[0]!.run();
+  expect(pressed).toEqual(['reload']);
+});
+
+it('a desktop panel retries a load only when the source moved on or the request never arrived', async () => {
+  const cases: Array<[Error, boolean]> = [
+    [Object.assign(Error('The coordinates changed during delivery. Reconnect before continuing.'), { code: 'source_changed_during_delivery' }), true],
+    [Error('That offset is past the end of this inspection part. Read its current descriptor and start again.'), true],
+    [Error('Local host request failed (503)'), true],
+    [Error('The structure could not be parsed.'), false],
+  ];
+  for (const [failure, retried] of cases) {
+    const { h, timers } = desktopPanel(failure);
+    h.retryHydrationId = 'session';
+    h.showProblem(h.problemMessage('loading', failure), 'loading', failure);
+    expect(timers.length > 0, failure.message).toBe(retried);
+  }
+});
+
+it('a desktop panel waits while the person holds a pointer or types in a field, without spending a press', async () => {
+  const failure = Error(refusedRegistration);
+  for (const editing of ['pointer', 'field'] as const) {
+    const { h, timers, pressed } = desktopPanel(failure);
+    h.showProblem(h.problemMessage('reconnect', failure), 'reconnect', failure);
+    if (editing === 'pointer') h.desktopHeldPointers.add(1);
+    else h.document.activeElement = { tagName: 'INPUT', isContentEditable: false };
+    await timers[0]!.run();
+    expect(pressed).toEqual([]);
+    expect(h.desktopRetryAttempt).toBe(0);
+    expect(timers).toHaveLength(2);
+    expect(timers[1]!.ms).toBe(DESKTOP_RETRY_DELAYS_MS[0]);
+  }
+});
+
+it('a desktop panel whose Retry loading ended without drawing puts the banner and its buttons back', async () => {
+  const failure = Error('Local host request failed (503)');
+  const { h, timers, pressed } = desktopPanel(failure);
+  h.retryHydrationId = 'session';
+  h.loadErrorDetails = failure.message;
+  h.showProblem(h.problemMessage('loading', failure), 'loading', failure);
+  await timers[0]!.run();
+  expect(pressed).toEqual(['retry']);
+  expect(h.notice.hidden).toBe(false);
+  expect(h.message.textContent).toBe('Structure load failed. View preserved. Choose Retry loading.');
+  expect(timers).toHaveLength(2);
+  expect(timers[1]!.ms).toBe(DESKTOP_RETRY_DELAYS_MS[1]);
+});
+
+it('a load whose words the loading sentence replaced is still known to have never arrived', () => {
+  const failure = Error('The structure couldn’t load. Retry loading, or open Stereofold in a new task if the request keeps failing.');
+  const { h, timers } = desktopPanel(failure);
+  h.retryHydrationId = 'session';
+  h.loadErrorDetails = 'Local host request failed (503)';
+  h.showProblem(h.problemMessage('loading', failure), 'loading', failure);
+  expect(timers).toHaveLength(1);
+});
+
+it('a headset panel arms no desktop recovery', () => {
+  const failure = Error('Local host request failed (503)');
+  const { h, timers } = desktopPanel(failure);
+  h.isCompanion = true;
+  h.showProblem(h.problemMessage('reconnect', failure), 'reconnect', failure);
+  expect(timers).toHaveLength(0);
+});
+
 function installSaveRecovery(h: vm.Context) {
   Object.assign(h, { saveAttempts: 0, lastAutoReload: 0, reloading: false, timer: undefined,
     saveRetryAdmission: createSaveRetryAdmission(),
     edits: 1, outcome: { textContent: '' }, saveFailureRecovery: () => ({ action: 'block' }) });
   runInspector(h, inspectorAst.statements.filter(node => ts.isFunctionDeclaration(node)
-    && ['save', 'recoverSave'].includes(node.name?.text ?? '')).map(node => node.getText(inspectorAst)).join('\n'));
+    && ['save', 'recoverSave', 'reloadSharedView'].includes(node.name?.text ?? '')).map(node => node.getText(inspectorAst)).join('\n'));
 }
 
 it('every showProblem call formats its error through problemMessage with an explicit kind', () => {
@@ -458,6 +651,9 @@ it('every showProblem call formats its error through problemMessage with an expl
 it('automatic saved-view reload bounds a long loading failure', async () => {
   const h = failedPoll('poll', longFailure);
   installSaveRecovery(h);
+  // A desktop panel shows the failure; a headset page is never blocked by it
+  // (asleep-wearer.test.ts).
+  h.isCompanion = false;
   h.saveFailureRecovery = () => ({ action: 'reload' });
   h.recoverSave('conflict', longFailure.message);
   await h.rendering;

@@ -47,44 +47,36 @@ export const ROOM_ANCHOR_PRESETS = Object.freeze({
 /**
  * How wide the entry seat should look, in degrees of the wearer's view.
  *
- * The owner asked for "a big structure almost above us", and named chest
- * height as the thing to avoid. Eighty degrees was the middle of the 70 to 90
- * the original brief asked for, and it was the right answer for a frame with
- * nothing else in it.
+ * The entry seat aims for a big structure almost above the wearer and avoids
+ * chest height. Eighty degrees, the middle of a 70 to 90 degree range, suits a
+ * frame with nothing else in it, but this frame also carries ten name plates,
+ * which must be drawn OUTSIDE the structure's silhouette to stop covering it.
  *
- * Once a floorless session actually took this seat, the Quest 2 capture showed
- * what eighty degrees costs: the structure's own silhouette measured 0.93 in
- * tangent units, which is eighty-six degrees across, its top was clipped by
- * the elevation, and the ten name plates — which must be drawn OUTSIDE that
- * silhouette to stop covering it — were pushed past the edge of the display
- * where the wearer cannot see them at all.
+ * At eighty degrees a floorless session's silhouette measures 0.93 in tangent
+ * units, which is eighty-six degrees across, the elevation clips its top, and
+ * the plates go past the edge of the display where the wearer cannot see
+ * them. At sixty-two degrees inside a readable band of sixty-eight there is no
+ * room at the sides, so every plate goes to the bottom and the right-hand
+ * edge, and the edge cuts two of them in half.
  *
- * Sixty-two was the width of the capture judged right
- *, and a later
- * device run showed what that capture did not have to carry: ten
- * name plates. At sixty-two degrees inside a readable band of sixty-eight
- * there is no room at the sides at all, so every plate went to the bottom and
- * the right-hand edge and two of them were cut in half by it.
- *
- * Fifty is now only the requested width. After the reachable seat is known,
+ * Fifty is only the requested width. After the reachable seat is known,
  * placementFromRoom caps its scale against the projected part silhouette and
  * a one-plate-HIGH band on each side. The standoff and six-degree rise stay
- * put. The band was a full plate WIDE until the seat band changed: the widest
- * name is far wider than it is tall, so reserving its width at the left and
- * right cost about a third of the field and seated the structure at 28.6
+ * put. A band a full plate WIDE costs about a third of the field, because the
+ * widest name is far wider than it is tall, and seats the structure at 28.6
  * degrees, a third of the lens. A plate rests in the band slot above or below
  * its part wherever the sides are tight, so one plate height is what the band
- * actually has to carry, and the sides are still used where a plate fits.
+ * has to carry, and the sides are still used where a plate fits.
  */
 export const ENTRY_VIEW_DEGREES = 50;
 /**
  * How far above the eye line the entry seat's centre sits.
  *
  * Twenty-five put the top of an eighty-degree structure off the top of the
- * display, and ten still spent most of the band above it. The owner asked for
- * a structure "almost above us" and named chest height as the thing to avoid,
- * so the rise stays — at the angle that leaves a row of plates above the
- * subject as well as below it.
+ * display, and ten still spent most of the band above it. The seat aims for a
+ * structure almost above the wearer and avoids chest height, so the rise
+ * stays — at the angle that leaves a row of plates above the subject as well
+ * as below it.
  */
 export const ENTRY_ELEVATION_DEGREES = 6;
 /** Nearest and furthest the entry seat may stand, whatever the width asks for. */

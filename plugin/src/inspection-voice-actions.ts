@@ -53,7 +53,10 @@ export async function executeInspectionVoiceAction(command: string, hooks: {
       const requested = prior * (command === 'scale-larger' ? 1.2 : 1 / 1.2);
       const scale = workspace.viewer.inspection.clampWearerScale?.(requested) ?? clampPlacementScale(requested);
       if (scale === prior) throw Error('The structure is already at its size limit.');
-      await workspace.runTour(() => workspace.viewer.inspection.place({ scale }));
+      // The wearer asked: their own size, held across chapters as a menu
+      // step is, never a move that ends with the chapter it was made in.
+      const inspection = workspace.viewer.inspection;
+      await workspace.runTour(() => inspection.scaleForWearer ? inspection.scaleForWearer(scale) : inspection.place({ scale }));
       message = command === 'scale-larger' ? 'The structure is larger.' : 'The structure is smaller.'; break;
     }
     case 'move-overhead':

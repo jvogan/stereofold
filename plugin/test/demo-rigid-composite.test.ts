@@ -6,8 +6,9 @@ import { CIF, type CifBlock } from 'molstar/lib/commonjs/mol-io/reader/cif.js';
 import { trajectoryFromMmCIF } from 'molstar/lib/commonjs/mol-model-formats/structure/mmcif.js';
 import { ModelSecondaryStructure } from 'molstar/lib/commonjs/mol-model-formats/structure/property/secondary-structure.js';
 import { Structure } from 'molstar/lib/commonjs/mol-model/structure.js';
-import { compositeSourceProvenance, buildRigidComposite, compositeSha256, parseRigidCompositeRecipe, type CompositeMatrix, type RigidCompositeRecipe } from '../src/demo-rigid-composite.js';
+import { compositeSourceProvenance, buildRigidComposite, compositeSha256, parseRigidCompositeRecipe, MAX_COMPOSITE_ATOM_SITES, COMPOSITE_OVER_SOURCE_POLICY, type CompositeMatrix, type RigidCompositeRecipe } from '../src/demo-rigid-composite.js';
 import { compositeRecipePath, resolveCompositeText } from '../src/demo-composite-cache.js';
+import { readCompositeRecipe } from '../src/demo-composite-files.js';
 import { addressedDemoFile } from '../src/addressed-demo-cache.js';
 import { ensureGrowthCoordinates, applyGrowthDerivation } from '../src/growth-coordinates.js';
 import { resolveCoordinates, type DemoEntry } from '../scripts/quest-demo.js';
@@ -125,6 +126,16 @@ describe('deposited atoms at rigid-body poses', () => {
       expect(seq[i]).toBeGreaterThanOrEqual(10); expect(seq[i]).toBeLessThanOrEqual(20);
     }
     expect(new Set(seq.filter((_, i) => comp[i] !== 'HEM'))).toEqual(new Set(Array.from({ length: 11 }, (_, i) => i + 10)));
+  });
+
+  it('counts encoded UTF-8 bytes, not characters, against the source policy', async () => {
+    // The first atom's formal charge holds 250,000 three-byte characters; 100
+    // copies of the chain write about 78 MB while their characters number 28 million.
+    const original = texts['1CRN'];
+    const synthetic = original.replace('13.79 ? 1  THR A N   1', `13.79 ${'\u20ac'.repeat(250_000)} 1  THR A N   1`);
+    expect(synthetic).not.toBe(original);
+    const r = recipe(Array.from({ length: 100 }, (_, i) => body(`X${i}`))); r.sources[0].sha256 = compositeSha256(synthetic);
+    await expect(buildRigidComposite(r, { '1CRN': synthetic })).rejects.toThrow(COMPOSITE_OVER_SOURCE_POLICY);
   });
 
   it('selects only the first model even when its number is not one', async () => {
@@ -313,6 +324,8 @@ describe('strict recipe validation', () => {
     ['empty chain', r => r.bodies[0].chain = '', /chain/], ['placeholder chain', r => r.bodies[0].chain = '?', /identifier/],
     ['null chain', r => r.bodies[0].chain = '.', /identifier/],
     ['whitespace chain', r => r.bodies[0].chain = 'A B', /identifier/],
+    ['chain longer than 64 characters', r => r.bodies[0].chain = '\u03b1'.repeat(65), /chain/],
+    ['recipe id longer than 64 characters', r => r.id = 'a'.repeat(65), /id/],
     ['no author chains', r => r.bodies[0].authChains = [], /authChains/],
     ['duplicate author chains', r => r.bodies[0].authChains = ['A', 'A'], /unique/],
     ['empty author chain', r => r.bodies[0].authChains = [''], /authChains/],
@@ -363,6 +376,26 @@ describe('strict recipe validation', () => {
     expect(text).not.toBe(texts['1CRN']);
     const r = recipe(); r.sources[0].sha256 = compositeSha256(text);
     await expect(buildRigidComposite(r, { '1CRN': text })).rejects.toThrow(/coordinates must be finite/);
+  });
+  it('checks the maximumAtomSites budget before placing any body', async () => {
+    const { matrix: _unused, ...rest } = body('Y');
+    // This fit pairs a single residue, too few atoms, and would fail; the budget refuses first.
+    const fitted = { ...rest, place: { superpose: { onto: 'X', residues: { mobile: { from: 1, to: 1 }, fixed: { from: 1, to: 1 } } } } };
+    await expect(buildRigidComposite(recipe([body('X'), fitted as unknown as ReturnType<typeof body>]), texts, { maximumAtomSites: 327 }))
+      .rejects.toThrow(/^recipe\.bodies\[1\]: composite exceeds maximumAtomSites budget 327$/);
+  });
+  // All four hemoglobin chains, about 0.37 MB of output per copy.
+  const hemoglobins = (copies: number) => recipe(Array.from({ length: copies }, (_, i) => ({ ...body(`Q${i}`, '4HHB'), authChains: ['A', 'B', 'C', 'D'] })));
+  it('refuses a composite whose output would pass the 64 MiB source policy while building it', async () => {
+    await expect(build(hemoglobins(200))).rejects.toThrow(/^Composite exceeds the 64 MiB source policy\./);
+  }, 120_000);
+  it('bounds the atom sites of a recipe without maximumAtomSites before placing any body', async () => {
+    const one = (await build(hemoglobins(1))).atomSites;
+    const copies = Math.floor(MAX_COMPOSITE_ATOM_SITES / one) + 1;
+    expect(copies * one).toBeGreaterThan(MAX_COMPOSITE_ATOM_SITES);
+    const started = performance.now();
+    await expect(build(hemoglobins(copies))).rejects.toThrow(/^Composite exceeds the 64 MiB source policy\./);
+    expect(performance.now() - started).toBeLessThan(10_000);
   });
   it('rejects overflow in transformed coordinates', async () => {
     const text = texts['1CRN'].replace('17.047', '1.7e308');
@@ -477,6 +510,53 @@ describe('offline CLI and shared launcher/growth cache preparation', () => {
     await expect(run('0'.repeat(64), texts['1CRN'])).rejects.toThrow(/no longer (?:serves|produces)/);
     await expect(readFile(resolve(dir, 'out.cif'))).rejects.toThrow();
     expect((await readdir(dir)).some(name => name.endsWith('.partial'))).toBe(false);
+  });
+});
+
+describe('recipe file source count', () => {
+  // A recipe naming `count` deposited sources, each the same fixture text
+  // under its own id; one body uses the first.
+  const many = (count: number): RigidCompositeRecipe => ({ ...recipe(),
+    sources: Array.from({ length: count }, (_, i) => ({ id: `S${String(i).padStart(3, '0')}`,
+      url: `https://files.rcsb.org/download/S${String(i).padStart(3, '0')}.cif`, sha256: compositeSha256(texts['1CRN']) })),
+    bodies: [{ ...body(), source: 'S000' }] });
+
+  it.each(['growth', 'launcher', 'CLI', 'reader'])('%s refuses a recipe file naming more than 25 sources before reading or downloading one, and loads one naming 25', async route => {
+    const dir = await workspace(), sourcesDir = resolve(dir, 'sources');
+    await mkdir(sourcesDir);
+    const fetched: string[] = [], cacheReads: string[] = [];
+    const fetchText = async (url: string) => { fetched.push(url); return texts['1CRN']; };
+    const derivation = { kind: 'prepared-rigid-composite' as const, recipe: 'recipe.json' };
+    const run = async (r: RigidCompositeRecipe, file: string): Promise<unknown> => {
+      await writeFile(resolve(dir, 'recipe.json'), JSON.stringify(r));
+      // Every source id stands for the same fixture text; a recipe the schema refuses has no output to expect.
+      const result = await buildRigidComposite(r, Object.fromEntries(r.sources.map(s => [s.id, texts['1CRN']])))
+        .catch(() => ({ sha256: '0'.repeat(64), bytes: 1, atomSites: 1 }));
+      if (route === 'growth') return ensureGrowthCoordinates({ demo: 'fixture', stageId: 'copies', file, sha256: result.sha256, derivation }, {
+        cachePath: name => { if (name.startsWith('composite-sources/')) cacheReads.push(name); return resolve(dir, name); },
+        demosRoot: dir, fetchText, announce: () => undefined });
+      if (route === 'launcher') return resolveCoordinates({ name: 'fixture', title: r.title, pdbId: '1CRN', lesson: 'fixture.json', sources: [],
+        coordinates: { file, sha256: result.sha256, bytes: result.bytes, atomSites: result.atomSites, derivation } }, dir, () => undefined, { demosRoot: dir, fetchText });
+      if (route === 'CLI') return prepare([resolve(dir, 'recipe.json'), '--sources', sourcesDir, '--out', resolve(dir, file)], () => {}, dir);
+      return readCompositeRecipe(resolve(dir, 'recipe.json'), dir);
+    };
+    // The CLI reads deposited sources from --sources: none are there yet, so reading one would fail differently.
+    await expect(run(many(26), 'over.cif')).rejects.toThrow(/Expected at most 25 sources/);
+    expect(fetched).toEqual([]);
+    expect(cacheReads).toEqual([]);
+    expect((await readdir(dir)).sort()).toEqual(['recipe.json', 'sources']);
+
+    for (let i = 0; i < 25; i++) await writeFile(resolve(sourcesDir, `S${String(i).padStart(3, '0')}.cif`), texts['1CRN']);
+    await expect(run(many(25), 'at-limit.cif')).resolves.toBeDefined();
+    if (route === 'growth' || route === 'launcher') expect(fetched).toHaveLength(25);
+  });
+
+  it('loads every shipped recipe, the largest naming six sources', async () => {
+    const shipped = ['atp-synthase-rotor/figure-recipe.json', 'atp-synthase-rotor/flipbook-recipe.json', 'atp-synthase-rotor/motion-recipe.json',
+      'daraxonrasib-assembly/motion-recipe.json', 'hemoglobin-switch/figure-recipe.json', 'hemoglobin-switch/flipbook-recipe.json',
+      'hemoglobin-switch/motion-recipe.json', 'kinesin-walk/cycle-recipe.json', 'kinesin-walk/flipbook-recipe.json', 'kinesin-walk/motion-recipe.json'];
+    const counts = await Promise.all(shipped.map(async file => (await readCompositeRecipe(compositeRecipePath(file))).sources.length));
+    expect(Math.max(...counts)).toBe(6);
   });
 });
 

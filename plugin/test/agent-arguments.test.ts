@@ -382,6 +382,16 @@ describe('command receipts', () => {
       .toMatchObject({ arguments: { pdbId: '4HHB' } });
   });
 
+  // A headset page that holds unsaved work against an older revision is
+  // listed with `current: false`. It is still the view the wearer is in, so
+  // the desktop beside it must not take a step the wearer will never see.
+  it('does not hand a step to the desktop while the headset page is behind with unsaved work', () => {
+    const behind = { panelId: 'headset', surface: 'companion', availability: 'unsaved' as const, current: false, inspectionRevision: 1 };
+    expect(choosePanel([desktopReady, behind])).toEqual({ error: expect.stringContaining('companion unsaved') });
+    expect(() => fillAgentArguments('control_tour', { action: 'next' }, { ...state, panels: [desktopReady, behind] }))
+      .toThrow(/companion unsaved/);
+  });
+
   it('still uses the desktop when the session has no headset in it', () => {
     expect(choosePanel([desktopReady])).toEqual({ panelId: 'desk' });
     // Nor does a detail-view flag left over from a closed headset strand a

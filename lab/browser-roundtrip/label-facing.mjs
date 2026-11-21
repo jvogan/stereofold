@@ -134,12 +134,11 @@ export const DESKTOP_COMPONENT_LABEL_BASE_OFFSET_Z = 4;
  * constant.
  *
  * The angular rule under-sizes on a Quest 2, so the factor it returns is
- * multiplied by a gain. That gain was a single number, and a single number
- * cannot be right for this lesson: run 13 at 2.7 was judged ideal in the
- * `site` chapter (placement scale 2.4) and put ten plates over each other in
- * the wide chapter (scale 1); run 14 at 1.3 read wide and went small and
- * partly buried up close. The two readings are not in conflict — they are two
- * points on a line the constant could not follow.
+ * multiplied by a gain. A single number cannot be right for this lesson:
+ * gain 2.7 reads well in the `site` chapter (placement scale 2.4) and puts ten
+ * plates over each other in the wide chapter (scale 1); gain 1.3 reads in the
+ * wide chapter and is small and partly buried up close. The two readings are
+ * two points on one line, and this curve follows it.
  *
  * `scale`/`gain` is the measured point: 2.7 at placement scale 2.4. The
  * `exponent` of one half splits the difference between the two rules that
@@ -148,8 +147,8 @@ export const DESKTOP_COMPONENT_LABEL_BASE_OFFSET_Z = 4;
  * grow it with the subject (exponent 1, which swamps the wide view). A plate
  * that grows as the square root of the placement therefore keeps its share of
  * the subject roughly constant while its angular size still rises. Through the
- * measured point that puts the wide resting view at 1.74, which is the "around
- * 1.8" the handoff guessed at from the same captures.
+ * measured point that puts the wide resting view at 1.74, close to the 1.8
+ * that the same captures suggest by eye.
  *
  * `min` is the gain that was already known to read in the wide view, so no
  * chapter is ever drawn below it; `max` is Meta's comfortable ceiling restated

@@ -5,6 +5,8 @@ import { createPlaybackClock } from '../../packages/motion/src/keyframes.mjs';
 import { mountTourPlayer, type Tour } from '../src/tour-player.js';
 // @ts-ignore Browser DOM and renderer boundaries only.
 import { tourEndHarness } from '../../lab/browser-roundtrip/fixtures/tour-end-harness.mjs';
+// @ts-ignore The page's diagnostics recorder, imported by the viewer.
+import { recordManipulation } from '../../lab/browser-roundtrip/xr-manipulate.mjs';
 
 const source = readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs', import.meta.url), 'utf8');
 const start = source.indexOf("        if (action.kind === 'tour-play')");
@@ -35,7 +37,8 @@ for (const route of ['spoken', 'page', 'menu'] as const) {
         if (route === 'page') click();
         else await vm.runInNewContext(`(async () => { ${source.slice(start, end)} })()`, {
           action: { kind: 'tour-play', ...(route === 'spoken' ? { playing: true } : {}) }, spatialTour: player,
-          recordManipulation() {}, talkCaption: undefined,
+          // The viewer module's own names; a page without a headset session has no talk caption.
+          recordManipulation, talkCaption: undefined,
         });
         expect(clock.snapshot()).toMatchObject({ state: 'playing', timeSeconds: time === 7 ? 0 : time, loop });
         expect(player.getState()).toMatchObject({ autoplay: true, step: 0 });

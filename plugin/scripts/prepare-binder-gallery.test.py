@@ -7,12 +7,27 @@ from pathlib import Path
 import shlex
 import tempfile
 import unittest
+from unittest import mock
 import numpy as np
 
 HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('gallery',HERE/'prepare-binder-gallery.py')
 gallery=importlib.util.module_from_spec(spec);spec.loader.exec_module(gallery)
 ROOT=gallery.DEFAULT_ROOT
+DOWNLOAD_LIMIT=8*1024*1024
+
+class StubResponse:
+    """An HTTP body of `size` bytes; `served` counts what the reader took."""
+    def __init__(self,size,data=None):
+        self.data=data;self.size=len(data) if data is not None else size;self.served=0;self.headers={}
+    def read(self,n=-1):
+        if n is None or n<0:n=self.size-self.served
+        n=min(n,self.size-self.served)
+        chunk=self.data[self.served:self.served+n] if self.data is not None else b'A'*n
+        self.served+=n
+        return chunk
+    def __enter__(self):return self
+    def __exit__(self,*exc):return False
 
 class GalleryTest(unittest.TestCase):
     @classmethod
@@ -45,6 +60,28 @@ class GalleryTest(unittest.TestCase):
             (root/'upstream/design.csv').write_bytes(b'altered source')
             with self.assertRaisesRegex(ValueError,'digest mismatch'):
                 gallery.fetch_file(root,'design.csv')
+
+    def test_fetch_stops_an_endless_body_and_writes_nothing(self):
+        body=StubResponse(3*DOWNLOAD_LIMIT)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('urllib.request.urlopen',return_value=body):
+            root=Path(tmp)
+            with self.assertRaises(ValueError):
+                gallery.fetch_file(root,'design.csv',fetch=True)
+            self.assertLessEqual(body.served,DOWNLOAD_LIMIT+1)
+            self.assertFalse((root/'upstream/design.csv').exists())
+
+    def test_fetch_writes_nothing_that_fails_its_pin(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('urllib.request.urlopen',return_value=StubResponse(0,b'altered source')):
+            root=Path(tmp)
+            with self.assertRaisesRegex(ValueError,'digest mismatch'):
+                gallery.fetch_file(root,'design.csv',fetch=True)
+            self.assertFalse((root/'upstream/design.csv').exists())
+
+    def test_fetch_writes_a_pinned_body(self):
+        raw=(ROOT/'upstream/LICENSE.md').read_bytes()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('urllib.request.urlopen',return_value=StubResponse(0,raw)):
+            path=gallery.fetch_file(Path(tmp),'LICENSE.md',fetch=True)
+            self.assertEqual(path.read_bytes(),raw)
 
     def test_every_atom_preserved_and_same_rigid_transform_applied_to_pair(self):
         self.assertEqual(len(self.cif_atoms),self.manifest['composite']['atomCount'])

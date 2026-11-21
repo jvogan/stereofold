@@ -8,24 +8,24 @@ import { lessonRestingState, placeLessonScene, type Tour, type Workspace } from 
 /**
  * The `placed` phase of a hydrate, held against a workspace.
  *
- * 73bd9eb made the loaded lesson's first chapter the structure's resting
- * appearance, which is what was asked for, and paid for it twice:
+ * The loaded lesson's first chapter is the structure's resting appearance.
+ * Two ways of wiring that break a lesson page:
  *
- *   1. It widened the placed-phase condition with `|| data.customTour`, so a
- *      lesson with no experience started going through `workspace.runTour` —
- *      whose first act is `setMotion({ paused: true })`. Every lesson page then
- *      came up frozen, a reload of a saved scene whose motion was running
- *      included. A colour key is not a scene and has no business pausing one.
- *   2. It sent the resting state only from inside that block, so a later plain
- *      hydrate on the same structure sent nothing at all. The viewer drops a
- *      resting key only on a source change, so the previous lesson's key stayed
- *      installed and the next release repainted its parts underneath a session
- *      that had no lesson in it.
+ *   1. Widening the placed-phase condition with `|| data.customTour` sends a
+ *      lesson with no experience through `workspace.runTour`, whose first act
+ *      is `setMotion({ paused: true })`. Every lesson page then comes up
+ *      frozen, including a reload of a saved scene whose motion was running.
+ *      A colour key is not a scene and must not pause one.
+ *   2. Sending the resting state only from inside that block leaves a later
+ *      plain hydrate on the same structure sending nothing at all. The viewer
+ *      drops a resting key only on a source change, so the previous lesson's
+ *      key stays installed and the next release repaints its parts underneath
+ *      a session that has no lesson in it.
  *
- * `placeLessonScene` is the one decision both defects live in, and the fake
- * workspace below pauses motion inside `runTour` exactly as the real one does
- * (`lab/inspection/workspace.mjs`, `runTour`), so a
- * regression on either half shows up here as a real call rather than as text.
+ * `placeLessonScene` makes the one decision both cases depend on, and the
+ * fake workspace below pauses motion inside `runTour` exactly as the real one
+ * does (`lab/inspection/workspace.mjs`, `runTour`), so a regression on either
+ * shows up here as a real call rather than as text.
  */
 const record = () => {
   const calls: { name: string; arg: unknown }[] = [];
@@ -57,11 +57,12 @@ describe('what a hydrate puts on the structure', () => {
     const { workspace, names } = record();
     const tour = lessonTour();
     tour.steps[0].visibility = { op: 'only', chains: ['A'], classes: ['polymer'] };
-    workspace.rows = () => [
+    // Lesson visibility reads the workspace's detached identity snapshot,
+    // which lists the same chains as its rows.
+    workspace.rows = workspace.identityRows = () => [
       { key: 'a', entityType: 'polymer', identity: { labelChain: 'A', copyId: '1', modelNumber: 1 } },
       { key: 'b', entityType: 'polymer', identity: { labelChain: 'B', copyId: '1', modelNumber: 1 } },
     ];
-    workspace.identityRows = workspace.rows;
     const masks: unknown[] = [];
     workspace.viewer.inspection.setVisibility = async value => { masks.push(value); };
     await placeLessonScene(workspace, { tour, applyInitialVisibility: true });
@@ -86,8 +87,8 @@ describe('what a hydrate puts on the structure', () => {
     expect(names()).not.toContain('setMotion');
   });
 
-  it('carries the shipped telomerase lesson: ten named parts and its plates', async () => {
-    const demo = JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8'));
+  it('carries a ten-part plate lesson: ten named parts and its plates', async () => {
+    const demo = JSON.parse(readFileSync(new URL('./fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8'));
     const { calls, workspace, names } = record();
     await placeLessonScene(workspace, { tour: molecularLessonToTour(demo) });
 
@@ -216,9 +217,10 @@ describe('the menu column reaches the plate solver at runtime', () => {
     const layout = viewer.slice(viewer.indexOf('function componentLabelLayout('), viewer.indexOf('function ligandRows()'));
     expect(layout).toContain('immersiveSession?.menuPoints?.()');
     expect(layout).toContain('roomMatrix?.()');
-    // The caption card is glass too, so the plates keep off both.
+    // The caption card and the assistant line are glass too, so the plates
+    // keep off each of them.
     expect(layout).toContain('immersiveSession?.captionPoints?.()');
-    expect(layout).toContain('obstacles: menuGlassObstacles([toolbarRect, captionRect])');
+    expect(layout).toContain('obstacles: menuGlassObstacles([toolbarRect, ...captionRects])');
   });
 
   it('re-solves the plates once the menu has drawn, because the first pass runs before it exists', () => {
@@ -296,7 +298,9 @@ describe('plain lesson entry stays resting on the first hydrate', () => {
   it('marks the first successful hydrate so grown-tier continuation cannot autoplay it', () => {
     expect(inspector).toContain('const initialOpen=!completedHydration;');
     expect(inspector).toContain('completedHydration=true;');
-    expect(inspector).toContain('openGrownTier(grownLesson,priorLessonOnScreen,\n      options.autoplayContinuation ? options.autoplayContinuation() : priorAutoplay,initialOpen,options.continuationNarration)');
+    // Without a spoken continuation the grown tier takes the prior autoplay
+    // and the first-open mark; a continuation supplies its own and its narration.
+    expect(inspector).toMatch(/openGrownTier\(grownLesson,priorLessonOnScreen,\s*options\.autoplayContinuation \? options\.autoplayContinuation\(\) : priorAutoplay,initialOpen,options\.continuationNarration\)/);
   });
 });
 

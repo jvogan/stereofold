@@ -2,8 +2,8 @@
  * `update_inspection` with `placement {recenter:true}` is the
  * headset's own Reset, sent over the Wi-Fi share and confirmed like any edit.
  *
- * On 2026-09-28 an agent answering "I can't see it" had no such command and
- * reached the page's Reset only through Quest Browser's debugger over USB.
+ * Without this command, an agent answering "I can't see it" can reach the
+ * page's Reset only through Quest Browser's debugger over USB.
  * These tests hold the host half: the command reaches the headset panel as the
  * page's `recenter` change, the placement the page saves is accepted as the
  * answer while every other field must hold, and the two places it cannot work

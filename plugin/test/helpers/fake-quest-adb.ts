@@ -54,8 +54,21 @@ export type FakeHeadset = {
   browserPid?: string | null | RunResult;
   packages?: boolean | RunResult;
   intent?: RunResult;
+  /** What starting Quest Browser with no link answers. */
+  launcher?: RunResult;
+  /**
+   * What counting the debugger socket in `/proc/net/unix` prints, one answer
+   * for every read or one per read in order, the last repeating. An Error
+   * rejects that read. Left out, the read gets no answer.
+   */
+  socket?: string | RunResult | Error | Array<string | RunResult | Error>;
   forward?: RunResult;
 };
+
+/** Starting Quest Browser with no link, as the launch asks for it. */
+export const BROWSER_START = `shell am start -n ${QUEST_BROWSER_PACKAGE}/.OculusLauncherActivity`;
+/** Counting Quest Browser's debugger socket, as the launch asks for it. */
+export const SOCKET_COUNT = 'shell grep -cw @chrome_devtools_remote /proc/net/unix';
 
 const ok = (stdout: string): RunResult => ({ code: 0, stdout, stderr: '' });
 const answer = (value: string | RunResult) => typeof value === 'string' ? ok(value) : value;
@@ -69,6 +82,7 @@ export function fakeQuestAdb(headset: FakeHeadset = {}) {
   const calls: Array<{ command: string; args: string[] }> = [];
   const activities = Array.isArray(headset.activities) ? [...headset.activities] : [headset.activities ?? CLEAR_DUMP];
   const powers = Array.isArray(headset.power) ? [...headset.power] : [headset.power ?? powerDump()];
+  const sockets = headset.socket === undefined ? [] : Array.isArray(headset.socket) ? [...headset.socket] : [headset.socket];
   const run = async (command: string, args: readonly string[]): Promise<RunResult> => {
     calls.push({ command, args: [...args] });
     const asked = args[0] === '-s' ? args.slice(2) : [...args];
@@ -85,6 +99,12 @@ export function fakeQuestAdb(headset: FakeHeadset = {}) {
     if (said === `shell pm list packages ${QUEST_BROWSER_PACKAGE}`) {
       const installed = headset.packages ?? true;
       return typeof installed === 'boolean' ? ok(installed ? `package:${QUEST_BROWSER_PACKAGE}\n` : '') : installed;
+    }
+    if (said === BROWSER_START) return headset.launcher ?? ok(`Starting: Intent { cmp=${QUEST_BROWSER_PACKAGE}/.OculusLauncherActivity }`);
+    if (said === SOCKET_COUNT && sockets.length) {
+      const next = sockets.length > 1 ? sockets.shift()! : sockets[0]!;
+      if (next instanceof Error) throw next;
+      return answer(next);
     }
     if (said.startsWith('shell am start')) return headset.intent ?? ok('Starting: Intent { act=android.intent.action.VIEW }');
     if (asked[0] === 'forward') return headset.forward ?? ok('');

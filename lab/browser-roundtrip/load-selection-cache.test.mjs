@@ -26,3 +26,18 @@ test('repeated lesson targets resolve once per source and return independently e
   assert.throws(()=>h.spokenSelectionKeys({chain:'A',residues:[8,9]}),/Nothing at residues/);
   assert.equal(h.spokenSelectionKeys({}),undefined);
 });
+test('a lesson chain names its author chain when the label IDs are the author IDs shifted along',()=>{
+  // 8OUE's chains: author C is label A, author E is label C, author G is label E.
+  // NHP2 is author E 23-152; label E is dyskerin, author G 43-395.
+  const rows=[['C','A',[23,24]],['E','C',[23,24]],['G','E',[43,44]]].flatMap(([authorChain,labelChain,residues])=>
+    residues.map(authorResidue=>({key:`${authorChain}${authorResidue}`,identity:{authorChain,labelChain,authorResidue}})));
+  const h=vm.createContext({selection:{rows},spokenSelectionCache:undefined});
+  vm.runInContext(pageFunction(viewer,'spokenSelectionKeys'),h);
+  assert.deepEqual(Array.from(h.spokenSelectionKeys({chain:'E',residues:[23,152]})),['E23','E24']);
+  assert.deepEqual(Array.from(h.spokenSelectionKeys({chain:'C',residues:[23,421]})),['C23','C24']);
+  assert.deepEqual(Array.from(h.spokenSelectionKeys({chain:'G'})),['G43','G44']);
+  // A name that only a label chain carries still finds that chain.
+  assert.deepEqual(Array.from(h.spokenSelectionKeys({chain:'A'})),['C23','C24']);
+  // So does an author chain with nothing in the range a label chain covers.
+  assert.deepEqual(Array.from(h.spokenSelectionKeys({chain:'E',residues:[43,44]})),['G43','G44']);
+});

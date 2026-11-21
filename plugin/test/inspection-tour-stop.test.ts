@@ -189,10 +189,10 @@ it('a stop bound to words spoken before a source change is still refused', async
   } finally { await t.close(); }
 });
 
-// The device follow-up. The hemoglobin
-// lesson autoplayed a chapter every 17 s with `tourState.active:false`
-// throughout, and a `restore-start` bound to "Stop, go back to my view" was
-// refused 7.5 s after the words, one chapter later.
+// On a headset, the hemoglobin lesson autoplays a chapter every 17 s with
+// `tourState.active:false` throughout, so a `restore-start` bound to "Stop, go
+// back to my view" can arrive 7.5 s after the words, one chapter later. It
+// must still be accepted.
 it('a stop bound to words spoken two authored chapters ago is accepted', async () => {
   const t = await setup(); try {
     await t.journeyBeat(2);

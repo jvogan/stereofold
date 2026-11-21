@@ -18,7 +18,11 @@ const MAX_ACTIVE_REQUESTS = 8;
 const MAX_CONNECTIONS = 32;
 const PRIVATE_INSPECTION_META_KEY = 'stereo_structure/inspection';
 export const TOOLS = new Set(['get_inspection', 'get_inspection_bytes', 'sync_inspection', 'attach_inspection', 'poll_inspection', 'complete_inspection','report_source_failure', 'detach_inspection', 'undo_last_change', 'redo_last_change', 'push_to_talk', 'push_to_talk_audio', 'navigate_experience', 'acknowledge_experience_step', 'replace_inspection_source', 'grow_structure', 'voice_command', 'voice_acknowledgement', 'speak_to_headset', 'claim_voice_intent', 'acknowledge_voice_intent', 'acknowledge_voice_playback', 'open_detailed_view', 'return_detailed_view', 'poll_detailed_view', 'report_detailed_selection', 'submit_headset_view']);
-const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+// `script-src-attr 'none'` refuses inline event handler attributes while the
+// page's own inline scripts still run: Stereofold sets every handler from
+// script, and an `on...=` attribute in markup Mol* writes from a structure
+// file would otherwise run with the page key in reach.
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; script-src-attr 'none'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 /**
  * The stock Mol* viewer application ships an Emscripten module whose embind
  * glue names its exported functions with `new Function`, so the detailed page
@@ -420,7 +424,7 @@ export class InspectionCompanionHttp {
     try {
       if (this.#closed || !this.#sameOrigin(request)) { this.#send(response, 403, errorBody('forbidden')); return; }
       // The wearer's page, and the only route that admits a
-      // query — `?xrRenderBudget=` and nothing else. See `isPageRoute`.
+      // query — the page settings and nothing else. See `isPageRoute`.
       if (isPageRoute(request.url, '/') && request.method === 'GET') { this.#send(response, 200, this.#html!, 'text/html; charset=utf-8'); return; }
       if (request.url === '/xr-check' && request.method === 'GET') { this.#send(response, 200, XR_CHECK_HTML, 'text/html; charset=utf-8'); return; }
       // The detailed page and the library behind it carry no structure, so

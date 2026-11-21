@@ -10,9 +10,11 @@ const lesson = async (stage: string) => JSON.parse(await readFile(new URL(`../de
 const expand = (parts: any[]) => [...new Set(parts.flatMap(p => Array.from({ length: p.residues.to - p.residues.from + 1 }, (_, i) => p.residues.from + i)))].sort((a: any, b: any) => a - b);
 
 describe('measured microtubule contact faces', () => {
-  for (const [stage, faces, color] of [
-    ['monomer', ['monomer'], '#4a90e2'],
-    ['dimer', ['end', 'side-alpha', 'side-beta'], '#f5a623'],
+  // A patch takes the colour of the subunit it sits on: blue alpha, amber beta.
+  const colorOf = (chain: string) => chain === 'B' ? '#f5a623' : '#4a90e2';
+  for (const [stage, faces] of [
+    ['monomer', ['monomer']],
+    ['dimer', ['end', 'side-alpha', 'side-beta']],
   ] as const) {
     it(`${stage} paints exactly the measured contact residues on a solid neutral surface`, async () => {
       const manifest = await lesson(stage);
@@ -22,7 +24,7 @@ describe('measured microtubule contact faces', () => {
         const expected = fixture.faces[face];
         const parts = emphasis.parts.filter((p: any) => p.id.startsWith(`${face}-contact-`));
         expect(expand(parts), face).toEqual(expected.residues);
-        expect(parts.every((p: any) => p.chain === expected.chain && p.color === color)).toBe(true);
+        expect(parts.every((p: any) => p.chain === expected.chain && p.color === colorOf(expected.chain))).toBe(true);
       }
       expect(emphasis.parts.every((p: any) => faces.some(face => p.id.startsWith(`${face}-contact-`)))).toBe(true);
       expect(emphasis.contextOpacity).toBe(1);

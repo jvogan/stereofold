@@ -27,13 +27,18 @@ import { writeVerifiedCacheFile } from './verified-cache-write.js';
 import { addressedDemoPath, readAddressedDemoFile } from './addressed-demo-cache.js';
 import { demoCoordinatePath } from './molecular-growth.js';
 import { GROWTH_FETCH_TIMEOUT_MS } from './inspection-limits.js';
+import { fetchFollowingHttpsRedirects, readBoundedBody } from './bounded-download.js';
 // Types only: the demo index shapes live with the launcher that writes them.
 import type { DemoDerivation } from '../scripts/quest-demo.js';
 
 /** Long enough for a 20 MB assembly on a slow link, short enough to give up. */
 export { GROWTH_FETCH_TIMEOUT_MS };
-/** The largest tier download is the 26-operator assembly; this is well past it. */
-export const GROWTH_FETCH_MAX_CHARS = 64 * 1024 * 1024;
+/**
+ * The largest tier download is the 26-operator assembly (21,070,967 bytes);
+ * this is well past it. Counted in decoded bytes while the body streams, so a
+ * larger body is cancelled rather than held.
+ */
+export const GROWTH_FETCH_MAX_BYTES = 64 * 1024 * 1024;
 
 /** What the wearer hears while a tier downloads. Eight words, because it is spoken. */
 export const GROWTH_FETCH_SPOKEN = 'Fetching those coordinates now. Give me a moment.';
@@ -84,10 +89,10 @@ function coordinateOrigin(request: GrowthCoordinateRequest): string | undefined 
 
 async function boundedFetchText(url: string): Promise<string> {
   if (!url.startsWith('https://')) throw Error(`${url} is not an https download.`);
-  const response = await fetch(url, { signal: AbortSignal.timeout(GROWTH_FETCH_TIMEOUT_MS) });
-  if (!response.ok) throw Error(`it returned HTTP ${response.status}.`);
-  const text = await response.text();
-  if (!text || text.length > GROWTH_FETCH_MAX_CHARS) throw Error('it returned nothing usable.');
+  const response = await fetchFollowingHttpsRedirects(url, { signal: AbortSignal.timeout(GROWTH_FETCH_TIMEOUT_MS) });
+  if (!response.ok) { await response.body?.cancel(); throw Error(`it returned HTTP ${response.status}.`); }
+  const text = new TextDecoder().decode(await readBoundedBody(response, GROWTH_FETCH_MAX_BYTES));
+  if (!text) throw Error('it returned nothing usable.');
   return text;
 }
 

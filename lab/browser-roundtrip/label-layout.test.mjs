@@ -109,7 +109,7 @@ const CAMERA_SCALE = (2 * 1.5 * Math.tan((LABEL_CHARACTER_DEGREES.comfortable / 
 const SEAT_METERS = 1.5;
 
 test('a raised small subject leaves free lower glass for all ten plates', () => {
-  // Acceptance 3 #548/#574: this is the recorded silhouette after smaller.
+  // Recorded #548/#574: this is the silhouette after smaller.
   // Anchors at its upper edge start outside the readable field. There is
   // ample room below it; pulling failed escapes onto the edge is not a solve.
   const plates = TELOMERASE_PARTS.map((part, i) => ({ ...part,
@@ -346,8 +346,8 @@ test('both chapters read: above the gain that worked wide, no larger than the on
     sizeFactor: labelSizeFactor({ distanceMeters: SEAT_METERS, cameraScale: CAMERA_SCALE,
       characterDegrees: LABEL_CHARACTER_DEGREES.comfortable }) * gain,
     cameraScale: CAMERA_SCALE, distanceMeters: SEAT_METERS }).character;
-  const floor = degreesAt(COMPONENT_LABEL_GAIN.min);   // run 14: read wide, small close
-  const ceiling = degreesAt(COMPONENT_LABEL_GAIN.gain); // run 13: ideal close, stacked wide
+  const floor = degreesAt(COMPONENT_LABEL_GAIN.min);   // 1.3: reads wide, small up close
+  const ceiling = degreesAt(COMPONENT_LABEL_GAIN.gain); // 2.7: reads well close, stacks wide
 
   assert.equal(Math.round(floor * 100) / 100, 1.95);
   assert.equal(Math.round(ceiling * 100) / 100, 4.05);
@@ -845,7 +845,7 @@ test('all four rules hold at once at the seat the wearer gets', () => {
 });
 
 test('a blocked plate slides along the band rather than further out of it', () => {
-  // Holding every plate to its own spoke queues them: the third device run put
+  // Holding every plate to its own spoke queues them: one device run put
   // six of ten names in a column under the structure, each further out than
   // the last. The tangents of the spoke are what turn that queue into a ring.
   const { result } = restingSolve(1, { field: PLATE_FIELD, obstacles: [] });
@@ -867,7 +867,7 @@ test('a blocked plate slides along the band rather than further out of it', () =
       + Math.hypot(subject.halfWidth, subject.halfHeight).toFixed(2));
 });
 
-// The fifth device run's heap, as a number.
+// A heap of plates on a device run, as a number.
 //
 // That run reported `overlaps 0, offGlass 0, subject 0` and the capture showed
 // seven of ten names stacked under the structure on leaders running the height
@@ -894,7 +894,7 @@ test('the plates spread around the silhouette instead of queueing under it', () 
     `the plates queued on one side: ${JSON.stringify(spread)}`);
 
   // And they stay near the parts they name. Nine ems is about six characters
-  // short of the widest plate on the glass; the fifth device run's heap put
+  // short of the widest plate on the glass; that heap put
   // seven plates well past twice that.
   const mean = meanPlateLeaderEm(result.placements, sizing.characterUnits);
   assert.ok(mean < 9, `the mean leader ran ${mean.toFixed(2)} ems`);
@@ -927,7 +927,7 @@ test('a band slot is outside the silhouette by the plate\'s own size and gap', (
 
 test('the silhouette is the parts the wearer sees, not a square around them', () => {
   // A square around the bounding SPHERE is round where this complex is flat:
-  // on the first device run it claimed the whole upper field and threw every
+  // on a device run it claimed the whole upper field and threw every
   // plate off the display. The box around the projected part discs is what is
   // drawn, and for the telomerase lobe it is half as tall as it is wide.
   const { result } = restingSolve(1, { field: PLATE_FIELD });
@@ -1190,4 +1190,65 @@ test('a stand-off puts the plate on the pushed depth: offsets, extents and rects
   const travel = Math.hypot(place.rect.x - anchor[0] / 343, place.rect.y - anchor[1] / 343);
   const misread = Math.hypot(rects[index].rect.x - anchor[0] / 343, rects[index].rect.y - anchor[1] / 343);
   assert.ok(Math.abs(misread / travel - plateDrawDepth(anchor, 343, standoff) / 343) < 1e-9, `${misread / travel}`);
+});
+
+test('plates rest beside their own parts when the solver has each part\'s atoms', () => {
+  // Two long chains whose centres sit together in the middle, like the
+  // telomerase dyskerins, and a small cap above them. Each chain's disc is as
+  // wide as the chain is long, so the box of discs is four times the height
+  // of the atoms, and plates cleared of it rested far off every part.
+  const line = (x0, x1, y) => Array.from({ length: 41 }, (_, i) => [x0 + (x1 - x0) * i / 40, y, -1]);
+  const ring = (cx, cy, r) => Array.from({ length: 24 }, (_, i) =>
+    [cx + r * Math.cos(i * Math.PI / 12), cy + r * Math.sin(i * Math.PI / 12), -1]);
+  const parts = [
+    { id: 'chain-one', text: 'Chain 1', points: line(-0.4, 0, -0.05), anchor: [-0.2, -0.05, -1], radius: 0.2 },
+    { id: 'chain-two', text: 'Chain 2', points: line(0, 0.4, 0.05), anchor: [0.2, 0.05, -1], radius: 0.2 },
+    { id: 'cap', text: 'Cap', points: ring(0, 0.12, 0.03), anchor: [0, 0.12, -1], radius: 0.03 },
+  ];
+  const solve = withPoints => layoutComponentPlates({
+    plates: parts.map(({ points, ...part }) => (withPoints ? { ...part, points } : part)),
+    eye: [0, 0, 0], target: [0, 0, -1], characterUnits: 0.02, minSizeScale: 1, field: PLATE_FIELD,
+    subject: { anchor: [0, 0.05, -1], radius: 0.42, points: [] },
+  });
+  const gapInPlates = (placement, points) => Math.min(...points.map(([x, y]) =>
+    Math.hypot(Math.max(0, Math.abs(x - placement.rect.x) - placement.rect.halfWidth),
+      Math.max(0, Math.abs(y - placement.rect.y) - placement.rect.halfHeight)))) / (2 * placement.rect.halfHeight);
+  const solved = solve(true);
+  // The silhouette is the atoms' own box, not the discs'.
+  assert.ok(Math.abs(solved.subject.halfHeight - 0.1) < 1e-9, JSON.stringify(solved.subject));
+  assert.ok(Math.abs(solved.subject.y - 0.05) < 1e-9, JSON.stringify(solved.subject));
+  assert.equal(solved.overlaps, 0);
+  assert.equal(solved.subjectOverlaps, 0);
+  assert.equal(solved.offGlass, 0);
+  // Every plate touches the band beside its own part's atoms.
+  for (const part of parts) {
+    const gap = gapInPlates(solved.placements.find(p => p.id === part.id), part.points);
+    assert.ok(gap <= 1, `${part.id} rests ${gap.toFixed(2)} plate heights from its part`);
+  }
+  // Without the atoms the discs still bound each part, exactly as before.
+  const discs = solve(false);
+  assert.ok(Math.abs(discs.subject.halfHeight - 0.25) < 1e-9, JSON.stringify(discs.subject));
+  // How far the drawn part reaches past its atom centres widens the box to
+  // where a ball that size round each extreme atom reaches on the glass:
+  // that much further out, seen from that much nearer the eye.
+  const withPad = extra => layoutComponentPlates({
+    plates: parts.map(part => ({ ...part, pointRadius: 0.01, ...extra })),
+    eye: [0, 0, 0], target: [0, 0, -1], characterUnits: 0.02, minSizeScale: 1, field: PLATE_FIELD,
+    subject: { anchor: [0, 0.05, -1], radius: 0.42, points: [] },
+  });
+  const padded = withPad({});
+  const edges = box => ({ top: box.y + box.halfHeight, bottom: box.y - box.halfHeight,
+    right: box.x + box.halfWidth, left: box.x - box.halfWidth });
+  const reach = edges(padded.subject);
+  // Never short of the balls round the extreme atoms, and only a diagonal
+  // extreme's rim past them.
+  for (const [side, wanted, outward] of [['top', 0.16 / 0.99, 1], ['bottom', -0.06 / 0.99, -1],
+    ['right', 0.41 / 0.99, 1], ['left', -0.41 / 0.99, -1]]) {
+    const past = outward * (reach[side] - wanted);
+    assert.ok(past >= -1e-9 && past < 0.002, `${side} ${reach[side]} against ${wanted}`);
+  }
+  assert.equal(padded.subjectOverlaps, 0);
+  // A sample can miss the outermost atom, so a sampled part keeps its disc.
+  const sampled = withPad({ pointsSampled: true });
+  assert.ok(Math.abs(sampled.subject.halfHeight - 0.25) < 1e-9, JSON.stringify(sampled.subject));
 });

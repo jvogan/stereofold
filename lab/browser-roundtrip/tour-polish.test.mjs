@@ -9,6 +9,7 @@ import { journeyNavigationHarness, inspectorSource } from './fixtures/journey-na
 import { prepareRepresentationUploads } from './scene-transition.mjs';
 import { beginSceneTransition } from './xr-render-budget.mjs';
 import { spatialToolbarRows } from './spatial-toolbar-content.mjs';
+import { recordManipulation } from './xr-manipulate.mjs';
 
 test('the journey heartbeat uses production backoff and resumes immediately after a successful retry', async () => {
   let now = 0, calls = 0, retries = 0, offline = true;
@@ -167,7 +168,7 @@ test('chooser survives a minute, repeated hydration and default selection; Menu 
   const panel = createPanelTourController(lesson, experience);
   const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
   const begin = source.indexOf("        if (action.kind === 'collapse')"), end = source.indexOf('        // A spoken "next" or "back" with no lesson running starts', begin);
-  const dispatch = action => vm.runInNewContext(`(async()=>{${source.slice(begin, end)}})()`, { action, spatialTour: panel, talkCaption: undefined, recordManipulation() {} });
+  const dispatch = action => vm.runInNewContext(`(async()=>{${source.slice(begin, end)}})()`, { action, spatialTour: panel, recordManipulation, talkCaption: undefined });
   const actionErrors = [];
   const frame = toolbarFrameHarness({ ...runtime, createSpatialToolbar: options => runtime.createSpatialToolbar({
     ...options, onAction: dispatch, onActionError: error => actionErrors.push(error),

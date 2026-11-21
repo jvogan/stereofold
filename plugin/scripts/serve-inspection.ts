@@ -14,7 +14,10 @@ import {replyAudioFromEnv} from '../src/headset-voice-provider.js';
 import {standaloneAgentResponse} from '../src/standalone-agent-response.js';
 import {sceneCallTimeoutMs} from '../src/scene-service.js';
 import {closeChromeRendererTabs} from '../src/quest-launch.js';
-import {pttLaunchEnabled} from '../src/ptt-launch-options.js';
+import {headsetMicrophoneOffEnvironment,pttLaunchEnabled} from '../src/ptt-launch-options.js';
+import {watchHostLifeline} from '../src/host-lifeline.js';
+import {pageKeySource,reloadOnPageKeySource} from '../src/inspection-page-key.js';
+import {DESKTOP_PAGE_CSP} from '../src/inspector-panel-host.js';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 // --ptt is a mode, not a positional argument; strip it before the rest parses.
 const rawArgs=process.argv.slice(2);
@@ -54,7 +57,7 @@ const client=new Client({name:'Stereofold local desktop host',version:'1'});
 // with whisper-cpp on this Mac, so --ptt also turns the transcriber on and
 // carries its tool paths and delivery settings across the same filter.
 const voiceEnvironment=Object.fromEntries(['STEREOFOLD_WHISPER_BIN','STEREOFOLD_WHISPER_MODEL','STEREOFOLD_WHISPER_GPU','STEREOFOLD_FFMPEG_BIN',
-  'STEREOFOLD_PTT_TRANSCRIPTS','STEREOFOLD_PTT_TEXT_COMMAND','STEREOFOLD_BRIDGE_DIR',
+  'STEREOFOLD_PTT_TRANSCRIPTS','STEREOFOLD_PTT_DEBUG_TRANSCRIPTS','STEREOFOLD_PTT_TEXT_COMMAND','STEREOFOLD_BRIDGE_DIR',
   // The transcriber choice and the Apple Speech helper travel with the whisper
   // settings: selecting Apple on the launcher must reach the MCP child too.
   'STEREOFOLD_PTT_TRANSCRIBER','STEREOFOLD_APPLESPEECH_BIN',
@@ -109,6 +112,10 @@ const serverEnvironment={...getDefaultEnvironment(),...replyAudioEnvironment,...
   ...(pushToTalkEnabled?{STEREOFOLD_PTT_ENABLED:'1',STEREOFOLD_PTT_TRANSCRIBE:'1',...voiceEnvironment,
     ...(process.env.STEREOFOLD_PTT_DOWN?{STEREOFOLD_PTT_DOWN:process.env.STEREOFOLD_PTT_DOWN}:{}),
     ...(process.env.STEREOFOLD_PTT_UP?{STEREOFOLD_PTT_UP:process.env.STEREOFOLD_PTT_UP}:{})}:{STEREOFOLD_PTT_TRANSCRIBE:'0'}),
+  // Transcription off is also what no voice flag gives, and the Talk row still
+  // works then. An explicit --no-ptt says more: the person said no to the
+  // headset microphone, so the child refuses the Talk row too.
+  ...headsetMicrophoneOffEnvironment(rawArgs),
   ...(remembering?{}:{STEREOFOLD_LAN_REMEMBER:'0'})};
 const transport=new StdioClientTransport({command:process.execPath,args:[resolve(root,'dist/server.mjs')],cwd:root,stderr:'pipe',env:serverEnvironment});
 let clientConnected=false;
@@ -141,6 +148,16 @@ const raw=async(name:string,arguments_:any)=>{
   if(r.isError)throw Error(r.content?.filter((c:any)=>c.type==='text').map((c:any)=>c.text).join(' ')||'MCP request failed');
   return r;
 };
+// The panel reads a refusal from the tool result itself, as it does inside an
+// MCP Apps host, so its own sentence reaches it and its recovery can tell a
+// stale registration from a dropped host. Only a call that never reached a
+// handler (child gone, timeout) stays a failed request.
+const panelCall=async(name:string,arguments_:any)=>{
+  if(!clientConnected)throw childUnavailable();
+  return await client.callTool({name:`stereo_structure.${name}`,arguments:arguments_},undefined,
+    {timeout:sceneCallTimeoutMs(name,arguments_??{})});
+};
+const panelRefusal=(text:string)=>({content:[{type:'text',text}],isError:true});
 const page=`<!doctype html><html><head><meta charset="utf-8"><title>Stereofold · ${isPdb?source.toUpperCase():'Local structure'}</title></head><body style="margin:0;background:#071015;height:100vh;overflow:hidden"><div id="host-bar" style="display:flex;gap:10px;align-items:center;padding:6px 10px;font:13px/1.4 system-ui,sans-serif;color:#dceaf0;background:#0d1a21"><button id="host-detailed" type="button" style="font:inherit;padding:4px 10px;cursor:pointer">Detailed view</button><span id="host-status"></span></div><iframe title="Stereofold inspector" allow="xr-spatial-tracking" style="display:block;border:0;width:100%;height:calc(100% - 33px)"></iframe><script src="/host.js"></script><script src="/boot.js"></script></body></html>`;
 let token=randomBytes(32).toString('hex');let port=0;
 // The browser gets its own bearer so a recovered session's rotated agent
@@ -151,13 +168,13 @@ const browserToken=randomBytes(32).toString('hex');
 const SESSIONLESS_TOOLS=new Set(['prepare_composite','listen_voice','say_to_headset','continue_session']);
 // Chunked hydration is private renderer data. The authenticated panel needs
 // this route to finish loading; the model-facing agent route must not expose it.
-const panelOnly=new Set(['get_inspection_bytes']);
+const panelOnly=new Set(['get_inspection_bytes','submit_live_view']);
 // This list, not the MCP registration, is what a terminal host
 // can reach. A model-visible tool missing from here answers "Tool unavailable"
 // however plainly it is registered, and two were: the Claude Code kit promises
 // `read_headset_browser` over the debugging cable, and `grow_structure` is the
 // whole point of "grow it" on the one route that has no panel of its own.
-const permitted=new Set(['prepare_composite','install_lesson','measure','remove_measurement','get_inspection','resolve_scene_import','sync_inspection','attach_inspection','poll_inspection','complete_inspection','report_source_failure','detach_inspection','open_companion','open_detailed_view','import_detailed_view','get_inspection_state','get_readiness','update_inspection','focus_selection','emphasize','control_tour','manage_companion','navigate_experience','acknowledge_experience_step','replace_inspection_source','push_to_talk_audio','poll_voice_transcripts','voice_command','voice_acknowledgement','speak_to_headset','say_to_headset','listen_voice','claim_voice_intent','acknowledge_voice_intent','acknowledge_voice_playback','read_headset_log','recall_headset','capture_headset_view','read_headset_browser','grow_structure','continue_session','switch_assistant','undo_last_change','redo_last_change','manage_inspection_view']);
+const permitted=new Set(['prepare_composite','install_lesson','measure','remove_measurement','get_inspection','resolve_scene_import','sync_inspection','attach_inspection','poll_inspection','complete_inspection','report_source_failure','detach_inspection','open_companion','open_detailed_view','import_detailed_view','get_inspection_state','get_readiness','update_inspection','focus_selection','emphasize','control_tour','manage_companion','navigate_experience','acknowledge_experience_step','replace_inspection_source','push_to_talk_audio','poll_voice_transcripts','voice_command','voice_acknowledgement','speak_to_headset','say_to_headset','listen_voice','claim_voice_intent','acknowledge_voice_intent','acknowledge_voice_playback','read_headset_log','recall_headset','capture_headset_view','read_headset_browser','grow_structure','continue_session','switch_assistant','undo_last_change','redo_last_change','manage_inspection_view','show_live_view']);
 const expiredSessionMessage='Stereofold session was not found or has expired. Open a structure to create a new session and use its returned sessionId.';
 const isExpiredSessionError=(error:unknown)=>error instanceof Error&&error.message===expiredSessionMessage;
 if(assemblyId&&!lessonPath)throw Error('--assembly needs a lesson: the assembly is opened with the lesson that describes it.');
@@ -211,6 +228,10 @@ const ensureBootstrapSession=async()=>{
     await recoverExpiredSession(observedId);
   }
 };
+// A launcher that started this host in its own session holds stdin open while
+// it runs; if it dies without stopping this host, close rather than hold the
+// session and the private listener for nobody.
+watchHostLifeline(process.env,process.stdin,()=>void close());
 try{
   await client.connect(transport);clientConnected=true;
   opened=await openSource();
@@ -219,7 +240,13 @@ try{
   // The host page is built into dist beside the inspector, so this script
   // and the server's own `open_inspector` serve the same bytes.
   hostJs=await readFile(resolve(root,'dist/inspector-host.js'),'utf8');
-  bootstrap=`const bearer=location.hash.slice(1);window.__call=async p=>{if(!bearer)throw Error('Open the exact address printed by the local host, including the part after #.');const r=await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+bearer},body:JSON.stringify(p)});if(!r.ok)throw Error('Local host request failed');return r.json();};fetch('/bootstrap').then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Local host request failed');return d;}).then(d=>{if(!bearer)throw Error('Open the exact address printed by the local host, including the part after #.');return window.__host.mount(d.html,d.opened,{theme:'dark'});}).catch(e=>document.querySelector('#host-status').textContent=e.message);const detailed=document.querySelector('#host-detailed'),say=t=>{document.querySelector('#host-status').textContent=t;};detailed.addEventListener('click',async()=>{detailed.disabled=true;say('Opening the full Mol* viewer.');try{const state=await window.__call({name:'get_inspection_state',arguments:{}});const c=state.structuredContent;if(!c||!c.hasScene)throw Error('Save the inspection in the panel first, then open the detailed view.');const opened=await window.__call({name:'open_detailed_view',arguments:{serverEpoch:c.serverEpoch,sourceToken:c.sourceToken,baseStateRevision:c.stateRevision,baseInspectionRevision:c.inspectionRevision}});const view=opened.structuredContent&&opened.structuredContent.detailedView;if(!view||!view.url)throw Error('The detailed view did not open.');window.open(view.url,'_blank','noopener');say('Full Mol* viewer opened in a new tab.');}catch(e){say(e&&e.message?e.message:'The detailed view could not open.');}finally{detailed.disabled=false;}});`;
+  // The page moves its key from the fragment into this tab's session storage
+  // and out of the address and history before its first request, as the
+  // companion pages do; a reload finds it there, and a browser that refuses
+  // storage keeps the fragment. The key is also kept in its own history entry,
+  // so reloading this entry never picks up the key of a later host that the
+  // same tab opened on the same port.
+  bootstrap=`const bearer=${pageKeySource(true,true)}.key;${reloadOnPageKeySource('bearer')}window.__call=async p=>{if(!bearer)throw Error('Open the exact address printed by the local host, including the part after #.');const r=await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+bearer},body:JSON.stringify(p)});if(!r.ok)throw Error('Local host request failed ('+r.status+')');return r.json();};(async()=>{if(!bearer)throw Error('Open the exact address printed by the local host, including the part after #.');const r=await fetch('/bootstrap',{headers:{Authorization:'Bearer '+bearer}});const d=await r.json();if(!r.ok)throw Error(d.error||'Local host request failed');return window.__host.mount(d.html,d.opened,{theme:'dark'});})().catch(e=>document.querySelector('#host-status').textContent=e.message);const detailed=document.querySelector('#host-detailed'),say=t=>{document.querySelector('#host-status').textContent=t;};detailed.addEventListener('click',async()=>{detailed.disabled=true;say('Opening the full Mol* viewer.');try{const state=await window.__call({name:'get_inspection_state',arguments:{}});const c=state.structuredContent;if(!c||!c.hasScene)throw Error('Save the inspection in the panel first, then open the detailed view.');const opened=await window.__call({name:'open_detailed_view',arguments:{serverEpoch:c.serverEpoch,sourceToken:c.sourceToken,baseStateRevision:c.stateRevision,baseInspectionRevision:c.inspectionRevision}});const view=opened.structuredContent&&opened.structuredContent.detailedView;if(!view||!view.url)throw Error('The detailed view did not open.');window.open(view.url,'_blank','noopener');say('Full Mol* viewer opened in a new tab.');}catch(e){say(e&&e.message?e.message:'The detailed view could not open.');}finally{detailed.disabled=false;}});`;
   server=createServer(async(req,res)=>{
   // A client that aborts mid-request leaves a socket that cannot take another
   // response. Writing one anyway throws out of an unawaited handler promise
@@ -234,11 +261,17 @@ try{
   if(req.headers.host!==`127.0.0.1:${port}`||req.headers['sec-fetch-site']==='cross-site'||(req.headers.origin&&req.headers.origin!==origin)){send(403,{});return;}
   if(req.method==='GET'){
     const path=(req.url??'/').split('?')[0];
-    if(path==='/')send(200,page,'text/html');
+    if(path==='/'){res.setHeader('Content-Security-Policy',DESKTOP_PAGE_CSP);send(200,page,'text/html');}
     else if(path==='/alive')send(204,'','text/plain');
     else if(path==='/host.js')send(200,hostJs,'text/javascript');
     else if(path==='/boot.js')send(200,bootstrap,'text/javascript');
     else if(path==='/bootstrap'){
+      // The answer names the session and its source, and asking keeps the
+      // session alive or reopens an expired one, so it takes the panel's bearer
+      // before anything reaches the MCP child.
+      if(!hasLocalControlToken(req.headers.authorization,token)&&!hasLocalControlToken(req.headers.authorization,browserToken)){
+        send(401,{error:'This page key is not current. Open the exact address printed by the local host.'});return;
+      }
       try{await ensureBootstrapSession();send(200,{html,opened});}
       catch(error){send(409,{error:(error as Error).message});}
     }
@@ -260,9 +293,18 @@ try{
     if(!permitted.has(name)&&!(req.url==='/rpc'&&panelOnly.has(name)))throw Error('Tool unavailable');
     const args=input.arguments??{};if(args.sessionId&&args.sessionId!==sessionId)throw Error('Wrong session');
     // The voice tools take no sessionId at all (strict schemas), so the stamp stays off them.
-    const result=await raw(name,SESSIONLESS_TOOLS.has(name)?args:{...args,sessionId});
-    send(200,req.url==='/agent'?standaloneAgentResponse(name,result):result);
-  }catch(e){send(409,{error:(e as Error).message});}
+    const stamped=SESSIONLESS_TOOLS.has(name)?args:{...args,sessionId};
+    if(req.url==='/rpc'){
+      let result:any;
+      try{result=await panelCall(name,stamped);}catch(e){send(503,{error:(e as Error).message});return;}
+      send(200,result);return;
+    }
+    const result=await raw(name,stamped);
+    send(200,standaloneAgentResponse(name,result));
+  }catch(e){
+    if(req.url==='/rpc')send(200,panelRefusal((e as Error).message));
+    else send(409,{error:(e as Error).message});
+  }
   });
   server.requestTimeout=20000;server.headersTimeout=5000;
   await new Promise<void>((resolveListen,reject)=>{

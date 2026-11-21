@@ -99,6 +99,23 @@ export function foveationLevelFor(device) {
 }
 
 /**
+ * Whether the stock layer keeps the MSAA Mol* asks for on this device: true
+ * for every device outside the measured Quest classes that trade it for
+ * fixed foveation (`disableXrLayerMsaa`), and when the device cannot be read.
+ *
+ * @param {object} [scope] object carrying `navigator`; defaults to the global
+ * @param {XRSession} [session] session whose input-source profiles can identify a Quest
+ */
+export function keepsXrLayerMsaa(scope = globalThis, session = undefined) {
+  let device = 'unknown';
+  try {
+    const navigatorLike = scope?.navigator ?? (scope === globalThis ? globalThis.navigator : undefined);
+    device = deviceClass(navigatorLike, describeInputSources(session));
+  } catch { /* An unreadable browser/device description keeps native MSAA. */ }
+  return foveationLevelFor(device) === null;
+}
+
+/**
  * Turn on fixed foveation for one presenting session.
  *
  * Foveation is a property of the XR layer, not of render state, and Mol* owns
@@ -205,8 +222,8 @@ export function trackFoveation(session, options = {}) {
  * a reason fixed foveation is disabled. Quest Browser gives an
  * `antialias: true` layer 4x MSAA, and Mol* hard-codes that flag when its WebGL
  * XR manager builds the layer (`mol-gl/webgl/context.js`, `new XRWebGLLayer(...,
- * { antialias: true })`). The 12:06 Quest headset log read `Fov=0` while this
- * module was writing `fixedFoveation = 1`.
+ * { antialias: true })`). With that layer the Quest headset log reads `Fov=0`
+ * even while this module writes `fixedFoveation = 1`.
  *
  * Other browsers keep Mol*'s requested antialiasing. In particular, an Apple
  * Safari user agent does not identify a Vision Pro, so this stays conservative
@@ -228,12 +245,7 @@ export function trackFoveation(session, options = {}) {
 export function disableXrLayerMsaa(scope = globalThis, session = undefined) {
   const original = scope?.XRWebGLLayer;
   if (typeof original !== 'function' || original.__stereofoldNoMsaa) return () => {};
-  let device = 'unknown';
-  try {
-    const navigatorLike = scope?.navigator ?? (scope === globalThis ? globalThis.navigator : undefined);
-    device = deviceClass(navigatorLike, describeInputSources(session));
-  } catch { /* An unreadable browser/device description keeps native MSAA. */ }
-  if (foveationLevelFor(device) === null) return () => {};
+  if (keepsXrLayerMsaa(scope, session)) return () => {};
   function StereofoldXRWebGLLayer(session, gl, options) {
     return new original(session, gl, { ...(options ?? {}), antialias: false });
   }
@@ -405,8 +417,17 @@ export function entryFallbackCopy(mode) {
 
 // WebXR has no abort API for requestSession. A deadline can release our UI,
 // but must not allow another request while the native request is outstanding.
+//
+// `awaitsPrompt` says the page expects the browser to hold this request behind
+// a permission prompt of its own: the microphone prompt the same press opened,
+// or a headset-access permission that still reads `prompt`. Quest Browser can
+// show the microphone prompt first and queue the headset-access prompt behind
+// it, and a person reading two prompts can take longer than 20 s. Such a
+// request gets Safari's prompt deadline instead, for the same reason Safari
+// does; every other request keeps `timeoutMs` exactly.
 export function requestHeadsetSession(runtime, mode, { timeoutMs = HEADSET_ENTRY_DEADLINE_MS, onTimeout = () => {},
-  optionalFeatures = HEADSET_OPTIONAL_FEATURES } = {}) {
+  optionalFeatures = HEADSET_OPTIONAL_FEATURES, awaitsPrompt = false } = {}) {
+  if (awaitsPrompt === true) timeoutMs = Math.max(timeoutMs, APPLE_PROMPT_DEADLINE_MS);
   let expired = false, timer;
   // Keep the trusted entry call to the smallest native request that still
   // offers this device its optional input and space features. Nothing is

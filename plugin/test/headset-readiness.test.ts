@@ -32,7 +32,7 @@ describe('passive headset debugging readiness', () => {
   it('does not reconnect or change device settings during readiness', async () => {
     const run = vi.fn(async (_command: string, _args: readonly string[]) => ({ stdout: 'List of devices attached\n', stderr: '' }));
     const result = await readHeadsetDebugging({ env: { PATH: '/tools' },
-      config: { verifiedQuestAddress: '192.168.1.90:5555', verifiedQuestSerial: 'QUEST1' },
+      config: { verifiedQuestAddress: '192.168.77.90:5555', verifiedQuestSerial: 'QUEST1' },
       exists: async path => path === '/tools/adb', run });
     expect(result).toMatchObject({ checked: true, ok: false });
     expect(run.mock.calls).toHaveLength(1);

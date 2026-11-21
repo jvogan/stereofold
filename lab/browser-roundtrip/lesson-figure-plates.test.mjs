@@ -164,6 +164,87 @@ test('chapter visibility hides plates, static or attached, without a geometry re
   assert.deepEqual(h.figure.annotations().map(repr => repr.geometryVersion), geometry);
 });
 
+// The scene's hide never reaches a figure layer, so a chapter that shows only
+// the protein and draws a ligand as a layer still names that ligand. The
+// layer must be live, solid, and draw every atom the plate names as atoms.
+const hiddenPart = async t => {
+  const h = await plates(t);
+  h.viewer.visibilityState = {...emptyVisibility(), hiddenChains: [{labelChain: 'H1', copyId: 'one'}]};
+  const at = (chain, atomName) => ({ chain, residues: { from: 10, to: 10 }, ...(atomName ? { atomName } : {}) });
+  const whole = chain => ({ chain, residues: { from: 10, to: 12 } });
+  const layer = (target, extra = {}) => ({ id: 'ink', target, representation: 'ball-and-stick', color: '#fff1c9', opacity: 1, ...extra });
+  const figure = { labels: [name('Residue', 'H1'), { ...name('Atom', 'H1'), id: 'atom', target: at('H1', 'CA') }, name('Other', 'H2')],
+    distances: [{ id: 'span', a: at('H1', 'N'), b: at('H1', 'CA'), color: '#ffffff', sizeFactor: .6, showText: false }] };
+  const gates = async (authored, animation) => {
+    await h.figure.install(authored, { animation });
+    h.figure.applyVisibility();
+    return h.figure.annotations().map(repr => h.figure.plateGate(repr));
+  };
+  const layerDrawn = () => { const repr = h.figure.molecular()[0]; return Boolean(repr?.state.visible && repr.renderObjects.length); };
+  return { h, at, whole, layer, figure, gates, layerDrawn };
+};
+test('a plate over a part the scene hides stays only while a solid figure layer draws every atom it names', async t => {
+  const { h, at, whole, layer, figure, gates, layerDrawn } = await hiddenPart(t);
+  const shown = async (layers, extra = {}) => {
+    const all = await gates({ ...figure, layers, ...extra });
+    assert.equal(all.length, 4, 'three names and one measurement');
+    const [residue, atom, other, span] = all.map(gate => gate.rest);
+    return { residue, atom, other, span, layerDrawn: layerDrawn() };
+  };
+  const none = { residue: false, atom: false, other: true, span: false };
+  assert.deepEqual(await shown([]), { ...none, layerDrawn: false }, 'with no layer the hidden part has no name and no measurement');
+  assert.deepEqual(await shown([layer(whole('H1'))]), { residue: true, atom: true, other: true, span: true, layerDrawn: true },
+    'a solid layer over the hidden residues keeps their names and their measurement');
+  assert.deepEqual(await shown([layer({ ...whole('H1'), atomName: 'CA' })]), { ...none, atom: true, layerDrawn: true },
+    'a layer of alpha carbons draws neither the whole residue nor the nitrogen end of the measurement');
+  assert.deepEqual(await shown([layer(whole('H1'), { opacity: DEFAULT_CONTEXT_OPACITY / 2 })]), { ...none, layerDrawn: true },
+    'a layer fainter than the context is not a drawn part');
+  assert.deepEqual(await shown([layer(whole('H2'))]), { ...none, layerDrawn: true }, 'a layer on another part does not name the hidden one');
+  assert.deepEqual(await shown([layer(whole('H1'), { representation: 'cartoon' })]), { ...none, layerDrawn: true },
+    'a ribbon draws no atom');
+  assert.deepEqual(await shown([layer(at('H1', 'CA'), { representation: 'sticks' })]), { ...none, layerDrawn: false },
+    'a bond-only layer of one atom builds no geometry');
+  assert.deepEqual(await shown([layer(whole('H1'), { opacity: 0 }), layer(whole('H1'), { id: 'ghost', context: true, opacity: .2 })],
+    { representationOverride: 'spacefill' }), { ...none, layerDrawn: true }, 'a global style keeps the invisible part, not its discarded ghost');
+  // A layer whose cell is gone no longer vouches for anything.
+  assert.equal((await shown([layer(whole('H1'))])).residue, true);
+  const cell = [...h.plugin.state.data.cells.values()].find(cell => cell.obj?.data?.repr === h.figure.molecular()[0]);
+  await h.plugin.build().delete(cell.transform.ref).commit();
+  h.figure.applyVisibility();
+  assert.deepEqual(h.figure.annotations().map(repr => h.figure.plateGate(repr).rest), [false, false, true, false],
+    'a deleted layer names nothing');
+});
+
+test('a layer vouches for a scene-hidden part only when it shows whenever the plate does', async t => {
+  const { h, at, whole, layer, figure, gates } = await hiddenPart(t);
+  const state = async (authored, animation) => (await gates(authored, animation)).map(gate => [gate.shown, gate.rest]);
+  // H1 rides the track head1, shown at t=0: plate and layer share that body.
+  assert.deepEqual(await state({ ...figure, layers: [layer(whole('H1'))] }, sixBodyAnimation),
+    [[true, true], [true, true], [true, false], [true, true]], 'one body: named while its track shows (H2 starts hidden)');
+  // On the running clock the name and the layer show and hide together.
+  await h.registry.install(sixBodyAnimation); h.figure.animationInstalled();
+  const running = seconds => { h.registry.control({ state: 'pause', seekSeconds: seconds });
+    return [h.figure.annotations()[0].state.visible, h.figure.molecular()[0].state.visible]; };
+  assert.deepEqual(running(1), [true, true], 'while head1 shows, its layer and its name are drawn');
+  assert.deepEqual(running(2.5), [false, false], 'once head1 hides, both are gone');
+  await h.registry.install(undefined);
+  // A measurement from the hidden, layered H1 to H0 spans two bodies. No one
+  // track can hide it together with the layer, so the layer does not vouch.
+  const across = { ...figure, distances: [{ ...figure.distances[0], b: at('H0', 'CA') }] };
+  assert.deepEqual((await state({ ...across, layers: [layer(whole('H1'))] }, sixBodyAnimation))[3], [false, false],
+    'a measurement across two bodies is not kept by a layer on one of them');
+  assert.deepEqual((await state({ ...across, layers: [layer(whole('H1'))] }, undefined))[3], [true, true],
+    'with no animation the same measurement is kept');
+  // The layer's only moving atoms start hidden, so the layer is split from
+  // the still atoms these plates name.
+  const lateTail = { version: 1, durationSeconds: 6, playback: { autoplay: true, loop: true }, tracks: [{ id: 'tail', chains: ['H1'],
+    selector: { residues: [{ from: 11, to: 12 }] }, keyframes: sixBodyAnimation.tracks[0].keyframes,
+    visibility: [{ t: 0, visible: false }, { t: 2, visible: true }] }] };
+  assert.deepEqual((await state({ ...figure, layers: [layer(whole('H1'))] }, lateTail)).map(([shown]) => shown), [false, false, true, false],
+    'a layer partly on a track names nothing off that track');
+  assert.equal(h.figure.molecular()[0].state.visible, false, 'that layer starts hidden');
+});
+
 // The lesson's figure call can arrive while motion already runs. Its plates
 // must join their moving bodies at once, never stand at deposited copies.
 test('a figure set during running motion puts each plate on its posed, drawn copy', async t => {
@@ -310,10 +391,10 @@ test('body copies drop the static t=0 mask but keep the wearer\'s own hides and 
   assert.equal(unmaskTransparency(template, undefined, data), template);
 });
 
-// The static scene of every animated chapter of the three motion demos, with
+// The static scene of every animated chapter of the motion demos, with
 // no animation installed: each plate names a copy drawn at t=0, so each name
 // shows once, and figure layers of t=0-hidden copies stay hidden too.
-for (const demo of ['hemoglobin-switch', 'kinesin-walk', 'atp-synthase-rotor']) {
+for (const demo of ['hemoglobin-switch', 'kinesin-walk', 'atp-synthase-rotor', 'daraxonrasib-assembly']) {
   test(`${demo} motion: the static figure of an animated chapter draws only its t=0 copies`, { skip: !cache }, async () => {
     const lesson = JSON.parse(readFileSync(new URL(`../../plugin/demos/${demo}/motion.json`, import.meta.url), 'utf8'));
     const h = await motionFixture({ source: readCachedDemoCoordinates(demo, 'motion'), animation: null });

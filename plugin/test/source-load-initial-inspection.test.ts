@@ -15,6 +15,8 @@ import { lessonFigureSchema } from '../src/lesson-figure.js';
 import { createLessonFigure } from '../../lab/browser-roundtrip/lesson-figure.mjs';
 // @ts-ignore Production source-bound selection adapter.
 import { createSelectionAdapter } from '../../lab/browser-roundtrip/selection.mjs';
+// @ts-ignore The rewrite applied to structure text before Mol* parses it.
+import { escapeStructureMarkup } from '../../lab/browser-roundtrip/structure-markup.mjs';
 // @ts-ignore Shared appearance/visibility contracts.
 import { normalizeAppearance } from '../../lab/browser-roundtrip/inspection-state.mjs';
 // @ts-ignore Shared visibility resolver.
@@ -46,7 +48,7 @@ for (const initialized of [false, true]) it(`the candidate's first frames never 
       preserveRoomPlacement: true };
     const backgrounds: number[] = [], frames: number[] = [];
     const context = vm.createContext({ plugin, crypto: webcrypto, Task, ModelSymmetry, StateTransforms, StructureElement, hiddenRowKeys,
-      candidateRecords: new Set(), createSelectionAdapter, availableChains, emptyVisibility, normalizeVisibility, resolveVisibility,
+      candidateRecords: new Set(), createSelectionAdapter, escapeStructureMarkup, availableChains, emptyVisibility, normalizeVisibility, resolveVisibility,
       selectedKeys: (keys: string[]) => keys,
       now: () => performance.now(), state: {}, assertContext() {}, assertLoad() {}, recordCost() {},
       buildTransitionCell: (builder: any) => builder.commit(), commitRepresentationUpdate: (builder: any) => builder.commit(),

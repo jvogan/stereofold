@@ -5,6 +5,7 @@ import { ensureGrowthCoordinates, growthRecoveryCommand } from './growth-coordin
 import { readAddressedDemoFile } from './addressed-demo-cache.js';
 import { readBoundedJsonFile } from './inspection-scene-file.js';
 import { parseMolecularLesson } from './molecular-lesson.js';
+import { demoNameForMessage, resolveDemoName } from './demo-names.js';
 
 const demosRoot=dirname(DEMO_INDEX_PATH);
 const beneath=(root:string,path:string)=>{const rel=relative(root,path);return rel!=='' && rel!=='..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);};
@@ -18,13 +19,13 @@ export async function readBundledLesson(lessonPath:string) {
   return parseMolecularLesson(await readBoundedJsonFile(path));
 }
 
-/** Resolve only indexed artifacts; reuse growth's verified fetch/derivation policy. */
-export async function resolveBundledDemo(name:string,stageId?:string) {
-  const index=await readGrowthIndex(),demo=index.demos.find(entry=>entry.name===name);
-  if(!demo) throw Error(`Unknown bundled demo "${name}". Available: ${index.demos.map(entry=>entry.name).join(', ')}.`);
+/** Resolve only indexed artifacts; reuse growth's verified fetch/derivation policy.
+ * `asked` may be a plain name; `name` in the answer is the id it opened. */
+export async function resolveBundledDemo(asked:string,stageId?:string) {
+  const index=await readGrowthIndex(),{demo}=resolveDemoName(index.demos,asked),name=demo.name;
   const wanted=stageId??demo.defaultStage;
   const stage=wanted?demo.stages?.find(entry=>entry.id===wanted):undefined;
-  if(wanted && !stage) throw Error(`Unknown stage "${wanted}" for ${name}. Available: ${demo.stages?.map(entry=>entry.id).join(', ')||'no stages'}.`);
+  if(wanted && !stage) throw Error(`Unknown stage "${demoNameForMessage(wanted)}" for ${name}. Available: ${demo.stages?.map(entry=>entry.id).join(', ')||'no stages'}.`);
   const entry=stage??demo,coordinates=entry.coordinates,volume=coordinates.volume;
   const lessonStarted=Date.now();
   const manifest=await readBundledLesson(entry.lesson);
@@ -37,6 +38,6 @@ export async function resolveBundledDemo(name:string,stageId?:string) {
   // Prepared density maps are never generated inside a live session.
   const density=volume?await readAddressedDemoFile(demoCoordinatePath,coordinates.file,coordinates.sha256):undefined;
   if(volume && !density) throw Error(`The prepared density map is not cached. Run ${growthRecoveryCommand(name,stage!.id)} on this Mac, then load the demo.`);
-  return {name,stage:stage?.id,entry,manifest,structure,source:{kind:'file' as const,path:ensured.path},
+  return {name,asked,title:demo.title,stage:stage?.id,stageTitle:stage?.title,entry,manifest,structure,source:{kind:'file' as const,path:ensured.path},
     ...(density?{densityPath:density.path}:{}),fetchedAt:ensured.fetchedAt,loadTimings:{lessonParseMs,coordinateVerificationMs:Date.now()-coordinatesStarted}};
 }

@@ -213,7 +213,7 @@ test('throwing auxiliary frames are contained, reported once, and remaining hand
 
 const exitRecording = JSON.parse(readFileSync(new URL('./fixtures/exit-acceptance-6.json', import.meta.url)));
 for (const [index, path] of ['menu Exit', 'Mol* navigation', 'page hide', 'driver exit'].entries()) {
-  test(`acceptance 6 ${path}: a resolved native end precedes its event without a second end call`, async () => {
+  test(`recorded exit ${path}: a resolved native end precedes its event without a second end call`, async () => {
     const probe = Object.values(exitRecording.exits)[index].sessions.at(-1);
     assert.equal(probe.endCalls, 2); assert.equal(probe.endError, 'InvalidStateError');
     let endCalls = 0;
@@ -236,7 +236,7 @@ for (const [index, path] of ['menu Exit', 'Mol* navigation', 'page hide', 'drive
 }
 
 for (const recordingPath of ['seq2-reentry/ring-entryB-a.json', 'seq5-voice/08-open-molstar-drain-1.json']) {
-test(`acceptance 6 cold desktop rebuild settles on both exits of one page (${recordingPath})`, async () => {
+test(`recorded cold desktop rebuild settles on both exits of one page (${recordingPath})`, async () => {
   const clock = virtualClock();
   const cold = exitRecording.rebuilds[recordingPath];
   assert.equal(cold[1].detail.cleanupNotes[0].resource, 'leaving-presentation');
@@ -272,12 +272,14 @@ test(`acceptance 6 cold desktop rebuild settles on both exits of one page (${rec
 
 for (const mode of ['immersive-ar','immersive-vr']) test(`${mode} rejected invisible-page entry retires requesting phase while retaining its actual failure`,async()=>{
   const {requestHeadsetSession}=await import('./xr-session-request.mjs');
+  // The entry adds the layers feature only when its page switch is on.
+  const {withXrLayersFeature}=await import('./xr-layers.mjs');
   let rejectRequest;const failure=Error('The page is not visible');
   const runtime={requestSession:()=>new Promise((_resolve,reject)=>{rejectRequest=reject;})};
   const c=vm.createContext({MODES:new Map([[mode,mode]]),disposed:false,reloadRequired:false,active:undefined,entering:undefined,ending:undefined,
     startupPhase:'idle',requestedMode:null,frameCount:0,viewCount:0,blendMode:null,errorName:null,gestureActive:null,
     navigator:{userActivation:{isActive:true}},isReady:()=>true,supportedRuntime:()=>runtime,
-    requestHeadsetSession,headsetOptionalFeatures:()=>[],headsetEntryDeadlineMs:()=>1000,
+    requestHeadsetSession,withXrLayersFeature,headsetOptionalFeatures:()=>[],headsetEntryDeadlineMs:()=>1000,
     xrError:message=>Error(message)});
   vm.runInContext(functionSource('enter','  '),c);
   const entry=c.enter(mode),rejection=assert.rejects(entry,error=>error===failure);
@@ -286,4 +288,28 @@ for (const mode of ['immersive-ar','immersive-vr']) test(`${mode} rejected invis
   assert.equal(c.startupPhase,'idle','a rejected request is no longer an unanswered Allow prompt');
   assert.equal(c.entering,undefined);assert.equal(c.active,undefined);assert.equal(c.errorName,'Error');
   assert.equal(c.reloadRequired,false,'an ordinary native visibility rejection remains retryable');
+});
+
+test('entry refused while the scene is changing is marked not ready and asks the browser for nothing', async () => {
+  const { requestHeadsetSession } = await import('./xr-session-request.mjs');
+  const { withXrLayersFeature } = await import('./xr-layers.mjs');
+  let requests = 0;
+  const runtime = { requestSession: () => { requests++; return new Promise(() => {}); } };
+  const c = vm.createContext({ MODES: new Map([['immersive-ar', 'immersive-ar']]), disposed: false, reloadRequired: false, active: undefined, entering: undefined, ending: undefined,
+    startupPhase: 'idle', requestedMode: null, frameCount: 0, viewCount: 0, blendMode: null, errorName: null, gestureActive: null,
+    navigator: { userActivation: { isActive: true } }, isReady: () => false, supportedRuntime: () => runtime,
+    requestHeadsetSession, withXrLayersFeature, headsetOptionalFeatures: () => [], headsetEntryDeadlineMs: () => 1000,
+    xrError: message => Object.assign(Error(message), { code: 'xr_unavailable' }) });
+  vm.runInContext(functionSource('enter', '  '), c);
+  // The page waits on this mark, and only this one, for the scene to settle.
+  await assert.rejects(c.enter('immersive-ar'), error => error.notReady === true && error.code === 'xr_unavailable'
+    && error.message === 'Load a ready structure before entering immersion.');
+  assert.equal(requests, 0);
+  assert.equal(c.startupPhase, 'idle'); assert.equal(c.entering, undefined); assert.equal(c.reloadRequired, false);
+  // Every other refusal before the request stays unmarked.
+  c.isReady = () => true; c.reloadRequired = true;
+  await assert.rejects(c.enter('immersive-ar'), error => error.notReady === undefined);
+  c.reloadRequired = false; c.disposed = true;
+  await assert.rejects(c.enter('immersive-ar'), error => error.notReady === undefined);
+  assert.equal(requests, 0);
 });

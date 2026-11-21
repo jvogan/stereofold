@@ -78,7 +78,7 @@ describe('an empty press', () => {
     await audio.start();
     recorder().emit(new Uint8Array([1, 2, 3]));
     await audio.stop();
-    expect(seen.at(-1)).toMatchObject({ state: 'heard', text: '', message: 'Hold the grip while you speak.' });
+    expect(seen.at(-1)).toMatchObject({ state: 'heard', text: '', message: 'Hold the button while you speak.' });
   });
 
   it('still reports silence for a press long enough to hold a sentence', async () => {

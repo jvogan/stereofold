@@ -9,6 +9,7 @@ import vm from 'node:vm';
 import { createRoomSeatMemory, initialRoomCameraScale } from './room-seat-memory.mjs';
 import { emptyVisibility, normalizeVisibility } from './inspection-visibility.mjs';
 import { createGesturePivot } from './gesture-pivot.mjs';
+import { noteAtomSphereMeshes } from './component-label-measurement.mjs';
 const require = createRequire(new URL('../../plugin/package.json', import.meta.url));
 const { Camera } = require('molstar/lib/commonjs/mol-canvas3d/camera.js');
 const { TrackballControls } = require('molstar/lib/commonjs/mol-canvas3d/controls/trackball.js');
@@ -28,7 +29,7 @@ for (const immersive of [false, true]) {
     const livePlacement = { scale: 2 }, savedPlacement = { scale: 1 };
     const liveCamera = { position: [0, 0, 12] }, savedCamera = { position: [5, 0, 7] };
     let placement = livePlacement, camera = liveCamera, fitted = 0;
-    const context = vm.createContext({ ...emptyLessonFigureBinding(), companionRecord:undefined, retiredComparisons:new Set(),
+    const context = vm.createContext({ ...emptyLessonFigureBinding(), companionRecord:undefined, retiredComparisons:new Set(), noteAtomSphereMeshes,
       gesturePivot: createGesturePivot(), focusPivotRequest: undefined,
     restoreCompanion:async value=>{ if(value!==undefined) throw Error('This primary-only fixture does not carry a comparison.'); },
     paintCompanion:async()=>{},
@@ -69,7 +70,7 @@ test('flat preview fits committed scientific render bounds and excludes UI and i
   const selector = renderObjects => ({ obj: { data: { repr: { renderObjects } } } });
   const camera = new Camera(undefined, { x: 0, y: 0, width: 900, height: 600 });
   let commits = 0;
-  const context = vm.createContext({ ...emptyLessonFigureBinding(), companionRecord:undefined, retiredComparisons:new Set(),
+  const context = vm.createContext({ ...emptyLessonFigureBinding(), companionRecord:undefined, retiredComparisons:new Set(), noteAtomSphereMeshes,
     restoreCompanion:async value=>{ if(value!==undefined) throw Error('This primary-only fixture does not carry a comparison.'); },
     paintCompanion:async()=>{}, styleLayers: [], enableXr: true, BoundaryHelper,
     representation: selector([primary, object([10000, 0, 0], 1000, false), object([0, 10000, 0], 1000, true, 0)]),
@@ -177,7 +178,7 @@ for (const automatic of [true, false]) {
 }
 
 for (const path of ['exit', 'saved scene restore']) {
-  test(`acceptance 6 ${path} fits the measured molecular envelope and retains the next XR camera`, async () => {
+  test(`recorded exit ${path} fits the measured molecular envelope and retains the next XR camera`, async () => {
     // The recorded anchors are centres/radii in the measured eye basis. Undo
     // tangent projection to retain every component sphere, without inventing
     // replacement layout inputs or including plate extents in the molecule.
@@ -194,7 +195,7 @@ for (const path of ['exit', 'saved scene restore']) {
     const canvas = { camera, xr: { isPresenting: { value: false } }, commit() {}, requestDraw() {} };
     let restoredPlacement = placement, payload;
     const inspectionState = { replace(value) { restoredPlacement = value.placement; }, setPayload(value) { payload = value; } };
-    const context = vm.createContext({ ...emptyLessonFigureBinding(), companionRecord:undefined, retiredComparisons:new Set(),
+    const context = vm.createContext({ ...emptyLessonFigureBinding(), companionRecord:undefined, retiredComparisons:new Set(), noteAtomSphereMeshes,
       gesturePivot: createGesturePivot(), focusPivotRequest: undefined,
     restoreCompanion:async value=>{ if(value!==undefined) throw Error('This primary-only fixture does not carry a comparison.'); },
     paintCompanion:async()=>{}, styleLayers: [], enableXr: true, canvas, inspectionState, representation: { obj: {} },
@@ -212,6 +213,7 @@ for (const path of ['exit', 'saved scene restore']) {
       roomCameraInitialized: true, liveScene: () => ({}), inspectionSnapshot: () => ({ placement }) });
     // Exercise the production exit callback, not just camera arithmetic.
     context.canRebuildForXr = () => false;
+    context.busy = false;
     context.applyInspectionAppearance = async () => {};
     context.releaseFigurePlates = () => {};
     vm.runInContext(`'use strict';${source.includes('function fitDesktopPreview(') ? fn('fitDesktopPreview') : ''}

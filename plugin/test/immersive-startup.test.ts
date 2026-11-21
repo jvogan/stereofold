@@ -2,12 +2,15 @@ import {afterEach,expect,it,vi} from 'vitest';
 
 import {build} from 'esbuild';
 import {fileURLToPath} from 'node:url';
+// @ts-ignore Shared browser helper; the list the session asks for.
+import {HEADSET_OPTIONAL_FEATURES,APPLE_PROMPT_DEADLINE_MS} from '../../lab/browser-roundtrip/xr-session-request.mjs';
 
 // Bundle the production orchestration with GPU-only helpers replaced. This
 // runs the real session lifecycle without importing a browser renderer in Node.
 async function startupRuntime(){
   const built=await build({stdin:{contents:`export {createImmersiveSession} from './immersive-session.mjs';
-    export {primePushToTalkMicrophone,pushToTalkMicrophoneState} from './push-to-talk-audio.mjs';`,
+    export {primePushToTalkMicrophone,pushToTalkMicrophoneState} from './push-to-talk-audio.mjs';
+    export {getXrLayerStack} from './xr-layers.mjs';`,
     resolveDir:fileURLToPath(new URL('../../lab/browser-roundtrip/',import.meta.url))},
     bundle:true,write:false,format:'esm',platform:'node',plugins:[{name:'headset-frame-fixture',setup(api){
       api.onResolve({filter:/^molstar\//},args=>({path:args.path,namespace:'gpu-stub'}));
@@ -54,12 +57,79 @@ it('settles hung entry and refuses a second native request until reload',async()
   const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
   const entry=viewer.enter('immersive-ar');
   const rejected=expect(entry).rejects.toMatchObject({code:'xr_request_timeout'});
-  expect(viewer.startup()).toMatchObject({phase:'requesting-headset',pending:true,reloadRequired:false,gestureActive:true});
   await vi.advanceTimersByTimeAsync(20_000);await rejected;
-  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true,gestureActive:true});
+  // The timed-out request owns no session or prompt, so the phase is idle
+  // rather than a stale wait for Allow; the error and reload outcome stay.
+  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true,gestureActive:true,errorName:'Error'});
   await expect(viewer.enter('immersive-vr')).rejects.toThrow('Reload');
   expect(requestSession).toHaveBeenCalledOnce();
   await viewer.end();
+});
+
+// A press whose microphone prompt or headset-access prompt the browser is
+// holding the request behind asks for the long deadline.
+function promptRuntime(){
+  let grant:(session:unknown)=>void=()=>{};
+  const session=Object.assign(new EventTarget(),{environmentBlendMode:'opaque',
+    requestReferenceSpace:vi.fn(()=>new Promise(()=>{})),end:vi.fn(async()=>{})});
+  const requestSession=vi.fn(()=>new Promise(resolve=>{grant=resolve;}));
+  vi.stubGlobal('isSecureContext',true);
+  vi.stubGlobal('navigator',{xr:{requestSession},userActivation:{isActive:true}});
+  return{session,requestSession,grant:()=>grant(session)};
+}
+
+it('a request held behind a browser prompt outlasts 20 s and keeps the session granted after 30 s',async()=>{
+  const {createImmersiveSession}=await startupRuntime();
+  vi.useFakeTimers();
+  const native=promptRuntime();
+  const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
+  const entry=viewer.enter('immersive-ar',{awaitsPrompt:true});
+  // The tracking-space stall below is bounded separately; it ends this test.
+  const settled=expect(entry).rejects.toMatchObject({code:'xr_startup_timeout'});
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(viewer.startup()).toMatchObject({phase:'requesting-headset',pending:true,reloadRequired:false});
+  native.grant();await vi.advanceTimersByTimeAsync(0);
+  // The grant is this press's own: kept, and startup moves on with it.
+  expect(native.session.end).not.toHaveBeenCalled();
+  expect(native.session.requestReferenceSpace).toHaveBeenCalledOnce();
+  expect(viewer.startup()).toMatchObject({phase:'locating-headset',reloadRequired:false});
+  await vi.advanceTimersByTimeAsync(10_000);await settled;
+  expect(native.requestSession).toHaveBeenCalledOnce();
+  await viewer.dispose();
+});
+
+it('a prompt nobody answers ends at the long bound and needs a reload, as the 20 s deadline did',async()=>{
+  const {createImmersiveSession}=await startupRuntime();
+  vi.useFakeTimers();
+  const native=promptRuntime();
+  const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
+  const entry=viewer.enter('immersive-ar',{awaitsPrompt:true});
+  const rejected=expect(entry).rejects.toMatchObject({code:'xr_request_timeout'});
+  await vi.advanceTimersByTimeAsync(APPLE_PROMPT_DEADLINE_MS-1);
+  expect(viewer.startup()).toMatchObject({phase:'requesting-headset',reloadRequired:false});
+  await vi.advanceTimersByTimeAsync(1);await rejected;
+  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true});
+  await expect(viewer.enter('immersive-vr',{awaitsPrompt:true})).rejects.toThrow('Reload');
+  // A grant after the bound is closed at once.
+  native.grant();await vi.advanceTimersByTimeAsync(0);
+  expect(native.session.end).toHaveBeenCalledOnce();expect(native.requestSession).toHaveBeenCalledOnce();
+  await viewer.end();
+});
+
+it('a request that expects no prompt keeps the 20 s deadline to the millisecond',async()=>{
+  const {createImmersiveSession}=await startupRuntime();
+  for(const options of [[],[{awaitsPrompt:false}],[{}]]) {
+    vi.useFakeTimers();
+    promptRuntime();
+    const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
+    const entry=(viewer.enter as (...args:unknown[])=>Promise<unknown>)('immersive-ar',...options);
+    const rejected=expect(entry).rejects.toMatchObject({code:'xr_request_timeout'});
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(viewer.startup()).toMatchObject({phase:'requesting-headset',reloadRequired:false});
+    await vi.advanceTimersByTimeAsync(1);await rejected;
+    expect(viewer.startup()).toMatchObject({phase:'idle',reloadRequired:true});
+    await viewer.end();vi.useRealTimers();vi.unstubAllGlobals();
+  }
 });
 
 it('bounds a post-grant tracking-space stall and closes the accepted session',async()=>{
@@ -76,12 +146,11 @@ it('bounds a post-grant tracking-space stall and closes the accepted session',as
   const viewer=createImmersiveSession({plugin:{},canvas:{},Mat4:{},isReady:()=>true});
   const entry=viewer.enter('immersive-ar');
   const rejected=expect(entry).rejects.toMatchObject({code:'xr_startup_timeout'});
-  await vi.advanceTimersByTimeAsync(0);
-  expect(viewer.startup()).toMatchObject({phase:'locating-headset',pending:true,reloadRequired:false});
   await vi.advanceTimersByTimeAsync(10_000);
   await rejected;
   expect(session.end).toHaveBeenCalledOnce();
-  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true});
+  // The closed session leaves no stale locating phase; the error and reload outcome stay.
+  expect(viewer.startup()).toMatchObject({phase:'idle',pending:false,reloadRequired:true,errorName:'Error'});
   await viewer.dispose();
 });
 
@@ -111,6 +180,81 @@ it('renders immersive frames before waiting for the spatial menu',async()=>{
   expect(canvas.animate).toHaveBeenCalledOnce();
   expect(viewer.startup()).toMatchObject({phase:'active',pending:false,reloadRequired:false,mode:'immersive-ar'});
   await viewer.end();
+});
+
+it('puts the molecule in a projection layer only behind xrLayers=1, and leaves nothing behind on exit',async()=>{
+  const {createImmersiveSession,getXrLayerStack}=await startupRuntime();
+  class StockLayer{constructor(public session:any,public gl:any,public options:any){}}
+  const inits:any[]=[];
+  class Binding{
+    constructor(public session:any,public gl:any){}
+    createProjectionLayer(init:any){inits.push(init);
+      return {layout:'stereo-left-right',textureWidth:1600,textureHeight:800,fixedFoveation:0,destroyed:false,destroy(){this.destroyed=true;}};}
+    getViewSubImage(){throw Error('This lifecycle check runs no frames.');}
+  }
+  const gl={createFramebuffer:vi.fn()};
+  const enterAndLeave=async(search:string,userAgent?:string)=>{
+    vi.stubGlobal('location',{search});vi.stubGlobal('XRWebGLLayer',StockLayer);vi.stubGlobal('XRWebGLBinding',Binding);
+    const update=vi.fn();
+    const session=Object.assign(new EventTarget(),{enabledFeatures:['viewer','local','layers'],
+      requestReferenceSpace:async()=>({}),requestAnimationFrame:vi.fn(),updateRenderState:update,end:vi.fn(async()=>{})});
+    const presenting={value:false,subscribe:vi.fn()};
+    // Mol*'s `webgl.xr.set`: build the layer through the global, then hand it over.
+    const xr:any={session:undefined,layer:undefined,
+      async set(value:any,options:any){this.session=value;
+        this.layer=new (globalThis as any).XRWebGLLayer(value,gl,{antialias:true,alpha:true,depth:true,framebufferScaleFactor:options?.resolutionScale??1});
+        await value.updateRenderState({baseLayer:this.layer});presenting.value=true;},
+      async end(){await this.session?.end();this.session=undefined;presenting.value=false;},
+    };
+    const canvas={drawing:false,webgl:{xr},xr:{isPresenting:presenting},
+      animate:vi.fn(()=>{canvas.drawing=true;}),pause:vi.fn(),requestDraw:vi.fn(),requestResize:vi.fn()};
+    const plugin={canvas3d:canvas,animationLoop:{stop:vi.fn(),start:vi.fn()},
+      canvas3dContext:{passes:{draw:{drawTarget:{framebuffer:{}},
+        depthTextureOpaque:{attachFramebuffer:vi.fn(),detachFramebuffer:vi.fn()}}}}};
+    const requestSession=vi.fn(async()=>session);
+    vi.stubGlobal('isSecureContext',true);vi.stubGlobal('navigator',{xr:{requestSession},...(userAgent?{userAgent}:{})});
+    const viewer=createImmersiveSession({plugin,canvas,Mat4:{},isReady:()=>true});
+    await viewer.enter('immersive-ar');
+    const during={features:(requestSession.mock.calls[0] as any[])[1].optionalFeatures,layer:xr.layer,
+      update:update.mock.calls[0]?.[0],stack:getXrLayerStack(session)};
+    await viewer.end();
+    const after={stack:getXrLayerStack(session),renderState:Object.getOwnPropertyDescriptor(session,'renderState'),
+      constructor:(globalThis as any).XRWebGLLayer,
+      wrappers:['updateRenderState','requestAnimationFrame'].map(key=>(session as any)[key])};
+    return {during,after,update};
+  };
+
+  const off=await enterAndLeave('');
+  expect(off.during.features).toEqual([...HEADSET_OPTIONAL_FEATURES]);
+  expect(off.during.layer).toBeInstanceOf(StockLayer);
+  expect(off.during.update).toEqual({baseLayer:off.during.layer});
+  expect(off.during.stack).toBeNull();
+  expect(inits).toEqual([]);
+  expect(off.after.constructor).toBe(StockLayer);
+
+  // The switch takes effect only on the measured Quest classes, whose stock
+  // layer gives up MSAA as the projection layer does.
+  const quest2='Mozilla/5.0 (X11; Linux x86_64; Quest 2) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/41.0 Chrome/138.0 Mobile VR Safari/537.36';
+  const elsewhere=await enterAndLeave('?xrLayers=1');
+  expect(elsewhere.during.layer).toBeInstanceOf(StockLayer);
+  expect(elsewhere.during.layer.options.antialias).toBe(true);
+  expect(elsewhere.during.update).toEqual({baseLayer:elsewhere.during.layer});
+  expect(elsewhere.during.stack).toBeNull();
+  expect(inits).toEqual([]);
+  expect(elsewhere.after.constructor).toBe(StockLayer);
+
+  const on=await enterAndLeave('?xrLayers=1',quest2);
+  expect(on.during.features).toEqual([...HEADSET_OPTIONAL_FEATURES,'layers']);
+  expect(on.during.layer).not.toBeInstanceOf(StockLayer);
+  expect(inits).toHaveLength(1);
+  expect(inits[0]).toMatchObject({textureType:'texture',colorFormat:0x1908,depthFormat:0});
+  expect(on.during.stack.projectionLayer).toBe(on.during.layer.projectionLayer);
+  expect(on.during.update).toEqual({layers:[on.during.layer.projectionLayer]});
+  expect(on.after.stack).toBeNull();
+  expect(on.after.renderState).toBeUndefined();
+  expect(on.after.constructor).toBe(StockLayer);
+  expect(on.after.wrappers).toEqual([on.update,expect.any(Function)]);
+  expect(on.during.layer.projectionLayer.destroyed).toBe(true);
 });
 
 it('tells the menu to forget its held press when the session goes blind',async()=>{
@@ -667,7 +811,7 @@ for (const exit of ['page', 'native'] as const) {
 }
 
 for (const exitPath of ['menu Exit', 'Mol* navigation', 'page hide', 'driver exit', 'stock Mol* exit']) {
-  it(`acceptance 6 ${exitPath} closes native once on each of two visits and completes the cold rebuild`, async () => {
+  it(`recorded exit ${exitPath} closes native once on each of two visits and completes the cold rebuild`, async () => {
     const {readFileSync} = await import('node:fs');
     const {runInNewContext} = await import('node:vm');
     const {diagnosticEntrySchema, salvageDiagnosticEntries} = await import('../src/headset-diagnostics.js');
@@ -714,8 +858,9 @@ for (const exitPath of ['menu Exit', 'Mol* navigation', 'page hide', 'driver exi
         const body = inspector.match(/window.addEventListener\('pagehide',\(\)=>\{closed=true;([\s\S]*?)\},\{once:true\}\);/)![1];
         const end = vi.fn(()=>viewer.end());
         const activePreviewRecording = {abort:vi.fn()};
+        // An immersive session runs on a headset page, which writes no live view picture.
         runInNewContext(body, {workspace:{viewer:{xr:{end}}}, generation:0, timer:0, pollTimer:0,
-          activePreviewRecording, clearTimeout, detach:async()=>{}, app:{close(){}}});
+          activePreviewRecording, liveViewCapture:undefined, clearTimeout, detach:async()=>{}, app:{close(){}}});
         expect(activePreviewRecording.abort).toHaveBeenCalledOnce();
         expect(end).toHaveBeenCalledOnce();
       } else if (exitPath === 'stock Mol* exit') {

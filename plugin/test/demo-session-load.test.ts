@@ -68,7 +68,7 @@ async function setup() {
 }
 
 for(const [name,stage] of [['daraxonrasib',undefined],['microtubule-growth','monomer'],
-  ['kinesin-walk',undefined],['atp-synthase-rotor','motion'],['hemoglobin-switch','motion']] as const) {
+  ['kinesin-walk',undefined],['atp-synthase-rotor','motion'],['hemoglobin-switch','motion'],['daraxonrasib-assembly','motion']] as const) {
   const demo=index.demos.find((d:any)=>d.name===name),entry=stage?demo.stages.find((s:any)=>s.id===stage):demo;
   const isMotion=(stage??demo.defaultStage)==='motion';
   const available=await readFile(join(homedir(),'Library/Caches/Stereofold/demos',addressedDemoFile(entry.coordinates.file,entry.coordinates.sha256))).then(()=>true,()=>false);
@@ -135,7 +135,7 @@ for(const [name,stage] of [['daraxonrasib',undefined],['microtubule-growth','mon
 
 it('fetches a missing demo under the existing digest policy and leaves the session intact on mismatch',async()=>{
   const t=await setup();try {
-    const fetcher=vi.fn(async()=>({ok:true,text:async()=>cif}));vi.stubGlobal('fetch',fetcher);
+    const fetcher=vi.fn(async()=>new Response(cif));vi.stubGlobal('fetch',fetcher);
     const before=await t.hydrate();
     const failed=await t.raw('replace_inspection_source',{sessionId:t.sessionId,waitForRenderMs:0,demo:'daraxonrasib'});
     expect(fetcher).toHaveBeenCalledOnce();expect(failed.isError).toBe(true);
@@ -198,7 +198,7 @@ for(const corrupt of [false,true]) it(`loads a ${corrupt?'corrupt':'missing'} ca
   const t=await setup();try {
     const demo=syntheticDemo(),file=join(cache.root,addressedDemoFile(demo.coordinates.file,demo.coordinates.sha256));
     if(corrupt){await mkdir(dirname(file),{recursive:true});await writeFile(file,'corrupt cache');}
-    const fetcher=vi.fn(async()=>({ok:true,text:async()=>cif}));vi.stubGlobal('fetch',fetcher);
+    const fetcher=vi.fn(async()=>new Response(cif));vi.stubGlobal('fetch',fetcher);
     const before=await t.hydrate();
     const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,waitForRenderMs:0,demo:demo.name});
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(demo.coordinates.download,expect.any(Object));
@@ -227,10 +227,38 @@ it('rejects unknown names/stages and mixed demo sources before changing the sess
 });
 
 
+it('opens a demo asked for by a plain name and says which id it opened',async()=>{
+  const t=await setup();try {
+    const demo={...syntheticDemo(),title:'A synthetic crambin lesson'};cache.index={version:1,demos:[demo]};
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(cif)));
+    const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,waitForRenderMs:0,demo:'Crambin'});
+    expect(loaded.structuredContent.demo).toBe('synthetic-demo');
+    expect(loaded.content[0].text).toMatch(/^Demo synthetic-demo: A synthetic crambin lesson \(asked as "Crambin"\)\. Still drawing the demo\./u);
+    expect((await t.hydrate()).customTour.id).toBe('lesson-synthetic-demo');
+  } finally {await t.close();}
+});
+
+it('keeps the id list in the agent\'s refusal and gives the wearer one short sentence',async()=>{
+  const t=await setup();try {
+    const d=await t.hydrate();
+    const poll=()=>t.call('poll_inspection',{...t.bind(d),panelId:t.panelId,availability:'ready'});
+    await poll();
+    const refused=await t.raw('replace_inspection_source',{...t.bind(d),panelId:t.panelId,waitForRenderMs:0,demo:'frobnicate'});
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0].text).toContain(`Unknown bundled demo "frobnicate". Available: ${index.demos.map((demo:any)=>demo.name).join(', ')}.`);
+    const caption=(await poll())._meta[KEY].headsetCaption;
+    expect(caption).toMatchObject({speak:false,refusal:{tool:'replace_inspection_source',reason:'request refused'},
+      text:'Could not load · request refused. No demo is called “frobnicate”.'});
+    const log=await t.call('read_headset_log',{kind:'outcome'});
+    expect(log.structuredContent.entries.at(-1).detail).toMatchObject({status:'refused',tool:'replace_inspection_source',reason:'request refused'});
+    expect((await t.hydrate()).sourceToken).toBe(d.sourceToken);
+  } finally {await t.close();}
+});
+
 it('returns a pollable still-drawing receipt when a demo outlasts the requested wait',async()=>{
   const t=await setup();try {
     const demo=syntheticDemo();
-    vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,text:async()=>cif})));
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(cif)));
     const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,demo:demo.name,waitForRenderMs:1});
     const answer=loaded.structuredContent;
     expect(answer.sourceRenderStatus).toMatchObject({status:'rendering',rendered:false,commandId:answer.commandId});
@@ -250,7 +278,7 @@ it('waits for a bundled demo by default within the host call and source budgets'
   const t=await setup();const wait=vi.spyOn(SourceRenderWait.prototype,'wait').mockResolvedValue(undefined);
   try {
     const demo=syntheticDemo();
-    vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,text:async()=>cif})));
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(cif)));
     const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,demo:demo.name});
     const answer=loaded.structuredContent;
     expect(answer.renderWait.askedMs).toBe(40000);
@@ -265,7 +293,7 @@ it('reuses the exact verified source catalog when committing a demo',async()=>{
   const t=await setup();const extract=vi.spyOn(catalogExtractor,'extractInspectionCatalogBytes');
   try {
     const demo=syntheticDemo();
-    vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,text:async()=>cif})));
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(cif)));
     const loaded=await t.call('replace_inspection_source',{sessionId:t.sessionId,demo:demo.name,waitForRenderMs:0});
     const d=await t.hydrate();
     expect(extract).toHaveBeenCalledTimes(1);
@@ -278,7 +306,7 @@ it('reuses the exact verified source catalog when committing a demo',async()=>{
 it('retains an actual renderer failure instead of calling it still drawing',async()=>{
   const t=await setup();try {
     const demo=syntheticDemo(),before=await t.hydrate();
-    vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,text:async()=>cif})));
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(cif)));
     const pending=t.call('replace_inspection_source',{sessionId:t.sessionId,demo:demo.name,waitForRenderMs:2000});
     let d=before;
     for(let i=0;i<100 && d.sourceToken===before.sourceToken;i++) {await new Promise(r=>setTimeout(r,5));d=await t.hydrate();}

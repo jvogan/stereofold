@@ -1,10 +1,11 @@
 /**
  * Turn a deposited cryo-EM density map into the small one a headset can hold.
  *
- * A whole decorated microtubule has no atomic tier a Quest 2 can draw: the
- * 13-protofilament tube is 177,268 atom sites against a 43,066-site ceiling
- * (`src/molecular-growth.ts`). Its density map has no such problem, because a
- * map's cost is the isosurface it meshes to rather than the atoms behind it.
+ * A whole decorated microtubule is heavy as atoms: the 13-protofilament tube is
+ * 177,268 atom sites against a 43,066-site ceiling (`src/molecular-growth.ts`),
+ * admitted on a Quest 2 only as that one exact structure. Its density map has
+ * no such problem, because a map's cost is the isosurface it meshes to rather
+ * than the atoms behind it.
  * EMD-6347 (the GTPgammaS microtubule co-polymerised with EB3) is
  * 512^3 float32 voxels, 512 MB expanded, and meshes to
  * 4,581,248 triangles at the author's recommended contour of 5.0 — nine times

@@ -165,10 +165,20 @@ export function createPanelTourController(lesson:PanelTourPlayer, experience:Pan
     getPresentationState:()=>sourcePresentation
       ? {...sourcePresentation.state,active:true,navigating:true,menuOpen:false,sourceTransition:true}
       : controller.getState(),
-    beginSourceTransition(){
+    beginSourceTransition(opening=false){
       const token={}, current=sourcePresentation?.state??controller.getState();
-      sourcePresentation={token,state:current.active?current:{...current,title:'Loading structure',
-        bodyPage:'The next structure is being prepared.',step:0,total:1}};
+      // A different lesson opened by name over the one on screen loads as it
+      // does with none on screen: no lesson is selected and none is playing,
+      // so the outgoing chapter's card and rows are not held. `opening` tells
+      // the menu to start from the wearer's own seat once the new source draws,
+      // before the new lesson's placement and opening seat are solved.
+      const resting:any={...current,bodyPageIndex:0,bodyPageCount:1,feedback:'',progress:'Tours',stopped:false,autoplay:false,
+        canBack:false,canNext:false,canPlay:false,motionRunning:false,opening:true};
+      for(const key of ['selectedId','selectedTitle','chapterStartedAt','chapterPreview','motionKind'])delete resting[key];
+      // A lesson that hides its caption card keeps it hidden while the next loads.
+      if(resting.captionCard!=='hidden')delete resting.captionCard;
+      sourcePresentation={token,state:current.active && !opening?current:{...(opening?resting:current),
+        title:'Loading structure',bodyPage:'The next structure is being prepared.',step:0,total:1}};
       emit();
       return ()=>{if(sourcePresentation?.token===token){sourcePresentation=undefined;emit();}};
     },

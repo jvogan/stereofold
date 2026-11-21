@@ -77,9 +77,30 @@ export function shouldCaptionInspectionRefusal(name:string, message:string, tran
   return !(bookkeeping && sourceConflict && (transitionPending || staleBinding));
 }
 
+/** A wearer cannot choose from a list of demo ids. The agent's result keeps
+ * the list; the plate says only what was not found, in the name as asked.
+ * Only a whole message matches: the same words inside another refusal (a
+ * lesson part someone named that way) are that refusal's own text. */
+const DEMO_NAME_REFUSALS:readonly [RegExp,(name:string)=>string][]=[
+  [/^Unknown bundled demo "([^"]*)"\. Available: [\w ,-]*\.$/u,name=>`No demo is called “${name}”.`],
+  [/^"([^"]*)" matches more than one bundled demo: [\s\S]* Name one of them\.$/u,name=>`More than one demo matches “${name}”.`],
+  [/^Unknown stage "([^"]*)" for [\w-]+\. Available: [\w ,-]*\.$/u,name=>`This demo has no stage called “${name}”.`],
+];
+function demoNameCaption(message:string):string|undefined {
+  for(const [pattern,caption] of DEMO_NAME_REFUSALS) {
+    const match=pattern.exec(message);
+    if(match) return caption(match[1]!);
+  }
+  return undefined;
+}
+
 /** Translate caller instructions only at display boundaries. The host error
  * retains its tool hints; the wearer keeps the reason and an actionable line. */
 export function inspectionRefusalCaption(message:string):string {
+  // A demo-name refusal is finished here, so the rewrites below never touch
+  // the name it repeats.
+  const demo=demoNameCaption(message);
+  if(demo!==undefined) return demo;
   return message
     // The wearer keeps the measured size, which is why it was
     // refused; the two caps are for whoever is choosing the next structure.

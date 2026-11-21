@@ -158,6 +158,13 @@ export const bridgeHeadsetViewSchema = z.object({
   bytes: z.number().int().positive().max(BRIDGE_MAX_CAPTURE_BYTES),
   views: z.array(viewSchema.extend({ eye: z.enum(['left', 'right', 'none']) }).strict()).min(1).max(2),
   sha256: sha256Schema,
+  /**
+   * Present only on a device still lit over less than one percent of its
+   * pixels, which is handed over with `stillNote` saying what its pixels
+   * cannot settle. A reader of this file gets the same warning as the caller.
+   */
+  still: z.literal('dim').optional(),
+  stillNote: z.string().min(1).max(1_000).optional(),
 }).strict();
 
 /**
@@ -378,6 +385,9 @@ export type BridgeHeadsetViewInput = {
   height: number;
   views: readonly { eye: 'left' | 'right' | 'none'; x: number; y: number; width: number; height: number }[];
   bytes: Buffer;
+  /** A device still lit over only a small area, and the note that says so. */
+  still?: 'dim';
+  stillNote?: string;
 };
 
 /**
@@ -400,6 +410,7 @@ export async function writeBridgeHeadsetView(directory: string, input: BridgeHea
     width: input.width, height: input.height, bytes: input.bytes.byteLength,
     views: input.views.map(view => ({ ...view })),
     sha256: createHash('sha256').update(input.bytes).digest('hex'),
+    ...(input.still === 'dim' && input.stillNote ? { still: input.still, stillNote: input.stillNote } : {}),
   }));
   for (const view of record.views) {
     if (view.x + view.width > record.width || view.y + view.height > record.height) {

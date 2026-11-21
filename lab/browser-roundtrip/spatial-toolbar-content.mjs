@@ -157,10 +157,9 @@ export function spatialToolbarRows({ tour, voice, collapsed = true, mode = 'move
   // action and gets the brighter plate.
   const voiceControls = voice ? [[voiceLabel, { kind: 'voice-toggle' }, voiceBusy, true]] : [];
   if (connection?.recovery) voiceControls.push(['Re-pair', { kind: 'reconnect' }, false, true]);
-  // The wearer, in the headset, on the 11:08 pass: "where is the seamless
-  // switch to Mol*??". It was there, buried eight rows down inside the
-  // expanded grid, so nobody who had not been told found it. It is a top-level
-  // row now, named for what it opens rather than for where it opens.
+  // The Mol* row is top-level and named for what it opens rather than for
+  // where it opens. Eight rows down inside the expanded grid, a wearer who has
+  // not been told about it does not find it.
   if (sequence?.open) return [
     ...voiceControls.map(([label,action,state,accent]) => ({id:'talk',label,action,...(state?{state:true}:{}),...(accent?{accent:true}:{})})),
     ...sequence.rows,

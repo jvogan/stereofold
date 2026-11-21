@@ -52,6 +52,144 @@ picking casts one ray against the scene. Automatic hover picking is off to
 avoid rendering the full scene into that buffer every frame; menu hit testing
 and explicit trigger picks continue to work.
 
+## Spacefill sphere path
+
+Mol* draws spacefill atoms as impostors: one screen-facing quad per atom,
+whose fragment shader ray-casts the sphere, discards the pixels outside it and
+writes their depth. A shader that discards and writes depth cannot have its
+fragments rejected before they run, so a Quest 2 shades every layer of
+overlapping spheres, hidden or not. A mesh sphere is ordinary triangles. When
+it is fully opaque, Quest draws it with the opaque-mesh variant, which neither
+discards nor writes depth, so the depth test drops hidden fragments before
+they are shaded.
+
+`?xrRenderBudget=sphere:` chooses the path for spacefill:
+
+| Value | Spacefill draws |
+| --- | --- |
+| `impostor` | impostors |
+| `0` | icosahedra, 20 triangles per atom |
+| `1` | 80 triangles per atom |
+| `2`, `3` | 320 and 1,280 triangles per atom |
+| `mesh` | the heavy-tier rule below, at detail 1 (the same as the default) |
+| `auto`, or no value | the default: the heavy-tier rule below |
+
+A typed detail or `impostor` applies to the flat page as well as to a
+session. Without one, spacefill draws impostors everywhere except under the
+heavy-tier rule, which draws the detail-1 mesh (80 triangles per atom) only
+on a Quest 2 in a session, for a spacefill representation of more than
+25,000 atoms, up to 5,000,000 sphere triangles (62,500 atoms at detail 1).
+So a plain spacefill inspection of 25,001 to 62,500 atoms on a Quest 2 draws
+the mesh in the headset, and the same scene on the flat page, on a Quest 3,
+Quest Pro, Vision Pro or any other device keeps impostors. Above the ceiling
+a representation keeps impostors, never a coarser mesh. Lessons keep
+impostors too: while a chapter is playing or a lesson figure is installed,
+spacefill draws impostors unless the address names a detail, because the
+mesh was slower there: with detail 1 typed on the address, the heaviest
+spacefill chapter of the microtubule wall lesson ran at 3 to 4 fps on a
+Quest 2 against 10 to 12 fps with impostors. A geometry reduction
+(`budget:draw`) keeps its own detail. `sphere:impostor` restores impostors in
+a heavy Quest 2 session. The default is `XR_HEAVY_SPHERE_MESH_DETAIL`, set
+to `XR_SPHERE_MESH_DETAIL` (1); `sphere:mesh` applies the rule at that detail
+whatever the default is. The ceiling is `XR_SPHERE_MESH_TRIANGLE_CEILING`;
+all three are in `representation-budget.mjs`. Each representation is judged
+by its own atom count, so a small spacefill layer in a large scene keeps
+impostors.
+
+Measured on a Quest 2 with 1AON (58,870 atoms) at the giant pose, scale 30,
+switching the path inside one session:
+
+| Path | App GPU time per frame | Frame rate |
+| --- | ---: | ---: |
+| Impostor (four holds) | 43.9–46.7 ms | 16–17 fps |
+| Mesh detail 0 (two holds) | 9.9–10.0 ms | 69–70 fps |
+| Mesh detail 1 (one hold) | 24.9 ms | 30 fps |
+
+Every mesh object drew with the opaque-mesh variant. Each mesh was built by a
+switch after the session had entered and placed the structure. With detail 1
+built at session entry instead, the page froze: the frame time rose to 83 ms,
+then one frame took 12.7 s, then the page drew no more frames and stopped
+answering.
+
+### Why the entry froze
+
+Before each draw, the menu proves that its glass clears the structure, and
+the menu draws many times while a scene arrives: a progress line, a receipt,
+a new seat. For a plain structure the proof read every vertex of every mesh.
+A spacefill mesh is one sphere of vertices per atom, 2.47 M vertices for 1AON
+at detail 1 against the 58,870 centres of its impostors. Each proof carried
+every vertex into both eyes as a JavaScript object and took its projected
+hull. Mol* itself built the mesh once, a unit at a time, in slices of a few
+milliseconds, and uploaded one unit per frame while the old representation
+stayed drawn.
+
+The measurements come from an emulated Quest 2 on the Mac (IWER in headless
+Chromium on the Mac GPU), CPU throttled 4×, with the real host and loopback
+companion: enter, take spacefill, then scale 30. Entering with `sphere:1`
+ran a dozen such proofs. The page stopped for 15 to 22 s at a time, its
+script heap peaked at 2.6 GB, and the scale command was refused because the
+page had stopped checking in with the host. The live switch at the giant
+pose ran fewer proofs, for a 9 to 15 s block.
+
+A spacefill mesh is now read as its impostors are (`atomSphereMesh` in
+`component-label-measurement.mjs`). The clearance proofs and the fit worker
+take each unit's instance sphere, which Mol* sets alike for a unit's mesh and
+its impostors, and the chapter field reads one ball per drawn atom from that
+atom's own run of vertices. The record of a cleared field also takes one
+inspection snapshot instead of one per ball. Three runs of each, at 4×, with
+the per-atom balls still read in two passes over all vertices:
+
+| Longest main-thread task | Before | After |
+| --- | ---: | ---: |
+| Entry, `sphere:1` | 15.2–22.2 s | 4.0–4.3 s |
+| Entry, impostors | 6.4–6.8 s | 3.2–3.9 s |
+| Live switch to `sphere:1` | 9.2–15.4 s | 3.4–4.1 s |
+| Live switch back to impostors | — | 3.2–3.5 s |
+
+The mesh entry's script heap peaks at 0.9 GB. What remains on either path
+is the menu's clearance against 58,870 atom balls, tasks of about 3 to 4 s at
+4×. On the mesh entry the longest of them was 0.5 to 1 s longer than on the
+impostor entry (4.1–4.7 s against 2.9–3.9 s in three side-by-side runs),
+because the per-atom ball pass ran inside one. Reading each atom's run takes
+that pass from 42 ms to 16 ms on the desktop; the page timings in this
+section do not include that change. Mol*'s own build and upload tasks
+stayed under about 200 ms at 4×. The emulator has no Quest GPU, memory or
+compositor, so only a headset shows how the entry runs there.
+
+| Address | Wearer sees | 1AON app GPU time |
+| --- | --- | ---: |
+| none (default) | the detail-1 mesh: round spheres | 24.9 ms |
+| `xrRenderBudget=sphere:impostor` | the impostors | 40.8–46.7 ms |
+| `xrRenderBudget=sphere:0` | fastest; spheres near the eye are hexagons | 9.9–10.0 ms |
+
+A Quest 2 has entered 1AON with the detail-1 mesh built at session entry,
+after the readers changed. It did not freeze: the longest frame took 150 ms,
+and the frame rate was under 20 fps for 3 s of the entry against 12 s with
+impostors. At the same pose it drew a frame in 24.9 ms (29 fps) against
+40.8–41.7 ms (17.5 fps) for impostors, and free memory fell by about 0.4 GB
+against 0.1 GB. The `sphere:0` row was measured by a switch after entry,
+before the readers changed.
+
+Geometry for 1AON (58,870 atoms) as Mol* 5.11 builds it:
+
+| Path | Vertices | Triangles | Geometry arrays |
+| --- | ---: | ---: | ---: |
+| Impostor | none | none | 1 MB |
+| Mesh detail 0 | 706,440 | 1,177,400 | 45 MB |
+| Mesh detail 1 | 2,472,540 | 4,709,600 | 158 MB |
+
+Mol* keeps the mesh arrays in the page as well as on the GPU.
+
+The trade is visible. A sphere about 16 pixels across, which is most of the
+structure at the giant pose, looks nearly the same on either path. Detail 0
+shows a hexagonal outline by the time a sphere is about 50 pixels across, and
+in the headset at the giant pose the large spheres nearest the wearer read as
+hexagons. Detail 1 looks like the impostors there, and shows a polygonal
+outline only on spheres a few hundred pixels across.
+
+The impostor patches (frustum test, occlusion proxy, impostor scale) do not
+act on meshes. A faded or transparent mesh takes the ordinary mesh path.
+
 ## Lesson figure plates
 
 Molecular animation partitions residue selections only when installing a chapter
@@ -307,10 +445,9 @@ perception.
 
 ## Existing Quest 2 measurements
 
-The figures below come from earlier physical Quest 2 runs. This documentation
-cleanup added no hardware testing. They describe the named structures,
-representations, browser and capture settings only; they do not establish
-performance on other devices or every scene.
+The figures below are physical Quest 2 measurements. They describe the named
+structures, representations, browser and capture settings only; they do not
+establish performance on other devices or every scene.
 
 In a Quest 2 Oculus Browser/WebGL 2 run, an optional depth-proxy path for large
 opaque sphere impostors was compared with the stock shader. The run used 9AX6,

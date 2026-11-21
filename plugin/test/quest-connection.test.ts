@@ -171,10 +171,10 @@ describe('named private Wi-Fi reconnection', () => {
       .toEqual({serial:endpoint,reason:'ready'});
     expect(device.calls).toEqual([['devices'],['-s',endpoint,'shell','getprop']]);
   });
-  it.each(['10.0.0.1:5555', '172.16.0.1:1', '172.31.255.254:65535', '192.168.1.2:5555'])('accepts private endpoint %s', endpoint => {
+  it.each(['10.0.0.1:5555', '172.16.0.1:1', '172.31.255.254:65535', '192.168.77.2:5555'])('accepts private endpoint %s', endpoint => {
     expect(privateQuestEndpoint(endpoint)).toBe(endpoint);
   });
-  it.each(['localhost:5555', 'quest.local:5555', '127.0.0.1:5555', '8.8.8.8:5555', '172.32.0.1:5555', '192.168.1.256:5555', '192.168.1.2:0', '192.168.1.2:65536', '192.168.1.2', '192.168.01.2:5555', '[fd00::1]:5555', '192.168.1.2:5555;reboot'])('refuses endpoint %s', endpoint => {
+  it.each(['localhost:5555', 'quest.local:5555', '127.0.0.1:5555', '8.8.8.8:5555', '172.32.0.1:5555', '192.168.77.256:5555', '192.168.77.2:0', '192.168.77.2:65536', '192.168.77.2', '192.168.077.2:5555', '[fd00::1]:5555', '192.168.77.2:5555;reboot'])('refuses endpoint %s', endpoint => {
     expect(privateQuestEndpoint(endpoint)).toBeUndefined();
   });
   it('reconnects one remembered endpoint then relists and verifies identity', async () => {
@@ -237,7 +237,7 @@ describe('named private Wi-Fi reconnection', () => {
 });
 
 describe('preserving debugging failure evidence', () => {
-  const endpoint = '192.168.1.90:5555';
+  const endpoint = '192.168.77.90:5555';
   const config = { verifiedQuestAddress: endpoint, verifiedQuestSerial: 'QUEST2' };
 
   it.each([0, 1])('preserves No route to host when adb exits %s without scanning or restarting', async code => {

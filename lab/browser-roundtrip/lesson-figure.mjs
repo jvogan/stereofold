@@ -15,11 +15,15 @@ import { Cylinders } from 'molstar/lib/mol-geo/geometry/cylinders/cylinders.js';
 import { Shape } from 'molstar/lib/mol-model/shape.js';
 import { ShapeRepresentation } from 'molstar/lib/mol-repr/shape/representation.js';
 import { figureRepresentationLayers, figureLayerRepresentation } from './lesson-figure-appearance.mjs';
+import { DEFAULT_CONTEXT_OPACITY } from './lesson-emphasis.mjs';
 import { requireSceneGeometryBudget, structureGeometryCounts } from './representation-budget.mjs';
 
 const NO_ANNOTATIONS = [];
 const ink = value => Color(parseInt(value.slice(1), 16));
 const typeName = value => value === 'sticks' ? 'ball-and-stick' : value;
+// Layer styles that draw a sphere for every atom they select, unless a
+// measurement option drops their hydrogens.
+const ATOM_LAYERS = new Set(['ball-and-stick', 'spacefill']);
 const targetIdentity = target => [target.chain, target.residues?.from, target.residues?.to,
   target.residueNumbers ? [...target.residueNumbers].sort((a, b) => a - b) : undefined, target.componentId, target.atomName];
 export function figureTargetExpression(target) {
@@ -163,13 +167,36 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
   // part (chapter visibility and fade); a running animation adds its track.
   // `gate.rest` adds the track at t=0, for a scene with no clock. Copies of a
   // part on exclusive tracks therefore name only the copy on screen.
+  //
+  // The scene's hide never reaches a figure layer: a chapter may show only the
+  // protein and draw a ligand as a layer. An end the scene does not draw still
+  // counts while one live layer of this figure draws every atom of it as atoms,
+  // at or above the context opacity, and shows whenever the plate does: the
+  // layer rides no animation track, or the whole plate rides the layer's track.
+  // Ribbons, bond-only sticks and envelopes do not vouch for an atom.
   const decidePlates = (record, plan) => {
     for (const layer of record?.layerRecords ?? [])
       layer.startHidden = Boolean(layer.loci) && hiddenAtAnimationStart(record.animation, record.structureData, layer.loci);
     if (!record?.plates?.length) return;
     const gate = plateGate(record.figure, plan);
+    const tracks = startHiddenTracks(record.animation, record.structureData);
+    // The one track that moves all of a selection: null when none moves any
+    // of it, undefined when tracks split it or move only part of it.
+    const body = loci => {
+      let owner = null;
+      for (const track of tracks) {
+        if (StructureElement.Loci.isEmpty(StructureElement.Loci.intersect(loci, track.loci))) continue;
+        if (owner || !StructureElement.Loci.isSubset(track.loci, loci)) return undefined;
+        owner = track;
+      }
+      return owner;
+    };
+    const atoms = (record.layerRecords ?? []).filter(layer => layer.atoms && layer.loci && layer.opacity >= DEFAULT_CONTEXT_OPACITY
+      && layerIntact(layer) && layer.repr.renderObjects.length).map(layer => ({ loci: layer.loci, body: body(layer.loci) }));
     for (const plate of record.plates) {
-      plate.gate.shown = plate.targets.every(target => gate(target));
+      const layered = end => atoms.some(layer => StructureElement.Loci.isSubset(layer.loci, end)
+        && (layer.body === null || Boolean(layer.body) && layer.body === body(plate.loci)));
+      plate.gate.shown = plate.targets.every((target, index) => gate(target) || layered(plate.ends[index]));
       plate.gate.rest = plate.gate.shown && !hiddenAtAnimationStart(record.animation, record.structureData, plate.loci);
     }
   };
@@ -219,7 +246,8 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
     // names. A rebuild of the same figure keeps it; a new figure states it.
     const animation = 'animation' in options ? options.animation
       : current && JSON.stringify(current.figure) === JSON.stringify(figure) ? context : getAnimation();
-    const geometryOptions = { quality: 'low', ...getGeometryOptions(), presenting };
+    // A figure belongs to a lesson, whose spheres stay impostors unless the address names a path.
+    const geometryOptions = { quality: 'low', ...getGeometryOptions(), presenting, lesson: true };
     const otherGeometry = figure?.representationOverride ? getGeometryEntries() : [];
     const signature = JSON.stringify([figure, presenting, geometryOptions, otherGeometry]);
     if (current && current.structure === structure && current.structureData === structureData && current.signature === signature
@@ -320,7 +348,7 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
           ? previous.layerRecords.find(record => record.key === key && !usedLayers.has(record) && layerIntact(record)) : undefined;
         if (old) usedLayers.add(old);
         if (old) {
-          const retained = { ...old, id: layer.id, opacity: alpha, loci: layer.loci };
+          const retained = { ...old, id: layer.id, opacity: alpha, loci: layer.loci, atoms: ATOM_LAYERS.has(layer.representation) && !typeParams.ignoreHydrogens };
           retainedRoots.add(old.root); staged.roots.push(old.root);
           staged.layerRecords.push(retained); staged.representations.push(old.cell); staged.molecular.push(old.cell);
           if (!layer.context) staged.placement.push(old.cell);
@@ -342,7 +370,7 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
         staged.representations.push(repr); staged.molecular.push(repr);
         if (!layer.context) staged.placement.push(repr);
         const record = { id: layer.id, key, root: component.ref, cell: repr, repr: repr.obj.data.repr,
-          componentData: component.obj.data, modifiers: [], opacity: alpha, loci: layer.loci };
+          componentData: component.obj.data, modifiers: [], opacity: alpha, loci: layer.loci, atoms: ATOM_LAYERS.has(layer.representation) && !typeParams.ignoreHydrogens };
         staged.layerRecords.push(record);
         if (layer.overrides.length) {
           const builder = plugin.build().to(repr.ref).apply(StateTransforms.Representation.OverpaintStructureRepresentation3DFromBundle, {
@@ -366,11 +394,12 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
       };
       const usedLabels = new Set();
       for (const label of labels) {
-        const key = JSON.stringify([targetIdentity(label.target), labelParams(label), label.maxOffsetEm ?? 2, label.desktopSizePx, label.placement]);
+        const headsetOffset = [label.headsetOffsetX, label.headsetOffsetY];
+        const key = JSON.stringify([targetIdentity(label.target), labelParams(label), label.maxOffsetEm ?? 2, label.desktopSizePx, label.placement, headsetOffset]);
         const old = previous?.structure === structure && previous.structureData === structureData
           ? previous.labelRecords.find(record => record.key === key && !usedLabels.has(record)
             && labelIntact(record)) : undefined;
-        const plate = { targets: [label.target], loci: label.loci, gate: { shown: true, rest: true } };
+        const plate = { targets: [label.target], ends: [label.loci], loci: label.loci, gate: { shown: true, rest: true } };
         if (old) {
           usedLabels.add(old); retainedRoots.add(old.root); staged.roots.push(old.root);
           staged.representations.push(old.cell); staged.labelRecords.push(old);
@@ -381,7 +410,7 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
           labelParams(label), { state: { isHidden: true } }).selector;
         await builder.commit(); staged.representations.push(repr);
         const sphere = StructureElement.Loci.getBoundingSphere(label.loci);
-        registerImmersiveAnnotation(repr.obj.data.repr, {size:label.sizeFactor, radius:sphere.radius, maxOffsetEm:label.maxOffsetEm, desktopSizePx:label.desktopSizePx, placement:label.placement, anchorKey:label.id,
+        registerImmersiveAnnotation(repr.obj.data.repr, {size:label.sizeFactor, radius:sphere.radius, maxOffsetEm:label.maxOffsetEm, desktopSizePx:label.desktopSizePx, placement:label.placement, anchorKey:label.id, headsetOffset,
           anchors:surfaceAnchorCandidates(lociPositions(label.loci), sphere.center, sphere.radius)});
         staged.labelRecords.push({key, root:staged.roots.at(-1), cell:repr, repr:repr.obj.data.repr,
           params:JSON.stringify(plugin.state.data.cells.get(repr.ref).params.values),
@@ -389,7 +418,7 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
         staged.plates.push({ ...plate, cells: [repr] });
       }
       for (const distance of distances) {
-        const plate = { targets: distance.targets, loci: StructureElement.Loci.union(distance.a, distance.b),
+        const plate = { targets: distance.targets, ends: [distance.a, distance.b], loci: StructureElement.Loci.union(distance.a, distance.b),
           gate: { shown: true, rest: true }, cells: [] };
         staged.plates.push(plate);
         if (distance.showText !== false) {
@@ -403,14 +432,18 @@ export function createLessonFigure({ plugin, getStructure, getTransform, getGeom
         }
         // Cylinders have actual depth in both eyes. Mol*'s screen-space line
         // quads use a desktop view direction and fan into ladders on Quest.
+        const dashLength = presenting ? Math.max(.35, distance.measured / 40) : .35;
         const repr = await createDashedLineRepresentation(distance.id,
           StructureElement.Loci.getBoundingSphere(distance.a).center,
-          StructureElement.Loci.getBoundingSphere(distance.b).center, distance.color, `${distance.measured.toFixed(2)} Å`,
-          presenting ? Math.max(.35, distance.measured / 40) : .35);
+          StructureElement.Loci.getBoundingSphere(distance.b).center, distance.color, `${distance.measured.toFixed(2)} Å`, dashLength);
         // Keep the diameter at least 1/150 of the line length and 20 mm
-        // in XR (about 2.4 native pixels at the default 4.6 m seat).
+        // in XR (about 2.4 native pixels at the default 4.6 m seat), but no
+        // wider than the drawn dashes are long while a nearer seat still
+        // gives those pixels: at a close-up 20 mm is wider than a 0.35 Å
+        // dash and buries a short distance in its end atoms.
         // Sizing changes a uniform; motion never rebuilds these cylinders.
-        registerImmersiveAnnotation(repr, {stroke:true, length:distance.measured, minDiameter:.02});
+        registerImmersiveAnnotation(repr, {stroke:true, length:distance.measured, minDiameter:.02,
+          dashLength:distance.measured / (distance.measured / dashLength + .5)});
         repr.setState({ visible: false }); plugin.canvas3d.add(repr);
         const cell = { manual: true, obj: { data: { repr } } };
         staged.representations.push(cell); plate.cells.push(cell);

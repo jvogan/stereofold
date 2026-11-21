@@ -153,9 +153,9 @@ export async function verifyLayout(artifactRoot: string): Promise<void> {
   const notices = await readFile(resolve(artifactRoot, 'THIRD_PARTY_NOTICES.md'), 'utf8');
   for (const dependency of [
     '@modelcontextprotocol/ext-apps 1.7.5',
-    '@modelcontextprotocol/sdk 1.29.0',
+    '@modelcontextprotocol/sdk 1.32.2',
     'molstar 5.11.0',
-    'zod 4.3.0',
+    'zod 4.6.7',
   ]) {
     assert.ok(notices.includes(`## ${dependency}`), `third-party notices are missing ${dependency}`);
   }

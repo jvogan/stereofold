@@ -269,7 +269,7 @@ function textVertTangentRect(object, view, scale) {
   return { x: (l + r) / 2, y: (b + t) / 2, hw: (r - l) / 2, hh: (t - b) / 2 };
 }
 
-/** A GAR1-sized plate at the acceptance-3 telomerase entry numbers. */
+/** A GAR1-sized plate at the recorded telomerase entry numbers. */
 function entryPlateObject() {
   const paint = componentLabelPaint({ placeAlpha: 1, contextAlpha: 1, offsetZ: 50 * 1.898 });
   const aTransform = identity(); aTransform[12] = 10; aTransform[13] = 20; aTransform[14] = -343;

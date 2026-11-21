@@ -59,7 +59,7 @@ test('autoplay refreshes its saved binding before navigation and never detaches 
   const posts=[];
   const context=vm.createContext({Promise,Error,Date,
     binding:{sessionId:'session',sourceToken:'source-1',serverEpoch:'epoch',stateRevision:1,inspectionRevision:1},panelId:'owner',
-    dirty:false,blocked:false,loading:false,remote:false,generation:0,tourCommandContext:undefined,experienceSourceChanged:false,experiencePreparing:false,journeySave:undefined,sourceReplacement:false,
+    dirty:false,blocked:false,loading:false,remote:false,followRecovery:false,recoveryPanel:undefined,generation:0,tourCommandContext:undefined,experienceSourceChanged:false,experiencePreparing:false,journeySave:undefined,sourceReplacement:false,
     thrownErrorMessage:error=>error.message,
     panelTour:undefined,tourHeartbeat:()=>undefined,experienceView:undefined,PRIVATE_KEY:'private',
     // No XR session here, so there is no recovery frame to capture.

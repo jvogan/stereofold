@@ -123,8 +123,8 @@ function centreOffsets({ stereo }: Rig): { left: number; right: number; vertical
 }
 
 /**
- * The earlier build: the ±B/2 translation post-multiplied onto the view matrix.
- * Kept so the tests below can show they discriminate rather than merely pass.
+ * The wrong frame: the ±B/2 translation post-multiplied onto the view matrix.
+ * The tests below run it to show they discriminate rather than merely pass.
  */
 function applyWorldFrameBaseline({ stereo, camera }: Rig, eyeSeparation = BASELINE): void {
   const translation = Mat4.identity();

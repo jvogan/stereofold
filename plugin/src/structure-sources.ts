@@ -4,7 +4,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { readInspectionFile } from './inspection-file.js';
+import { fetchFollowingHttpsRedirects, httpsDownloadUrl } from './bounded-download.js';
 import { INSPECTION_SIZE_GUIDE, MAX_STRUCTURE_SOURCE_BYTES, STRUCTURE_SOURCE_SIZE_LABEL, STRUCTURE_SOURCE_DOWNLOAD_TIMEOUT_MS } from './inspection-limits.js';
+import { MAX_INSPECTION_DECLARED_ROWS, inspectionCatalogRowsRefusal } from './inspection-catalog-codec-server.js';
 
 export const ALPHAFOLD_MODEL_VERSION = 'v6';
 export { MAX_STRUCTURE_SOURCE_BYTES };
@@ -55,33 +57,21 @@ export function sniffStructureFormat(text:string):'mmcif'|'pdb' {
   throw refuse('The content is not recognizable mmCIF or PDB coordinates.');
 }
 function httpsUrl(value:string):URL {
-  let url:URL; try {url=new URL(value);} catch {throw refuse('The source URL is invalid.');}
-  if(url.protocol!=='https:' || url.username || url.password) throw refuse('Insecure URLs and embedded credentials are refused.');
-  url.hash=''; return url;
+  try {return httpsDownloadUrl(value);} catch(error) {throw refuse((error as Error).message);}
 }
 async function download(url:URL, fetcher:typeof fetch, cancellation?:AbortSignal):Promise<string> {
   const timeout=AbortSignal.timeout(STRUCTURE_SOURCE_DOWNLOAD_TIMEOUT_MS);
   const signal=cancellation?AbortSignal.any([cancellation,timeout]):timeout;
-  for(let redirects=0;;redirects++) {
-    const response=await fetcher(url.href,{redirect:'manual',signal,headers:{Accept:'chemical/x-cif, chemical/x-pdb, text/plain;q=0.9'}});
-    if(response.url) httpsUrl(response.url);
-    if([301,302,303,307,308].includes(response.status)) {
-      await response.body?.cancel();
-      if(redirects>=5) throw refuse('The source exceeds the five-redirect limit.');
-      const location=response.headers.get('location');
-      if(!location) throw refuse('The redirect has no location.');
-      url=httpsUrl(new URL(location,url).href); continue;
-    }
-    if(!response.ok) {await response.body?.cancel();throw refuse(`The source file is missing or unavailable (HTTP ${response.status}).`);}
-    if(Number(response.headers.get('content-length'))>MAX_STRUCTURE_SOURCE_BYTES) {await response.body?.cancel();throw refuse(`The structure is larger than the ${STRUCTURE_SOURCE_SIZE_LABEL} source policy.`);}
-    if(!response.body) throw refuse('The source has no coordinate body.');
-    const reader=response.body.getReader(), chunks:Uint8Array[]=[]; let size=0;
-    try {
-      for(;;) {const {done,value}=await reader.read();if(done) break;size+=value.byteLength;
-        if(size>MAX_STRUCTURE_SOURCE_BYTES) {await reader.cancel();throw refuse(`The structure is larger than the ${STRUCTURE_SOURCE_SIZE_LABEL} source policy.`);} chunks.push(value);}
-      try {return new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));} catch {throw refuse('The source is not UTF-8 text.');}
-    } finally {reader.releaseLock();}
-  }
+  const response=await fetchFollowingHttpsRedirects(url.href,{signal,headers:{Accept:'chemical/x-cif, chemical/x-pdb, text/plain;q=0.9'}},fetcher);
+  if(!response.ok) {await response.body?.cancel();throw refuse(`The source file is missing or unavailable (HTTP ${response.status}).`);}
+  if(Number(response.headers.get('content-length'))>MAX_STRUCTURE_SOURCE_BYTES) {await response.body?.cancel();throw refuse(`The structure is larger than the ${STRUCTURE_SOURCE_SIZE_LABEL} source policy.`);}
+  if(!response.body) throw refuse('The source has no coordinate body.');
+  const reader=response.body.getReader(), chunks:Uint8Array[]=[]; let size=0;
+  try {
+    for(;;) {const {done,value}=await reader.read();if(done) break;size+=value.byteLength;
+      if(size>MAX_STRUCTURE_SOURCE_BYTES) {await reader.cancel();throw refuse(`The structure is larger than the ${STRUCTURE_SOURCE_SIZE_LABEL} source policy.`);} chunks.push(value);}
+    try {return new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));} catch {throw refuse('The source is not UTF-8 text.');}
+  } finally {reader.releaseLock();}
 }
 /**
  * Everything about a requested source that can be refused without touching the
@@ -162,9 +152,125 @@ export async function resolveStructureSource(raw:unknown, options:{fetch?:typeof
   return {kind:request.kind,structureText,format,...(request.kind==='pdb'?{pdbId:id}:{}),...(request.kind==='alphafold'?{accession:id,version:ALPHAFOLD_MODEL_VERSION}:{}),...(cacheKey?{cacheKey}:{})};
 }
 
+/** The most sequence-alignment cells Mol* may fill for one PDB file: a 5,000-residue chain against 5,000 SEQRES names. */
+export const MAX_PDB_ALIGNMENT_CELLS=25_000_000;
+/** The most steps Mol* may spend classifying a PDB file's residue names. */
+export const MAX_PDB_NAME_SCAN_STEPS=25_000_000;
+/**
+ * The work Mol* does converting PDB text to mmCIF that is not linear in the
+ * file's size, counted from the text in one pass, the way Mol* reads it, never
+ * below what Mol* does. A line ends at \n, \r or \r\n.
+ *
+ * `rows`: it lists the unobserved residues of every model by visiting every
+ * SEQRES residue of every chain once per model. A line that starts with SEQRES
+ * declares the whitespace-separated names from column 20 on, however many and
+ * whatever count it states, and at least one; each line that starts with
+ * "MODEL " opens a model, with or without atoms, an atom before the first of
+ * them opens one more, and there is at least one.
+ *
+ * `alignmentCells`: it aligns each chain's observed residues in the first model
+ * against that chain's SEQRES names, filling three matrices of observed x names
+ * cells. A residue is observed each time an ATOM or HETATM record's chain
+ * (column 22), residue number (columns 23-26, read as Mol* reads an integer) or
+ * insertion code (column 27) differs from the previous record's, until a record
+ * falls in another model. Like Mol*, those columns are read at their offsets
+ * from the start of the record even when the record is shorter.
+ *
+ * `nameScanSteps`: the first time a residue name appears, it scans forward over
+ * every following record with the same residue number, whatever the chain or
+ * model. Every name is counted as new, although Mol* skips the scan for names
+ * it knows.
+ */
+export function pdbConversionWork(text:string):{rows:number;alignmentCells:number;nameScanSteps:number} {
+  const code=(i:number)=>text.charCodeAt(i);
+  // Mol*'s Tokenizer.trim: spaces and tabs off both ends of [from, to).
+  const trimmed=(from:number,to:number):[number,number]=>{
+    let s=from, e=to-1, c=code(s);
+    while((c===9||c===32) && s<=e) c=code(++s);
+    c=code(e);
+    while((c===9||c===32) && e>=s) c=code(--e);
+    return [s,e+1];
+  };
+  // Mol*'s integer parse of a token, with its `|| 0`.
+  const integer=([from,to]:[number,number]):number=>{
+    let i=from, value=0, sign=1;
+    if(code(i)===45) { sign=-1; ++i; } else if(code(i)===43) ++i;
+    for(;i<to;i++) {
+      const digit=code(i)-48;
+      if(digit>9||digit<0) return ((sign*value)|0)||0;
+      value=(10*value+digit)|0;
+    }
+    return (sign*value)||0;
+  };
+  // Mol* reads '.' and '?' in a one-character column as empty.
+  const column=(i:number)=>{ const c=text.charAt(i); return c==='.'||c==='?'?'':c; };
+  let residues=0, models=0, atomBeforeModel=false;
+  const seqres=new Map<string,number>(), observed=new Map<string,number>();
+  let firstModel:string|undefined, observing=true, previousChain='', previousNumber=-99999, previousCode='___';
+  const names=new Set<string>();
+  let nameScanSteps=0, runNumber:number|undefined, newNamesInRun=0;
+  const ends=/\r\n|\r|\n/g, tokens=/\S+/g;
+  for(let start=0;start<text.length;) {
+    const end=ends.exec(text), stop=end?end.index:text.length;
+    if(text.startsWith('SEQRES',start)) {
+      // Counted without keeping them: one line may hold millions. A name never
+      // spans the line end, which is whitespace.
+      let count=0;
+      tokens.lastIndex=start+19;
+      for(let token=tokens.exec(text);token && token.index<stop;token=tokens.exec(text)) count++;
+      const chain=start+11<stop?text.charAt(start+11):'';
+      residues+=Math.max(1,count);
+      seqres.set(chain,(seqres.get(chain)??0)+Math.max(1,count));
+    } else if(text.startsWith('MODEL ',start)) models++;
+    else if(text.startsWith('ATOM  ',start)||text.startsWith('HETATM',start)) {
+      if(!models) { atomBeforeModel=true; }
+      const model=String(Math.max(1,models+(atomBeforeModel?1:0)));
+      const number=integer(trimmed(start+22,start+26));
+      if(observing) {
+        firstModel??=model;
+        if(model!==firstModel) observing=false;
+        else {
+          const chain=column(start+21), insertion=code(start+26)===32?'':column(start+26);
+          if(chain!==previousChain || number!==previousNumber || insertion!==previousCode) {
+            observed.set(chain,(observed.get(chain)??0)+1);
+            previousChain=chain; previousNumber=number; previousCode=insertion;
+          }
+        }
+      }
+      if(number!==runNumber) { runNumber=number; newNamesInRun=0; }
+      const [from,to]=trimmed(start+17,start+21), name=text.substring(from,to);
+      if(!names.has(name)) { names.add(name); newNamesInRun++; }
+      nameScanSteps+=newNamesInRun;
+    }
+    start=end?ends.lastIndex:text.length;
+  }
+  let alignmentCells=0;
+  for(const [chain,count] of observed) alignmentCells+=count*(seqres.get(chain)??0);
+  return {rows:residues*Math.max(1,models+(atomBeforeModel?1:0)),alignmentCells,nameScanSteps};
+}
+/** `pdbConversionWork(text).rows`. */
+export function pdbDeclaredRowCount(text:string):number { return pdbConversionWork(text).rows; }
+/**
+ * Refuse PDB text whose conversion by Mol* would not be linear in its size,
+ * before Mol* parses or converts it: SEQRES residues times models past the
+ * bound the mmCIF paths hold declared rows to, or an alignment or residue-name
+ * scan past its own bound.
+ */
+export function admitPdbConversion(text:string):void {
+  const work=pdbConversionWork(text);
+  if(!(work.rows<=MAX_INSPECTION_DECLARED_ROWS)) throw inspectionCatalogRowsRefusal(work.rows,MAX_INSPECTION_DECLARED_ROWS);
+  if(!(work.alignmentCells<=MAX_PDB_ALIGNMENT_CELLS)) throw Error(`This PDB file's SEQRES records would take ${work.alignmentCells.toLocaleString('en-US')}`
+    +` sequence-alignment steps to match to its residues; at most ${MAX_PDB_ALIGNMENT_CELLS.toLocaleString('en-US')} are allowed.`
+    +' Use the structure\'s mmCIF file, or remove its SEQRES records.');
+  if(!(work.nameScanSteps<=MAX_PDB_NAME_SCAN_STEPS)) throw Error(`This PDB file's residue names would take ${work.nameScanSteps.toLocaleString('en-US')}`
+    +` steps to classify, because records with new residue names share residue numbers; at most ${MAX_PDB_NAME_SCAN_STEPS.toLocaleString('en-US')} are allowed.`
+    +' Use the structure\'s mmCIF file, or give each residue its own number.');
+}
+
 /** Normalize all PDB categories, including models and deposited assembly operators, using bundled Mol*. */
 export async function inspectionSource(source:ResolvedStructureSource):Promise<ResolvedStructureSource> {
   if(source.format==='mmcif') return source;
+  admitPdbConversion(source.structureText);
   const [{parsePDB},{pdbToMmCif},{CifWriter}]=await Promise.all([
     import('molstar/lib/commonjs/mol-io/reader/pdb/parser.js'),
     import('molstar/lib/commonjs/mol-model-formats/structure/pdb/to-cif.js'),

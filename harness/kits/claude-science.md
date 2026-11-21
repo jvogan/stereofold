@@ -155,8 +155,8 @@ run and a dropped-file smoke test are optional.
 
 ## The real tool list
 
-The plugin has 68 registered tools: 41 model-visible `stereo_structure.*` tools
-and 27 app-only tools, counted from `plugin/scripts/tool-inventory.ts`.
+The plugin has 70 registered tools: 42 model-visible `stereo_structure.*` tools
+and 28 app-only tools, counted from `plugin/scripts/tool-inventory.ts`.
 `pnpm --filter stereo-structure smoke` asserts those lists by name; check that
 output rather than this count. The app-only tools
 are marked app-only (`_meta.ui.visibility = ['app']`) and must never appear in
@@ -190,6 +190,7 @@ every private capability is exposed — stop and report it.
 | `read_headset_log` | nothing (reads what the headset has reported this session) |
 | `read_headset_browser` | nothing (reads the headset page's console and XR state over adb) |
 | `capture_headset_view` | nothing (one still frame: the headset page first, then the panel over adb) |
+| `show_live_view` | nothing (keeps a JPEG of the desktop view current in one local file) |
 
 **Guided experiences and headset voice:**
 

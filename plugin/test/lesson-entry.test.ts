@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { grownTierIntent, mountTourPlayer, type Tour } from '../src/tour-player.js';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
+import { lessonSourceLoadsHidden } from '../src/lesson-source-initialization.js';
 // @ts-ignore The atomic viewer's actual geometry admission policy.
 import { requireGeometryBudget } from '../../lab/browser-roundtrip/representation-budget.mjs';
 // @ts-ignore Production player DOM adapter.
@@ -97,11 +98,11 @@ for (const path of ['microtubule-arrival/density', 'microtubule-growth/filament'
         const script = ts.transpileModule(`(async()=>{${panelLessonSelection(source)}\n${source.slice(start, end)}})()`,
           { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
         try {
-          await vm.runInNewContext(script, { swappedSource: false, priorLessonOnScreen: false, priorAutoplay: false, data: { customTour: tour, density: { sha256: manifest.coordinates.sha256 },
+          await vm.runInNewContext(script, { swappedSource: false, priorLessonOnScreen: false, priorAutoplay: false, options: {}, data: { customTour: tour, density: { sha256: manifest.coordinates.sha256 },
             ...(explicitStart ? { lessonStart: { autoplay: false, narration: false } } : {}) },
             density: drawsMap ? { sha256: manifest.coordinates.sha256 } : undefined,
-            isCompanion: drawsMap, options: {}, initialOpen: true,
-            TOURS: [], tourPlayer: player, experience: undefined, closed: false, generation: 1, ownGeneration: 1 });
+            isCompanion: drawsMap,
+            TOURS: [], tourPlayer: player, experience: undefined, closed: false, generation: 1, ownGeneration: 1, restoredLessonPlayback: false });
           expect(player.getState()).toMatchObject({ active: drawsMap, step: drawsMap ? 0 : -1 });
           expect(player.getState().selectedId).toBe(drawsMap ? tour.id : undefined);
           expect(player.getState().tours.some(item => item.id === tour.id)).toBe(drawsMap);
@@ -123,8 +124,8 @@ it('a freshly inspected lesson renders its opening chapter before the first atta
   const script = ts.transpileModule(`(async()=>{${panelLessonSelection(source)}\n${source.slice(start, end)}})()`,
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   try {
-    await vm.runInNewContext(script, { swappedSource: false, priorLessonOnScreen: false, priorAutoplay: false, data: { customTour: lesson }, TOURS: [], tourPlayer: player,
-      density: undefined, isCompanion: false, options: {}, initialOpen: true,
+    await vm.runInNewContext(script, { swappedSource: false, priorLessonOnScreen: false, priorAutoplay: false, options: {}, data: { customTour: lesson }, TOURS: [], tourPlayer: player,
+      density: undefined, isCompanion: false,
       experience: undefined, closed: false, generation: 1, ownGeneration: 1 });
     expect(player.getState()).toMatchObject({ selectedId: lesson.id, step: 0, active: true, autoplay: false, narration: false });
   } finally { player.pause(); h.cleanup(); }
@@ -171,7 +172,7 @@ it('a lesson opened on desktop adopts the XR entry frame for later restart and D
 
 // Execute both startup sites from hydration, separated by save/attach.
 async function hydrateLesson(player: ReturnType<typeof mountTourPlayer>, h: any, tour: Tour,
-  route: 'fresh' | 'named' | 'grow', saved: () => void, priorAutoplay = false) {
+  route: 'fresh' | 'named' | 'grow' | 'grow-at-rest', saved: () => void, priorAutoplay = false) {
   const source = readFileSync(new URL('../src/inspector.ts', import.meta.url), 'utf8');
   const start = source.indexOf('      const hasSavedPlayback=Boolean(data.scene?.inspection?.lessonPlayback);');
   const end = source.indexOf('\n      installedLesson=panelCustomTour;', start);
@@ -190,14 +191,83 @@ async function hydrateLesson(player: ReturnType<typeof mountTourPlayer>, h: any,
   })()`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   await vm.runInNewContext(script, {
     data: { customTour: tour, ...(route === 'named' ? { lessonStart: { autoplay: false, narration: false } } : {}) },
-    TOURS: [], tourPlayer: player, workspace: h.workspace, grownTierIntent, saved, options: {},
+    TOURS: [], tourPlayer: player, workspace: h.workspace, grownTierIntent, lessonSourceLoadsHidden, saved,
     density: undefined, isCompanion: h.workspace.snapshot().xrPresenting === true,
     experience: undefined, completion: undefined, closed: false, generation: 1, ownGeneration: 1,
     swappedSource: true, grownLesson: tour, initialOpen: route === 'fresh',
-    priorLessonOnScreen: route === 'grow', priorAutoplay,
-    recordHeadsetEvent: () => {},
+    priorLessonOnScreen: route === 'grow', priorAutoplay, options: {},
+    recordHeadsetEvent: () => {}, thrownErrorMessage: (error: Error) => error.message,
   });
 }
+
+// Done puts the lesson away. A tier grown afterwards wears its colour key and
+// stays where the wearer left the structure: no chapter, card, frame or turn.
+for (const xr of [false, true]) it(`a tier grown after the lesson was put away opens no chapter (XR=${xr})`, async () => {
+  vi.useFakeTimers();
+  const h = tourEndHarness({ xr });
+  const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/microtubule-growth/dimer.json', import.meta.url), 'utf8')));
+  const places: any[] = [], motions: any[] = [], keys: any[] = [];
+  let fits = 0;
+  h.workspace.viewer.inspection.place = async (patch: any) => { places.push(patch); };
+  h.workspace.viewer.inspection.fit = async () => { fits++; };
+  h.workspace.viewer.inspection.emphasize = async (value: any) => { keys.push(value); };
+  h.workspace.viewer.inspection.applyLessonMotion = async (move: any) => { motions.push(move); };
+  const player = mountTourPlayer({ ...h, tours: [] });
+  try {
+    let keysAtSave = -1;
+    await hydrateLesson(player, h, tour, 'grow-at-rest', () => { keysAtSave = keys.length; });
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(player.getState()).toMatchObject({ selectedId: tour.id, step: -1, active: false, autoplay: false });
+    expect([places, motions, fits]).toEqual([[], [], 0]);
+    expect(keysAtSave).toBe(0);
+    // The headset paints the tier's key without the chapter's focus or frame; the desktop is left alone.
+    expect(keys).toHaveLength(xr ? 1 : 0);
+    if (xr) expect(keys[0]).toMatchObject({ parts: tour.steps[0].emphasis!.parts, focus: undefined, framing: undefined, origin: 'lesson' });
+  } finally { player.pause(); h.cleanup(); vi.useRealTimers(); }
+});
+
+// A lesson whose source loads hidden behind its opening chapter's figure has
+// nothing drawn until that chapter runs. Grown after Done or Reset, it still
+// opens that chapter once, silently and at rest, before the save.
+for (const xr of [false, true]) it(`a hidden-base tier grown after the lesson was put away opens its figure chapter (XR=${xr})`, async () => {
+  vi.useFakeTimers();
+  const h = tourEndHarness({ xr });
+  const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/binder-gallery/extended/batch-01/lesson.json', import.meta.url), 'utf8')));
+  const opening = tour.steps[0];
+  expect(opening.appearance?.opacity).toBe(0);
+  expect(opening.figure?.layers?.length).toBeGreaterThan(0);
+  const figures: any[] = [], paints: any[] = [], places: any[] = [], motions: any[] = [];
+  let visibility: any = { hiddenChains: [], hiddenClasses: [], showOnlySelection: false };
+  const copyId = '["copy","asymmetric_unit",null,[]]';
+  const chains = [...new Set(tour.steps.flatMap(step => step.visibility?.chains ?? []))];
+  const rows = chains.map(labelChain => ({ key: labelChain, entityType: 'polymer',
+    identity: { labelChain, authorChain: labelChain, copyId, modelNumber: 1 } }));
+  const snapshot = h.workspace.snapshot, configure = h.workspace.viewer.inspection.configure;
+  h.workspace.rows = () => rows;
+  h.workspace.snapshot = () => ({ ...snapshot(), modelNumber: 1, selectionKeys: [] });
+  Object.assign(h.workspace.viewer.inspection, {
+    configure: async (patch: any) => { paints.push(patch); await configure(patch); },
+    setLessonFigure: async (value: any) => { if (value) figures.push(structuredClone(value)); },
+    visibility: () => visibility,
+    setVisibility: async (value: any) => { visibility = structuredClone(value); },
+    setMolecularAnimation: async () => {},
+    place: async (patch: any) => { places.push(patch); },
+    applyLessonMotion: async (move: any) => { motions.push(move); },
+  });
+  const player = mountTourPlayer({ ...h, tours: [] });
+  try {
+    let figuresAtSave = -1;
+    await hydrateLesson(player, h, tour, 'grow-at-rest', () => { figuresAtSave = figures.length; });
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(figuresAtSave).toBe(1);
+    expect(figures).toHaveLength(1);
+    expect(figures[0].layers.map((layer: any) => layer.id)).toEqual(opening.figure!.layers.map(layer => layer.id));
+    expect(paints.some(patch => patch.opacity === 0)).toBe(true);
+    // The batch's chapter has no placement or turn, so the structure stays where the wearer left it.
+    expect([places, motions]).toEqual([[], []]);
+    expect(player.getState()).toMatchObject({ selectedId: tour.id, step: 0, active: true, autoplay: false, narration: false });
+  } finally { player.pause(); h.cleanup(); vi.useRealTimers(); }
+});
 
 for (const xr of [false, true]) for (const route of ['fresh', 'named', 'grow'] as const) {
   const stage = route === 'grow' ? 'dimer' : 'monomer';
@@ -271,9 +341,11 @@ for (const xr of [false, true]) it(`a named spike applies its authored fit befor
   const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/spike.json', import.meta.url), 'utf8')));
   const frames: string[] = [];
   h.workspace.viewer.inspection.fit = async () => { frames.push('desktop-fit'); };
-  // A fresh XR entry solves its seat against the chapter's compact controls.
-  h.workspace.viewer.inspection.seatForEntry = async () => {
+  // A fresh XR entry solves its seat against the chapter's compact controls,
+  // and learns which authored placement that seat stands for.
+  h.workspace.viewer.inspection.seatForEntry = async (authored?: Record<string, unknown>) => {
     expect(player.getState()).toMatchObject({ step: 0, active: true, navigating: false });
+    expect(authored).toEqual(tour.steps[0].placement);
     frames.push('xr-entry');
   };
   const player = mountTourPlayer({ ...h, tours: [] });
@@ -284,6 +356,27 @@ for (const xr of [false, true]) it(`a named spike applies its authored fit befor
       expect(player.getState()).toMatchObject({ step: 0, active: true });
     });
     expect(frames).toHaveLength(1);
+  } finally { player.pause(); h.cleanup(); }
+});
+
+it('in the headset a lesson\'s opening seat and its later chapters name that lesson', async () => {
+  const h = tourEndHarness({ xr: true });
+  const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/spike.json', import.meta.url), 'utf8')));
+  const seats: unknown[] = [], placed: unknown[] = [];
+  h.workspace.viewer.inspection.seatForEntry = async (_authored?: Record<string, unknown>, lesson?: string) => { seats.push(lesson); };
+  const place = h.workspace.viewer.inspection.place;
+  h.workspace.viewer.inspection.place = async (patch: any, action?: string, options?: { lesson?: string }) => {
+    if (action === 'tour-placement') placed.push(options?.lesson);
+    return place(patch, action, options);
+  };
+  const player = mountTourPlayer({ ...h, tours: [] });
+  try {
+    await hydrateLesson(player, h, tour, 'named', () => {});
+    expect(seats).toEqual([tour.id]);
+    placed.length = 0;
+    await player.next();
+    expect(player.getState()).toMatchObject({ selectedId: tour.id, step: 1 });
+    expect(placed).toEqual([tour.id]);
   } finally { player.pause(); h.cleanup(); }
 });
 

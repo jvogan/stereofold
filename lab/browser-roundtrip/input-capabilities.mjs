@@ -1,11 +1,10 @@
 /**
  * What the headset in front of us can actually do.
  *
- * The immersive code used to assume a Quest with two Touch controllers: a
- * fixed left grip for push-to-talk, no reading of `profiles`, no reading of
- * `targetRayMode`. On Vision Pro no squeeze event ever fires, and on Quest
- * hand tracking there is no grip to hold, so the grip binding is silently
- * unreachable — no error, it just never engages.
+ * A Quest with two Touch controllers is one case of several. On Vision Pro no
+ * squeeze event ever fires, and on Quest hand tracking there is no grip to
+ * hold, so code that assumes a grip, or ignores `profiles` and
+ * `targetRayMode`, binds a gesture that never engages and reports no error.
  *
  * These are pure descriptions, not policy. Nothing here binds an event or
  * touches the session's render state. Callers (the talk orb, push-to-talk,

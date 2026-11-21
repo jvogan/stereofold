@@ -41,7 +41,7 @@ export function tourFocusHarness({ labels = false } = {}) {
   const target = { center: [12, 0, 0], radius: 69.282 };
   const head = Array.from(Mat4.identity());
   head[13] = 1.1;
-  // Acceptance 3 #365's expanded menu, expressed in the tracked head's lens.
+  // The recorded expanded menu #365, expressed in the tracked head's lens.
   const menu = [[-.872, -.689], [-.162, -.689], [-.872, .319], [-.162, .319]]
     .map(([x, y]) => [x * EYE_TAN_HALF_HORIZONTAL, head[13] + y * EYE_TAN_HALF_VERTICAL, -1]);
   let placement = { translation: [0, 0, 0], rotation: [0, 0, 0], scale: 1 }, now = 0;
@@ -62,7 +62,7 @@ export function tourFocusHarness({ labels = false } = {}) {
     performance: { now: () => now },
     now: () => now,
     LESSON_FRAMING_TRAVEL_MS: 1000,
-    GLASS_MIN_SIZE_SHARE: .75, MOTION_MIN_DEGREES: 35, chapterSizeBound: null, chapterFieldDistance,
+    GLASS_MIN_SIZE_SHARE: .75, SPIN_GLASS_MIN_SIZE_SHARE: .9, MOTION_MIN_DEGREES: 35, chapterSizeBound: null, chapterFieldDistance,
     menuOverlap, menuObstruction, createMenuObstructionScorer, menuGlassInView, glassPlatesOverlapInViews, latestSeatStandoffMeters: null, XR_ROOM_MAX_METRES,
     latestHeadSample: 0, latestRoomPlacementPose: { headInRoom: head,
       renderFromRoom: Array.from(Mat4.identity()), labelViews: syntheticViews() },
@@ -109,9 +109,13 @@ export function tourFocusHarness({ labels = false } = {}) {
     recordManipulation: (kind, detail) => records.push({ kind, ...detail }),
     recordCost: (kind, detail) => records.push({ kind, ...detail }),
     recordStandoff: detail => records.push({ kind: 'standoff', ...detail }),
+    // The tracking wait a stale head sample takes before chapter framing.
+    failure: (code, message) => Object.assign(Error(message), { code }), frameWaiters: new Set(),
+    currentXrSession: () => h.canvas.webgl.xr?.session, assertContext() {}, interactionActive: () => false,
   });
+  h.canvas.requestDraw ??= () => {};
   for (const name of ['gesturePivotContext', 'beginGesturePivot', 'invalidateGesturePivot', 'gesturePivotCenter', 'grabPivotBounds',
-    'cancelXrPlacementFollowup', 'startXrPlacementFollowup', 'emphasize', 'modelledFocusKeys', 'focusSelection', 'bakeGrab', 'placementIntentCheckpoint', 'settlePlacementIntent', 'takeWearerPlacement',
+    'cancelXrPlacementFollowup', 'startXrPlacementFollowup', 'emphasize', 'modelledFocusKeys', 'awaitFreshFocusTracking', 'focusSelection', 'bakeGrab', 'placementIntentCheckpoint', 'settlePlacementIntent', 'takeWearerPlacement',
     'rotationFromPlacement', 'rotationDegreesZYX', 'placementTransform', 'placementFitEvidence', 'capturePlacementFitEvidence', 'clearHeldPlatePlacement', 'authoredSeatFaces', 'placeInspection',
     'chapterFieldSummary']) {
     const start = source.search(new RegExp(`  (?:async )?function ${name}\\(`));

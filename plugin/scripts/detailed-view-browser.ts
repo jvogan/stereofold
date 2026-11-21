@@ -59,10 +59,9 @@ await mkdir(out, { recursive: true });
  * harness, rather than a fixture invented here.
  */
 const demo = options.has('--demo') ? await (async () => {
-  const { readDemoIndex, readDemoLesson, resolveCoordinates, demoCacheDirectory } = await import('./quest-demo.js');
+  const { readDemoIndex, readDemoLesson, resolveCoordinates, demoCacheDirectory, findDemo } = await import('./quest-demo.js');
   const index = await readDemoIndex();
-  const entry = index.demos.find(candidate => candidate.name === options.get('--demo'));
-  assert.ok(entry, `Unknown demo "${options.get('--demo')}".`);
+  const entry = findDemo(index, options.get('--demo')!);
   await readDemoLesson(entry);
   return { entry, lessonPath: resolve(root, 'demos', entry.lesson),
     coordinatesPath: await resolveCoordinates(entry, demoCacheDirectory(), message => console.log(message)),

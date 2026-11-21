@@ -115,9 +115,9 @@ test('the shipped getSpatialState carries the rendered subject, appearance and c
   const getterStart = viewer.indexOf('      getSpatialState:');
   const rows = [{ coordinateState: 'resolved', entityType: 'polymer', identity: { modelNumber: 2, copyId: 'copy', labelChain: 'A' } }];
   const state = { selectionKeys: ['a', 'b'] };
-  let placementMoves = 0;
+  let placementMoves = 0, placementHeld = false;
   const context = vm.createContext({ ...emptyLessonFigureBinding(), readStructureSubject: createStructureSubjectReader(), state, representation: { obj: {} },
-    wearerPlacement: { state: () => ({ moves: placementMoves }) },
+    wearerPlacement: { state: () => ({ moves: placementMoves, held: placementHeld }) },
     paintedContextOpacity: value => value, visibilityState: { hiddenClasses: [] }, VISIBILITY_LAYER_REF: {}, plugin: { state: { data: { cells: new Map() } } }, emphasisState: { parts: [], focus: [] }, styleLayers: [], volume: undefined,
     sourceRecord: { pdbId: '4HHB', sha256: 'hash', title: 'Hemoglobin tetramer', catalog: { rows, assemblyId: '1' } },
     structure: { obj: { data: { model: { modelNum: 2 } } } },
@@ -134,6 +134,9 @@ test('the shipped getSpatialState carries the rendered subject, appearance and c
   assert.equal(getter().placementMoves, 0);
   placementMoves++;
   assert.equal(getter().placementMoves, 1, 'a grab takeover reaches the menu before molecular placement commits');
+  assert.equal(getter().placementHeld, false);
+  placementHeld = true;
+  assert.equal(getter().placementHeld, true, 'the menu learns when that placement is held and when it is released');
   assert.deepEqual(getter().representations, ['cartoon', 'spacefill']);
   assert.deepEqual(getter().history, { undoCount: 1, redoCount: 0, canUndo: true, canRedo: false });
   const rendered = { ready: true, modelNumber: 2, assemblyId: '1', selectionKeys: state.selectionKeys, representation: 'cartoon', color: 'chain-id' };

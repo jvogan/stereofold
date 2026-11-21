@@ -95,8 +95,8 @@ describe('Mol* font atlas retention', () => {
           expect(repr.renderObjects[0]).toBe(objects[i]);
         }
       }
-      // At 605cf76 this accepted stock's 91. The contract now always expects 1;
-      // bypassing the production hook must fail here with received 91.
+      // Stock Mol* retains 91 atlases after these rounds and the production
+      // hook retains 1, so a run that bypasses the hook fails here with 91.
       expect(api.retained(), 'ONE_ATLAS_PER_FONT_AFTER_THREE_NON_FONT_ROUNDS').toBe(1);
     } finally {
       plates.forEach(repr => repr.destroy());

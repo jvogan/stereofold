@@ -142,6 +142,8 @@ describe('open_inspector, the panel a host with no panel gets from the server', 
     const page = await fetch(`${origin}/`);
     expect(page.status).toBe(200);
     expect(page.headers.get('content-type')).toContain('text/html');
+    // The inspector frame is srcdoc, so it runs under this document's policy.
+    expect(page.headers.get('content-security-policy')).toBe("script-src-attr 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     const pageText = await page.text();
     expect(pageText).toContain('<script src="/host.js">');
     expect(pageText).toContain('<script src="/boot.js">');

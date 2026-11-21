@@ -1,7 +1,7 @@
 import { SUBJECT_CENTRE_TANGENT } from './placement-fit-envelope.mjs';
 import { applyMatrix4, invertMatrix4 } from './room-lock.mjs';
 import { SUBJECT_SHIFT_LIMIT, lensTangent } from './plate-standoff.mjs';
-import { labelObjectVisible, renderedSubjectPoints, renderedSubjectSpheres, renderedMeshVertexCount } from './component-label-measurement.mjs';
+import { atomSphereMesh, labelObjectVisible, renderedSubjectPoints, renderedSubjectSpheres, renderedMeshVertexCount } from './component-label-measurement.mjs';
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const vector = (v, m) => [0, 1, 2].map(i => m[i] * v[0] + m[i + 4] * v[1] + m[i + 8] * v[2]);
@@ -76,7 +76,8 @@ function eyeSubject(geometry, matrix) {
 }
 
 /** Restore the mesh that entry drew, using its instance transforms exactly once.
- * Mesh vertices enclose every triangle; impostors retain their instance spheres.
+ * Mesh vertices enclose every triangle; impostors retain their instance spheres,
+ * and so does a spacefill drawn as sphere meshes.
  * Read all vertices on this explicit action, never a diagnostic sample or a frame.
  * An unreadable object leaves the caller's conservative sphere refusal in force.
  */
@@ -96,7 +97,9 @@ export function resetEntryGeometry({ objects = [], fromPlacement, toPlacement, v
     // renderedSubjectPoints, but does not allocate a point array and an
     // intermediate sphere for every vertex. Keep the three matrix operations
     // separate: composing them changes floating-point answers at the edge.
-    const positions = object.type === 'mesh' && object.values?.aPosition?.ref?.value;
+    // A spacefill sphere mesh keeps its impostors' instance spheres (`atomSphereMesh`).
+    const vertexMesh = object.type === 'mesh' && !atomSphereMesh(object);
+    const positions = vertexMesh && object.values?.aPosition?.ref?.value;
     const matrices = object.values?.aTransform?.ref?.value;
     const instances = Math.max(1, object.values?.instanceCount?.ref?.value ?? 1);
     if (positions?.length >= 3 && matrices?.length >= instances * 16) {
@@ -131,7 +134,7 @@ export function resetEntryGeometry({ objects = [], fromPlacement, toPlacement, v
       }
       if (subject.length > start) continue;
     }
-    const vertices = object.type === 'mesh' ? renderedSubjectPoints(object, 1, Infinity) : [];
+    const vertices = vertexMesh ? renderedSubjectPoints(object, 1, Infinity) : [];
     const elements = vertices.length ? vertices.map(center => ({ center, radius: 0 })) : renderedSubjectSpheres(object, 1);
     if (!elements.length) return undefined;
     for (const element of elements) {

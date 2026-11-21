@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { confirmFailureRecovery, panelAvailability, saveFailureRecovery, staleHudWaiting, CONFIRM_RETRY_ATTEMPTS, CONFIRM_RETRY_DELAY_MS, HUD_WAIT_EXPIRY_MS,
+import { confirmFailureRecovery, desktopProblemRetry, DESKTOP_RETRY_DELAYS_MS, panelAvailability, saveFailureRecovery, staleHudWaiting, CONFIRM_RETRY_ATTEMPTS, CONFIRM_RETRY_DELAY_MS, HUD_WAIT_EXPIRY_MS,
   SAVE_BUSY_RETRY_MS, SAVE_BUSY_SLOW_RETRY_MS, SAVE_RELOAD_INTERVAL_MS } from '../src/inspection-panel-recovery.js';
 
 /**
@@ -261,7 +261,7 @@ describe('the heartbeat and the scene it delivered', () => {
     // hydration or an unready workspace still forces `busy`, except while a
     // desktop keeps its already drawn receipt ready during confirmation.
     expect(busy).toMatch(/const busy=forceBusy \|\| remote \|\| loading \|\| !workspace\.snapshot\(\)\.ready;/u);
-    expect(busy).toMatch(/const availability=recovery\?'ready' as const:receiptBeat\?'ready' as const:busy\?'busy' as const:liveAvailability\(\);/u);
+    expect(busy).toMatch(/const availability=recovery\?'ready' as const:receiptBeat\?'ready' as const:followRecovery \|\| recoveryPanel!==undefined\?'unsaved' as const:busy\?'busy' as const:liveAvailability\(\);/u);
     // The headset log is only uploaded on this beat, so the queue and its
     // acknowledgement must ride it too, or a hang stays unreadable afterwards.
     expect(busy).toMatch(/__stereofoldDiagnostics\?\.heartbeat\?\.\(\)/u);
@@ -281,14 +281,49 @@ describe('the heartbeat and the scene it delivered', () => {
     }
     // This beat may now start a command, because it is the
     // only beat a wearer gets while the slow half of `poll` is waiting. It
-    // dispatches when ready, or when the host admitted a lesson that will retire
-    // wearer input. It is still started rather than awaited.
-    expect(busy).toMatch(/const delivery=availability==='ready' \|\| privateState\?\.delivery\?\.change\?\.kind==='lesson'\?privateState\?\.delivery:undefined;/u);
+    // dispatches only when the beat it sent said ready, the same rule the host
+    // applies, so a lesson waits for the wearer to let go rather than
+    // interrupting a grab. It is still started rather than awaited.
+    expect(busy).toMatch(/const delivery=availability==='ready'\?privateState\?\.delivery:undefined;/u);
     expect(busy).toMatch(/rendering=rendering\.then\(\(\)=>receivePollDelivery\(response,sent,ownGeneration\)\)/u);
     expect(busy).not.toMatch(/await receive\(/u);
   });
 
   it('still reports a panel mid-render as busy rather than ready', () => {
     expect(panelAvailability({ blocked:false, dirty:false, ready:true, interactionActive:false, navigating:true })).toBe('busy');
+  });
+});
+
+/**
+ * One failed host request left a desktop panel behind its Retry banner for a
+ * whole recording: it followed no saved view and no new lesson while the
+ * headset followed every change. These cases pin when it retries by itself.
+ */
+describe('desktop panel retries', () => {
+  const failed = { attempt: 0, transportFailure: false, sourceRefused: false, untouched: false, loadFailure: false, sourceMoved: false };
+  it('retries every failed follow, load, delivery and confirmation after a growing wait, then stops', () => {
+    for (const kind of ['poll', 'reconnect', 'delivery', 'confirmation', 'loading'] as const) {
+      const waits = DESKTOP_RETRY_DELAYS_MS.map((_, attempt) => desktopProblemRetry({ ...failed, kind, attempt }));
+      expect(waits).toEqual(DESKTOP_RETRY_DELAYS_MS.map(delayMs => ({ retry: true, delayMs })));
+      expect(desktopProblemRetry({ ...failed, kind, attempt: DESKTOP_RETRY_DELAYS_MS.length })).toEqual({ retry: false });
+    }
+    expect([...DESKTOP_RETRY_DELAYS_MS].every((delay, index, all) => index === 0 || delay > all[index - 1]!)).toBe(true);
+  });
+
+  it('leaves a refused save of the person\'s work to them, and retries one that never reached the host or came from an untouched panel', () => {
+    expect(desktopProblemRetry({ ...failed, kind: 'save' })).toEqual({ retry: false });
+    expect(desktopProblemRetry({ ...failed, kind: 'save', transportFailure: true })).toEqual({ retry: true, delayMs: DESKTOP_RETRY_DELAYS_MS[0] });
+    expect(desktopProblemRetry({ ...failed, kind: 'save', untouched: true })).toEqual({ retry: true, delayMs: DESKTOP_RETRY_DELAYS_MS[0] });
+  });
+
+  it('does not redraw a source the viewer itself refused, and loads again only a source that moved on or a request that never arrived', () => {
+    expect(desktopProblemRetry({ ...failed, kind: 'loading', sourceRefused: true })).toEqual({ retry: false });
+    expect(desktopProblemRetry({ ...failed, kind: 'loading', loadFailure: true })).toEqual({ retry: false });
+    expect(desktopProblemRetry({ ...failed, kind: 'loading', loadFailure: true, sourceMoved: true })).toEqual({ retry: true, delayMs: DESKTOP_RETRY_DELAYS_MS[0] });
+    expect(desktopProblemRetry({ ...failed, kind: 'loading', loadFailure: true, transportFailure: true })).toEqual({ retry: true, delayMs: DESKTOP_RETRY_DELAYS_MS[0] });
+  });
+
+  it('refuses a count that is not a whole number of attempts', () => {
+    for (const attempt of [-1, 0.5, Number.NaN]) expect(desktopProblemRetry({ ...failed, kind: 'poll', attempt })).toEqual({ retry: false });
   });
 });

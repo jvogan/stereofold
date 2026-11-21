@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { cameraSnapshot } from './camera-snapshot.mjs';
-import { createLessonMotionHold, lessonCameraMove, lessonMotionApplies, normalizeLessonMotion } from './lesson-motion.mjs';
+import { createLessonMotionHold, lessonCameraMove, lessonMotionApplies, lessonMoveFrame, lessonMoveFromFrame, normalizeLessonMotion } from './lesson-motion.mjs';
 import { pageFunction } from './fixtures/label-action-harness.mjs';
 
 const require = createRequire(import.meta.url);
@@ -42,7 +42,7 @@ function fixture({ xr = true, held = false, interaction = false, contextLost = f
   let identity = scientific, mutations = 0, draws = 0;
   const hold = createLessonMotionHold();
   const h = vm.createContext({
-    Mat4, Vec3, cameraSnapshot, lessonCameraMove, lessonMotionApplies, normalizeLessonMotion,
+    Mat4, Vec3, cameraSnapshot, lessonCameraMove, lessonMotionApplies, lessonMoveFrame, lessonMoveFromFrame, normalizeLessonMotion,
     assertReady() {}, failure: (code, message) => Object.assign(Error(message), { code }),
     wearerPlacement: { holdsPlacement: () => held }, interactionActive: () => interaction,
     lessonMotionHold: hold, liveScene: () => ({ ...identity, camera: camera.getSnapshot() }),

@@ -5,7 +5,7 @@ import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 // @ts-ignore Source page closures and browser diagnostics, with only I/O adapted.
 import { tourEndHarness } from '../../lab/browser-roundtrip/fixtures/tour-end-harness.mjs';
 
-const manifest = JSON.parse(readFileSync(new URL('../demos/telomerase-haca.json', import.meta.url), 'utf8'));
+const manifest = JSON.parse(readFileSync(new URL('./fixtures/telomerase-haca-plates.json', import.meta.url), 'utf8'));
 const lesson = molecularLessonToTour(manifest);
 
 // The headset card turns its own pages every seven seconds. Autoplay left a

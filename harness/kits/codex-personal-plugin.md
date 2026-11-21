@@ -158,8 +158,8 @@ older cached panel.
 
 ## Verify the mounted viewer
 
-The full plugin registers 68 `stereo_structure.*` tools, 41 model-visible and
-27 app-only, counted from the lists `plugin/scripts/smoke.ts` asserts;
+The full plugin registers 70 `stereo_structure.*` tools, 42 model-visible and
+28 app-only, counted from the lists `plugin/scripts/smoke.ts` asserts;
 [plugin/README.md](../../plugin/README.md) has the canonical list. In the
 intended Codex task, confirm the legacy stereo viewer's five model-facing
 tools:

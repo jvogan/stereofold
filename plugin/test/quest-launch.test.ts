@@ -229,7 +229,7 @@ describe('launching the companion from the server', () => {
     expect(run.mock.calls.some(([,args]) => args.includes('start'))).toBe(false);
   });
 
-  // 2026-09-28: the agent relays this sentence once, so it has
+  // The agent relays this sentence once, so it has
   // to carry every step a new user meets, in the order they meet them.
   it('lists the steps after a started Web Launch in the order the person meets them', async () => {
     const report = await launchCompanion({ mode: 'web', companionUrl: ADDRESS, code: CODE, platform: 'darwin', opener: '/bin/echo', launch: opener().launch });

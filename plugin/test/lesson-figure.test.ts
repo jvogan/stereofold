@@ -12,6 +12,7 @@ import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec.js';
 import { StateTransforms } from 'molstar/lib/mol-plugin-state/transforms.js';
 import { Mat4 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { expectedInspection, matchesInspectionChange, sceneSchema } from '../src/inspection-contract.js';
+import { validateLessonSource } from '../src/lesson-source-validation.js';
 // @ts-ignore Shared pure figure policy.
 import { withFigureRepresentation, figureRepresentationLayers, figureLayerRepresentation } from '../../lab/browser-roundtrip/lesson-figure-appearance.mjs';
 // @ts-ignore Browser module shared by the actual inspector bundle.
@@ -60,6 +61,82 @@ describe('source-backed immersive molecular figures', () => {
     for (const maxOffsetEm of [-1, 0, 1.99, 5.01, Infinity, NaN, '4', null])
       expect(lessonFigureSchema.safeParse({ ...figure, labels: [{ ...defaultLabel, maxOffsetEm }] }).success).toBe(false);
   });
+  it('keeps a headset-only plate offset per axis through lesson, tour and scene contracts, within the offset range', () => {
+    const figure = structuredClone(tour.steps[0].figure!);
+    for (const headset of [{ headsetOffsetY: -8 }, { headsetOffsetX: 12, headsetOffsetY: -8 }, { headsetOffsetX: 0 }]) {
+      const authored = { ...figure, labels: [{ ...figure.labels[0], offsetX: 12, offsetY: 0.4, ...headset }] };
+      expect(lessonFigureSchema.parse(authored).labels[0]).toMatchObject({ offsetX: 12, offsetY: 0.4, ...headset });
+      const manifest = structuredClone(lesson);
+      manifest.chapters[0].immersive.figure = authored;
+      const parsed = parseMolecularLesson(manifest);
+      expect(parsed.chapters[0].immersive?.figure?.labels[0]).toMatchObject(headset);
+      expect(molecularLessonToTour(parsed).steps[0].figure?.labels[0]).toMatchObject(headset);
+      const scene = sceneSchema.parse({ sourceSha256: 'a'.repeat(64), modelNumber: 1, assemblyId: '1',
+        selectionKeys: [], camera: { mode: 'perspective', fov: Math.PI / 4, position: [0, 0, 80], target: [0, 0, 0], up: [0, 1, 0],
+          radius: 20, radiusMax: 20, fog: 0, clipFar: true, minNear: 1, minFar: 0 },
+        inspection: { ...structuredClone(DEFAULT_INSPECTION), lessonFigure: authored } });
+      expect(scene.inspection.lessonFigure?.labels[0]).toMatchObject(headset);
+    }
+    expect(lessonFigureSchema.parse(figure).labels[0]).not.toHaveProperty('headsetOffsetY');
+    for (const headsetOffsetY of [Infinity, NaN, '4', null])
+      expect(lessonFigureSchema.safeParse({ ...figure, labels: [{ ...figure.labels[0], headsetOffsetY }] }).success).toBe(false);
+  });
+  it('keeps a headset close-up context radius of 3–20 Å through lesson, tour and scene contracts, only with a focus', () => {
+    const figure = structuredClone(tour.steps[0].figure!);
+    const focus = [{ chain: figure.layers[0].target.chain }];
+    for (const contextRadius of [3, 4, 12.5, 20]) {
+      const authored = { ...figure, focus, contextRadius };
+      expect(lessonFigureSchema.parse(authored)).toMatchObject({ contextRadius });
+      const manifest = structuredClone(lesson);
+      manifest.chapters[0].immersive.figure = authored;
+      const parsed = parseMolecularLesson(manifest);
+      expect(molecularLessonToTour(parsed).steps[0].figure).toMatchObject({ contextRadius });
+      const scene = sceneSchema.parse({ sourceSha256: 'a'.repeat(64), modelNumber: 1, assemblyId: '1',
+        selectionKeys: [], camera: { mode: 'perspective', fov: Math.PI / 4, position: [0, 0, 80], target: [0, 0, 0], up: [0, 1, 0],
+          radius: 20, radiusMax: 20, fog: 0, clipFar: true, minNear: 1, minFar: 0 },
+        inspection: { ...structuredClone(DEFAULT_INSPECTION), lessonFigure: authored } });
+      expect(scene.inspection.lessonFigure).toMatchObject({ contextRadius });
+    }
+    const { focus: _focus, ...unfocused } = figure;
+    expect(lessonFigureSchema.parse({ ...unfocused, focus }).contextRadius).toBeUndefined();
+    expect(lessonFigureSchema.safeParse({ ...unfocused, contextRadius: 4 }).success).toBe(false);
+    for (const contextRadius of [0, 2.99, 20.01, Infinity, NaN, '4', null])
+      expect(lessonFigureSchema.safeParse({ ...unfocused, focus, contextRadius }).success).toBe(false);
+  });
+
+  it('keeps a close-up view plane through lesson, tour and scene contracts, only with a focus, and checks it spans a plane', () => {
+    const figure = structuredClone(tour.steps[0].figure!);
+    const chain = figure.layers[0].target.chain;
+    const focus = [{ chain }];
+    const viewPlane = ['N1', 'N2', 'N3', 'N4'].map(atomName => ({ chain, residues: { from: 1, to: 1 }, atomName }));
+    const authored = { ...figure, focus, viewPlane };
+    expect(lessonFigureSchema.parse(authored).viewPlane).toEqual(viewPlane);
+    const manifest = structuredClone(lesson);
+    manifest.chapters[0].immersive.figure = authored;
+    expect(molecularLessonToTour(parseMolecularLesson(manifest)).steps[0].figure).toMatchObject({ viewPlane });
+    const scene = sceneSchema.parse({ sourceSha256: 'a'.repeat(64), modelNumber: 1, assemblyId: '1',
+      selectionKeys: [], camera: { mode: 'perspective', fov: Math.PI / 4, position: [0, 0, 80], target: [0, 0, 0], up: [0, 1, 0],
+        radius: 20, radiusMax: 20, fog: 0, clipFar: true, minNear: 1, minFar: 0 },
+      inspection: { ...structuredClone(DEFAULT_INSPECTION), lessonFigure: authored } });
+    expect(scene.inspection.lessonFigure).toMatchObject({ viewPlane });
+    const { focus: _focus, ...unfocused } = figure;
+    expect(lessonFigureSchema.parse({ ...unfocused, focus }).viewPlane).toBeUndefined();
+    expect(lessonFigureSchema.safeParse({ ...unfocused, viewPlane }).success).toBe(false);
+    for (const bad of [[], Array.from({ length: 9 }, () => viewPlane[0]), [{ chain: '' }], 'E', null])
+      expect(lessonFigureSchema.safeParse({ ...unfocused, focus, viewPlane: bad }).success).toBe(false);
+    // Against the source: every target resolves, and together they span a plane.
+    const site = (atomName: string, at: number[]) => ({ identity: { atomName }, assemblyCoordinatesAngstrom: at });
+    const catalog = { source: { sha256: 'a'.repeat(64) }, rows: [{ identity: { authorChain: chain, authorResidue: 1, modelNumber: 1, componentId: 'HEM' },
+      atomSites: [site('N1', [2, 0, 0]), site('N2', [0, 2, 0]), site('N3', [-2, 0, 0]), site('N4', [0, -2, 0]), site('FE', [0, 0, 0]),
+        site('C1', [4, 0, 0]), site('C2', [6, 0, 0])] }] };
+    const check = (plane: unknown[]) => validateLessonSource({ provenance: {}, chapters: [{ immersive: {
+      figure: lessonFigureSchema.parse({ ...unfocused, layers: [{ id: 'heme', target: { chain }, representation: 'ball-and-stick', color: '#2288cc' }], labels: [], distances: [], focus, viewPlane: plane }) } }] } as any, catalog, 1);
+    expect(() => check(viewPlane)).not.toThrow();
+    expect(() => check([{ chain, residues: { from: 1, to: 1 }, atomName: 'XX' }])).toThrow('viewPlane.0: target has no atoms');
+    expect(() => check(['FE', 'C1', 'C2'].map(atomName => ({ chain, atomName })))).toThrow('atoms must span a plane');
+    expect(() => check([{ chain, atomName: 'N1' }, { chain, atomName: 'N2' }])).toThrow('atoms must span a plane');
+  });
+
   it('preserves optional desktop label pixels through lesson and scene contracts within 14–48', () => {
     const figure = structuredClone(tour.steps[0].figure!);
     expect(lessonFigureSchema.parse(figure).labels[0].desktopSizePx).toBeUndefined();

@@ -28,6 +28,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
+import { pageKeySource, reloadOnPageKeySource } from './inspection-page-key.js';
 
 export const LOOPBACK_ADDRESS = '127.0.0.1';
 const MAX_LINKS = 8;
@@ -48,7 +49,7 @@ export const INSPECTOR_PANEL_TOOLS = new Set([
   'navigate_experience', 'acknowledge_experience_step', 'grow_structure',
   'push_to_talk', 'push_to_talk_audio', 'voice_command', 'voice_acknowledgement',
   'claim_voice_intent', 'acknowledge_voice_intent', 'acknowledge_voice_playback',
-  'submit_headset_view',
+  'submit_headset_view', 'submit_live_view',
 ]);
 
 /**
@@ -82,6 +83,18 @@ export type InspectorPanelHostOptions = {
 
 type Link = { token: string; sessionId: string };
 
+/**
+ * The policy for the desktop host documents, here and in the standalone host.
+ * The inspector frame is `srcdoc`, so it runs under this policy too. It sets
+ * no script, style, worker or connection source, so the inline bootstrap
+ * scripts, blob workers, WebAssembly, WebXR and the microphone load as before;
+ * it refuses inline event handler attributes, plugins, a `<base>` element and
+ * being framed by another page. Stereofold sets every handler from script, so
+ * only an `on...=` attribute in markup Mol* writes from a structure file is
+ * refused.
+ */
+export const DESKTOP_PAGE_CSP = "script-src-attr 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+
 /** The document the browser opens: a bar, the inspector frame, and the two scripts. */
 const PAGE = '<!doctype html><html><head><meta charset="utf-8"><title>Stereofold Inspector</title></head>'
   + '<body style="margin:0;background:#071015;height:100vh;overflow:hidden">'
@@ -91,12 +104,19 @@ const PAGE = '<!doctype html><html><head><meta charset="utf-8"><title>Stereofold
   + '<script src="/host.js"></script><script src="/boot.js"></script></body></html>';
 
 /**
- * The page key comes from the fragment and never leaves this origin. The
- * bootstrap answer is the inspector document and the result it mounts with,
- * and `/rpc` is how the mounted inspector's `callServerTool` reaches the
- * server, through `window.__call` in `scripts/inspector-host.ts`.
+ * The page key comes from the fragment and never leaves this origin. Before
+ * the first request the page moves it into this tab's session storage and
+ * takes it out of the address and history, exactly as the companion pages do
+ * (`inspection-page-key.ts`), so a reload of the tab still finds it; a browser
+ * that refuses storage keeps the fragment. Every inspector this host opens
+ * lives at `/` on one origin, so the key is also kept in its own history
+ * entry, and back, forward and reload each return to the inspector that entry
+ * opened rather than the one the tab opened last. The bootstrap answer is the
+ * inspector document and the result it mounts with, and `/rpc` is how the
+ * mounted inspector's `callServerTool` reaches the server, through
+ * `window.__call` in `scripts/inspector-host.ts`.
  */
-const BOOT = 'const bearer=location.hash.slice(1);'
+const BOOT = `const bearer=${pageKeySource(true, true)}.key;${reloadOnPageKeySource('bearer')}`
   + 'const status=document.querySelector("#host-status");const say=t=>{status.textContent=t;};'
   + 'const missingKey="Open the exact address the tool returned, including the part after #.";'
   + 'window.__call=async p=>{if(!bearer)throw Error(missingKey);'
@@ -331,7 +351,7 @@ export class InspectorPanelHost {
       if (!this.#sameOrigin(request)) { send(403, {}); return; }
       const path = (request.url ?? '/').split('?')[0];
       if (request.method === 'GET') {
-        if (path === '/') { send(200, PAGE, 'text/html; charset=utf-8'); return; }
+        if (path === '/') { response.setHeader('Content-Security-Policy', DESKTOP_PAGE_CSP); send(200, PAGE, 'text/html; charset=utf-8'); return; }
         if (path === '/alive') { send(204, '', 'text/plain'); return; }
         if (path === '/host.js') { send(200, this.#hostScript ?? '', 'text/javascript; charset=utf-8'); return; }
         if (path === '/boot.js') { send(200, BOOT, 'text/javascript; charset=utf-8'); return; }

@@ -146,6 +146,12 @@ export type InspectionVoiceToolHooks = {
   validateNarration?: VoiceBindingValidator;
   /** Test seam; production uses the OAuth-only Realtime helper. */
   transcribe?: VoiceTranscriber;
+  /**
+   * Set when the person turned the headset microphone off for this host. Every
+   * `voice_command` is then answered with this sentence before its audio is
+   * parsed, written, sent to a helper or transcribed.
+   */
+  captureRefusal?: string;
   /** Test seam; production uses the external OAuth-only speech helper. */
   acknowledge?: (message: string) => Promise<{ wavBase64: string }>;
   now?: () => number;
@@ -392,6 +398,7 @@ export function registerInspectionVoiceTools(privateTool: PrivateTool, hooks: In
     description: 'App-only OAuth transcription for one short microphone capture from a current ready companion panel. It returns a known typed command or queued intent, plus a bounded heard excerpt for the wearer; it applies no molecular edit.',
     inputSchema: voiceCommandRequestSchema, ...config,
   }, async raw => {
+    if (hooks.captureRefusal) return { content: [{ type: 'text' as const, text: hooks.captureRefusal }], structuredContent: { message: hooks.captureRefusal } };
     const input = voiceCommandRequestSchema.parse(raw);
     const { audio, ...binding } = input;
     enter(binding.panelId);

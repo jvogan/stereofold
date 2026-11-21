@@ -623,7 +623,7 @@ describe('holding A or X to talk', () => {
     expect(actions).toEqual(['A:push-to-talk:down', 'A:push-to-talk:up']);
   });
 
-  it('drops a tap and only buzzes, which is the one-word "you" from the 11:08 pass', () => {
+  it('drops a tap and only buzzes, so a near-silent press never becomes a one-word "you"', () => {
     const { buttons, actions, records, pulses, tick } = harness();
     buttons.update([pointer('right', FACE_LOWER)]);
     tick(TALK_MIN_HOLD_MS - 20);

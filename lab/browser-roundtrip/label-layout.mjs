@@ -199,7 +199,7 @@ export const PLATE_RADIAL_BIAS = 1.2;
  * A Quest 2 shows about ninety-six degrees across and ninety down the middle
  * of each eye, but the outer third of that is the soft, smeared edge of the
  * lens rather than anything a wearer reads. Forty and thirty-six put the
- * second device run's plates hard against the boundary of the capture with
+ * one device run's plates hard against the boundary of the capture with
  * their names cut in half, and thirty-four across still had the fourth run's
  * "NHP2 2" clipped by the right edge. Thirty-one across by thirty down is the
  * band those captures show whole, stated as half-angles. The width is the
@@ -225,7 +225,7 @@ export const PLATE_FIELD = Object.freeze({
 /**
  * How many resting slots the band around the silhouette carries per side.
  *
- * The fifth device run put seven of ten plates in a heap
+ * One device run put seven of ten plates in a heap
  * under the structure, each leader running the height of the view, while the
  * band above and to the right of it was empty. The cause is that a straight
  * shortest escape is the SAME direction for every part in the middle of a
@@ -358,6 +358,116 @@ const vec3 = (value, fallback) => (Array.isArray(value) && value.length >= 3
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const length = a => Math.hypot(a[0], a[1], a[2]);
+
+/** How many directions a part's outline on the glass is sampled in. */
+export const PART_OUTLINE_DIRECTIONS = 16;
+
+/**
+ * How much of a slot's distance from the part's centre still counts once the
+ * part's own outline decides where its plate rests. It only settles ties.
+ */
+export const PART_OUTLINE_TRAVEL_SHARE = 0.05;
+
+/**
+ * A part's own outline on the glass: for each of `PART_OUTLINE_DIRECTIONS`
+ * directions, the projected atom furthest that way, as tangent x, y pairs.
+ *
+ * A part's centre says nothing about where the part can be seen. The
+ * telomerase dyskerins and the hairpin they bind are long, and their centres
+ * sit together in the middle of the lobe, so a plate placed by its distance
+ * from the centre came to rest wherever the band was nearest the middle,
+ * often on the far side from the part it names. The outline is the part as
+ * drawn, so a plate placed beside it touches the part. Its four axis
+ * extremes are also the part's box, which `partsSilhouette` uses.
+ *
+ * Atom centres are not the drawn surface, so every extreme is pushed out to
+ * where a ball of radius `pad`, in scene units, round its atom reaches on the
+ * glass, perspective included. With every atom and a pad of the largest drawn
+ * atom radius, the box is at least as large as what is drawn. A part handed
+ * over as a sample is bounded by its disc as well; read `partsSilhouette`.
+ *
+ * @param {ArrayLike<number>|Array<ArrayLike<number>>|undefined} points scene
+ *   positions, flat x, y, z triples or one triple per point
+ * @param {number} [pad] scene units every extreme is pushed outward by
+ * @returns {Float64Array|null} null when no point lies in front of the eye
+ */
+export function partOutline(points, eye, basis, pad = 0) {
+  if (!points || !(points.length > 0)) return null;
+  const grow = finite(pad) && pad > 0 ? pad : 0;
+  const nested = typeof points[0] === 'object' && points[0] !== null;
+  const count = nested ? points.length : Math.floor(points.length / 3);
+  const best = new Float64Array(PART_OUTLINE_DIRECTIONS * 2);
+  const score = new Float64Array(PART_OUTLINE_DIRECTIONS).fill(-Infinity);
+  const cos = [], sin = [];
+  for (let k = 0; k < PART_OUTLINE_DIRECTIONS; k++) {
+    cos.push(Math.cos((2 * Math.PI * k) / PART_OUTLINE_DIRECTIONS));
+    sin.push(Math.sin((2 * Math.PI * k) / PART_OUTLINE_DIRECTIONS));
+  }
+  let seen = 0;
+  for (let i = 0; i < count; i++) {
+    const p = nested ? points[i] : [points[3 * i], points[3 * i + 1], points[3 * i + 2]];
+    const rx = Number(p[0]) - eye[0], ry = Number(p[1]) - eye[1], rz = Number(p[2]) - eye[2];
+    const depth = rx * basis.forward[0] + ry * basis.forward[1] + rz * basis.forward[2];
+    if (!(depth > EPS)) continue;
+    const x = (rx * basis.right[0] + ry * basis.right[1] + rz * basis.right[2]) / depth;
+    const y = (rx * basis.up[0] + ry * basis.up[1] + rz * basis.up[2]) / depth;
+    if (!finite(x) || !finite(y)) continue;
+    seen += 1;
+    for (let k = 0; k < PART_OUTLINE_DIRECTIONS; k++) {
+      const along = x * cos[k] + y * sin[k];
+      // The furthest a ball of radius `grow` round this point reaches along
+      // this direction on the glass: its rim is at most `grow` further out
+      // and `grow` nearer the eye, which divides by less.
+      const lateral = along * depth + grow;
+      const reach = !grow ? along : depth > grow
+        ? lateral / (lateral >= 0 ? depth - grow : depth + grow) : along + grow / depth;
+      if (reach > score[k]) {
+        score[k] = reach;
+        best[2 * k] = x + (reach - along) * cos[k]; best[2 * k + 1] = y + (reach - along) * sin[k];
+      }
+    }
+  }
+  return seen ? best : null;
+}
+
+/**
+ * The glass between a rectangle and a part's outline, taken as the polygon
+ * through its extremes in order: a plate beside the middle of a long, straight
+ * part is touching it, though the outline's points sit at the part's ends.
+ */
+function outlineGap(outline, rect) {
+  const count = outline.length / 2;
+  const left = rect.x - rect.halfWidth, right = rect.x + rect.halfWidth;
+  const bottom = rect.y - rect.halfHeight, top = rect.y + rect.halfHeight;
+  const pointGap = (x, y) => Math.hypot(Math.max(0, left - x, x - right), Math.max(0, bottom - y, y - top));
+  let nearest = Infinity;
+  for (let k = 0; k < count; k++) {
+    const ax = outline[2 * k], ay = outline[2 * k + 1];
+    const bx = outline[(2 * k + 2) % outline.length], by = outline[(2 * k + 3) % outline.length];
+    if (segmentCrossesRect(ax, ay, bx, by, left, right, bottom, top)) return 0;
+    // Apart, the nearest pair is an end of the edge or a corner of the plate.
+    nearest = Math.min(nearest, pointGap(ax, ay), pointGap(bx, by));
+    const dx = bx - ax, dy = by - ay, span = dx * dx + dy * dy;
+    for (const [cx, cy] of [[left, bottom], [left, top], [right, bottom], [right, top]]) {
+      const t = span > 0 ? Math.min(1, Math.max(0, ((cx - ax) * dx + (cy - ay) * dy) / span)) : 0;
+      nearest = Math.min(nearest, Math.hypot(ax + t * dx - cx, ay + t * dy - cy));
+    }
+  }
+  return nearest;
+}
+
+/** Whether a segment meets an axis-aligned rectangle (Liang-Barsky clip). */
+function segmentCrossesRect(ax, ay, bx, by, left, right, bottom, top) {
+  let enter = 0, leave = 1;
+  const dx = bx - ax, dy = by - ay;
+  for (const [p, q] of [[-dx, ax - left], [dx, right - ax], [-dy, ay - bottom], [dy, top - ay]]) {
+    if (Math.abs(p) < EPS) { if (q < 0) return false; continue; }
+    const t = q / p;
+    if (p < 0) enter = Math.max(enter, t); else leave = Math.min(leave, t);
+    if (enter > leave) return false;
+  }
+  return true;
+}
 
 /**
  * The depth a plate is DRAWN at, given the depth its anchor sits at.
@@ -561,22 +671,41 @@ export function countSubjectOverlaps(placements = [], subject = null) {
 }
 
 /**
- * The box the named parts fill on the glass, from their own projected discs.
+ * The box the named parts fill on the glass, from their own projected atoms
+ * where the solver was given them and from their projected discs otherwise.
  *
  * Needs three parts before it will speak: two subunits bound nothing, and a
  * subject the solver has under-measured is worse than one it has over-measured
  * — a plate cleared of too small a box lands on the structure.
  *
- * @param {Array<{x:number,y:number,radius:number}>} live entries at a real depth
+ * A long chain's disc is far wider than the chain. On the telomerase seat the
+ * discs made a box half as tall again as the molecule the headset drew, and
+ * every plate rested that much further off the part it names. A part's own
+ * outline is measured from its atoms, so it bounds what is drawn.
+ *
+ * @param {Array<{x:number,y:number,radius:number,outline?:ArrayLike<number>}>} live
+ *   entries at a real depth; `outline` is tangent x, y pairs
  * @returns {{x:number,y:number,halfWidth:number,halfHeight:number}|null}
  */
 export function partsSilhouette(live = []) {
   const usable = live.filter(entry => finite(entry?.x) && finite(entry?.y) && finite(entry?.radius));
   if (usable.length < 3) return null;
-  const minX = Math.min(...usable.map(entry => entry.x - entry.radius));
-  const maxX = Math.max(...usable.map(entry => entry.x + entry.radius));
-  const minY = Math.min(...usable.map(entry => entry.y - entry.radius));
-  const maxY = Math.max(...usable.map(entry => entry.y + entry.radius));
+  const bound = (entry, axis, sign) => {
+    const outline = entry.outline;
+    const disc = entry[axis] + sign * entry.radius;
+    if (!outline?.length) return disc;
+    // A sample can miss a part's outermost atom, so a sampled part keeps its
+    // disc as the bound and its outline only says where the plate rests.
+    let value = entry.sampled ? disc : -sign * Infinity;
+    for (let i = axis === 'x' ? 0 : 1; i < outline.length; i += 2) {
+      value = sign > 0 ? Math.max(value, outline[i]) : Math.min(value, outline[i]);
+    }
+    return value;
+  };
+  const minX = Math.min(...usable.map(entry => bound(entry, 'x', -1)));
+  const maxX = Math.max(...usable.map(entry => bound(entry, 'x', 1)));
+  const minY = Math.min(...usable.map(entry => bound(entry, 'y', -1)));
+  const maxY = Math.max(...usable.map(entry => bound(entry, 'y', 1)));
   if (!(maxX > minX + EPS) || !(maxY > minY + EPS)) return null;
   return { x: (minX + maxX) / 2, y: (minY + maxY) / 2,
     halfWidth: (maxX - minX) / 2, halfHeight: (maxY - minY) / 2 };
@@ -1305,7 +1434,11 @@ export function meanPlateLeaderEm(placements = [], characterUnits) {
  *
  * @param {object} options
  * @param {Array<{id:string, text:string, anchor:ArrayLike<number>, radius?:number,
- *   focused?:boolean}>} options.plates one entry per part, in draw order
+ *   focused?:boolean, points?:ArrayLike<number>, pointRadius?:number,
+ *   pointsSampled?:boolean}>} options.plates one entry per part, in draw order;
+ *   `points` are the part's atoms in scene units, `pointRadius` how far the
+ *   drawn part reaches past them, and `pointsSampled` says they are a sample
+ *   rather than every atom (read `partOutline`)
  * @param {ArrayLike<number>} options.eye the wearer's eye, in scene units
  * @param {ArrayLike<number>} options.target what the wearer is looking at
  * @param {ArrayLike<number>} [options.up] the wearer's up
@@ -1356,6 +1489,8 @@ export function layoutComponentPlates({ plates = [], eye, target, up = [0, 1, 0]
       halfWidth: extents.halfWidth / drawDepth,
       halfHeight: extents.halfHeight / drawDepth,
       radius: radius / depth,
+      outline: partOutline(plate?.points, from, basis, plate?.pointRadius),
+      sampled: plate?.pointsSampled === true,
       exclusion: standoff > 0 ? (() => {
         const push = standoff / Math.hypot(...relative);
         const x = dot(relative, basis.right) * push / drawDepth;
@@ -1462,12 +1597,22 @@ export function layoutComponentPlates({ plates = [], eye, target, up = [0, 1, 0]
       if (avoid.some(blocker => overlaps(at, blocker, entry.gap))) continue;
       const dx = slot.x - entry.x, dy = slot.y - entry.y;
       const travel = Math.hypot(dx, dy);
-      if (!(travel > EPS)) return { travel: 0, direction: [0, 0] };
+      if (!(travel > EPS)) return { travel: 0, direction: [0, 0], cost: 0 };
       const along = (dx * radial[0] + dy * radial[1]) / travel;
-      const cost = travel * (1 - PLATE_SLOT_RADIAL_PREFERENCE * Math.max(0, along));
+      const cost = slotCost(entry, at, travel, along);
       if (!best || cost < best.cost - EPS) best = { cost, travel, direction: [dx / travel, dy / travel] };
     }
-    return best ? { travel: best.travel, direction: best.direction } : null;
+    return best;
+  }
+
+  /**
+   * What resting at `at` costs a plate: the glass between it and its own
+   * part's outline when the solver has one, and otherwise the leader length,
+   * discounted on the plate's own outward spoke. Read `partOutline`.
+   */
+  function slotCost(entry, at, travel, along) {
+    if (entry.outline) return outlineGap(entry.outline, at) + PART_OUTLINE_TRAVEL_SHARE * travel;
+    return travel * (1 - PLATE_SLOT_RADIAL_PREFERENCE * Math.max(0, along));
   }
 
   // A part can start above the field after a focus or resize. Rays from that
@@ -1496,7 +1641,7 @@ export function layoutComponentPlates({ plates = [], eye, target, up = [0, 1, 0]
         if (avoid.some(other => overlaps(at, other, entry.gap))) continue;
         const dx = x - entry.x, dy = y - entry.y, travel = Math.hypot(dx, dy);
         const along = travel > EPS ? (dx * radial[0] + dy * radial[1]) / travel : 0;
-        const cost = travel * (1 - PLATE_SLOT_RADIAL_PREFERENCE * Math.max(0, along));
+        const cost = slotCost(entry, at, travel, along);
         if (!best || cost < best.cost - EPS) best = { cost, travel,
           direction: travel > EPS ? [dx / travel, dy / travel] : [0, 0] };
       }
@@ -1559,7 +1704,7 @@ export function layoutComponentPlates({ plates = [], eye, target, up = [0, 1, 0]
         // A shortest escape is one direction from the part, and on a silhouette
         // wider than it is tall that direction is down for every part in the
         // middle of it. A plate that then finds the bottom occupied is pushed
-        // further down, which is how the fifth device run ended with seven
+        // further down, which is how one device run ended with seven
         // names heaped under the structure on leaders the height of the view
         // while the band above and to the right of it was empty. Choosing among
         // slots on all four sides instead spreads the arrangement around the
@@ -1573,7 +1718,12 @@ export function layoutComponentPlates({ plates = [], eye, target, up = [0, 1, 0]
         // silhouette fills most of the readable field there is barely a band
         // to sit on, and insisting on one sends a plate the long way round a
         // structure it could have stepped off in a tenth of the distance.
-        const take = (slot && (!best || slot.travel <= best.travel + EPS) ? slot : best)
+        // With the part's own outline, "shorter" is the glass between the
+        // plate and the part, which is what the wearer reads as belonging.
+        const escapeCost = best && entry.outline ? slotCost(entry, { ...rect,
+          x: entry.x + best.travel * best.direction[0], y: entry.y + best.travel * best.direction[1] }, best.travel, 0) : null;
+        const slotFirst = slot && (!best || (escapeCost !== null ? slot.cost <= escapeCost + EPS : slot.travel <= best.travel + EPS));
+        const take = (slotFirst ? slot : best)
           ?? freeFieldSlot(entry, rect, radial, [...blockers, ...placed]);
         if (take) { chosen = { ...take, sizeScale, alpha: 1 }; break; }
       }
@@ -1810,7 +1960,8 @@ export function layoutComponentPlates({ plates = [], eye, target, up = [0, 1, 0]
         radius: finite(entry.plate?.radius) && entry.plate.radius > 0 ? entry.plate.radius : 0,
         halfWidth: entry.depth === null ? null : entry.halfWidth,
         halfHeight: entry.depth === null ? null : entry.halfHeight,
-        lines: entry.lines?.length ?? 1, focused: entry.plate.focused === true })),
+        lines: entry.lines?.length ?? 1, focused: entry.plate.focused === true,
+        outline: entry.outline ? Array.from(entry.outline) : null })),
     },
   };
 }

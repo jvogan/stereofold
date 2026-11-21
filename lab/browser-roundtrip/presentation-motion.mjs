@@ -1,7 +1,7 @@
 // Who is allowed to stop the room-locked presentation spin, and how fast it
 // turns.
 //
-// Two headset findings land here.
+// Two headset behaviours are handled here.
 //
 // 1. Talking is not manipulation. Push-to-talk is a hold of A or X
 //    (`push-to-talk-grip.mjs`) and the menu is a tap of B or Y, so both arrive

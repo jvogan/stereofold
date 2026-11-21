@@ -10,9 +10,11 @@ import { createMenuResolve } from './menu-resolve.mjs'; // One plate re-solve pe
 import { outcomeCopy } from './outcome-copy.mjs';
 import { holdOutcomeLine, outcomeLineDecision, shouldClearOutcomeRow } from './outcome-line.mjs'; // Which receipts the wearer sees, and for how long.
 import { createPresentationScene } from './presentation-scene.mjs';
+import { attachPresentationLayers, presentationUiTarget } from './presentation-layer.mjs'; // The controls on their own XR layer.
 import { holdHeadRotationZero } from './head-rotation-lock.mjs'; // Every glyph in the session, unmirrored.
-import { trackFoveation, disableXrLayerMsaa, entryRefusalReason, requestHeadsetSession, headsetOptionalFeatures, headsetEntryDeadlineMs } from './xr-session-request.mjs'; // The blend-mode switch reads the refusal.
+import { trackFoveation, disableXrLayerMsaa, keepsXrLayerMsaa, entryRefusalReason, requestHeadsetSession, headsetOptionalFeatures, headsetEntryDeadlineMs } from './xr-session-request.mjs'; // The blend-mode switch reads the refusal.
 import { beginXrRenderBudget, renderBudgetOverrides, watchFrameCost, xrResolutionScale } from './xr-render-budget.mjs';
+import { getXrLayerStack, installXrLayers, withXrLayersFeature, xrLayersRequested } from './xr-layers.mjs'; // `?xrLayers=1` only.
 import { installFrameGovernor } from './xr-frame-governor.mjs'; // Observe by default; resolution changes require opt-in.
 import { immersiveDepthPlanes, panelDepthBand } from './xr-depth-band.mjs'; // The projection planes, as pure arithmetic.
 import { attachGripPushToTalk, voiceCommandSender } from './push-to-talk-grip.mjs';
@@ -49,7 +51,7 @@ const PRESENTATION_TIMEOUT_MS = 10_000;
 const STARTUP_TIMEOUT_MS = 10_000;
 const SESSION_END_TIMEOUT_MS = 5_000;
 const FINALIZER_TIMEOUT_MS = 300;
-// Acceptance 6: the first desktop geometry rebuild completes in 671–774 ms.
+// Recorded on a headset: the first desktop geometry rebuild completes in 671–774 ms.
 // Audio release keeps its short deadline; geometry has the startup budget.
 const APPEARANCE_TIMEOUT_MS = 10_000;
 
@@ -619,6 +621,8 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
       // clocking it, before the row it would have cleared is gone.
       cancelOutcomeHold(); cancelOutcomeHold = () => {}; outcomeLineText = '';
       try { await removeOutcome(record); } catch { outcomeRepresentationCount = 0; reportPresentationRepresentationCount(); }
+      // The controls' own layers go before the scene they draw.
+      try { record.presentationLayers?.dispose(); } catch { /* The session end already took them down. */ }
       try { record.presentation?.dispose(); } catch { /* Context loss can own the GL teardown. */ }
       // The desktop canvas has no head to rotate against, so the hold is
       // released with the session that took it. Released after the
@@ -809,7 +813,10 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
     }
   }
 
-  async function enter(mode) {
+  // `options.awaitsPrompt`: the page expects the browser to hold this request behind
+  // a permission prompt, so the request gets the prompt deadline
+  // (`requestHeadsetSession`). Omitted, entry is exactly as it always was.
+  async function enter(mode, options = undefined) {
     const xrMode = MODES.get(mode);
     if (!xrMode) throw new TypeError('XR mode must be vr or ar.');
     if (disposed) throw xrError('The viewer has been disposed.');
@@ -824,7 +831,9 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
       try {
         if (ending) throw xrError('The previous headset view is still closing. Try Enter VR again when it finishes.');
         if (disposed) throw xrError('The viewer has been disposed.');
-        if (!isReady()) throw xrError('Load a ready structure before entering immersion.');
+        // Marked, so the page can wait for the scene to settle within the
+        // same press rather than spend it: nothing has been asked of the browser.
+        if (!isReady()) throw Object.assign(xrError('Load a ready structure before entering immersion.'), { notReady: true });
         const runtime = supportedRuntime();
         if (!runtime) throw xrError('This browser does not support immersive sessions.');
         // Keep initial entry to the local space actually used by this viewer.
@@ -836,8 +845,9 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         // Safari is asked for no hand tracking, so it keeps drawing the
         // wearer's real hands, and it gets longer to answer, because its own
         // consent prompt holds the request (`xr-session-request.mjs`).
-        session = await requestHeadsetSession(runtime, xrMode, { optionalFeatures: headsetOptionalFeatures(globalThis.navigator),
-          timeoutMs: headsetEntryDeadlineMs(globalThis.navigator), onTimeout: () => { reloadRequired = true; } });
+        // `?xrLayers=1` adds `layers`; without it the list is unchanged.
+        session = await requestHeadsetSession(runtime, xrMode, { optionalFeatures: withXrLayersFeature(headsetOptionalFeatures(globalThis.navigator)),
+          timeoutMs: headsetEntryDeadlineMs(globalThis.navigator), awaitsPrompt: options?.awaitsPrompt === true, onTimeout: () => { reloadRequired = true; } });
         blendMode = ['opaque', 'alpha-blend', 'additive'].includes(session.environmentBlendMode) ? session.environmentBlendMode : null;
         if (disposed) {
           if (!await closeNativeSession(session)) reloadRequired = true;
@@ -928,8 +938,15 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         // switches fixed foveation off on Quest. The wrapper is installed for
         // the life of the session and undone in `restore()` below.
         // `?xrRenderBudget=msaa:on` keeps it, to measure that trade on a headset.
-        record.restoreLayer = renderBudgetOverrides().msaa === true ? () => {}
+        const restoreMsaa = renderBudgetOverrides().msaa === true ? () => {}
           : disableXrLayerMsaa(globalThis, session); // Never throws; only measured Quest classes trade MSAA for foveation.
+        // `?xrLayers=1` puts the molecule in its own projection layer; any
+        // refusal hands Mol* the stock layer above (`xr-layers.mjs`). Its
+        // wrapper sits over the MSAA one, so it is restored first. A device
+        // whose stock layer keeps MSAA keeps the stock layer.
+        const layers = xrLayersRequested() ? installXrLayers({ session, space, drawCount: getDrawCount,
+          keepsMsaa: keepsXrLayerMsaa(globalThis, session) }) : null;
+        record.restoreLayer = layers ? () => { try { layers.restore(); } finally { restoreMsaa(); } } : restoreMsaa;
         const attachPromise = Promise.resolve(canvas.webgl.xr.set(session, { resolutionScale: xrResolutionScale({ session, plugin }) })); // Layer scale is fixed at creation.
         record.attachPromise = attachPromise;
         void attachPromise.then(() => {
@@ -946,6 +963,15 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
         // the level the moment the layer exists and again if it is replaced,
         // and stops itself when the session ends.
         record.foveation = trackFoveation(session); // Session cleanup also owns the timer if native end fails.
+        // With a layer stack (`?xrLayers=1`, `layers` granted) the controls
+        // leave the molecule's pass for a layer of their own, so the molecule's
+        // layer can foveate and the text stays sharp. Without one, or if the
+        // layer is refused, nothing changes. Never throws.
+        const layerStack = getXrLayerStack(session);
+        if (layerStack) record.presentationLayers = attachPresentationLayers({ stack: layerStack, presentation: record.presentation,
+          canvas, drawPass: plugin.canvas3dContext?.passes?.draw, space, target: presentationUiTarget(globalThis),
+          getMenuPlate: () => record.toolbar?.menuPlate?.(), getAimPoint: () => record.toolbar?.aimPoint?.(),
+          getAimAxes: () => record.toolbar?.aimAxes?.(), getPointer: () => record.pointer });
         record.renderBudget = beginXrRenderBudget({ plugin, canvas, session }); // Never throws.
         record.governor = installFrameGovernor({ session }); // Never throws; `governor:` in the budget knobs switches it.
         // A headset may end the session while Canvas3D is attaching it. Do
@@ -1459,6 +1485,7 @@ export function createImmersiveSession({ plugin, canvas, Mat4, isReady, delibera
       try { return active?.toolbar?.placementPreview?.(options); } catch { return undefined; }
     },
     toolbarRelocationCandidates: options => active?.toolbar?.prepareRelocation?.(options) ?? [],
+    menuDraggedByWearer: () => active?.toolbar?.menuDraggedByWearer?.() === true,
     relocateToolbar: candidate => active?.toolbar?.commitRelocation?.(candidate),
     // What the committed panel is drawing now — the lines on the
     // glass, the head it was seated on, the layout constants it used — so the

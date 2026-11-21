@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { crc32, deflateSync } from 'node:zlib';
+import { deflateSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   BRIDGE_HISTORY_REVISIONS, BRIDGE_SCHEMA_ID, BRIDGE_STALE_AFTER_MS,
@@ -11,6 +11,8 @@ import {
   summariseSelection, writeBridgeHeadsetView, writeBridgeVoice, writeHeadsetBridge,
   type BridgeCaptureInput, type BridgeHeadsetViewInput,
 } from '../src/headset-bridge.js';
+// zlib.crc32 arrived in Node 22.2; the capture module's table CRC runs on every Node 22.
+import { pngCrc32 } from '../src/headset-view-device.js';
 import { allowedReviewPath, parseXrReviewArguments } from '../scripts/serve-xr-review.js';
 
 const temporaryRoots: string[] = [];
@@ -30,7 +32,7 @@ function pngChunk(type: string, data: Buffer): Buffer {
   length.writeUInt32BE(data.byteLength);
   const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
   const checksum = Buffer.alloc(4);
-  checksum.writeUInt32BE(crc32(body) >>> 0);
+  checksum.writeUInt32BE(pngCrc32(body));
   return Buffer.concat([length, body, checksum]);
 }
 
@@ -120,6 +122,16 @@ describe('the headset still, beside the paired capture', () => {
     for (const name of ['headset-view.png', BRIDGE_HEADSET_VIEW_STATE_FILE]) expect(await mode(join(directory, name))).toBe('600');
     expect(await readBridgeHeadsetView(directory)).toEqual(record);
     expect(await readFile(join(directory, 'headset-view.png'))).toEqual(still.bytes);
+  });
+
+  it('carries the note on a dim device still, and a reader gets it back', async () => {
+    const directory = await bridgeDirectory();
+    const stillNote = 'Almost all of this still is black: 0.058% of its pixels are lit (4,096 of 7,034,880).';
+    const record = await writeBridgeHeadsetView(directory, headsetView({ still: 'dim', stillNote }));
+    expect(record).toMatchObject({ still: 'dim', stillNote });
+    expect(await readBridgeHeadsetView(directory)).toEqual(record);
+    // A lit still has neither field, and a note without its verdict is not written.
+    expect(await writeBridgeHeadsetView(directory, headsetView({ stillNote }))).not.toHaveProperty('stillNote');
   });
 
   it('leaves no stale file of the other media type beside the current one', async () => {

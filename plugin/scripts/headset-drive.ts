@@ -135,6 +135,14 @@ export interface DriveOptions {
 export class DriveUsageError extends Error {}
 
 const DEFAULT_SETTLE_SECONDS = 4;
+/**
+ * How a device still the tool refused reads: black, in older and current
+ * wording, or one it could not verify. Either fails the step; a host that
+ * simply has no adb is advice, and its fallback picture stands.
+ */
+const REFUSED_STILL = /\b(?:frame is black|almost entirely black|could not verify the still)\b/iu;
+/** A refused capture whose fallback screencap has not produced a file (yet). */
+const CAPTURE_NOT_TAKEN = 'none';
 
 /**
  * Parse argv. The share path is positional because it is the one argument that
@@ -2385,25 +2393,35 @@ export class Driver {
    * beside everything else. A host with no adb configured answers with a plain
    * explanation rather than a file, and this script has an adb of its own, so
    * `adb exec-out screencap` is the fallback rather than a missing frame.
+   *
+   * The tool's answer is recorded before the fallback runs. A black still the
+   * tool refused has to fail the step even when the fallback then fails too,
+   * so the fallback is tried once and its error is left to the step. A saved
+   * capture is kept with the tool's whole note on a still that is lit over
+   * only a small area.
    */
   async capture(name: string): Promise<{ path: string; via: string; note?: string }> {
     const path = join(this.options.outDir, captureFileName(name, ++this.captureIndex));
     await this.assertProximitySafe();
+    let refusal: string;
     try {
       const answer = await this.agent('capture_headset_view', { source: 'device', savePath: path, maxWidth: 1600 });
-      const structured = (answer.structuredContent ?? {}) as { savedPath?: string; source?: string };
-      if (structured.savedPath) return { path: structured.savedPath, via: `capture_headset_view:${structured.source ?? 'device'}` };
-      const direct = await this.screencap(path);
-      const shot = { ...direct, note: agentText(answer).slice(0, 160) };
-      this.captureNotes.push(shot);
-      return shot;
+      const structured = (answer.structuredContent ?? {}) as { captured?: boolean; path?: unknown; savedPath?: unknown; source?: string; stillNote?: unknown };
+      // The tool names its saved file `path`; `savedPath` is still read for a host that answered that way.
+      const saved = structured.captured === true && typeof structured.path === 'string' ? structured.path
+        : typeof structured.savedPath === 'string' ? structured.savedPath : undefined;
+      if (saved) {
+        return { path: saved, via: `capture_headset_view:${structured.source ?? 'device'}`,
+          ...(typeof structured.stillNote === 'string' ? { note: structured.stillNote } : {}) };
+      }
+      refusal = agentText(answer);
     } catch (error) {
       if (isGateFailure(error)) throw error;
-      const direct = await this.screencap(path);
-      const shot = { ...direct, note: error instanceof Error ? error.message.slice(0, 160) : String(error) };
-      this.captureNotes.push(shot);
-      return shot;
+      refusal = error instanceof Error ? error.message : String(error);
     }
+    const shot = { path, via: CAPTURE_NOT_TAKEN, note: refusal };
+    this.captureNotes.push(shot);
+    return Object.assign(shot, await this.screencap(path));
   }
 
   /**
@@ -2515,10 +2533,9 @@ export async function stepOpen(driver: Driver): Promise<{ detail: string; eviden
       if (startup?.phase === 'error' && (!startup.pageKeyPresent || startup.startupFailure === SHARE_ENDED_STARTUP_FAILURE)) throw error;
     }
     // A VIEW intent brings an already-open tab to the front; it does not reload
-    // it. Measured: the headset tab had been wedged on "The
-    // molecular change did not produce a frame within 30 seconds" since 07:43,
-    // `open_companion` re-focused that same document, and its own "Reload
-    // viewer" button did not act. Recovery is still spent only once: an
+    // it. A headset tab wedged on "The molecular change did not produce a
+    // frame within 30 seconds" stays wedged: `open_companion` re-focuses that
+    // same document, and its own "Reload viewer" button does not act. Recovery is still spent only once: an
     // explicitly disconnected authorized page pairs through its root route;
     // other incomplete boots reload and get one second chance.
     const startup = error instanceof StepFailure
@@ -3610,12 +3627,13 @@ export function growTierWaitMs(grow: GrowAnswer): number {
 /**
  * How long to wait after a host refusal before photographing the plate.
  *
- * Without a wait, `grow-refused.png` was captured in the same tick as the host
- * answer, before any heartbeat, so the plate never showed the line. The page
- * learns of a Mac-initiated refusal on its 1 Hz poll, then owns the plate for
- * `GROWTH_CAPTION_MS` of XR frames. Waiting the full overlay duration would
- * photograph the chapter caption the overlay just returned to (half-open
- * expiry). One heartbeat plus a paint frame lands inside the window.
+ * Without a wait, the driver captures `grow-refused.png` in the same tick as
+ * the host answer, before any heartbeat, so the plate never shows the line.
+ * The page learns of a Mac-initiated refusal on its 1 Hz poll, then owns the
+ * plate for `GROWTH_CAPTION_MS` of XR frames. Waiting the full overlay
+ * duration would photograph the chapter caption the overlay just returned to
+ * (half-open expiry). One heartbeat plus a paint frame lands inside the
+ * window.
  */
 export function growRefusalCaptureWaitMs({
   overlayMs = GROWTH_CAPTION_MS,
@@ -4043,10 +4061,10 @@ Promise<{ panel: Record<string, any> | undefined; phases: SwapPhaseRecord[] }> {
  * every swap -- a tier that lands on a black headset is the failure this step
  * exists to catch, and it is how the wall tier has failed.
  *
- * It ends at the device ceiling rather than at the top of the list, and records
- * the sentence the wearer would have heard. That refusal is the product
- * working: the alternative is a Quest 2 taking 177,268 atom sites and dropping
- * the session with the headset on someone's face.
+ * It ends at the first refusal, the device ceiling or the top of the list, and
+ * records the sentence the wearer would have heard. A ceiling refusal is the
+ * product working: the alternative is a Quest 2 taking a tier past what it has
+ * opened and dropping the session with the headset on someone's face.
  */
 async function stepGrow(driver: Driver): Promise<{ detail: string; evidence: Record<string, unknown> }> {
   const opening = await driver.companionPanel();
@@ -5222,14 +5240,15 @@ export async function executeDriveStep(driver: Driver, step: DriveStep, readines
   evidence = { ...evidence, ...(driver.effectiveUrl === undefined ? {} : { effectiveUrl: redactUrl(driver.effectiveUrl) }),
     ring: driver.ringSummarySince(ringMark) };
   // Apply the capture verdict once for every step, including captures stored
-  // inside tour chapters or grow tiers. Non-black fallback notes are advisory.
-  const blackCapture = driver.captureNotes.slice(captureMark).find(shot => /\bframe is black\b/iu.test(shot.note));
-  const captureNote = blackCapture?.note ?? evidence.captureNote;
-  if (typeof captureNote === 'string' && /\bframe is black\b/iu.test(captureNote)) {
+  // inside tour chapters or grow tiers. A refused still, black or unverifiable,
+  // fails the step; other fallback notes are advisory.
+  const refusedCapture = driver.captureNotes.slice(captureMark).find(shot => REFUSED_STILL.test(shot.note));
+  const captureNote = refusedCapture?.note ?? evidence.captureNote;
+  if (typeof captureNote === 'string' && REFUSED_STILL.test(captureNote)) {
     if (ok) detail = captureNote;
     else if (!detail.includes(captureNote)) detail += ` Capture failed: ${captureNote}`;
     ok = false;
-    evidence = { ...evidence, captureNote, ...(blackCapture ? { failedCapture: blackCapture.path } : {}) };
+    evidence = { ...evidence, captureNote, ...(refusedCapture && refusedCapture.via !== CAPTURE_NOT_TAKEN ? { failedCapture: refusedCapture.path } : {}) };
   }
   // The method and the verdict come from the step's own evidence, so a step
   // that reached the page and did not check its outcome cannot be logged as

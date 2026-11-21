@@ -38,6 +38,25 @@ PINNED_SHA256 = {
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
+# The largest pinned upstream file is structures/INDEX.csv at 341,801 bytes (in_silico_scores.csv is 62,930);
+# no published file this tool requests comes near this bound.
+MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024
+
+def read_bounded(response, limit=MAX_DOWNLOAD_BYTES):
+    """The whole body, refused as soon as it passes `limit` bytes."""
+    declared = response.headers.get('Content-Length')
+    if declared and declared.isdigit() and int(declared) > limit:
+        raise ValueError(f'Download exceeds {limit} bytes')
+    chunks, size = [], 0
+    while True:
+        chunk = response.read(min(1 << 20, limit + 1 - size))
+        if not chunk:
+            return b''.join(chunks)
+        size += len(chunk)
+        if size > limit:
+            raise ValueError(f'Download exceeds {limit} bytes')
+        chunks.append(chunk)
+
 
 def read_rows(path):
     with path.open(newline='', encoding='utf-8') as handle:
@@ -139,7 +158,7 @@ def checked_inputs(root, fetch=False):
         path = root / 'upstream' / name
         if not path.exists() and fetch and name == 'in_silico_scores.csv':
             with urllib.request.urlopen(BASE + name, timeout=60) as response:
-                data = response.read()
+                data = read_bounded(response)
             if sha(data) != digest:
                 raise ValueError(f'Pinned upstream digest mismatch: {name}')
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -83,6 +83,7 @@ const ROW_CITATIONS = {
   'docs/first-run-and-sharing.md': [[5, 'molstar', 'Mol*'], [5, 'molstar', 'Mol*']],
   'docs/headset-walkthrough.md': [
     [4, 'appearance', 'Density'], [0, 'talk', 'Talk'], [0, 'talk', 'Talk'], [0, 'talk', 'Talk'],
+    [0, 'talk', 'Talk'], [0, 'talk', 'Talk'],
   ],
 };
 

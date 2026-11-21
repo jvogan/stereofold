@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { buildRigidComposite, isModelledCompositeSource } from '../src/demo-rigid-composite.js';
 import { writeVerifiedCacheFile } from '../src/verified-cache-write.js';
 import { demosRoot, readCompositeRecipe, readConfinedCompositeFile, readModelledCompositeSource } from '../src/demo-composite-files.js';
-import { addressedDemoPath } from '../src/addressed-demo-cache.js';
+import { addressedDemoFile } from '../src/addressed-demo-cache.js';
 
 export const usage = 'Usage: pnpm --dir plugin exec tsx scripts/prepare-composite.ts <recipe.json> --sources <dir> --out <file> (recipe and ingredients must be inside demos/; deposited sources are <dir>/<id>.cif, modelled ones sit beside the recipe; writes <stem>.<sha256>.<ext>; reports path)';
 export function parsePrepareCompositeArgs(argv: readonly string[]): { recipe: string; sources: string; out: string } {
@@ -31,7 +31,7 @@ export async function main(argv: readonly string[], log = console.log, root = de
     // Deposited sources live in the download cache, so confine each one to --sources, not demos/.
     : await readConfinedCompositeFile(resolve(args.sources, `${source.id}.cif`), resolve(args.sources));
   const { text, ...counts } = await buildRigidComposite(recipe, sources);
-  const path = addressedDemoPath(file => resolve(file), args.out, counts.sha256);
+  const path = resolve(addressedDemoFile(args.out, counts.sha256));
   await writeVerifiedCacheFile(path, text, counts.sha256);
   log(JSON.stringify({ path, ...counts }));
   return 0;

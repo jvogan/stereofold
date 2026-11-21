@@ -2,14 +2,13 @@
  * Which Quest Browser tab is the live viewer, and what a
  * launch does with the ones that are not.
  *
- * Measured on a Quest 2:
- * twenty-one identical `/viewer` tabs were open at once. Every host restart
- * that evening ran `manage_companion {"action":"launch","launch":"adb"}`, and
- * an `am start -a VIEW` intent opens a NEW tab every time — it never focuses
- * the one already there — so each restart left one more behind. Exactly one of
- * the twenty-one held the immersive session and drew the spatial menu. The
- * driver picked a different one through CDP, spent three recovery steps on it,
- * and reported a broken headset while the live page was rendering correctly.
+ * An `am start -a VIEW` intent opens a NEW tab every time — it never focuses
+ * the one already there — so each host restart that runs
+ * `manage_companion {"action":"launch","launch":"adb"}` leaves one more
+ * `/viewer` tab behind (measured on a Quest 2). Of many identical tabs, only
+ * one holds the immersive session and draws the spatial menu, and a driver
+ * that attaches to another one through CDP reports a broken headset while
+ * the live page renders correctly.
  *
  * Two decisions come out of that, and both are here so the host and the driver
  * cannot disagree about them:
@@ -24,18 +23,15 @@
  *   fenced by the share's own origin upstream, and a probe that could not run
  *   at all downgrades to "launch anyway and say older tabs may remain".
  *
- * Drawing the menu is not the same as being on this share, and that is the
- * defect observed on a Quest 2. The demo host's ten-hour share
- * ended on its timer at 04:26 and a new one opened at 08:05. The headset still
- * had the old tab in front, showing the page's own "sharing from your Mac has
- * ended" plate — and that plate does not take the spatial-menu hook down, so
- * `__stereofoldMenu.rows()` still answered. The probe read the rows, ranked the
- * tab `menu`, kept it, closed five duplicates and sent no intent, so no
- * `#pair=` code ever reached the headset and `headset-drive.ts --steps enter`
- * failed three times on a page that could not be re-paired from inside the
- * headset. The drive could see the plate and the probe could not.
+ * Drawing the menu is not the same as being on this share. After a share
+ * ends, a tab left in front shows the page's own "sharing from your Mac has
+ * ended" plate, and that plate does not take the spatial-menu hook down, so
+ * `__stereofoldMenu.rows()` still answers. Ranked on its rows alone, that tab
+ * reads as `menu`: the probe would keep it, close the duplicates and send no
+ * intent, so no `#pair=` code would reach the headset and entry would fail on
+ * a page that cannot be re-paired from inside the headset.
  *
- * So a reading now carries why a tab is finished as well as how live it looks,
+ * So a reading carries why a tab is finished as well as how live it looks,
  * and both reasons come from what the page itself publishes:
  * `document.body.dataset.startupFailure` for a share that closed, and
  * `document.body.dataset.sessionId` for a tab left over from another share.
@@ -493,11 +489,11 @@ export async function sweepLaunchTabs({ transport, port, expectedOrigin, expecte
 /**
  * The tabs the debugger cannot see.
  *
- * Measured on the Quest 2: eleven Stereofold
- * entries sat in the wearer's tab strip while `/json/list` on the forwarded
- * debugger port reported two pages. The sweep above closed both of the two and
- * honestly reported "one viewer tab left", and the wearer was still looking at
- * eleven, any one of which is a tap away from becoming a second viewer.
+ * Quest Browser's tab strip can hold more Stereofold entries than
+ * `/json/list` on the forwarded debugger port reports: eleven entries against
+ * two pages, measured on a Quest 2. The sweep above closes the pages it can
+ * see and reports "one viewer tab left", while the wearer still sees the
+ * rest, any one of which is a tap away from becoming a second viewer.
  *
  * The reason is not a bug in the sweep. `/json/list` enumerates targets that
  * have a live renderer, and Quest Browser — Chromium for Android — discards the
@@ -685,8 +681,8 @@ const COLD_START = 'Quest Browser was not running, so this launch started it.';
  *
  * Before that intent there was no browser to ask, so the sweep ahead of the
  * launch could close nothing, and a cold start restores the last session
- * behind the new tab. In one headset run, two viewer tabs from three days
- * earlier came back asking to pair again.
+ * behind the new tab. Viewer tabs restored from an earlier session then ask
+ * to pair again.
  *
  * No page is asked anything: nobody may be wearing the headset, and Quest
  * Browser freezes every tab that is not in front. The browser's own list

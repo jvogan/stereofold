@@ -16,8 +16,10 @@ it('wires the standalone child environment from the resolved mode',async()=>{
   expect(source).toContain('pttLaunchEnabled(rawArgs,process.env,false)');
   expect(source).toContain("STEREOFOLD_PTT_TRANSCRIBE:'1'");
   expect(source).toContain("STEREOFOLD_PTT_TRANSCRIBE:'0'");
+  expect(source).toContain('...headsetMicrophoneOffEnvironment(rawArgs),');
   const launcher=await readFile(new URL('../scripts/quest-share.ts',import.meta.url),'utf8');
-  expect(launcher).toContain("options.pushToTalk ? ['--ptt'] : ['--no-ptt']");
+  expect(launcher).toContain("options.pushToTalk ? ['--ptt'] : options.microphoneRefused ? ['--no-ptt'] : []");
+  expect(launcher).toContain('...questHostVoiceFlags(options),');
 });
 // The ceiling used to be 30 s, which is shorter than the
 // host's own budget for loading a structure (130 s for the 4,779 sites of

@@ -9,7 +9,7 @@ import { HEADSET_CHANNEL_METHOD } from '../src/headset-channel.js';
 import { DETAILED_VIEW_SESSION_SOURCE } from '../src/detailed-view-session.js';
 import { EventEmitter } from 'node:events';
 import { Readable, Writable } from 'node:stream';
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, open, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-ignore The real page recorder/result parser and runner.
@@ -200,8 +200,8 @@ describe('whisper output parsing', () => {
   });
 
   /**
-   * The 11:08 Quest 2 pass: a press made in near silence came back as the one
-   * word "you", and the headset captioned it as though the wearer had spoken.
+   * A press made in near silence comes back as the one word "you". Unfiltered,
+   * the headset captions it as though the wearer had spoken.
    */
   it('drops the fillers whisper produces for silent audio', () => {
     expect(parseWhisperText('you\n')).toBe('');
@@ -350,6 +350,35 @@ describe('transcription end to end with a fake spawner', () => {
         const whisper = spawner.calls.find(call => call.command.includes('whisper'))!;
         expect(whisper.args.includes('-ng')).toBe(gpu !== '1');
       } finally { await instance.dispose(); }
+    });
+  });
+
+  /**
+   * An agent host writes an MCP server's stderr to its own log files, so the
+   * diagnostic line says how long the words were, not what they were, unless
+   * the person asks for the words with the debug switch.
+   */
+  describe.each(['whisper', 'apple'] as const)('the diagnostic line on the %s route', route => {
+    const spoken = 'call my sister about the results';
+    const press = async (env: Record<string, string>) => {
+      const { instance, lines } = transcriber({ env, transcriber: route, applespeechBin: '/fixture/applespeech' },
+        fakeSpawner({ text: spoken }));
+      try {
+        const outcome = await instance.accept(chunk({ seq: 0, final: true }));
+        expect(outcome.transcript?.text).toBe(spoken);
+        return lines.join('\n');
+      } finally { await instance.dispose(); }
+    };
+
+    it('keeps the timing and the length of a transcript but not its words', async () => {
+      const logged = await press({});
+      expect(logged).toMatch(new RegExp(`heard ${spoken.length} characters in \\d+ ms, recognized in \\d+ ms`, 'u'));
+      expect(logged).not.toContain('sister');
+    });
+
+    it('logs the words only when STEREOFOLD_PTT_DEBUG_TRANSCRIPTS is 1', async () => {
+      expect(await press({ STEREOFOLD_PTT_DEBUG_TRANSCRIPTS: '1' })).toContain(JSON.stringify(spoken));
+      expect(await press({ STEREOFOLD_PTT_DEBUG_TRANSCRIPTS: 'true' })).not.toContain('sister');
     });
   });
 
@@ -771,6 +800,28 @@ describe('transcription end to end with a fake spawner', () => {
     await instance.dispose();
   });
 
+  it.each([
+    ['audio/webm;codecs=opus', '-f', 'matroska'], ['audio/webm', '-f', 'matroska'], ['audio/x-unlisted', '-f', 'matroska'],
+    ['audio/mp4', '-f', 'mov'], ['audio/mp4;codecs=mp4a.40.2', '-f', 'mov'], ['audio/x-m4a', '-f', 'mov'],
+    ['audio/ogg;codecs=opus', '-f', 'ogg'], ['audio/ogg', '-f', 'ogg'], ['audio/opus', '-f', 'ogg'], ['audio/x-ogg', '-f', 'ogg'],
+    ['audio/mpeg', '-f', 'mp3'], ['audio/mp3', '-f', 'mp3'],
+    ['audio/wav', '-f', 'wav'], ['audio/wave', '-f', 'wav'], ['audio/x-wav', '-f', 'wav'],
+    ['audio/flac', '-f', 'flac'], ['audio/x-flac', '-f', 'flac'],
+    ['audio/aac', '-format_whitelist', 'mov,aac,loas'], ['audio/mp4a-latm', '-format_whitelist', 'mov,aac,loas'],
+  ])('decodes %s from local files only, as the container it declared', async (mime, option, value) => {
+    // A probe of the submitted bytes could choose a demuxer that opens other
+    // files, so the declared type picks the demuxer and only `file` is open.
+    const spawner = fakeSpawner();
+    const { instance } = transcriber({}, spawner);
+    await instance.accept(chunk({ seq: 0, final: true, mime }));
+    const args = spawner.calls.find(call => call.command.includes('ffmpeg'))!.args;
+    const inputOptions = args.slice(0, args.indexOf('-i'));
+    const valueOf = (name: string) => inputOptions.includes(name) ? inputOptions[inputOptions.indexOf(name) + 1] : undefined;
+    expect(valueOf('-protocol_whitelist')).toBe('file');
+    expect(valueOf(option)).toBe(value);
+    await instance.dispose();
+  });
+
   it('drops the musical-note run whisper writes instead of [MUSIC]', () => {
     // A breath-only press came back as "♪♪" and reached the caption as
     // "Heard: ♪♪".
@@ -901,6 +952,79 @@ describe('bounds', () => {
 });
 
 describe('delivery fan-out', () => {
+  it('skips a symlinked transcript log without losing the transcript or other deliveries', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ptt-log-'));
+    const target = join(root, 'target');
+    const log = join(root, 'voice.jsonl');
+    await writeFile(target, 'unchanged', { mode: 0o644 });
+    await symlink(target, log);
+    const seen: TranscriptRecord[] = [];
+    const bridged: TranscriptRecord[] = [];
+    const { instance, lines } = transcriber({ transcriptLog: log,
+      bridge: { voice: record => { bridged.push(record); } },
+      deliver: [record => { seen.push(record); }] });
+    try {
+      const result = await instance.accept(chunk({ seq: 0, final: true }));
+      expect(result.transcript?.text).toBe('open the microtubule lattice');
+      expect(instance.transcripts.all()).toHaveLength(1);
+      expect(seen).toHaveLength(1);
+      expect(bridged).toHaveLength(1);
+      expect(await readFile(target, 'utf8')).toBe('unchanged');
+      expect((await stat(target)).mode & 0o777).toBe(0o644);
+      const skipped = lines.filter(line => line.includes('STEREOFOLD_PTT_TRANSCRIPTS'));
+      expect(skipped).toHaveLength(1);
+      expect(skipped[0]).toMatch(/skipped.*symlink/iu);
+      expect(skipped[0]).not.toContain(result.transcript!.text);
+      expect(skipped[0]).not.toMatch(/[\r\n]/u);
+    } finally { await instance.dispose(); await rm(root, { recursive: true, force: true }); }
+  });
+
+  it.each([0o666, 0o700])('restricts an owned transcript log to 0600 before appending from mode %i', async mode => {
+    const root = await mkdtemp(join(tmpdir(), 'ptt-log-'));
+    const log = join(root, 'voice.jsonl');
+    await writeFile(log, 'previous\n');
+    await chmod(log, mode);
+    const { instance } = transcriber({ transcriptLog: log });
+    try {
+      await instance.accept(chunk({ seq: 0, final: true }));
+      expect((await readFile(log, 'utf8')).split('\n')[0]).toBe('previous');
+      expect(JSON.parse((await readFile(log, 'utf8')).split('\n')[1]!).text).toBe('open the microtubule lattice');
+      expect((await stat(log)).mode & 0o777).toBe(0o600);
+    } finally { await instance.dispose(); await rm(root, { recursive: true, force: true }); }
+  });
+
+  it.each(['owner', 'permissions', 'directory'] as const)('skips a transcript log with unsafe %s', async reason => {
+    const root = await mkdtemp(join(tmpdir(), 'ptt-log-'));
+    const log = join(root, 'voice.jsonl');
+    if (reason === 'directory') await mkdir(log);
+    else { await writeFile(log, 'unchanged'); await chmod(log, 0o666); }
+    const { instance, lines } = transcriber({ transcriptLog: log });
+    let restore = () => {};
+    if (reason === 'owner') {
+      const uid = process.getuid!();
+      const spy = vi.spyOn(process as { getuid: () => number }, 'getuid').mockReturnValue(uid + 1);
+      restore = () => spy.mockRestore();
+    } else if (reason === 'permissions') {
+      const handle = await open(log, 'a');
+      const spy = vi.spyOn(Object.getPrototypeOf(handle), 'chmod').mockRejectedValue(Error('mode refused'));
+      await handle.close();
+      restore = () => spy.mockRestore();
+    }
+    try {
+      const result = await instance.accept(chunk({ seq: 0, final: true }));
+      expect(result.transcript?.text).toBe('open the microtubule lattice');
+      expect(instance.transcripts.all()).toHaveLength(1);
+      if (reason !== 'directory') {
+        expect(await readFile(log, 'utf8')).toBe('unchanged');
+        expect((await stat(log)).mode & 0o777).toBe(0o666);
+      }
+      const skipped = lines.filter(line => line.includes('STEREOFOLD_PTT_TRANSCRIPTS'));
+      expect(skipped).toHaveLength(1);
+      expect(skipped[0]).toMatch(/skipped/iu);
+      expect(skipped[0]).not.toContain(result.transcript!.text);
+    } finally { restore(); await instance.dispose(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it('appends to the transcript log at 0600, pipes to the text command, and calls extra deliveries', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ptt-deliver-'));
     try {
@@ -1028,7 +1152,7 @@ describe('the tool as the MCP server exposes it', () => {
       binding.baseStateRevision=saved.stateRevision; binding.baseInspectionRevision=saved.inspectionRevision;
       panelId=(await call('attach_inspection',{...binding,surface:page.surface ?? 'companion'})).structuredContent.panelId;
       await call('poll_inspection',{...binding,panelId,availability:'ready'});
-      const status = {url:'https://192.168.1.2:8443/',host:'192.168.1.2',port:8443,fingerprint:'test',
+      const status = {url:'https://192.168.77.2:8443/',host:'192.168.77.2',port:8443,fingerprint:'test',
         sessionExpiresAt:'2099-01-01T00:00:00.000Z',sessionMaxExpiresAt:'2099-01-01T00:00:00.000Z',pairingExpiresAt:'2099-01-01T00:00:00.000Z',launchId:randomUUID(),
         clients:[{id:'test-client',deviceClass:'quest2',lastUsedAt:new Date().toISOString()}]};
       vi.spyOn(InspectionCompanionHttp.prototype,'open').mockResolvedValue({url:'http://127.0.0.1:1234/#test',port:1234});

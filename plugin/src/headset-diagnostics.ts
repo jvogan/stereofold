@@ -51,19 +51,16 @@ const boundedFields = <T extends z.ZodTypeAny>(schema: T) => schema.refine(
  *
  * `sanitizeDetail` in the page's own `headset-diagnostics.mjs` walks a detail
  * to depth four — `detail.frame.menu.rect.left` — and drops anything deeper.
- * This schema stopped at two, then at three; framefix3 records
- * `frame.menu = {rect, move, cleared}` and `frame.share = {whole, lit}` at
- * the same depth as `frame.caption`, and `rect` is one object inside `menu`.
- * The two halves of one contract must agree on that shape. A `plate-standoff`
- * entry recorded with a `frame: {subject:{…},
- * plate:{…}}` cost the wearer the agent: `poll_inspection`
- * rejects the whole heartbeat when any entry fails, the page never got an
- * acknowledgement so it re-sent the same entry every second, and the Mac's
- * panel snapshot went stale in twelve seconds — the tour step ended in "No
- * panel is showing this inspection" while the headset sat there presenting
- * The depths now match, and
- * `salvageDiagnosticEntry` below makes any future disagreement cost one log
- * line rather than the session.
+ * The page records `frame.menu = {rect, move, cleared}` and
+ * `frame.share = {whole, lit}` at the same depth as `frame.caption`, and
+ * `rect` is one object inside `menu`. The two halves of one contract must
+ * agree on that shape. When they disagree, one entry costs the wearer the
+ * agent: `poll_inspection` rejects the whole heartbeat when any entry fails,
+ * the page gets no acknowledgement so it re-sends the same entry every
+ * second, and the Mac's panel snapshot goes stale in twelve seconds. The tour
+ * step then ends in "No panel is showing this inspection" while the headset
+ * is still presenting. `salvageDiagnosticEntry` below makes a disagreement
+ * cost one log line rather than the session.
  */
 const detailLeaf = boundedFields(z.record(detailString, detailScalar));
 /**
@@ -72,11 +69,11 @@ const detailLeaf = boundedFields(z.record(detailString, detailScalar));
  * `recordStandoff` in the page's `viewer.mjs` writes
  * `frame.menu = {rect, move, cleared, ghost}` and
  * `frame.menu.ghost = {crossed, cleared}`. The page sanitiser keeps both —
- * `ghost` is an object at the same depth `rect` already was, and its fields
- * are scalars one level down — but this schema stopped `frame`'s values at one
- * flat object. The two halves disagreed on exactly one shape, the 913ec77
- * failure all over again, so `frame` now takes a menu-shaped value beside a
- * flat one. Anything deeper than `ghost`'s scalars is still refused below.
+ * `ghost` is an object at the same depth as `rect`, and its fields are
+ * scalars one level down. A schema that stops `frame`'s values at one flat
+ * object disagrees with the page on that shape and rejects the heartbeat as
+ * described above, so `frame` takes a menu-shaped value beside a flat one.
+ * Anything deeper than `ghost`'s scalars is refused below.
  */
 const detailMenu = boundedFields(z.record(detailString, z.union([detailScalar, detailLeaf])));
 /**
@@ -85,12 +82,12 @@ const detailMenu = boundedFields(z.record(detailString, z.union([detailScalar, d
  * `recordStandoff` in the page's `viewer.mjs` writes
  * `frame.menu = {rect, move, cleared, ghost}` and
  * `frame.menu.ghost = {crossed, cleared}`. The page sanitiser keeps both —
- * `ghost` is an object at the same depth `rect` already was, and its fields
- * are scalars one level down — but the generic value below stopped at one
- * flat object. The two halves disagreed on exactly one shape, the 913ec77
- * failure all over again. The deeper shape is scoped to this key alone, so
- * the depth guard the schema tests pin down holds everywhere else: anything
- * deeper than `ghost`'s scalars is still refused, at this key too.
+ * `ghost` is an object at the same depth as `rect`, and its fields are
+ * scalars one level down. The generic value below stops at one flat object,
+ * and a disagreement on this shape rejects the heartbeat as described above.
+ * The deeper shape is scoped to this key alone, so the depth guard the schema
+ * tests pin down holds everywhere else: anything deeper than `ghost`'s scalars
+ * is refused, at this key too.
  */
 const frameDetailValue = boundedFields(z.record(detailString, z.union([detailScalar, detailLeaf, detailMenu])));
 const detailNested = boundedFields(z.record(detailString, z.union([detailScalar, detailLeaf])));

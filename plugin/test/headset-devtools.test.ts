@@ -14,7 +14,7 @@
  * dummy 64-character page key.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 
 import {
@@ -28,6 +28,7 @@ import {
   DEVTOOLS_DEFAULT_PORT, DEVTOOLS_ABSTRACT_SOCKET, REDACTED,
   type CdpSocketLike, type DevtoolsTransport,
 } from '../src/headset-devtools.js';
+import { LanCompanion } from '../src/inspection-lan.js';
 
 /** Reserved .test origins and repeated dummy keys never identify a device or session. */
 const TEST_PAGE_KEY = '68'.repeat(32);
@@ -64,6 +65,44 @@ describe('redaction', () => {
     expect(redacted).toBe(`https://host.test/viewer?access_token=${REDACTED}&xrRenderBudget=scale:0.5&${REDACTED}#pair=<8 digits>`);
     expect(redacted).not.toContain('a1b2c3d4');
     expect(redacted).not.toContain('opaque');
+  });
+
+  it('drops credentials written into an address before its host', () => {
+    expect(redactUrl('https://user:Hunter2Pass@office.test/viewer'))
+      .toBe(`https://${REDACTED}@office.test/viewer`);
+    expect(redactDevtoolsText('fetch https://user:Hunter2Pass@office.test:8443/p?x=1 failed'))
+      .toBe(`fetch https://${REDACTED}@office.test:8443/p?x=${REDACTED} failed`);
+    expect(redactUrl('https://office.test/p?next=a@b')).toBe(`https://office.test/p?next=${REDACTED}`);
+  });
+
+  it('drops credentials before the host whatever characters they hold', () => {
+    // A browser accepts these spellings, so a page can log them.
+    expect(redactDevtoolsText('https://user:pa)ss@office.test/viewer'))
+      .toBe(`https://${REDACTED}@office.test/viewer`);
+    expect(redactDevtoolsText('(fetch https://user:pa)ss@office.test/p?token=abc failed)'))
+      .toBe(`(fetch https://${REDACTED}@office.test/p?token=${REDACTED} failed)`);
+    for (const secret of ['pa]ss', 'pa}ss', 'pa"ss', "pa'ss", 'pa<s>s', 'p@ss', 'pa\\ss']) {
+      const redacted = redactDevtoolsText(`load https://user:${secret}@office.test/viewer done`);
+      expect(redacted, secret).toBe(`load https://${REDACTED}@office.test/viewer done`);
+    }
+    expect(redactDevtoolsText('socket wss://user:secret@office.test/live closed'))
+      .toBe(`socket wss://${REDACTED}@office.test/live closed`);
+    // An address on the page and a mail address after it are not credentials.
+    expect(redactDevtoolsText('(see https://office.test/viewer) or write to admin@office.test'))
+      .toBe('(see https://office.test/viewer) or write to admin@office.test');
+  });
+
+  it('keeps a viewer setting only when its value has the shape the page accepts', () => {
+    expect(redactUrl('https://office.test/viewer?xrRenderBudget=SecretValue'))
+      .toBe(`https://office.test/viewer?xrRenderBudget=${REDACTED}`);
+    expect(redactUrl('https://office.test/viewer?xrRenderBudget=eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl'))
+      .toBe(`https://office.test/viewer?xrRenderBudget=${REDACTED}`);
+    expect(redactUrl('https://office.test/viewer?roomAnchor=SecretValue'))
+      .toBe(`https://office.test/viewer?roomAnchor=${REDACTED}`);
+    expect(redactUrl('https://office.test/viewer?xrRenderBudget=scale:0.6,postfx:on;surface=lower&roomAnchor=off'))
+      .toBe('https://office.test/viewer?xrRenderBudget=scale:0.6,postfx:on;surface=lower&roomAnchor=off');
+    expect(redactUrl('https://office.test/viewer?xrRenderBudget=off&xrLayers=1&xrUi=quad'))
+      .toBe('https://office.test/viewer?xrRenderBudget=off&xrLayers=1&xrUi=quad');
   });
 
   it('redacts a URL embedded in a console sentence', () => {
@@ -204,6 +243,18 @@ describe('pickStereofoldTarget with an expected origin', () => {
     expect(pickStereofoldTarget(targets, undefined, share)?.id).toBe('80');
   });
 
+  it('fences to a list of served origins, and an empty list admits nothing', () => {
+    const relay = 'https://quiet-field-123.trycloudflare.com';
+    const targets = listed([
+      { id: '99', url: 'https://unrelated.example/viewer' },
+      { id: '72', url: `${relay}/viewer` },
+      { id: '71', url: `${share}/viewer` },
+    ]);
+    expect(pickStereofoldTarget(targets, undefined, [share, relay])?.id).toBe('72');
+    expect(pickStereofoldTarget(targets, undefined, [share])?.id).toBe('71');
+    expect(pickStereofoldTarget(targets, undefined, [])).toBeUndefined();
+  });
+
   it('will not take a stranger’s /viewer tab when no origin is known', () => {
     // The cold `open` path runs
     // with no origin (the host has not started sharing when the first status is
@@ -271,8 +322,8 @@ describe('environment and adb wiring', () => {
   });
 
   it('refuses to rebind only a port the caller owns', () => {
-    // 2026-09-28: with --no-rebind on the fixed port, a forward an earlier run
-    // left on 9333 made every launch's tab sweep fail, and tabs piled up.
+    // With --no-rebind on the fixed port, a forward an earlier run left on
+    // 9333 makes every launch's tab sweep fail, and tabs pile up.
     expect(forwardArguments('FAKEQUEST00001', 50123, { noRebind: true }))
       .toEqual(['-s', 'FAKEQUEST00001', 'forward', '--no-rebind', 'tcp:50123', DEVTOOLS_ABSTRACT_SOCKET]);
   });
@@ -662,6 +713,14 @@ describe('stereo_structure.read_headset_browser', () => {
   const LISTING = JSON.stringify([{ id: '69', type: 'page', title: 'Mol* detail',
     url: PAGE_URL, webSocketDebuggerUrl: 'ws://127.0.0.1:9333/devtools/page/69' }]);
 
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  /** A share open on this Mac at `origin`, with no listener behind it. */
+  function shareAt(origin: string) {
+    vi.spyOn(LanCompanion.prototype, 'status').mockReturnValue({ url: `${origin}/`, host: new URL(origin).hostname,
+      port: Number(new URL(origin).port), fingerprint: 'test', clients: [] } as any);
+  }
+
   function transportFor(reply: (message: Record<string, unknown>, socket: FakeSocket) => void,
     body = LISTING, fetchFails?: Error): DevtoolsTransport {
     return {
@@ -683,6 +742,7 @@ describe('stereo_structure.read_headset_browser', () => {
   }
 
   it('reports the page, the session and the console, with the key redacted', async () => {
+    shareAt('https://headset.test:8443');
     const result = await call(transportFor((message, socket) => {
       if (message.method === 'Runtime.evaluate') {
         socket.deliver({ id: message.id, result: { result: { value: {
@@ -706,6 +766,7 @@ describe('stereo_structure.read_headset_browser', () => {
   });
 
   it('answers a missing bridge with advice rather than an error', async () => {
+    shareAt('https://headset.test:8443');
     const result = await call(transportFor(() => {}, LISTING, Error('connect ECONNREFUSED 127.0.0.1:9333')));
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({ read: false, port: 9333 });
@@ -713,6 +774,7 @@ describe('stereo_structure.read_headset_browser', () => {
   });
 
   it('answers a frozen tab with the reason it is silent', async () => {
+    shareAt('https://headset.test:8443');
     const result = await call(transportFor(() => { /* Nothing replies. */ }));
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent.read).toBe(false);
@@ -731,15 +793,34 @@ describe('stereo_structure.read_headset_browser', () => {
       code: 'NET::ERR_CERT_AUTHORITY_INVALID' } } } : {} });
 
   it('reports the certificate warning when it is the only page', async () => {
+    shareAt('https://192.168.77.24:8443');
     const result = await call(transportFor(warningPage, JSON.stringify([WARNING])), { consoleMs: 200 });
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ read: false, certificateWarning: {
+    expect(result.structuredContent).toMatchObject({ certificateWarning: {
       address: 'https://192.168.77.24:8443', host: '192.168.77.24', code: 'NET::ERR_CERT_AUTHORITY_INVALID', tab: '71' } });
     expect(result.content[0].text).toMatch(/^Quest Browser is showing a certificate warning for https:\/\/192\.168\.77\.24:8443/u);
     expect(result.content[0].text).toContain('Choose Advanced, then "Proceed to 192.168.77.24 (unsafe)". Then tap Enter VR.');
   });
 
+  it('looks at no tab for a certificate warning when no share is open', async () => {
+    // A page on any site can serve /viewer under the title "Privacy error".
+    // Without the origin of a share this Mac has open, it is not this product's
+    // warning, and the probe must not attach to it.
+    const opened: string[] = [];
+    const transport: DevtoolsTransport = {
+      fetch: async () => JSON.stringify([{ ...WARNING, url: 'https://unrelated.example/viewer' }]),
+      open: async (_port, socketUrl) => { opened.push(socketUrl); return new CdpSession(new FakeSocket(warningPage), 200); },
+    };
+    const result = await call(transport, { consoleMs: 200 });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent.read).toBe(false);
+    expect(result.structuredContent.certificateWarning).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain('unrelated.example');
+    expect(opened).toEqual([]);
+  });
+
   it('leads with the certificate warning when a viewer tab is also open', async () => {
+    shareAt('https://192.168.77.24:8443');
     const transport: DevtoolsTransport = {
       fetch: async () => JSON.stringify([JSON.parse(LISTING)[0], WARNING]),
       open: async (_port, socketUrl) => new CdpSession(new FakeSocket(socketUrl.endsWith('/71') ? warningPage : (message, socket) => {
@@ -747,10 +828,65 @@ describe('stereo_structure.read_headset_browser', () => {
           ? { result: { value: { pathname: '/detailed', documentVisibility: 'hidden' } } } : {} });
       }), 200),
     };
-    const result = await call(transport, { consoleMs: 200 });
+    const result = await call(transport, { consoleMs: 200, target: '69' });
     expect(result.structuredContent).toMatchObject({ read: true, target: { id: '69' }, certificateWarning: { tab: '71' } });
     expect(result.content[0].text.split('\n')[0]).toMatch(/^Quest Browser is showing a certificate warning/u);
     expect(result.content[0].text).toContain('The headset browser is on /detailed');
+  });
+
+  /**
+   * Any site can serve `/viewer` and call itself Stereofold. The share's origin
+   * is what makes a tab this product's, so a newer tab from elsewhere with the
+   * same path and title is never read, and its console never reaches the agent.
+   */
+  describe('with a same-titled tab from another site', () => {
+    const SHARE = 'https://192.168.77.24:8443';
+    const OWN = { id: '10', type: 'page', title: 'Stereofold', url: `${SHARE}/viewer`,
+      webSocketDebuggerUrl: 'ws://127.0.0.1:9333/devtools/page/10' };
+    const ELSEWHERE = { id: '11', type: 'page', title: 'Stereofold', url: 'https://elsewhere.example/viewer',
+      webSocketDebuggerUrl: 'ws://127.0.0.1:9333/devtools/page/11' };
+    function twoTabs() {
+      const opened: string[] = [];
+      const transport: DevtoolsTransport = {
+        fetch: async () => JSON.stringify([OWN, ELSEWHERE]),
+        open: async (_port, socketUrl) => {
+          opened.push(socketUrl.split('/').at(-1)!);
+          return new CdpSession(new FakeSocket((message, socket) => {
+            socket.deliver({ id: message.id, result: message.method === 'Runtime.evaluate'
+              ? { result: { value: { pathname: '/viewer', documentVisibility: 'visible' } } } : {} });
+            if (message.method === 'Log.enable') socket.deliver({ method: 'Log.entryAdded', params: { entry: {
+              source: 'console', level: 'info', timestamp: 0, text: `logged by tab ${socketUrl.split('/').at(-1)}` } } });
+          }), 200);
+        },
+      };
+      return { opened, transport };
+    }
+
+    it('reads the tab on the share origin, not the newer one elsewhere', async () => {
+      shareAt(SHARE);
+      const { opened, transport } = twoTabs();
+      const result = await call(transport, { consoleMs: 200 });
+      expect(result.structuredContent).toMatchObject({ read: true, target: { id: '10' } });
+      expect(opened).not.toContain('11');
+      expect(JSON.stringify(result)).not.toContain('logged by tab 11');
+      expect(JSON.stringify(result)).not.toContain('elsewhere.example');
+    });
+
+    it('answers unavailable rather than choosing by title when no share is open', async () => {
+      const { opened, transport } = twoTabs();
+      const result = await call(transport, { consoleMs: 200 });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({ read: false, port: 9333 });
+      expect(result.content[0].text).toMatch(/target/u);
+      expect(opened).toEqual([]);
+    });
+
+    it('still reads a tab the caller names', async () => {
+      const { opened, transport } = twoTabs();
+      const result = await call(transport, { consoleMs: 200, target: '11' });
+      expect(result.structuredContent).toMatchObject({ read: true, target: { id: '11' } });
+      expect(opened).toEqual(['11']);
+    });
   });
 
   it('is a read-only tool the app cannot see', async () => {

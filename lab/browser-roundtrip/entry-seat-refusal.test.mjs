@@ -30,6 +30,7 @@ function harness(solve) {
   let placement = { translation: [1, 0, -1], rotation: [0, 0, 0], scale: 1.8 }, applied = false;
   const context = vm.createContext({
     retainedPoseHidden: false, retainedEntryCheckPending: false, checkRetainedEntryPose: () => true,
+    canvas: { xr: { isPresenting: { value: true } } },
     structuredClone, console: { error: error => errors.push(String(error?.message ?? error)) },
     roomAnchor: { floorY: () => 0, applied: async () => { applied = true; return null; } },
     roomEntry: {}, adoptionGeneration: 1, settlingRoomAnchor: null, busy: false, state: { status: 'ready' },
@@ -44,6 +45,7 @@ function harness(solve) {
     __stereofoldDiagnostics: { record: (kind, detail) => records.push({ kind, ...detail }) },
   });
   vm.runInContext(closure('settleInRoom'), context);
+  vm.runInContext(closure('xrEntryPending'), context);
   // The frame loop's own gate: a pending seat, or an anchor that still wants one.
   const frames = async count => {
     for (let i = 0; i < count; i++) { if (context.pendingRoomSeat || !applied) context.settleInRoom({}, {}); await flush(); }
@@ -162,4 +164,33 @@ test('an error that is not a refusal keeps its old path: logged, and tried again
   assert.deepEqual(h.errors, ['label views not ready', 'label views not ready', 'label views not ready']);
   assert.deepEqual([h.captions, h.outcomes(), h.placed()], [[], [], []]);
   assert.equal(h.context.pendingRoomSeat, true);
+});
+
+test('the session owes a seat until it commits or is refused, and never outside the headset', async () => {
+  const seated = harness(() => SEAT);
+  assert.equal(seated.context.xrEntryPending(), true);
+  await seated.frames(2);
+  assert.equal(seated.context.xrEntryPending(), false);
+
+  // A refusal publishes no placement: this is the only word a waiting lesson turn gets.
+  const refused = harness(() => { throw Error(REFUSAL); });
+  assert.equal(refused.context.xrEntryPending(), true);
+  await refused.frames(2);
+  assert.deepEqual(refused.placed(), []);
+  assert.equal(refused.context.xrEntryPending(), false);
+
+  const retried = harness(() => { throw Error('label views not ready'); });
+  await retried.frames(2);
+  assert.equal(retried.context.xrEntryPending(), true, 'a seat still being tried is still owed');
+
+  // A placement the wearer kept takes no seat, but is hidden until it is checked.
+  const kept = harness(() => SEAT);
+  kept.context.pendingRoomSeat = false; kept.context.retainedEntryCheckPending = true;
+  assert.equal(kept.context.xrEntryPending(), true);
+  kept.context.retainedEntryCheckPending = false;
+  assert.equal(kept.context.xrEntryPending(), false);
+
+  const flat = harness(() => SEAT);
+  flat.context.canvas.xr.isPresenting.value = false;
+  assert.equal(flat.context.xrEntryPending(), false);
 });

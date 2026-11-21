@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { chromium, type Frame, type Page } from 'playwright';
-import { demoCacheDirectory, readDemoIndex, readDemoLesson, resolveCoordinates, resolveDemoStage, resolveVolumeStructure } from './quest-demo.js';
+import { demoCacheDirectory, findDemo, readDemoIndex, readDemoLesson, resolveCoordinates, resolveDemoStage, resolveVolumeStructure } from './quest-demo.js';
 import { redactTokens, requestRoute, scrubSecrets } from './report-redaction.js';
 import { decodeInspectionCatalog } from '../src/inspection-catalog-codec.js';
 import { instrumentDemoRenderObjects } from './demo-render-probe.js';
@@ -26,7 +26,7 @@ import { availableChains, componentClassesPresent, emptyVisibility, resolveVisib
  * transport. Both open through `inspect_lesson` and walk the lesson's own tour.
  * This opens no user browser; the host listener is loopback-only.
  */
-const demoName = process.argv[2];
+const askedDemo = process.argv[2];
 const outArgument = process.argv[3];
 const stageId = process.argv[4]?.startsWith('--') ? undefined : process.argv[4];
 const cachedOnly = process.argv.includes('--cached-only');
@@ -35,7 +35,9 @@ const renderObjectProbe = process.argv.includes('--render-object-probe');
 const readability = process.argv.includes('--readability');
 const verifyCaptionAccess = process.argv.includes('--verify-caption-access');
 assert.ok(!verifyCaptionAccess || readability, '--verify-caption-access requires --readability.');
-assert.ok(demoName && outArgument, 'Supply a demo name and a fresh artifact directory.');
+assert.ok(askedDemo && outArgument, 'Supply a demo name and a fresh artifact directory.');
+// A plain name resolves to its id here, so artifact names and labels use the id.
+const demoName = findDemo(await readDemoIndex(), askedDemo).name;
 const out = resolve(outArgument);
 await mkdir(out, { recursive: false });
 
@@ -141,8 +143,7 @@ async function waitRenderedStep(sessionId: string, step: number, tourId: string,
 }
 
 const index = await readDemoIndex();
-const found = index.demos.find(demo => demo.name === demoName);
-assert.ok(found, `Unknown demo "${demoName}".`);
+const found = findDemo(index, demoName);
 const { entry, stage } = resolveDemoStage(found, stageId);
 if (stage) report.stageTitle = stage.title;
 const manifest = await readDemoLesson(entry);

@@ -44,7 +44,7 @@ const subjectOf = c => {
 const pointsOf = r => [-1, 1].flatMap(x => [-1, 1].map(y =>
   [r.x + x * r.halfWidth, r.y + y * r.halfHeight, -1]));
 
-// The acceptance-5 rings retain each layout's output rectangles, its subject
+// The recorded overprint rings retain each layout's output rectangles, its subject
 // silhouette, the per-eye drawn records and the toolbar row positions. They
 // do not retain the solver's inputs, so these are SYNTHETIC replays constrained
 // by recorded outputs, not evidence of real-input replay fidelity:
@@ -94,9 +94,9 @@ function assertRecordedLayoutReplay(record) {
   }
 }
 
-if (process.env.OVERPRINT_DEVICE_RING) test('acceptance 6 device ring replay', () => {
+if (process.env.OVERPRINT_DEVICE_RING) test('recorded device ring replay', () => {
   // Input is the saved, unabridged { entries: [...] } device export. Never
-  // substitute acceptance-5's synthesized anchors when a field is missing.
+  // substitute the overprint fixture's synthesized anchors when a field is missing.
   const capture = JSON.parse(readFileSync(process.env.OVERPRINT_DEVICE_RING, 'utf8'));
   assert.ok(Array.isArray(capture.entries), 'save a device export with entries');
   const entries = capture.entries.filter(entry => entry.kind === 'component-label-layout');
@@ -123,7 +123,7 @@ function optionsFor(c) {
 }
 
 for (const c of cases) {
-  test(`synthetic acceptance 5 #${c.seq} ${c.name}: recorded ${c.layout.overlaps} pairs and ${c.layout.subject} subject covers become zero`, t => {
+  test(`synthetic overprint #${c.seq} ${c.name}: recorded ${c.layout.overlaps} pairs and ${c.layout.subject} subject covers become zero`, t => {
     const recorded = c.layout.rects.map(r => ({ id: r.id, rect: rect(r) }));
     assert.equal(layout.countPlateOverlaps(recorded), c.layout.overlaps);
     assert.equal(layout.countSubjectOverlaps(recorded, subjectOf(c)), c.layout.subject);
@@ -181,7 +181,7 @@ for (const c of cases) {
     }
   });
 
-  test(`synthetic acceptance 5 #${c.seq}: viewer solves ten plates once around stable button rows`, () => {
+  test(`synthetic overprint #${c.seq}: viewer solves ten plates once around stable button rows`, () => {
     const options = optionsFor(c), records = [];
     const h = vm.createContext({ ...layout, layoutComponentPlates: solverContext.layoutComponentPlates,
       talkCaption: null, componentLabelLayoutCache: null,
@@ -316,7 +316,7 @@ test('off-axis billboard moves preserve physical anchor stand-off and maximum te
   }
 });
 
-for (const c of cases.slice(0, 4)) test(`synthetic acceptance 5 #${c.seq}: real menu action emits one clear layout/update`, async () => {
+for (const c of cases.slice(0, 4)) test(`synthetic overprint #${c.seq}: real menu action emits one clear layout/update`, async () => {
   const options = optionsFor(c);
   options.subject.points.push(...pointsOf(subjectOf(c)));
   // These are synthetic input anchors, placed inside the recorded silhouette.

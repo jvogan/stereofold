@@ -153,6 +153,18 @@ test('a newer worker fit cancels its predecessor and ignores a late answer', asy
   assert.equal(terminated, 1); assert.equal(waiters.size, 0);
 });
 
+test('a fit that never answered is marked unanswered; a pose the solver refused is not', async () => {
+  const silent = fitAppearanceInWorker(input(), { timeoutMs: 5, makeWorker: () => ({ postMessage() {}, terminate() {} }) });
+  await assert.rejects(silent, error => error.fitUnanswered === true && /did not answer/.test(error.message));
+  const helperless = fitAppearanceInWorker(input(), { isPresenting: () => true, makeWorker: () => { throw Error('Worker unavailable'); } });
+  await assert.rejects(helperless, error => error.fitUnanswered === true);
+  const refusing = { terminate() {}, postMessage() {
+    queueMicrotask(() => refusing.onmessage({ data: { error: 'Could not reset: the entry size cannot fit inside both eyes and clear the menu within 4 m.' } }));
+  } };
+  await assert.rejects(fitAppearanceInWorker(input(), { makeWorker: () => refusing }),
+    error => error.fitUnanswered === undefined && /^Could not reset/.test(error.message));
+});
+
 test('abort cancels a scheduled main-thread fallback before any geometry read', async () => {
   const controller = new AbortController(), options = input();
   let reads = 0;

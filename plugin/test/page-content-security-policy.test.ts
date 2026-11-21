@@ -44,7 +44,7 @@ import { DETAILED_VIEW_ROUTES, DETAILED_VIEW_SCRIPT_HASH } from '../src/detailed
  * webchem.ncbr.muni.cz stays blocked and is now also not made: the detailed
  * page passes `layoutShowRemoteState: false`.
  */
-const LOOPBACK_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; "
+const LOOPBACK_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; script-src-attr 'none'; worker-src 'self' blob:; "
   + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; "
   + "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const DETAILED_CSP = LOOPBACK_CSP.replace("script-src 'self' 'unsafe-inline' blob:", `script-src 'self' ${DETAILED_VIEW_SCRIPT_HASH} 'unsafe-eval' blob:`);
@@ -108,6 +108,17 @@ describe('content security policy on every page the headset loads', () => {
     // its digest and no inline event handler runs.
     expect(found.get('script-src')).toBe(`'self' ${DETAILED_VIEW_SCRIPT_HASH} 'unsafe-eval' blob:`);
     expect(DETAILED_CSP.replace(`${DETAILED_VIEW_SCRIPT_HASH} 'unsafe-eval'`, "'unsafe-inline'")).toBe(LOOPBACK_CSP);
+  });
+
+  it('refuses inline event handler attributes on every companion route', async () => {
+    const t = await companionSetup(); cleanups.push(t.cleanup);
+    const origin = new URL((await t.companion.open('session-a', 'source-a')).url).origin;
+    const detailed = new URL((await t.companion.openDetailed('session-a', 'source-a')).url).origin;
+    for (const url of [...['/', '/xr-check', DETAILED_VIEW_ROUTES.script].map(path => `${origin}${path}`), `${detailed}${DETAILED_VIEW_ROUTES.page}`]) {
+      const response = await fetch(url);
+      expect(response.status, url).toBe(200);
+      expect(directives(response.headers.get('content-security-policy') ?? undefined).get('script-src-attr'), url).toBe("'none'");
+    }
   });
 
   it('keeps connect-src at self on every route, so Mol* decodes its own WASM and webchem stays blocked', async () => {

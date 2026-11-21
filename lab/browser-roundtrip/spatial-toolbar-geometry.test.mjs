@@ -101,7 +101,7 @@ test('blank captions draw no cards, and a refusal leaves no empty backing over t
       assert.deepEqual(blank.readoutPoints, []);
       assert.deepEqual(blank.backing, empty.backing);
     }
-    // Acceptance 3 density/ring-refusal-a #803 rejects Mol*, #808 records
+    // Recorded density/ring-refusal-a #803 rejects Mol*, #808 records
     // this entire reply. Its old status extent must not inflate menu glass.
     const refusal = createToolbarPanel({ rows, head: HEAD, status: REFUSAL });
     assert.deepEqual(refusal.backing, empty.backing);

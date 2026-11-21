@@ -68,7 +68,7 @@ export function patchMolstarStereoSource(source: string): string {
   // `plugin/src/viewer.ts` reads it into `diagnostics.geometry`. These are
   // Mol*'s own viewport units, which are drawing-buffer (device) pixels, not
   // CSS pixels: at devicePixelRatio 2 a 238 CSS px eye is 476 here, and the
-  // two disagreeing by anything other than the ratio is the finding.
+  // two disagreeing by anything other than the ratio is a fault.
   //
   // `at` is recorded because a mono panel keeps the last stereo frame's
   // numbers: without it a stale split is indistinguishable from a live one.

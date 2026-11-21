@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 import numpy as np
 
 HERE=Path(__file__).resolve().parent
@@ -101,6 +102,22 @@ class ExtendedGalleryTest(unittest.TestCase):
             out=Path(temp);path=out/'upstream'/name;path.parent.mkdir(parents=True);path.write_bytes(b'changed public structure')
             ext.write_json(out/'source-lock.json',{name:self.lock[name]})
             with self.assertRaisesRegex(ValueError,'changed cached'):ext.fetch_sources({'entries':[entry]},out)
+
+    def test_fetch_stops_an_endless_body_and_writes_nothing(self):
+        entry=self.catalog['entries'][17];name=entry['source']['file'];limit=8*1024*1024
+        class Endless:
+            served=0;headers={}
+            def read(self,n=-1):
+                n=3*limit-self.served if n is None or n<0 else min(n,3*limit-self.served)
+                self.served+=n;return b'A'*n
+            def __enter__(self):return self
+            def __exit__(self,*exc):return False
+        body=Endless()
+        with tempfile.TemporaryDirectory()as temp, mock.patch('urllib.request.urlopen',return_value=body):
+            out=Path(temp)
+            with self.assertRaises(ValueError):ext.fetch_sources({'entries':[entry]},out,fetch=True)
+            self.assertLessEqual(body.served,limit+1)
+            self.assertFalse((out/'upstream'/name).exists())
 
     def test_offline_regeneration_is_byte_identical_and_does_not_write_existing_gallery(self):
         preserve={p:ext.base.sha(p.read_bytes())for p in [ext.ROOT/'lesson.json',ext.ROOT/'original-pairs.json',ext.ROOT/'gallery.cif',ext.ROOT/'manifest.json']}

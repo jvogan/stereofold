@@ -1,6 +1,6 @@
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { litVertex } from './entry-standoff.mjs';
-import { renderedMeshVertexCount } from './component-label-measurement.mjs';
+import { atomSphereMesh, renderedMeshVertexCount } from './component-label-measurement.mjs';
 import { focusRotation } from './focus-placement.mjs';
 import { applyMatrix4, invertMatrix4, ROOM_LOCK_EPSILON } from './room-lock.mjs';
 import { PLACEMENT_MAX_TRANSLATION, XR_ROOM_MAX_METRES } from './placement-limits.mjs';
@@ -86,6 +86,69 @@ function drawnAtoms(object, includeFaint) {
   cache.set(object, { signature, instances });
   return instances;
 }
+// A spacefill sphere mesh (`atomSphereMesh`): Mol* writes each atom's sphere
+// as one run of vertices carrying that atom's group, every vertex on the
+// sphere. Each run gives the atom's ball (its box centre and its farthest
+// vertex) as `drawnAtoms` gives it for impostors, in about 16 ms for 1AON at
+// detail 1 on a desktop. The triangle walk below would read every corner of
+// 4.71 M triangles and enclose each atom in its box's sphere. A group found
+// in more than one run is enclosed whole.
+const drawnSphereCaches = [new WeakMap(), new WeakMap()];
+function encloseBalls(a, b) {
+  const d = Math.hypot(...b.center.map((v, axis) => v - a.center[axis]));
+  if (d + b.radius <= a.radius) return a;
+  if (d + a.radius <= b.radius) return b;
+  const radius = (d + a.radius + b.radius) / 2, along = (radius - a.radius) / d;
+  return { center: a.center.map((v, axis) => v + (b.center[axis] - v) * along), radius };
+}
+function drawnSphereMeshAtoms(object, includeFaint) {
+  const cache = drawnSphereCaches[Number(includeFaint)];
+  const v = object.values, positions = v?.aPosition?.ref.value, groups = v?.aGroup?.ref.value;
+  if (!positions || !groups || !v?.aTransform?.ref.value) return undefined;
+  const signature = ['aPosition', 'aGroup', 'drawCount', 'uVertexCount', 'tTransparency', 'dTransparency', 'dTransparencyType',
+    'uTransparencyStrength', 'instanceCount', 'aInstance', 'uGroupCount']
+    .flatMap(key => [v[key]?.ref.value, v[key]?.ref.version]).concat(includeFaint);
+  const cached = cache.get(v);
+  if (cached && signature.every((value, i) => value === cached.signature[i])) return cached.instances;
+  const count = renderedMeshVertexCount(object, positions);
+  const atoms = new Map();
+  for (let start = 0; start < count;) {
+    const group = groups[start];
+    let end = start + 1;
+    while (end < count && groups[end] === group) end++;
+    let lx = Infinity, ly = Infinity, lz = Infinity, hx = -Infinity, hy = -Infinity, hz = -Infinity;
+    for (let i = start * 3; i < end * 3; i += 3) {
+      const x = positions[i], y = positions[i + 1], z = positions[i + 2];
+      if (x < lx) lx = x; if (x > hx) hx = x;
+      if (y < ly) ly = y; if (y > hy) hy = y;
+      if (z < lz) lz = z; if (z > hz) hz = z;
+    }
+    if (lx <= hx && ly <= hy && lz <= hz) {
+      const cx = (lx + hx) / 2, cy = (ly + hy) / 2, cz = (lz + hz) / 2;
+      let farthest = 0;
+      for (let i = start * 3; i < end * 3; i += 3) {
+        const x = positions[i] - cx, y = positions[i + 1] - cy, z = positions[i + 2] - cz, d = x * x + y * y + z * z;
+        if (d > farthest) farthest = d;
+      }
+      const ball = { center: [cx, cy, cz], radius: Math.sqrt(farthest) }, prior = atoms.get(group);
+      atoms.set(group, prior ? { ...encloseBalls(prior, ball), runs: [...prior.runs, [start, end]] } : { ...ball, runs: [[start, end]] });
+    }
+    start = end;
+  }
+  const faded = Boolean(v.dTransparency?.ref.value);
+  const drawn = (group, runs, instance) => runs.some(([start, end]) => {
+    for (let i = start; i < end; i++)
+      if (includeFaint ? visibleGroup(v, i, instance, group, true) : litVertex(object, i, instance)) return true;
+    return false;
+  });
+  const instances = Array.from({ length: v.instanceCount?.ref.value ?? 1 }, (_, instance) => {
+    const balls = [];
+    for (const [group, atom] of atoms) if (!faded || drawn(group, atom.runs, instance)) balls.push({ center: atom.center, radius: atom.radius });
+    return balls;
+  });
+  cache.set(v, { signature, instances });
+  return instances;
+}
 function drawnGroups(object, includeFaint) {
   const cache = drawnGroupCaches[Number(includeFaint)];
   const v = object.values, positions = v?.aPosition?.ref.value, groups = v?.aGroup?.ref.value;
@@ -124,18 +187,149 @@ function drawnGroups(object, includeFaint) {
   return instances;
 }
 
+/**
+ * The most drawn balls a chapter field is measured with one by one.
+ *
+ * Menu clearance tests every ball against every glass seat in both eyes, from
+ * inside the frame loop. The microtubule wall's chapters (40,908 atoms) stay
+ * under this and are measured atom by atom. The whole tube (177,268 atoms, a
+ * ball each as a surface or spacefill) held a Quest 2's page for 9 to 15 s per
+ * menu redraw, about a minute per chapter.
+ */
+export const CHAPTER_FIELD_EXACT_BALLS = 60_000;
+/** About how many enclosing balls a field over that limit is measured with. */
+export const CHAPTER_FIELD_COARSE_BALLS = 6_000;
+
+const coarseBallCache = new WeakMap();
+/**
+ * At most about `target` balls that together enclose every ball in `balls`.
+ *
+ * Balls whose centres share a cell of a uniform grid are replaced by one ball
+ * enclosing all of them, so a part of the field that clears glass still
+ * clears it ball by ball: coarser balls only make clearance stricter. The
+ * cell is sized over the axes the balls actually spread along (a flat sheet
+ * is binned in two), grown until the count is met, then refined while far
+ * fewer cells than `target` are occupied, as for a hollow tube in its bounding
+ * box. Same input, same output, in first-seen order. The latest result is
+ * cached by the list's identity: the drawn lists passed here are rebuilt,
+ * never edited, when their geometry changes. A list with a non-finite centre
+ * or radius, or one too far out to enclose, is returned as it is.
+ */
+export function coarsenBalls(balls, target) {
+  if (!Array.isArray(balls) || !(target >= 1) || balls.length <= target) return balls;
+  const key = Math.floor(target);
+  const cached = coarseBallCache.get(balls);
+  if (cached?.key === key) return cached.coarse;
+  const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+  for (const { center, radius } of balls) {
+    if (!Number.isFinite(radius) || !center?.every?.(Number.isFinite)) return balls;
+    for (let axis = 0; axis < 3; axis++) {
+      if (center[axis] < low[axis]) low[axis] = center[axis];
+      if (center[axis] > high[axis]) high[axis] = center[axis];
+    }
+  }
+  const spread = high.map((value, axis) => value - low[axis]), widest = Math.max(...spread);
+  const extent = spread.map(value => Math.max(value, 1e-9));
+  // The axes the balls spread along: a sheet or a rod is binned in its own dimensions.
+  const spans = spread.filter(value => value > widest * 1e-3);
+  const bin = size => {
+    const counts = extent.map(value => Math.floor(value / size) + 1);
+    const cells = new Map();
+    balls.forEach(({ center }, index) => {
+      const [x, y, z] = [0, 1, 2].map(axis => Math.min(counts[axis] - 1, Math.floor((center[axis] - low[axis]) / size)));
+      const cell = (x * counts[1] + y) * counts[2] + z;
+      let members = cells.get(cell);
+      if (!members) cells.set(cell, members = []);
+      members.push(index);
+    });
+    return cells;
+  };
+  // Balls that all share one centre are one cell.
+  let size = widest > 0 ? Math.max(Math.pow(spans.reduce((product, value) => product * value, 1) / key, 1 / spans.length), widest / key) : 1;
+  let cells = bin(size);
+  // Growing the cell always ends: at twice the widest spread every ball shares one cell.
+  while (cells.size > key) cells = bin(size = Math.min(size * 1.5, widest * 2));
+  for (let tries = 0; widest > 0 && tries < 12 && cells.size < key / 2; tries++) {
+    const finer = bin(size * .8);
+    if (finer.size > key) break;
+    size *= .8; cells = finer;
+  }
+  const coarse = [...cells.values()].map(members => {
+    if (members.length === 1) return balls[members[0]];
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const index of members) {
+      const { center, radius } = balls[index];
+      for (let axis = 0; axis < 3; axis++) {
+        lo[axis] = Math.min(lo[axis], center[axis] - radius);
+        hi[axis] = Math.max(hi[axis], center[axis] + radius);
+      }
+    }
+    const center = lo.map((value, axis) => (value + hi[axis]) / 2);
+    let radius = 0;
+    for (const index of members) radius = Math.max(radius, Math.hypot(...balls[index].center.map((value, axis) => value - center[axis])) + balls[index].radius);
+    return { center, radius: radius * (1 + 1e-9) };
+  });
+  // Coordinates near the limits of a double can overflow the enclosure.
+  if (coarse.some(ball => !Number.isFinite(ball.radius) || !ball.center.every(Number.isFinite))) return balls;
+  // Only the latest count is kept: the share of each list changes with the field.
+  coarseBallCache.set(balls, { key, coarse });
+  return coarse;
+}
+
+// A whole turn is stood at this many angles. Each ball is widened by the arc
+// between two of them, a thirtieth of its reach from the axis at 96; at 24 it
+// was an eighth, and CRISPR's swept DNA end then left no seat that kept the
+// chapter within a tenth of its size.
+export const SPIN_FIELD_STEPS = 96;
+export const SPIN_FIELD_BALLS = 12_000;
+
+/**
+ * Balls that enclose `balls` at every angle of a whole turn about `axis`
+ * through `pivot`, all in the balls' own basis. Each ball stands at `steps`
+ * even angles, widened by the farthest anything inside it travels from the
+ * nearest of them between two steps, so the arc between steps is enclosed
+ * too. A list over `budget / steps` balls is first enclosed by fewer
+ * (`coarsenBalls`), which only makes the turn's field stricter.
+ */
+export function sweptChapterBalls(balls, { axis, pivot, steps = SPIN_FIELD_STEPS, budget = SPIN_FIELD_BALLS } = {}) {
+  const unit = axis?.length === 3 && axis.every(Number.isFinite) ? Vec3.normalize(Vec3(), Vec3.create(...axis)) : undefined;
+  if (!balls?.length || !unit || !(Vec3.magnitude(unit) > 0) || pivot?.length !== 3 || !pivot.every(Number.isFinite)) return balls;
+  const turns = Array.from({ length: steps }, (_, step) => Mat4.fromRotation(Mat4(), 2 * Math.PI * step / steps, unit));
+  const arc = 2 * Math.sin(Math.PI / (2 * steps)), centre = Vec3.create(...pivot), swept = [];
+  for (const ball of coarsenBalls(balls, Math.max(1, Math.floor(budget / steps)))) {
+    const offset = Vec3.sub(Vec3(), Vec3.create(...ball.center), centre), along = Vec3.dot(offset, unit);
+    // A ball enclosing several turns them from as far out as its own edge.
+    const radius = ball.radius + arc * (Math.sqrt(Math.max(0, Vec3.squaredMagnitude(offset) - along * along)) + ball.radius);
+    for (const turn of turns) swept.push({ ...ball, center: Array.from(Vec3.add(Vec3(), Vec3.transformMat4(Vec3(), offset, turn), centre)), radius });
+  }
+  return swept;
+}
+
 /** Substantive drawn geometry, converted back to the fixed source basis. */
-export function visibleChapterSpheres(objects, transform, { minimumAlpha = .2 } = {}) {
+export function visibleChapterSpheres(objects, transform, { minimumAlpha = .2,
+  exactBalls = CHAPTER_FIELD_EXACT_BALLS, coarseBalls = CHAPTER_FIELD_COARSE_BALLS } = {}) {
   const inverse = invertMatrix4(transform);
   const scale = Mat4.getMaxScaleOnAxis(transform);
   if (!inverse || !(scale > 0)) return [];
-  return objects.flatMap(object => {
+  const parts = objects.map(object => {
     const values = object.values, sphere = values?.boundingSphere?.ref.value;
     if (object.type === 'text' || object.state?.visible === false
       || (object.state?.alphaFactor ?? 1) * (values?.uAlpha?.ref.value ?? 1) <= minimumAlpha
-      || !sphere || !(sphere.radius > 0)) return [];
-    const groups = drawnAtoms(object, minimumAlpha === 0) ?? drawnGroups(object, minimumAlpha === 0);
-    if (groups) return groups.flatMap((balls, instance) => {
+      || !sphere || !(sphere.radius > 0)) return undefined;
+    const groups = drawnAtoms(object, minimumAlpha === 0)
+      ?? (atomSphereMesh(object) ? drawnSphereMeshAtoms(object, minimumAlpha === 0) : undefined)
+      ?? drawnGroups(object, minimumAlpha === 0);
+    return { values, sphere, groups };
+  });
+  // Over the limit, every drawn object keeps the same share of the budget.
+  const total = parts.reduce((sum, part) => sum + (!part ? 0 : part.groups
+    ? part.groups.reduce((count, balls) => count + balls.length, 0) : 1), 0);
+  const share = total > exactBalls ? coarseBalls / total : 1;
+  return parts.flatMap(part => {
+    if (!part) return [];
+    const { values, sphere, groups } = part;
+    if (groups) return groups.flatMap((drawn, instance) => {
+      const balls = share < 1 ? coarsenBalls(drawn, Math.max(1, Math.ceil(drawn.length * share))) : drawn;
       const matrix = Array.from(values.aTransform.ref.value.slice(instance * 16, instance * 16 + 16));
       const gain = Mat4.getMaxScaleOnAxis(matrix) / scale;
       return balls.map(ball => ({ center: applyMatrix4(applyMatrix4(ball.center, matrix), inverse), radius: ball.radius * gain }));
@@ -486,13 +680,14 @@ const glassPlates = (menuPoints, menuGlass) => (menuGlass?.length ? menuGlass : 
 // The largest screen area one part of the field shares with one glass plate
 // in any eye, with the clearance gap, and which pair that is. A part reaching
 // behind the eye covers the whole view; a plate no eye can measure is
-// Infinity.
-function cover(geometry, point, plates, views, meter) {
+// Infinity. With `any`, the first pair that covers anything ends the scan:
+// its area is then above zero but not the largest.
+function cover(geometry, point, plates, views, meter, any = false) {
   let worst = { area: 0 };
   for (const [index, view] of views.entries()) {
     const glass = plates.map(points => rect(points, view)), p = view.projectionMatrix;
     if (glass.some(menu => !Object.values(menu).every(Number.isFinite))) return { area: Infinity };
-    geometry.scan(point, view, { meter,
+    if (geometry.scan(point, view, { meter,
       // A group whose ball clears every plate covers nothing.
       prune: whole => finiteRect(whole.rect) && glass.every(menu => eyePartClears(whole, menu, p, .04)),
       visit: (part, entry) => {
@@ -507,7 +702,8 @@ function cover(geometry, point, plates, views, meter) {
             worst = { area, part, plate, view: index, eye: view.eye ?? null,
               box: [box.left, box.right, box.bottom, box.top], menu: [menu.left, menu.right, menu.bottom, menu.top] };
         });
-      } });
+        return !(any && worst.area > 0);
+      } }) === false) break;
   }
   const { view, ...found } = worst;
   return found;
@@ -538,10 +734,10 @@ export function menuObstruction({ bounds, views, menuPoints = [], menuGlass, ren
 export function createMenuObstructionScorer({ bounds, views: defaultViews, renderFromRoom,
   exact = bounds?.still === true, ...options }) {
   const geometry = bounds && fieldGeometry({ ...options, bounds, renderFromRoom, exact, projectionCache: new WeakMap() });
-  return ({ views = defaultViews, menuPoints = [], menuGlass, meter } = {}) => {
+  return ({ views = defaultViews, menuPoints = [], menuGlass, meter, any = false } = {}) => {
     const plates = glassPlates(menuPoints, menuGlass);
     if (!geometry || !views?.length || !plates.length) return { area: 0 };
-    return cover(geometry, geometry.initial, plates.map(points => points.map(p => applyMatrix4(p, renderFromRoom))), views, meter);
+    return cover(geometry, geometry.initial, plates.map(points => points.map(p => applyMatrix4(p, renderFromRoom))), views, meter, any);
   };
 }
 

@@ -52,7 +52,7 @@ def fetch_sources(catalog, out, fetch=False):
             return name,expected
         if not fetch:raise FileNotFoundError(str(path)+': use --fetch for missing public structures')
         with urllib.request.urlopen(source['url'],timeout=60) as response:
-            raw=response.read();etag=response.headers.get('ETag','').strip('"');revision=response.headers.get('X-Repo-Commit')
+            raw=base.read_bounded(response);etag=response.headers.get('ETag','').strip('"');revision=response.headers.get('X-Repo-Commit')
         git=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
         if revision!=base.REVISION or etag!=git:raise ValueError('Public Git blob/revision verification failed: '+name)
         record=dict(sha256=base.sha(raw),gitBlobSha1=git,bytes=len(raw),revision=revision,url=source['url'])

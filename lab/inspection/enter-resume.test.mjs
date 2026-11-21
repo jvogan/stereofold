@@ -48,8 +48,11 @@ function page() {
     selectedRows: () => [], hostDriven: () => false, lastGeneration: 0, lastSavedSignature: '{"tab":[]}',
     syncSearchAction() {}, syncWalkthrough() {}, syncMotion() {}, syncRenderQuality() {}, setStatus() {},
     xrSyncSequence: 0, generation: 1, closed: false, arSupported: true, xrPending: false, xrProblem: '',
-    xrEntryAttempt: undefined, entryWatchdog: undefined, clearTimeout,
     reentryArmed: false, disarmReentry() {}, updateVoiceUi() {}, recording: element(),
+    // No headset entry is in flight when the page refreshes.
+    xrEntryAttempt: undefined, entryWatchdog: undefined, clearTimeout,
+    // No press has left a microphone-prompt sentence on the status line.
+    xrNotice: '', microphonePermission: undefined, microphoneNoticeCopy: () => '', pushToTalkMicrophoneState: () => 'idle',
     hudSignature: '', hudWaitingSince: 0, resumeMode: null, resume: element(), resumeNote: element(),
     resumeButton, enterButtons, leave, entryActions: element(), note: element(),
     xrReentryEntryView: () => ({ single: false }),

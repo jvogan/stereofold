@@ -7,6 +7,7 @@ import { captionText } from '../talk-caption.mjs';
 import { Mat4 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { placementFitWithinEnvelope } from '../placement-fit-envelope.mjs';
 import { resetEntryGeometry } from '../reset-entry-geometry.mjs';
+import { noteAtomSphereMeshes } from '../component-label-measurement.mjs';
 import { normalizePlacement } from '../inspection-state.mjs';
 import { createGesturePivot } from '../gesture-pivot.mjs';
 import { checkDrawnRecord, drawnRecordIsVisible } from '../drawn-record.mjs';
@@ -57,7 +58,7 @@ export function menuInvariantHarness({ held = false, half = .1, vertices, worker
   };
   const base = make('base', half);
   const structure = { checkValid() {}, obj: { data: { elementCount: 8 } } };
-  const h = vm.createContext({ structuredClone, setTimeout, clearTimeout, performance, console,
+  const h = vm.createContext({ structuredClone, setTimeout, clearTimeout, performance, console, noteAtomSphereMeshes,
     fitAppearanceInWorker: async (options, policy) => { geometryReads++; fits++; events.push('extract', 'fit');
       return fitAppearanceInWorker(options, { ...policy, makeWorker: realAppearanceWorker, ...workerOptions }); },
     resetEntryGeometry: options => { geometryReads++; events.push('extract'); return resetEntryGeometry(options); },

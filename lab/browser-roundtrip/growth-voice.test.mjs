@@ -25,7 +25,7 @@ import { spatialVoiceAction, spokenConfirmation, spokenGrowthLine, SPATIAL_VOICE
   SPOKEN_REPLY_MAX_WORDS, GROW_NOT_YET_SPOKEN, GROW_STILL_BUSY_SPOKEN } from './voice-command-runner.mjs';
 import { VOICE_COMMANDS, voiceCommandFromTranscript } from './voice-command.mjs';
 
-/** The refusal a Quest 2 gets for the tube, and for the tip above the ceiling. */
+/** The refusal a Quest 2 gets for a tier above its ceiling. */
 const CEILING_REFUSAL = 'Too big for this headset. Staying here.';
 
 test('the growth commands are in the shared grammar', () => {

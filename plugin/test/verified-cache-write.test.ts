@@ -68,7 +68,7 @@ describe('atomic verified cache publication', () => {
       sources: [{ id: '1CRN', url: entry().coordinates.download, sha256 }],
       bodies: [{ source: '1CRN', authChains: ['A'], atoms: 'all', chain: 'H', matrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]] }] }));
     const run = () => route === 'source'
-      ? resolveCompositeText(recipePath, { demosRoot: dir, cachePath: () => resolve(dir, 'out.cif'), fetchText: async () => fixture })
+      ? resolveCompositeText(recipePath, { demosRoot: dir, cachePath: file => resolve(dir, file), fetchText: async () => fixture })
       : route === 'launcher' ? resolveCoordinates(entry(), dir, () => {}, { fetchText: async () => fixture })
         : ensureGrowthCoordinates({ demo: 'fixture', stageId: 'copy', ...entry().coordinates }, {
           cachePath: file => resolve(dir, file), fetchText: async () => fixture, announce: () => {},
@@ -76,7 +76,7 @@ describe('atomic verified cache publication', () => {
     await Promise.all([run(), run()]);
     expect(stages).toHaveLength(2);
     expect(new Set(stages).size).toBe(2);
-    const target = resolve(dir, route === 'source' ? 'out.cif' : addressedDemoFile('out.cif', sha256));
+    const target = resolve(dir, route === 'source' ? `composite-sources/${sha256}-1CRN.cif` : addressedDemoFile('out.cif', sha256));
     expect(stages.every(s => s.startsWith(target + '.') && s.endsWith('.partial'))).toBe(true);
     expect(stages).not.toContain(resolve(dir, 'out.cif.partial'));
     expect(compositeSha256(await readFile(target, 'utf8'))).toBe(sha256);
@@ -102,7 +102,7 @@ describe('atomic verified cache publication', () => {
       await writeFile(recipePath, JSON.stringify({ version: 1, id: 'fixture', title: 'Fixture',
         sources: [{ id: '1CRN', url: entry().coordinates.download, sha256 }],
         bodies: [{ source: '1CRN', authChains: ['A'], atoms: 'all', chain: 'H', matrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]] }] }));
-      await expect(resolveCompositeText(recipePath, { demosRoot: dir, cachePath: () => resolve(dir, 'out.cif'), fetchText: async () => fixture })).rejects.toThrow(/published file sha256 mismatch/);
+      await expect(resolveCompositeText(recipePath, { demosRoot: dir, cachePath: file => resolve(dir, file), fetchText: async () => fixture })).rejects.toThrow(/published file sha256 mismatch/);
     } else {
       const run = route === 'launcher' ? resolveCoordinates(entry(), dir, () => {}, { fetchText: async () => fixture })
         : ensureGrowthCoordinates({ demo: 'fixture', stageId: 'copy', ...entry().coordinates }, {

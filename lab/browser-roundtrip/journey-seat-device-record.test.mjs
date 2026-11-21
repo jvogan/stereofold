@@ -67,6 +67,11 @@ const restoringChapter = { active: true, navigating: true, autoplay: false, canB
   feedback: 'Restoring your view…' };
 const restingState = { subject, voice: { state: 'idle' }, passthrough: true, passthroughSupported: true,
   renderQuality: 'balanced', sequence: { open: false, available: true, binding: 'b', version: 1 } };
+/** The open menu the device drew when it recorded these numbers. The open
+ * menu now also carries the Room toggle whenever the session's passthrough is
+ * known, and the recording predates that row. With no passthrough reading,
+ * today's menu draws the recorded rows, row for row. */
+const recordedState = (({ passthrough, passthroughSupported, ...rest }) => rest)(restingState);
 
 const views = syntheticViews().map(view => {
   view.transform.matrix[13] = 1.6; view.transform.inverse.matrix[13] = -1.6; return view;
@@ -145,13 +150,13 @@ const eyeCentres = world => views.map(view => {
 });
 
 /** The restoring draw, and the completed panel Done measures on its held seat. */
-async function panels() {
-  const h = toolbarFrameHarness(await toolbarFrameRuntime(), { state: restingState });
+async function panels(state = restingState) {
+  const h = toolbarFrameHarness(await toolbarFrameRuntime(), { state });
   await h.toolbar.update();
   h.toolbar.runAction({ kind: 'collapse', value: false });
   await new Promise(resolve => setImmediate(resolve));
   const entryAnchor = h.toolbar.seatAnchor();
-  h.setState({ ...restingState, tour: restoringChapter });
+  h.setState({ ...state, tour: restoringChapter });
   await h.toolbar.update();
   return { h, entryAnchor, drawnRows: h.toolbar.rows(), drawnMenu: h.toolbar.drawnMenuPoints(),
     drawnPlate: h.toolbar.platePoints(),
@@ -164,22 +169,28 @@ test('one panel measured twice gives one right edge, in the recording and in the
   assert.ok(Math.abs(recordedStandoffRight - RECORDED.tourEndMenuRect.right) < 0.01,
     `the device recorded ${recordedStandoffRight.toFixed(4)} and ${RECORDED.tourEndMenuRect.right} for one panel`);
 
-  const { h, drawnRows, drawnMenu } = await panels();
+  const recorded = await panels(recordedState), current = await panels();
   try {
-    assert.equal(drawnRows.filter(row => row.id !== 'motion').length, 31, 'the historical restoring controls retain their 31 rows');
-    assert.equal(drawnRows.filter(row => row.id === 'motion').length, 1, 'the current menu also exposes its motion control');
-    assert.equal(drawnRows.length, 32);
-    assert.equal(drawnMenu.length, RECORDED.tourEndMenuRect.points + 17, 'the added motion row contributes its 17 drawn outline points');
+    assert.equal(recorded.drawnRows.length, 31, 'the restoring draw has the 31 rows the recording lists');
+    assert.equal(recorded.drawnMenu.length, RECORDED.tourEndMenuRect.points, 'and the recorded number of drawn menu points');
+    assert.deepEqual(current.drawnRows.map(row => row.id).filter(id => id !== 'room'), recorded.drawnRows.map(row => row.id),
+      'a known passthrough adds the Room toggle and nothing else');
+    assert.equal(current.drawnRows.length, recorded.drawnRows.length + 1);
+    // Every drawn row is its centre and two eight-point plate outlines: the
+    // recorded 527 is 31 rows of 17, and the Room toggle draws one more.
+    assert.equal(current.drawnMenu.length, 32 * 17, 'today\'s menu draws every point of every row');
     // Feed the recorded P0, radius and camera scale, so the subject the
     // standoff measures against is the saved one rather than an invented one.
     const saved = savedSubject(worldBox(0.05, 0.3, 0.02, 0.18, 3.585));
-    const standoff = measureEntryStandoff({ objects: saved.objects, cameraScale: CAMERA_SCALE, views,
-      menuPoints: drawnMenu, renderFromRoom: identity() });
-    const eye = standoff.eyes.find(value => value.eye === 'left');
-    const solverRight = leftRect(drawnMenu).right;
-    assert.ok(Math.abs((eye.menuX + eye.menuHalfWidth) - solverRight) < 0.01,
-      `standoff read ${(eye.menuX + eye.menuHalfWidth).toFixed(4)} and the solver ${solverRight}`);
-  } finally { await h.toolbar.dispose(); }
+    for (const { drawnMenu } of [recorded, current]) {
+      const standoff = measureEntryStandoff({ objects: saved.objects, cameraScale: CAMERA_SCALE, views,
+        menuPoints: drawnMenu, renderFromRoom: identity() });
+      const eye = standoff.eyes.find(value => value.eye === 'left');
+      const solverRight = leftRect(drawnMenu).right;
+      assert.ok(Math.abs((eye.menuX + eye.menuHalfWidth) - solverRight) < 0.01,
+        `standoff read ${(eye.menuX + eye.menuHalfWidth).toFixed(4)} and the solver ${solverRight}`);
+    }
+  } finally { await recorded.h.toolbar.dispose(); await current.h.toolbar.dispose(); }
 });
 
 test('the completed rows narrow the chapter menu on its held anchor', async () => {
@@ -230,24 +241,33 @@ test('Done refits a saved seat that overlaps completed glass at the held anchor'
 test('the centre band is read from the head beside held completed glass', async () => {
   const { h, preview } = await panels();
   try {
-    // A forward subject below the overhead card, beside the peripheral menu.
-    // The complete glass union's right edge belongs to that overhead card;
-    // putting a subject beside it would move the subject outside the band.
-    const base = -.05;
+    // A forward subject below the overhead card, just inboard of the
+    // peripheral menu. The complete glass union's right edge belongs to that
+    // overhead card; putting a subject beside it would move the subject
+    // outside the band. The column's inboard edge is read, not assumed: an
+    // open menu with a third column is seated further in, and the completed
+    // column keeps that seat.
+    const base = leftRect(preview.points.plates[1]).right + .02;
     const baselineEyes = eyeCentres(worldBox(base, base + 0.291, 0.0153, 0.1781, 3.585));
     const baselineCentre = (baselineEyes[0] + baselineEyes[1]) / 2;
     const cases = [
-      { nudge: 0, band: 'inside in both eyes', keep: true },
+      { nudge: 0, band: 'inside in both eyes', keep: true, inside: true },
       // A held-seat shape: inside head-centred, outside in the left eye.
       { nudge: 0.132 - baselineCentre, band: 'inside from the head only', keep: true, straddles: true },
       // Genuinely off to one side, which Done still re-centres.
       { nudge: 0.15 - baselineCentre, band: 'outside from the head', keep: false },
     ];
-    for (const { nudge, band, keep, straddles } of cases) {
+    for (const { nudge, band, keep, straddles, inside } of cases) {
       const world = worldBox(base + nudge, base + nudge + 0.291, 0.0153, 0.1781, 3.585);
       const saved = savedSubject(world);
       const [leftEye, rightEye] = eyeCentres(world);
       const mono = (leftEye + rightEye) / 2;
+      // Every case clears the drawn glass in both eyes, so only the band
+      // decides whether Done keeps it.
+      const witness = measureGlassClearance({ objects: saved.objects, views, cameraScale: CAMERA_SCALE,
+        renderFromRoom: identity(), menuPoints: preview.points });
+      assert.ok(witness.eyes.every(eye => eye.clearance > 0), `${band}: the saved subject clears the glass in both eyes`);
+      if (inside) assert.ok(Math.max(Math.abs(leftEye), Math.abs(rightEye)) < 0.135, `${band}: left ${leftEye.toFixed(4)}, right ${rightEye.toFixed(4)}`);
       const rendered = resetEntryGeometry({ ...saved.geometry, cameraScale: CAMERA_SCALE, renderFromRoom: identity() });
       const travel = resetEntryLateralTravel({ geometry: rendered, points: preview.points,
         right: [1, 0, 0], clearance: 0 });

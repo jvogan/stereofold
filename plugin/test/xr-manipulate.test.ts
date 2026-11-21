@@ -17,7 +17,7 @@ import { ButtonsType } from 'molstar/lib/mol-util/input/input-observer';
 // @ts-ignore Execute the production placement state and centroid arithmetic.
 import { createInspectionState, normalizePlacement } from '../../lab/browser-roundtrip/inspection-state.mjs';
 // @ts-ignore The same scale limits used by transient drawing and saved release.
-import { PLACEMENT_MAX_TRANSLATION, clampPlacementScale } from '../../lab/browser-roundtrip/placement-limits.mjs';
+import { PLACEMENT_MAX_TRANSLATION, WEARER_SCALE_RANGE, clampPlacementScale } from '../../lab/browser-roundtrip/placement-limits.mjs';
 // @ts-ignore Shared pivot correction used by the actual bake closure.
 import { pivotPreservingTranslation } from '../../lab/browser-roundtrip/presentation-pivot.mjs';
 // @ts-ignore Shared production gesture ownership.
@@ -1377,7 +1377,7 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     expect(offsets).toEqual([['left', [0, 0, -0.2]]]);
   });
 
-  it('bounds held resizing to five times entry size while preserving wearer travel', () => {
+  it('bounds held resizing to the wearer range around entry size while preserving wearer travel', () => {
     const source = readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs', import.meta.url), 'utf8');
     const start = source.indexOf('  function applyGrabDelta(');
     const end = source.indexOf('\n  }\n', start) + 5;
@@ -1400,10 +1400,15 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     for (let step = 0; step < 3; step += 1) {
       context.applyGrabDelta({ translation: [0.4, 0, -0.4], scale: 2 });
     }
-    expect(drawn.map(frame => frame.scale * 4)).toEqual([8, 16, 20]);
+    // The entry is scale 4, so each doubling holds once it meets the top of the band.
+    const top = 4 * WEARER_SCALE_RANGE;
+    expect(drawn.map(frame => frame.scale * 4)).toEqual([8, 16, 32].map(scale => Math.min(scale, top)));
     const translation = inspectionState.snapshot().placement.translation.map((value: number, axis: number) => value + context.grabOffset[axis] / 2);
     expect(translation).toEqual([15, 0, -15]);
-    expect(normalizePlacement({ scale: context.grabScale * 4, translation }).scale).toBe(20);
+    expect(normalizePlacement({ scale: context.grabScale * 4, translation }).scale).toBe(Math.min(32, top));
+    for (let step = 0; step < 6; step += 1) context.applyGrabDelta({ scale: 2 });
+    expect(drawn.at(-1).scale * 4).toBe(top);
+    expect(normalizePlacement({ scale: context.grabScale * 4, translation }).scale).toBe(top);
   });
 
   it.each([
@@ -1464,6 +1469,8 @@ describe('the actual viewer grab release preserves wearer placement', () => {
     expect(inspectionState.snapshot().placement.scale).toBeCloseTo(original.scale * scaleFactor, 10);
     original.rotation.forEach((value, axis) => expect(inspectionState.snapshot().placement.rotation[axis]).toBeCloseTo(value, 10));
     expect(camera).toEqual(cameraBefore);
+    // The released pose has already rendered, so its clearance is advisory
+    // and posts no menu-check caption over the wearer's reading.
     expect(cleared).toEqual([{ allowOffscreen: true, keepWearer: true, kind: 'retained-pose', announce: false,
       signal: expect.any(AbortSignal), isCurrent: expect.any(Function) }]);
     expect(cleared[0].isCurrent(), 'completed followup relinquishes ownership').toBe(false);

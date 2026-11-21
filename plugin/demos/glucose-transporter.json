@@ -21,7 +21,7 @@
     {
       "id": "reveal",
       "title": "A single helical bundle",
-      "caption": "Human GLUT1, entry 4PYP, at 3.17 Angstrom by X-ray diffraction. One chain of 504 residues, almost entirely alpha-helical, and the protein that moves glucose across the membrane of most human cells.",
+      "caption": "Human GLUT1, entry 4PYP, at 3.17 Angstrom by X-ray diffraction. One chain of 504 residues, almost entirely alpha-helical, that moves glucose across the membrane of most human cells.",
       "durationSeconds": 10,
       "changes": [
         {
@@ -89,7 +89,7 @@
     {
       "id": "orbit",
       "title": "Built for a membrane",
-      "caption": "Twelve transmembrane helices form two six-helix domains around a polar transport cavity, with hydrophobic surfaces facing the membrane.",
+      "caption": "Twelve transmembrane helices form two six-helix domains around a polar cavity, with hydrophobic surfaces facing the membrane.",
       "durationSeconds": 12,
       "changes": [
         {

@@ -24,3 +24,15 @@ export function lessonSourceInitialization(tour: Tour | undefined, options: {
       ? { frameVisibleFigureOnce: true } : {}),
   };
 }
+
+/**
+ * Whether a source loaded for this lesson draws nothing until a chapter runs.
+ *
+ * The source loads already wearing its opening chapter's look. When that look
+ * hides the base structure, the chapter's figure is the only thing on screen,
+ * so every route that loads the source must also open that chapter, including
+ * a tier grown after the wearer put the lesson away.
+ */
+export function lessonSourceLoadsHidden(tour: Tour | undefined, options: { density?: boolean; chapterId?: string } = {}) {
+  return lessonSourceInitialization(tour, options)?.appearance?.opacity === 0;
+}

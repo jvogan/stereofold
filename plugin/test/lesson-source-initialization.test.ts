@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { expect, it } from 'vitest';
-import { lessonSourceInitialization } from '../src/lesson-source-initialization.js';
+import { lessonSourceInitialization, lessonSourceLoadsHidden } from '../src/lesson-source-initialization.js';
+import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import type { Tour } from '../src/tour-player.js';
 
 const opening = { background: '#ffffff', representation: 'cartoon', opacity: 0, componentLabels: false } as const;
@@ -24,6 +25,23 @@ it('leaves normal loads and both density/map reference routes unchanged', () => 
   expect(lessonSourceInitialization(undefined)).toBeUndefined();
   expect(lessonSourceInitialization(tour, { density: true })).toBeUndefined();
   expect(lessonSourceInitialization({ ...tour, steps: [{ id: 'plain', title: 'Plain' }] })).toBeUndefined();
+});
+
+it('reports a hidden source only when the load would wear a hidden opening look', () => {
+  expect(lessonSourceLoadsHidden(tour)).toBe(true);
+  expect(lessonSourceLoadsHidden(tour, { chapterId: 'later' })).toBe(false);
+  expect(lessonSourceLoadsHidden(tour, { density: true })).toBe(false);
+  expect(lessonSourceLoadsHidden(undefined)).toBe(false);
+  expect(lessonSourceLoadsHidden({ ...tour, steps: [{ id: 'plain', title: 'Plain' }] })).toBe(false);
+});
+
+it('finds every bundled gallery lesson hidden behind its figure and every microtubule tier opaque', () => {
+  const read = (path: string) => molecularLessonToTour(JSON.parse(readFileSync(new URL(`../demos/${path}`, import.meta.url), 'utf8')));
+  const galleries = ['binder-gallery/lesson.json',
+    ...Array.from({ length: 10 }, (_, index) => `binder-gallery/extended/batch-${String(index + 1).padStart(2, '0')}/lesson.json`)];
+  for (const path of galleries) expect(lessonSourceLoadsHidden(read(path)), path).toBe(true);
+  for (const tier of ['monomer', 'dimer', 'protofilament', 'wall', 'tube', 'tip', 'filament'])
+    expect(lessonSourceLoadsHidden(read(`microtubule-growth/${tier}.json`)), tier).toBe(false);
 });
 
 it('carries an explicitly shared source frame through fresh and saved-scene source loads',async()=>{

@@ -62,6 +62,23 @@ test('a wearer move outranks an authored placement until the seat is handed back
   assert.equal(hold.allowsChapterFraming(), true);
 });
 
+test('an agent move holds for its chapter only; the wearer\'s own move carries on', () => {
+  const agent = createPlacementHold();
+  agent.takeover('agent-placement');
+  assert.equal(agent.holdsPlacement(), true, 'the chapter it was made in keeps it');
+  assert.deepEqual(agent.endChapter(), { held: false, chapter: 0, reason: 'chapter-ended' });
+  assert.equal(agent.holdsPlacement(), false);
+  assert.equal(agent.endChapter(), undefined, 'nothing is held any more');
+  const wearer = createPlacementHold();
+  wearer.takeover('grab');
+  assert.equal(wearer.endChapter(), undefined);
+  assert.equal(wearer.holdsPlacement(), true);
+  // A wearer's grab after the agent's move is the wearer's again.
+  agent.takeover('agent-placement'); agent.takeover('grab');
+  assert.equal(agent.endChapter(), undefined);
+  assert.equal(agent.state().reason, 'grab');
+});
+
 test('the hold state carries the reason and the move count for the record ring', () => {
   const hold = createPlacementHold({ now: () => 1234 });
   hold.takeover('voice-move');
@@ -83,4 +100,24 @@ test('an unlatched stand-off takes the measurement, rounded up to a step', () =>
   assert.equal(latchedStandoff({ current: 0.3, required: 0.29, latched: false }), 0.3, 'inside the release band it holds');
   assert.equal(Number(latchedStandoff({ current: 0.3, required: 0.01, latched: false }).toFixed(2)), 0.05);
   assert.equal(latchedStandoff({ current: 0.3, required: Number.NaN, latched: false }), 0.3);
+});
+
+test('a chapter change that failed gives back the owner it found, unless a hand came since', () => {
+  const hold = createPlacementHold();
+  hold.takeover('agent-placement');
+  let found = hold.ownership(); hold.endChapter(); let ended = hold.ownership();
+  assert.equal(hold.holdsPlacement(), false);
+  assert.equal(hold.resumeChapter(found, ended), true);
+  assert.equal(hold.holdsPlacement(), true); assert.equal(hold.state().reason, 'agent-placement');
+  assert.equal(hold.ownership().token, found.token);
+  // A grab after the chapter ended outranks the put-back.
+  found = hold.ownership(); hold.endChapter(); ended = hold.ownership();
+  hold.takeover('grab');
+  assert.equal(hold.resumeChapter(found, ended), false);
+  assert.equal(hold.state().reason, 'grab');
+  // So does a Reset, and a value this hold never gave out is refused.
+  const other = createPlacementHold(); other.takeover('agent-placement');
+  found = other.ownership(); other.endChapter(); ended = other.ownership(); other.release('reset');
+  assert.equal(other.resumeChapter(found, ended), false); assert.equal(other.holdsPlacement(), false);
+  assert.equal(other.resumeChapter({ token: {} }, other.ownership()), false);
 });

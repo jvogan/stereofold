@@ -69,6 +69,18 @@ describe('scrubSecrets', () => {
     const report = { scenarios: [{ evidence: { href: `https://h/#pair=${PAIRING_CODE}` } }] };
     expect(findLeakedSecrets(report, [PAIRING_CODE])).toEqual(['scenarios[0].evidence.href']);
   });
+
+  /** A report keyed by what it observed can carry a live code as a property name. */
+  it('scrubs and finds a live code used as a property name', () => {
+    const report = { seen: { [PAIRING_CODE]: 'present', [`code-${PAIRING_CODE}`]: { [PAGE_KEY]: 1 } } };
+    const leaks = findLeakedSecrets(report, [PAIRING_CODE, PAGE_KEY]);
+    expect(leaks).toEqual([`seen.${SCRUBBED}`, `seen.code-${SCRUBBED}`, `seen.code-${SCRUBBED}.${SCRUBBED}`]);
+    // The report of a leak must not be a copy of it.
+    expect(leaks.join(' ')).not.toContain(PAIRING_CODE);
+    const scrubbed = scrubSecrets(report, [PAIRING_CODE, PAGE_KEY]);
+    expect(scrubbed).toEqual({ seen: { [SCRUBBED]: 'present', [`code-${SCRUBBED}`]: { [SCRUBBED]: 1 } } });
+    expect(findLeakedSecrets(scrubbed, [PAIRING_CODE, PAGE_KEY])).toEqual([]);
+  });
 });
 
 /**

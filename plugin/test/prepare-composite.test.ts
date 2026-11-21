@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,6 +10,7 @@ import { LocalSceneService } from '../src/scene-service.js';
 import { createStereoStructureServer } from '../src/server.js';
 import { parseMolecularLesson } from '../src/molecular-lesson.js';
 import { createPreparedCompositeStore } from '../src/prepared-composite.js';
+import { resolveCompositeSource } from '../src/demo-composite-cache.js';
 import { compositeSha256 } from '../src/demo-rigid-composite.js';
 import { MAX_STRUCTURE_SOURCE_BYTES } from '../src/inspection-limits.js';
 import { inverse, syntheticCrambin } from './fixtures/superposition.js';
@@ -212,6 +213,47 @@ describe('prepare_composite public MCP workflow', () => {
 });
 
 describe('verified composite cache and limits', () => {
+  it('keeps composite sources, pointers and outputs inside the canonical cache root', async () => {
+    const dir = await directory(), outside = await directory(), cachePath = (file: string) => join(dir, file);
+    for (const name of ['composite-sources', 'composites']) {
+      await mkdir(join(outside, name)); await symlink(join(outside, name), join(dir, name));
+    }
+    const store = createPreparedCompositeStore({ cachePath, fetchPdbText: async (id: string) => texts[id] });
+    await expect(store.prepare({ recipe: recipe() } as any)).rejects.toThrow(/canonical cache root/);
+    const source = { id: '1CRN', url: 'https://files.rcsb.org/download/1CRN.cif', sha256: compositeSha256(texts['1CRN']) };
+    await expect(resolveCompositeSource(source, { cachePath, fetchText: async () => texts['1CRN'] })).rejects.toThrow(/canonical cache root/);
+    expect(await readdir(join(outside, 'composite-sources'))).toEqual([]);
+    expect(await readdir(join(outside, 'composites'))).toEqual([]);
+  });
+
+  it('writes no composite output through an escaping composites folder beside ordinary sources', async () => {
+    const dir = await directory(), outside = await directory(), cachePath = (file: string) => join(dir, file);
+    await mkdir(join(outside, 'composites')); await symlink(join(outside, 'composites'), join(dir, 'composites'));
+    const store = createPreparedCompositeStore({ cachePath, fetchPdbText: async (id: string) => texts[id] });
+    await expect(store.prepare({ recipe: recipe() } as any)).rejects.toThrow(/canonical cache root/);
+    // The sources were verified and cached inside the root before the output was refused.
+    expect(await readdir(join(dir, 'composite-sources'))).toEqual(expect.arrayContaining(['1CRN.json', '4HHB.json']));
+    expect(await readdir(join(outside, 'composites'))).toEqual([]);
+  });
+
+  it('resolves a handle only from a manifest and artifact inside the canonical cache root', async () => {
+    const dir = await directory(), outside = await directory(), cachePath = (file: string) => join(dir, file);
+    const options = { cachePath, fetchPdbText: async (id: string) => texts[id] };
+    const prepared = await createPreparedCompositeStore(options).prepare({ recipe: recipe() } as any);
+    const handle = prepared.source.handle, artifact = `${prepared.sha256}.cif`;
+    // The manifest and its artifact behind an escaping composites folder.
+    await cp(join(dir, 'composites'), join(outside, 'composites'), { recursive: true });
+    await rm(join(dir, 'composites'), { recursive: true });
+    await symlink(join(outside, 'composites'), join(dir, 'composites'));
+    await expect(createPreparedCompositeStore(options).resolve(handle)).rejects.toThrow(/Unknown or expired/);
+    // The manifest inside, the artifact it names linked from outside.
+    await rm(join(dir, 'composites'));
+    await mkdir(join(dir, 'composites'));
+    await cp(join(outside, 'composites', `${handle}.json`), join(dir, 'composites', `${handle}.json`));
+    await symlink(join(outside, 'composites', artifact), join(dir, 'composites', artifact));
+    await expect(createPreparedCompositeStore(options).resolve(handle)).rejects.toThrow(/canonical cache root/);
+  });
+
   it('reuses immutable bytes and prior handles while a different recipe shares the cache', async () => {
     const dir = await directory(), cachePath = (file: string) => join(dir, file);
     const options = { cachePath, fetchPdbText: async (id: string) => texts[id] };
@@ -248,6 +290,25 @@ describe('verified composite cache and limits', () => {
     await expect(cold.resolve(first.source.handle)).rejects.toThrow(/digest verification/);
     const rebuilt = await cold.prepare(input);
     expect(compositeSha256(await cold.resolve(rebuilt.source.handle))).toBe(first.sha256);
+  });
+
+  it('refuses a recipe naming more than 25 sources before the first read or download, and builds one naming 25', async () => {
+    const dir = await directory(), cachePath = (file: string) => join(dir, file);
+    const fetchPdbText = vi.fn(async (_id: string) => texts['1CRN']);
+    const many = (count: number) => ({ ...recipe(), sources: Array.from({ length: count }, (_, i) => ({ id: `S${String(i).padStart(3, '0')}` })),
+      bodies: [{ ...recipe().bodies[0], source: 'S000' }] });
+    await expect(createPreparedCompositeStore({ cachePath, fetchPdbText }).prepare({ recipe: many(26) } as any))
+      .rejects.toThrow(/Expected at most 25 sources/);
+    expect(fetchPdbText).not.toHaveBeenCalled();
+    expect(await readdir(dir)).toEqual([]);
+    const t = await setup();
+    const refused = await t.call('prepare_composite', { recipe: many(26) });
+    expect(refused.isError).toBe(true); expect(textOf(refused)).toMatch(/Expected at most 25 sources/);
+    expect(t.fetchPdbText).not.toHaveBeenCalled();
+    await expect(readdir(t.cachePath('composite-sources'))).rejects.toThrow();
+    const built = await createPreparedCompositeStore({ cachePath, fetchPdbText }).prepare({ recipe: many(25) } as any);
+    expect(built.sources).toHaveLength(25);
+    expect(fetchPdbText).toHaveBeenCalledTimes(25);
   });
 
   it('refuses oversized source downloads before body transfer and artifact publication', async () => {
@@ -347,7 +408,7 @@ it('accepts a long hold through the published schema but refuses it with one bou
     expect(reply.isError).toBe(true);
     const text = textOf(reply);
     expect(text.length).toBeLessThan(512);
-    expect(text.match(/"message"/g)).toHaveLength(1);
+    expect(text.match(/20 seconds per hold/g)).toHaveLength(1);
     expect(text).toMatch(/durationSeconds/);
     expect(text).toContain('20 seconds per hold');
     expect(text).toContain('split the hold');

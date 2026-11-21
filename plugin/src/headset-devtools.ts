@@ -37,6 +37,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 
+import { RENDER_BUDGET_PARAM, acceptsPageSetting } from './inspection-page-route.js';
+
 /** Where `adb forward` is expected to have put the headset's debugger. */
 export const DEVTOOLS_PORT_ENV_KEY = 'STEREOFOLD_DEVTOOLS_PORT';
 export const DEVTOOLS_DEFAULT_PORT = 9333;
@@ -56,10 +58,11 @@ export function devtoolsPort(env: NodeJS.ProcessEnv = process.env): number {
 /**
  * The `adb` arguments that open the tunnel. Printed as advice as well as run.
  *
- * The fixed port is rebound on purpose: the launch's tab sweep and the CLI
- * both reuse whatever forward an earlier run left there. Only a forward this
- * process opens for itself on a fresh port (`withOwnedDevtoolsForward`) passes
- * `noRebind`, so a port another process claimed in the meantime fails closed.
+ * The fixed port is rebound on purpose: the CLI and the drive harness reuse
+ * whatever forward an earlier run left there. The MCP server never opens one
+ * there; every forward it makes is its own, on a fresh port
+ * (`withOwnedDevtoolsForward`), with `noRebind`, so a port another process
+ * claimed in the meantime fails closed, and it is removed when its read ends.
  */
 export function forwardArguments(serial: string, port: number, { noRebind = false }: { noRebind?: boolean } = {}): string[] {
   return ['-s', serial, 'forward', ...(noRebind ? ['--no-rebind'] : []), `tcp:${port}`, DEVTOOLS_ABSTRACT_SOCKET];
@@ -92,14 +95,34 @@ export async function withOwnedDevtoolsForward<T>(input: {
   if (forwarded.code !== 0) return {ok:false,reason:`adb forward failed with exit code ${forwarded.code ?? 'unknown'}.`};
   let value: T;
   let cleanupWarning: string | undefined;
+  // A forward left standing lets any process on this Mac drive the headset
+  // browser, so a failed removal names the port and the command that closes it.
+  const leftOpen = (why: string) => `adb could not remove its debugger forward on tcp:${port} (${why}). `
+    + `Any process on this Mac can drive the headset browser through it until it is removed with \`adb forward --remove tcp:${port}\`.`;
   try { value = await input.action(port); }
-  finally {
+  catch (error) {
+    // An action that fails still leaves the forward to remove, and a removal
+    // adb refuses travels with the action's own error, so the caller can name
+    // the open port whichever of the two it reports.
+    const warning = await removeForward();
+    if (!warning) throw error;
+    const failure = Error(`${error instanceof Error ? error.message : String(error)} ${warning}`, { cause: error });
+    throw Object.assign(failure, { cleanupWarning: warning });
+  }
+  cleanupWarning = await removeForward();
+  return {ok:true,port,value,...(cleanupWarning?{cleanupWarning}:{})};
+  async function removeForward(): Promise<string | undefined> {
     try {
       const removed = await input.run(input.adb, ['-s', input.serial, 'forward', '--remove', `tcp:${port}`]);
-      if (removed.code !== 0) cleanupWarning = `adb could not remove its debugger forward (exit ${removed.code ?? 'unknown'}).`;
-    } catch (error) { cleanupWarning = `adb could not remove its debugger forward: ${error instanceof Error ? error.message : String(error)}`; }
+      return removed.code !== 0 ? leftOpen(`exit ${removed.code ?? 'unknown'}`) : undefined;
+    } catch (error) { return leftOpen(error instanceof Error ? error.message : String(error)); }
   }
-  return {ok:true,port,value,...(cleanupWarning?{cleanupWarning}:{})};
+}
+
+/** The warning `withOwnedDevtoolsForward` attached to an action's error, if a forward was left open. */
+export function forwardLeftOpenBy(error: unknown): string | undefined {
+  const warning = error !== null && typeof error === 'object' ? (error as { cleanupWarning?: unknown }).cleanupWarning : undefined;
+  return typeof warning === 'string' ? warning : undefined;
 }
 
 // ---------------------------------------------------------------- redaction
@@ -111,9 +134,46 @@ const PAGE_KEY_FRAGMENT = /^[0-9a-f]{16,}$/u;
  * evidence (which render budget a run used); every other value is redacted,
  * because a query can carry `access_token=…` or any other credential.
  */
-const SETTING_QUERY_KEYS = new Set(['xrRenderBudget', 'roomAnchor']);
-/** Anything that looks like a URL, fragment included, anywhere in a line. */
-const URL_IN_TEXT = /\bhttps?:\/\/[^\s"'<>)\]}]+/giu;
+const ROOM_ANCHOR_PARAM = 'roomAnchor';
+const SETTING_QUERY_KEYS = new Set([RENDER_BUDGET_PARAM, 'xrLayers', 'xrUi', ROOM_ANCHOR_PARAM]);
+/** The on/off words the viewer's switches read. */
+const SWITCH_WORD = /^(?:on|off|0|1|true|false|yes|no|enabled|disabled)$/iu;
+/**
+ * A render budget as the viewer parses it: `name:value` knobs separated by
+ * `,` or `;`. The page route admits any short run of those characters, which
+ * a token can be too, so a value that is not a knob list is not evidence.
+ */
+const KNOB_LIST = /^[a-z]{1,24}[:=][a-z0-9.]{1,16}(?:[,;][a-z]{1,24}[:=][a-z0-9.]{1,16})*$/iu;
+/** Userinfo (`user:password@`) between a URL's scheme and its host. */
+const URL_USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)[^/?#]*@/iu;
+
+/**
+ * Whether a setting's value is kept as evidence: only a value of the shape the
+ * page itself accepts for that setting, so a name the viewer reads cannot
+ * carry an arbitrary value past the redaction.
+ */
+function keepsSettingValue(name: string, raw: string): boolean {
+  let value: string;
+  try { value = decodeURIComponent(raw); } catch { return false; }
+  if (name === ROOM_ANCHOR_PARAM) return SWITCH_WORD.test(value);
+  if (!acceptsPageSetting(name, value)) return false;
+  return name !== RENDER_BUDGET_PARAM || SWITCH_WORD.test(value) || KNOB_LIST.test(value);
+}
+/**
+ * Anything that looks like a URL, fragment included, anywhere in a line.
+ *
+ * Prose punctuation such as `)` ends the URL, except inside userinfo: a
+ * browser accepts `user:pa)ss@host`, so up to the last `@` before the first
+ * `/`, `?`, `#`, `\` or space the whole run is the URL's and reaches
+ * `redactUrl` intact.
+ */
+const URL_IN_TEXT = /\bhttps?:\/\/(?:[^\s/?#\\]*@)?[^\s"'<>)\]}]+/giu;
+/**
+ * Userinfo after any scheme's `//`, whatever characters it holds, up to the
+ * last `@` of the authority. The scheme is bounded so a long dotted run in a
+ * page-written line costs linear time.
+ */
+const USERINFO_IN_TEXT = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/?#\\]*@/giu;
 /** Bare long hex runs. */
 const LONG_HEX = /\b[0-9a-f]{32,}\b/giu;
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/-]{8,}=*/giu;
@@ -136,7 +196,8 @@ export const REDACTED = '<redacted>';
  * Describe a URL's query and fragment instead of printing them.
  *
  * The scheme, host, port and path are evidence a reader needs: they say which
- * host served the page and whether it was `/detailed` or the companion. Query
+ * host served the page and whether it was `/detailed` or the companion. A
+ * `user:password@` before the host is a credential and is replaced. Query
  * values other than the viewer's own settings, and every fragment, can be
  * credentials. The two fragments this repository mints keep their own labels
  * so a companion link still reads as one.
@@ -145,12 +206,12 @@ export function redactUrl(value: string): string {
   const marker = value.indexOf('#');
   const beforeFragment = marker < 0 ? value : value.slice(0, marker);
   const question = beforeFragment.indexOf('?');
-  const base = question < 0 ? beforeFragment : beforeFragment.slice(0, question);
+  const base = (question < 0 ? beforeFragment : beforeFragment.slice(0, question)).replace(URL_USERINFO, `$1${REDACTED}@`);
   const query = question < 0 ? '' : `?${beforeFragment.slice(question + 1).split('&').map(part => {
     const equals = part.indexOf('=');
     if (equals < 0) return part === '' || SETTING_QUERY_KEYS.has(part) ? part : REDACTED;
     const name = part.slice(0, equals);
-    return SETTING_QUERY_KEYS.has(name) ? part : `${name}=${REDACTED}`;
+    return SETTING_QUERY_KEYS.has(name) && keepsSettingValue(name, part.slice(equals + 1)) ? part : `${name}=${REDACTED}`;
   }).join('&')}`;
   const fragment = marker < 0 ? '' : value.slice(marker + 1);
   const shape = fragment === '' ? ''
@@ -175,6 +236,7 @@ export function redactDevtoolsText(value: string): string {
     .replace(DATA_URI, (_match, media: string | undefined, _params, body: string) =>
       `data:${media ?? 'application/octet-stream'},<${body.length} chars elided>`)
     .replace(URL_IN_TEXT, match => redactUrl(match))
+    .replace(USERINFO_IN_TEXT, `$1${REDACTED}@`)
     .replace(BEARER, `Bearer ${REDACTED}`)
     .replace(LONG_HEX, REDACTED);
 }
@@ -299,7 +361,7 @@ export function isStereofoldTarget(target: { url: string; title?: string }, expe
 }
 
 export function pickStereofoldTarget(targets: readonly DevtoolsTarget[], wanted?: string,
-  expectedOrigin?: string): DevtoolsTarget | undefined {
+  expectedOrigin?: string | readonly string[]): DevtoolsTarget | undefined {
   const pages = pageTargets(targets);
   if (wanted) {
     // An explicit id wins over every filter, including the chrome:// exclusion:
@@ -314,9 +376,11 @@ export function pickStereofoldTarget(targets: readonly DevtoolsTarget[], wanted?
       ?? withSocket.find(target => target.title.includes(wanted));
   }
   // With an expected origin, every fallback stays inside it: a tab on another
-  // host is never "the page the wearer is looking at", however new it is.
-  const ours = expectedOrigin === undefined ? pages : pages.filter(target => targetOrigin(target.url) === expectedOrigin);
-  const stereofold = ours.filter(target => isStereofoldTarget(target, expectedOrigin));
+  // host is never "the page the wearer is looking at", however new it is. A
+  // list of origins fences the same way, and an empty list admits no tab.
+  const origins = typeof expectedOrigin === 'string' ? [expectedOrigin] : expectedOrigin;
+  const ours = origins === undefined ? pages : pages.filter(target => origins.includes(targetOrigin(target.url) ?? ''));
+  const stereofold = ours.filter(target => isStereofoldTarget(target, origins === undefined ? undefined : targetOrigin(target.url)));
   // The most recently opened tab wins when both are Stereofold's: "Open in
   // Mol*" is the wearer moving forward, and a second /viewer from the adb
   // intent is the live page while the first sits frozen behind it. Quest
@@ -330,7 +394,7 @@ export function pickStereofoldTarget(targets: readonly DevtoolsTarget[], wanted?
   // hand back the newest tab on the device — Google, the New Tab page — which
   // `headset-drive.ts` then waited 45 s on and reloaded. Nothing is a better
   // answer than a stranger's tab.
-  return newestTarget(stereofold) ?? (expectedOrigin === undefined ? undefined : newestTarget(ours));
+  return newestTarget(stereofold) ?? (origins === undefined ? undefined : newestTarget(ours));
 }
 
 function newestTarget(targets: readonly DevtoolsTarget[]): DevtoolsTarget | undefined {
@@ -624,6 +688,7 @@ export function pongFrame(payload: Buffer): Buffer {
  */
 export const PAGE_STATE_EXPRESSION = `(() => {
   const pick = fn => { try { const value = fn(); return value === undefined ? null : value; } catch { return null; } };
+  const word = value => typeof value === 'string' ? value : null;
   const diagnostics = pick(() => globalThis.__stereofoldDiagnostics);
   const entries = diagnostics ? (pick(() => diagnostics.entries()) ?? []) : [];
   const last = kind => { for (let i = entries.length - 1; i >= 0; i -= 1) if (entries[i] && entries[i].kind === kind) return entries[i]; return null; };
@@ -656,10 +721,10 @@ export const PAGE_STATE_EXPRESSION = `(() => {
       sessionStarted: startedAt,
       sessionEnded: endedAt,
       presenting: Boolean(sessionStart) && (!sessionEnd || (startedAt !== null && endedAt !== null ? startedAt > endedAt : false)),
-      mode: sessionStart ? (sessionStart.detail && sessionStart.detail.mode) ?? null : null,
-      blendMode: sessionStart ? (sessionStart.detail && (sessionStart.detail.blendMode ?? sessionStart.detail.environmentBlendMode)) ?? null : null,
+      mode: sessionStart ? word(sessionStart.detail && sessionStart.detail.mode) : null,
+      blendMode: sessionStart ? word(sessionStart.detail && (sessionStart.detail.blendMode ?? sessionStart.detail.environmentBlendMode)) : null,
       passthrough: sessionStart ? (sessionStart.detail && sessionStart.detail.mode) === 'immersive-ar' : null,
-      visibility: visibility ? (visibility.detail && (visibility.detail.state ?? visibility.detail.visibilityState)) ?? null : null,
+      visibility: visibility ? word(visibility.detail && (visibility.detail.state ?? visibility.detail.visibilityState)) : null,
       visibilityAt: visibility ? (visibility.at ?? visibility.time ?? null) : null,
     },
     tour: tour ? { detail: tour.detail ?? null, at: tour.at ?? tour.time ?? null } : null,
@@ -910,7 +975,7 @@ export type HeadsetBrowserReading = {
  */
 export async function readHeadsetBrowser(transport: DevtoolsTransport, {
   port, wanted, expectedOrigin, consoleMs = 1_200, livenessMs = 1_500,
-}: { port: number; wanted?: string; expectedOrigin?: string; consoleMs?: number; livenessMs?: number }): Promise<HeadsetBrowserReading> {
+}: { port: number; wanted?: string; expectedOrigin?: string | readonly string[]; consoleMs?: number; livenessMs?: number }): Promise<HeadsetBrowserReading> {
   const targets = parseTargets(await transport.fetch(port, '/json'));
   const target = pickStereofoldTarget(targets, wanted, expectedOrigin);
   if (!target) throw Error(`The debugger on 127.0.0.1:${port} lists no usable page.`);
@@ -942,13 +1007,17 @@ export async function readHeadsetBrowser(transport: DevtoolsTransport, {
 /** The sentence an agent reads first, before any of the structure. */
 export function summarizeReading(reading: HeadsetBrowserReading): string {
   const state = (reading.state ?? {}) as Record<string, any>;
-  const xr = state.xr ?? {};
+  const xr = (state.xr !== null && typeof state.xr === 'object' ? state.xr : {}) as Record<string, any>;
   const errors = reading.console.filter(line => line.level === 'error').length;
-  const where = state.pathname ? `The headset browser is on ${state.pathname}` : 'The headset browser answered';
+  // Every value here was reported by the page, which can make any of them an
+  // object that throws when turned into text, so only a string is quoted.
+  const text = (value: unknown) => typeof value === 'string' && value !== '' ? value : undefined;
+  const pathname = text(state.pathname), mode = text(xr.mode), visibility = text(state.documentVisibility);
+  const where = pathname ? `The headset browser is on ${pathname}` : 'The headset browser answered';
   const immersion = xr.presenting
-    ? `, presenting ${xr.mode ?? 'an XR session'}${xr.passthrough ? ' with passthrough' : ''}`
+    ? `, presenting ${mode ?? 'an XR session'}${xr.passthrough ? ' with passthrough' : ''}`
     : ', not in an immersive session';
-  const seen = state.documentVisibility ? `, document ${state.documentVisibility}` : '';
+  const seen = visibility ? `, document ${visibility}` : '';
   const said = reading.console.length === 0
     ? ' It has logged nothing.'
     : ` It has logged ${reading.console.length} line${reading.console.length === 1 ? '' : 's'}, ${errors} of them errors.`;

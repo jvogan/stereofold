@@ -174,7 +174,7 @@ test('sphere and hydrogen knobs lay over a decision without changing its estimat
   const unchanged = geometryBudgetDecision(ask({ representation: 'spacefill', atoms: 3000 }));
   assert.deepEqual(withGeometryDebug(unchanged, {}), unchanged);
   const mesh = withGeometryDebug(unchanged, { sphereDetail: 1, ignoreHydrogens: true });
-  assert.deepEqual(mesh.typeParams, { quality: 'custom', detail: 1, tryUseImpostor: false, ignoreHydrogens: true });
+  assert.deepEqual(mesh.typeParams, { quality: 'custom', detail: 1, doubleSided: false, tryUseImpostor: false, ignoreHydrogens: true });
   assert.equal(mesh.estimatedVertices, unchanged.estimatedVertices);
   assert.deepEqual(withGeometryDebug(unchanged, { sphereDetail: 'impostor' }).typeParams, { tryUseImpostor: true });
   const cartoon = geometryBudgetDecision(ask({ representation: 'cartoon' }));

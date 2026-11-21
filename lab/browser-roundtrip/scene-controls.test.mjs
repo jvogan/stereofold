@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createInspectionState } from './inspection-state.mjs';
 import { MOLECULAR_REPRESENTATIONS, nextMolecularRepresentation } from './spatial-toolbar-content.mjs';
+import { XR_HEAVY_SPHERE_MESH_DETAIL, XR_SPHERE_MESH_DETAIL } from './representation-budget.mjs';
 
 const source = readFileSync(new URL('./viewer.mjs', import.meta.url), 'utf8');
 const actionStart = source.indexOf('      onSpatialAction: async action => {');
@@ -69,47 +70,54 @@ test('shared history runs outside the workspace queue so command polling can dra
   assert.deepEqual(calls, ['undo', 'redo']);
 });
 
-test('representation applicability is cached without precomputing advisory geometry', () => {
+test('representation availability is cached until geometry or device inputs change', () => {
   const start = source.indexOf('  function spatialRepresentations() {');
   const end = source.indexOf('\n  }', start) + 4;
-  let calls = 0, inapplicable;
+  // Listing styles is advisory: it offers every applicable style and never
+  // budgets geometry. The chosen style is budgeted when it is applied.
+  let checks = 0, budgeted = 0;
   const h = vm.createContext({ MOLECULAR_REPRESENTATIONS, volume: false, lessonFigure: {},
     structure: { obj: { data: {} } }, spatialRepresentationInputs: [], spatialRepresentationOptions: [],
     currentXrSession: () => 'same-session', sessionDeviceClass: () => 'quest2', activeRenderQuality: () => 'balanced',
     canvas: { xr: { isPresenting: { value: true } } }, companionRecord: null, stylesState: [],
-    plugin: { representation: { structure: { registry: { get: name => ({ isApplicable: () => { calls++; return name !== inapplicable; } }) } } } },
-    geometryFor: () => assert.fail('listing controls must not infer unused bond graphs or budget advisory styles'),
+    plugin: { representation: { structure: { registry: { get: () => ({ isApplicable: () => { checks++; return true; } }) } } } },
+    geometryFor() { budgeted++; throw Object.assign(Error('too much geometry'), { code: 'representation_budget_exceeded' }); },
   });
   vm.runInContext(source.slice(start, end), h);
-  assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS], 'advisory geometry cost never hides a style');
-  h.spatialRepresentations(); assert.equal(calls, 4, 'steady frames reuse applicability');
-  inapplicable = 'spacefill'; h.stylesState = [];
-  assert.deepEqual(plain(h.spatialRepresentations()), ['ball-and-stick', 'cartoon', 'molecular-surface']);
-  assert.equal(calls, 8, 'changed geometry inputs refresh real applicability');
+  assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
+  h.spatialRepresentations(); assert.equal(checks, 4, 'no style checks in steady frames');
+  h.stylesState = [];
+  assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
+  assert.equal(checks, 8, 'a changed style input checks the styles again');
+  assert.equal(budgeted, 0, 'listing styles never builds or budgets geometry');
   h.volume = true; assert.deepEqual(plain(h.spatialRepresentations()), []);
+  // The applied representation is budgeted, and that budget gives a heavy
+  // spacefill on a Quest 2 in a session the detail-1 sphere mesh by default.
+  assert.match(source, /if \(!volume && Object\.hasOwn\(appearancePatch, 'representation'\)\) geometryFor\(next\.representation, /);
+  assert.equal(XR_HEAVY_SPHERE_MESH_DETAIL, XR_SPHERE_MESH_DETAIL);
 });
 
-test('representation applicability refreshes on device classification changes within one XR session', () => {
+test('representation availability follows device classification changes within the same XR session', () => {
   const start = source.indexOf('  function spatialRepresentations() {');
   const end = source.indexOf('\n  }', start) + 4;
   const session = { inputSources: [] };
-  let device = 'unknown', calls = 0;
+  let device = 'unknown', checks = 0;
   const h = vm.createContext({ MOLECULAR_REPRESENTATIONS, volume: false, lessonFigure: {},
     structure: { obj: { data: {} } }, spatialRepresentationInputs: [], spatialRepresentationOptions: [],
     currentXrSession: () => session, sessionDeviceClass: () => device, activeRenderQuality: () => 'balanced',
     canvas: { xr: { isPresenting: { value: true } } }, companionRecord: null, stylesState: [],
-    plugin: { representation: { structure: { registry: { get: () => ({ isApplicable: () => { calls++; return true; } }) } } } },
-    geometryFor: () => assert.fail('device budget is an action advisory, not an availability restriction'),
+    plugin: { representation: { structure: { registry: { get: () => ({ isApplicable: () => { checks++; return true; } }) } } } },
+    geometryFor() { assert.fail('listing styles never budgets geometry'); },
   });
   vm.runInContext(source.slice(start, end), h);
   assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
   device = 'quest2';
   assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
-  assert.equal(calls, 8, 'a changed device refreshes applicability without losing styles');
-  h.spatialRepresentations(); assert.equal(calls, 8, 'an unchanged device keeps the cached choices');
+  assert.equal(checks, 8, 'a changed device class recomputes all styles');
+  h.spatialRepresentations(); assert.equal(checks, 8, 'an unchanged device keeps the cached choices');
   device = 'unknown';
   assert.deepEqual(plain(h.spatialRepresentations()), [...MOLECULAR_REPRESENTATIONS]);
-  assert.equal(calls, 12);
+  assert.equal(checks, 12);
 });
 
 test('actual menu appearance announces a changed advisory once and retains the receipt on unchanged edits', async () => {

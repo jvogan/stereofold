@@ -49,7 +49,7 @@ const FULL_BINDING = [
   'acknowledge_experience_step', 'acknowledge_voice_intent', 'acknowledge_voice_playback', 'attach_inspection',
   'claim_voice_intent', 'complete_inspection', 'control_tour', 'detach_inspection', 'emphasize', 'focus_selection',
   'install_lesson', 'remove_measurement', 'grow_structure', 'import_detailed_view', 'navigate_experience', 'open_companion', 'open_detailed_view', 'poll_inspection', 'replace_inspection_source',
-  'report_source_failure', 'resolve_scene_import', 'speak_to_headset', 'submit_headset_view', 'sync_inspection', 'undo_last_change', 'redo_last_change', 'update_inspection',
+  'report_source_failure', 'resolve_scene_import', 'speak_to_headset', 'submit_headset_view', 'submit_live_view', 'sync_inspection', 'undo_last_change', 'redo_last_change', 'update_inspection',
   'voice_acknowledgement', 'voice_command',
 ] as const;
 /** `manage_companion` is scoped to the source, not to a pair of revisions. */
@@ -59,7 +59,7 @@ export const TOOLS_NEEDING_PANEL = new Set([
   'install_lesson', 'remove_measurement',
   'acknowledge_experience_step', 'acknowledge_voice_intent', 'acknowledge_voice_playback', 'claim_voice_intent',
   'complete_inspection', 'control_tour', 'detach_inspection', 'emphasize', 'focus_selection', 'grow_structure', 'import_detailed_view', 'navigate_experience',
-  'poll_inspection', 'replace_inspection_source', 'report_source_failure', 'report_detailed_selection', 'speak_to_headset', 'submit_headset_view',
+  'poll_inspection', 'replace_inspection_source', 'report_source_failure', 'report_detailed_selection', 'speak_to_headset', 'submit_headset_view', 'submit_live_view',
   'undo_last_change', 'redo_last_change', 'update_inspection', 'voice_acknowledgement', 'voice_command',
 ]);
 /** Tools whose schema also requires a caller-chosen command ID. */
@@ -182,6 +182,28 @@ export type InspectionStateSummary = {
  */
 export const PANEL_BLUR_WAIT_MS = 8_000;
 export const PANEL_BLUR_POLL_MS = 400;
+
+/**
+ * How long a command waits for a headset page that is drawing its structure
+ * again or catching up with the saved view.
+ *
+ * The page leaves the panel list, or stays in it as behind and `unsaved`, for
+ * the few seconds a Quest 2 takes to draw a lesson again. A command refused
+ * inside that window reached nobody, and a caller that took the refusal at its
+ * word saw the headset ignore it; so the caller re-reads the state until the
+ * page is back, and refuses only after this wait.
+ */
+export const COMPANION_CATCH_UP_WAIT_MS = 15_000;
+
+/** Whether the wearer's headset page is reloading or catching up rather than ready, busy or gone. */
+export function companionCatchingUp(state: Pick<InspectionStateSummary, 'panels' | 'companionLoading'>): boolean {
+  const companions = (state.panels ?? []).filter(panel => panel.surface === 'companion');
+  // A current page that is ready or busy is chosen or waited for already.
+  if (companions.some(panel => panel.current === true && panel.availability !== 'unsaved')) return false;
+  // The page being replaced at the end of a reload beats `unsaved` at the
+  // revision it has just installed, until its new panel attaches.
+  return state.companionLoading === true || companions.some(panel => panel.availability === 'unsaved');
+}
 
 /** Wording for an existing refusal, using the host's cause or older-host XR telemetry. */
 export function busyPanelRefusal(panels: PanelSummary[], description: string): string {
@@ -325,6 +347,12 @@ export function choosePanel(panels: PanelSummary[] | undefined,
   if (readyCompanions.length > 0) {
     return readyCompanions.length > 1 ? tooMany(readyCompanions) : { panelId: readyCompanions[0].panelId };
   }
+  // A headset page behind the saved revision with unsaved work of its own is
+  // listed as not current. It is still the view the wearer is in, so it keeps
+  // the desktop from taking the command in its place.
+  const behind = (panels ?? []).filter(panel => panel.surface === 'companion' && panel.current !== true && panel.availability === 'unsaved');
+  if (companions.length === 0 && behind.length > 0)
+    return { error: busyPanelRefusal(behind, [...live, ...behind].map(panel => `${panel.surface ?? 'panel'} ${panel.availability ?? 'unknown'}`).join(', ')) };
   if (companions.length > 0 || context.companionInDetailedView === true || context.companionLoading === true || context.companionLoad?.status === 'timed-out') {
     // Keep the existing wait for a busy headset, whether rendering or behind
     // a system dialog. Unsaved work still cannot be a command's base scene.
@@ -488,8 +516,10 @@ export function shouldWaitOutBlur(input: { blurred: boolean; waitedMs: number })
 }
 
 /** The sentence that says a command was sent once the wearer's view came back. */
-export function sentAfterBlurNote(waitedMs: number): string {
-  return `Sent after the headset view came back (blurred for ${(Math.max(0, waitedMs) / 1000).toFixed(1)} s).`;
+export function sentAfterBlurNote(waitedMs: number, reloaded = false): string {
+  const seconds = (Math.max(0, waitedMs) / 1000).toFixed(1);
+  return reloaded ? `Sent after the headset page came back from drawing its structure again (waited ${seconds} s).`
+    : `Sent after the headset view came back (blurred for ${seconds} s).`;
 }
 
 /**

@@ -192,7 +192,7 @@ export const DEMO_DERIVED_SOURCES = freeze({
       }
     ]
   },
-  "156d165def89f6966be7292f855b5996ae7e1da8f0dc3c8e2871e90886cfea75": {
+  "4aa930c4c42f0bad1e739d5454ce3cb18283ad06c8fdb00e4663da1e50ff0f42": {
     "pdbId": "5SYF",
     "title": "Kinesin walks hand over hand",
     "scope": "prepared rigid composite",
@@ -332,6 +332,23 @@ export const DEMO_DERIVED_SOURCES = freeze({
         "id": "MODEL",
         "file": "cycle-model.cif",
         "note": "Backbone N, CA, C, O of residues no entry resolves, built by a constrained chain model: each neck linker (native human KIF5B sequence) joins its head's last deposited residue to residue 339 of a 3KIN coil helix with 3.8 A CA-CA bonds, CA(i)-CA(i+2) 5.5-7.0 A and at least 4.5 A clearance; each stalk helix (poly-Ala, numbered from 1000 x panel + 1) continues the 3KIN coil as an idealised two-stranded coiled coil. Illustrative, not experimental."
+      }
+    ]
+  },
+  "7de958d3893e82e50a2b5502234469f320e6d4952a519e6e1696f04354a4536e": {
+    "pdbId": "9AX6",
+    "title": "Daraxonrasib glues cyclophilin A to KRAS",
+    "scope": "prepared rigid composite",
+    "kind": "prepared-rigid-composite",
+    "recipe": "daraxonrasib-assembly/motion-recipe.json",
+    "entries": [
+      "9AX6"
+    ],
+    "sources": [
+      {
+        "kind": "deposited",
+        "id": "9AX6",
+        "url": "https://files.rcsb.org/download/9AX6.cif"
       }
     ]
   },

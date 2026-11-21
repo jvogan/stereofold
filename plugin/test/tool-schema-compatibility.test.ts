@@ -108,9 +108,9 @@ describe('Codex model-visible input schemas', () => {
       // Each action is still strict about its own fields: delete takes no panel,
       // save needs a name, and list still takes the state-query fields it ignores.
       expect(await call({ ...binding, action: 'delete', viewId: uuid(6), viewRevision: 1, panelId: uuid(7) }))
-        .toMatch(/Input validation error[\s\S]*unrecognized_keys[\s\S]*panelId/);
+        .toMatch(/Input validation error[\s\S]*Unrecognized key[\s\S]*panelId/);
       expect(await call({ ...binding, action: 'save', panelId: uuid(7), commandId: 'save-1' }))
-        .toMatch(/Input validation error[\s\S]*"name"/);
+        .toMatch(/Input validation error[\s\S]*expected string, received undefined at name\b/);
       // A valid call passes validation and reaches the handler, which knows no
       // such session.
       expect(await call({ action: 'list', sessionId: uuid(1), includeExperienceCatalog: true }))

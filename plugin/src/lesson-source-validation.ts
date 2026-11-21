@@ -1,4 +1,6 @@
 import type { MolecularLessonManifest } from './molecular-lesson.js';
+// @ts-ignore Shared plane fit, also used by the panel's site close-up.
+import { planeOf } from '../../lab/browser-roundtrip/site-plane.mjs';
 
 /** Validate authored targets against the same catalog/model the panel draws. */
 export function validateLessonSource(lesson: MolecularLessonManifest, catalog: any, modelNumber: number,
@@ -38,6 +40,11 @@ export function validateLessonSource(lesson: MolecularLessonManifest, catalog: a
     });
     figure?.labels.forEach((label, i) => targets(label.target, `${path}.immersive.figure.labels.${i}.target`));
     figure?.focus?.forEach((target, i) => targets(target, `${path}.immersive.figure.focus.${i}`));
+    if (figure?.viewPlane) {
+      const points = figure.viewPlane.flatMap((target, i) => targets(target, `${path}.immersive.figure.viewPlane.${i}`))
+        .map((site: any) => site.assemblyCoordinatesAngstrom);
+      if (!planeOf(points)) fail(`${path}.immersive.figure.viewPlane`, 'atoms must span a plane: at least three, not all on one line.');
+    }
     figure?.distances.forEach((distance, i) => {
       const field = `${path}.immersive.figure.distances.${i}`;
       const a = targets(distance.a, `${field}.a`, true)[0].assemblyCoordinatesAngstrom;

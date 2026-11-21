@@ -112,14 +112,26 @@ test('a one-page card owes its seven seconds too', async () => {
   } finally { await f.toolbar.dispose(); }
 });
 
-test('restarting the same three-page chapter resets reading, page and frame time', async () => {
+// The first two chapters' captions read as four pages, each ending a
+// sentence. Three pages fit the words, but the first page then stopped at
+// `Sixteen different proteins in one machine:…`, a sentence a page holds whole.
+test('restarting the same four-page chapter resets reading, page and frame time', async () => {
   let clock = 0;
   const tour = chapterTour(0, {bodyPage: lesson.chapters.slice(0,2).map(chapter=>chapter.immersive?.narration ?? chapter.caption).join(' ')});
+  const readout = runtime.tourReadout(tour, undefined, 0);
+  const options = { measureText: runtime.toolbarTextWidth, head, constants: SPATIAL_TOOLBAR_LAYOUT, readout, readoutPage: 0,
+    rows: spatialToolbarRows({ collapsed: true, quiet: true, voice: { state: 'idle' }, tour: { ...tour, canNext: true } }) };
+  assert.deepEqual(Array.from({ length: 4 }, (_, page) =>
+    createToolbarPanel({ ...options, readoutPage: page }).readoutPoints.slice(1).map(line => line.text)), [
+    ['Human mitochondrial ATP synthase, entry', '8H9V, at 3.02 Angstrom.'],
+    ['Sixteen different proteins in one machine: a', 'catalytic head, a membrane motor, and a stalk', 'between them.'],
+    ['One turn around the whole enzyme.'],
+    ['The head is three alpha and three beta', 'subunits in alternation; the ring at the base', 'sits in the inner mitochondrial membrane.']]);
   const f = toolbarFrameHarness(runtime, { state:{tour,voice:{state:'idle'}}, now:()=>clock });
   try {
     await f.toolbar.update(); f.toolbar.syncPose();
-    assert.equal(f.toolbar.readout().cardPageCount,3);
-    for (let page=0; page<3; page++) {
+    assert.equal(f.toolbar.readout().cardPageCount,4);
+    for (let page=0; page<4; page++) {
       clock+=7000; f.toolbar.syncPose();
       for(let i=0;i<400;i++) await Promise.resolve();
       f.toolbar.syncPose();
@@ -129,8 +141,8 @@ test('restarting the same three-page chapter resets reading, page and frame time
     f.setState({tour:{...tour,chapterStartedAt:clock},voice:{state:'idle'}});
     await f.toolbar.update(); f.toolbar.syncPose();
     assert.equal(f.toolbar.readout().cardPageIndex,0);
-    assert.equal(f.toolbar.readout().cardHoldMs,21000);
+    assert.equal(f.toolbar.readout().cardHoldMs,28000);
     clock+=1000; f.toolbar.syncPose(); await f.toolbar.update();
-    assert.equal(f.toolbar.readout().cardHoldMs,20000,'status redraw does not reset reading');
+    assert.equal(f.toolbar.readout().cardHoldMs,27000,'status redraw does not reset reading');
   } finally {await f.toolbar.dispose();}
 });

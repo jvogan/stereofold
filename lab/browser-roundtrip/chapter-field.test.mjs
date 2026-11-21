@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra.js';
 import { glassPlatesOverlap, seatEyeViews } from './glass-overlap.mjs';
-import { CLEARANCE_STANDOFF_FACTOR, fitChapterField, framingEnvelopeObject, menuGlassInView, menuObstruction, menuOverlap, visibleChapterSpheres } from './chapter-field.mjs';
+import { CHAPTER_FIELD_COARSE_BALLS, CHAPTER_FIELD_EXACT_BALLS, CLEARANCE_STANDOFF_FACTOR, coarsenBalls, fitChapterField, framingEnvelopeObject, menuGlassInView, menuObstruction, menuOverlap, sweptChapterBalls, visibleChapterSpheres } from './chapter-field.mjs';
 import { renderedMeshVertexCount } from './component-label-measurement.mjs';
 import { XR_ROOM_MAX_METRES } from './placement-limits.mjs';
 import { SPATIAL_TOOLBAR_LAYOUT, createToolbarPanel, toolbarPlatePoints, toolbarCaptionPoints, toolbarDrawnMenuPoints, toolbarGlassPlates, toolbarMenuRowPoints } from './spatial-toolbar-geometry.mjs';
@@ -107,7 +107,18 @@ test('toolbar waits for its all-pose clearance before drawing expanded glass and
   } finally { await t.toolbar.dispose(); }
 });
 
-test('outside a lesson automatic obstructed glass hides, while wearer-opened controls remain available', async () => {
+test('a proof that ends cancelled clears nothing: the toolbar proves the new state before it draws', async () => {
+  let calls = 0;
+  const t = toolbarFrameHarness(runtime, { state: { tour },
+    beforeMenuDraw: async () => (++calls === 1 ? { cancelled: true } : undefined) });
+  try {
+    await t.toolbar.update();
+    assert.equal(calls, 2, 'the cancelled proof was followed by a proof of the new state');
+    assert.ok(t.toolbar.platePoints().length, 'and the glass is drawn');
+  } finally { await t.toolbar.dispose(); }
+});
+
+test('outside a lesson obstructed glass folds, then hides, and shows again once the scene clears', async () => {
   let obstructed = true;
   const scene = { ...tour, active: false };
   const t = toolbarFrameHarness(runtime, { state: { tour: scene },
@@ -117,11 +128,15 @@ test('outside a lesson automatic obstructed glass hides, while wearer-opened con
     await t.toolbar.update();
     assert.equal(t.toolbar.isHidden(), true, 'folded glass that covers the scene is hidden');
     assert.deepEqual(t.toolbar.platePoints(), []);
-    // An explicit Menu press owns expansion even when automatic clearance fails.
+    // Menu shows the glass again. The wearer asked for that grid, so a
+    // clearance cannot fold or hide it until Close; Close folds the glass and
+    // the obstructed scene hides it once more.
     t.toolbar.runAction({ kind: 'collapse', value: false }); await settle();
-    assert.equal(t.toolbar.isCollapsed(), false, 'the wearer-opened expanded grid stays available');
-    assert.equal(t.toolbar.isHidden(), false);
-    assert.ok(t.toolbar.platePoints().length > 0);
+    assert.equal(t.toolbar.isCollapsed(), false, 'the grid the wearer opened stays open');
+    assert.equal(t.toolbar.isHidden(), false, 'and stays drawn');
+    t.toolbar.runAction({ kind: 'collapse', value: true }); await settle();
+    assert.equal(t.toolbar.isCollapsed(), true);
+    assert.equal(t.toolbar.isHidden(), true, 'closed glass that covers the scene is hidden');
     obstructed = false;
     t.toolbar.runAction({ kind: 'collapse', value: false }); await settle();
     assert.equal(t.toolbar.isHidden(), false, 'clear glass shows again');
@@ -145,9 +160,9 @@ test('a completed plain entry can recheck controls hidden during startup without
   } finally { await t.toolbar.dispose(); }
 });
 
-// A lesson's menu and card stay available, including an explicit expanded Menu
-// while the lesson loads its first chapter and while it shows one.
-for (const phase of ['loading', 'showing']) test(`in a lesson ${phase} a chapter, obstructed glass retains wearer expansion and stays drawn`, async () => {
+// A lesson's menu and card never hide themselves: obstructed glass folds and
+// stays drawn, while the lesson loads its first chapter and while it shows one.
+for (const phase of ['loading', 'showing']) test(`in a lesson ${phase} a chapter, obstructed glass folds and stays drawn`, async () => {
   const lesson = phase === 'loading' ? { ...tour, active: false, navigating: true } : tour;
   const t = toolbarFrameHarness(runtime, { state: { tour: lesson }, beforeMenuDraw: async () => ({ obstructed: true }) });
   const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(resolve => setImmediate(resolve)); };
@@ -155,9 +170,14 @@ for (const phase of ['loading', 'showing']) test(`in a lesson ${phase} a chapter
     await t.toolbar.update();
     assert.equal(t.toolbar.isHidden(), false);
     assert.ok(t.toolbar.platePoints().length > 0);
+    // Menu opens a grid the wearer asked for: a clearance keeps it open and
+    // drawn until Close, and Close folds glass that stays drawn in a lesson.
     t.toolbar.runAction({ kind: 'collapse', value: false }); await settle();
-    assert.equal(t.toolbar.isCollapsed(), false, 'the wearer-opened expanded grid stays available');
+    assert.equal(t.toolbar.isCollapsed(), false, 'the grid the wearer opened stays open');
     assert.equal(t.toolbar.isHidden(), false, 'and stays drawn');
+    t.toolbar.runAction({ kind: 'collapse', value: true }); await settle();
+    assert.equal(t.toolbar.isCollapsed(), true);
+    assert.equal(t.toolbar.isHidden(), false, 'folded glass stays drawn');
     // A placement check that settles on hiding the glass keeps it drawn too.
     const pose = { headInRoom: identity(), renderFromRoom: identity(), labelViews: syntheticViews() };
     const hide = t.toolbar.prepareRelocation(pose).find(candidate => candidate.hide);
@@ -237,6 +257,87 @@ test('a chapter drawn as a ball per atom gets its field bounds without overflowi
   assert.ok(Number.isFinite(bounds.radius) && bounds.radius > 0);
 });
 
+// A spacefill impostor object: `atoms` balls of radius 1.6 on a hollow
+// cylinder, drawn `instances` times along its axis.
+function impostorTube(atoms, instances) {
+  const cell = value => ({ ref: { value, version: 0 } });
+  const positions = new Float32Array(atoms * 4);
+  for (let i = 0; i < atoms; i++) {
+    const turn = i * 2.39996, ring = 120 + (i % 7) * 3, z = (i * 37) % 80;
+    positions.set([ring * Math.cos(turn), ring * Math.sin(turn), z, i], i * 4);
+  }
+  const transforms = Array.from({ length: instances }, (_, k) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, k * 80, 1]).flat();
+  return { type: 'spheres', state: { visible: true }, values: {
+    boundingSphere: cell({ center: [0, 0, instances * 40], radius: 200 + instances * 40 }),
+    tPositionGroup: cell({ array: positions }), drawCount: cell(atoms * 6), dSizeType: cell('uniform'), uSize: cell(1.6),
+    aTransform: cell(transforms), instanceCount: cell(instances), uGroupCount: cell(atoms) } };
+}
+const inside = (ball, balls) => balls.some(outer => Math.hypot(...ball.center.map((v, i) => v - outer.center[i])) + ball.radius <= outer.radius * (1 + 1e-6));
+
+test('a field under the exact limit is measured atom by atom', () => {
+  const object = impostorTube(5_000, 4);
+  const spheres = visibleChapterSpheres([object], identity());
+  assert.ok(5_000 * 4 <= CHAPTER_FIELD_EXACT_BALLS);
+  assert.equal(spheres.length, 20_000, 'one ball per drawn atom');
+  assert.deepEqual(spheres[5_001].center.map(v => Math.round(v * 1e3)),
+    [0, 1, 2].map(i => Math.round((object.values.tPositionGroup.ref.value.array[4 + i] + (i === 2 ? 80 : 0)) * 1e3)));
+});
+
+test('a field over the limit is measured with enclosing balls, and every atom stays inside one', () => {
+  // The whole microtubule: 26 instances of 6,818 atoms.
+  const object = impostorTube(6_818, 26);
+  const spheres = visibleChapterSpheres([object], identity());
+  assert.ok(6_818 * 26 > CHAPTER_FIELD_EXACT_BALLS);
+  assert.ok(spheres.length <= CHAPTER_FIELD_COARSE_BALLS + 26, `${spheres.length} balls`);
+  assert.ok(spheres.length >= CHAPTER_FIELD_COARSE_BALLS / 4, `${spheres.length} balls keep the tube's shape`);
+  const exact = visibleChapterSpheres([object], identity(), { exactBalls: Infinity });
+  assert.equal(exact.length, 6_818 * 26);
+  for (let i = 0; i < exact.length; i += 97) assert.ok(inside(exact[i], spheres), `atom ${i} is enclosed`);
+  // This fixture is about eight times sparser than protein, so its cells are wide.
+  assert.ok(Math.max(...spheres.map(ball => ball.radius)) < 30, 'enclosing balls stay small beside the 120 A tube');
+  assert.deepEqual(visibleChapterSpheres([object], identity()), spheres, 'the same field gives the same balls');
+});
+
+test('coarsening keeps lists at or under the target unchanged and never splits a ball', () => {
+  const balls = Array.from({ length: 50 }, (_, i) => ({ center: [i, 0, 0], radius: 1 }));
+  assert.equal(coarsenBalls(balls, 50), balls);
+  const coarse = coarsenBalls(balls, 10);
+  assert.ok(coarse.length <= 10 && coarse.length >= 5, `${coarse.length} balls`);
+  for (const ball of balls) assert.ok(inside(ball, coarse));
+});
+
+test('a whole turn encloses each ball at every angle about its axis and stays in budget', () => {
+  // About a tilted axis through a pivot, as a spin about render up is in a turned molecule's own basis.
+  const pivot = [3, -2, 5], axis = [.2, 1, -.1], unit = Vec3.normalize(Vec3(), Vec3.create(...axis));
+  const balls = Array.from({ length: 400 }, (_, i) => ({ center: [3 + 40 * Math.cos(i), -2 + (i % 20) - 10, 5 + 40 * Math.sin(i * 1.7)], radius: 1.5 }));
+  const swept = sweptChapterBalls(balls, { axis, pivot, steps: 24, budget: 2_400 });
+  assert.ok(swept.length <= 2_400, `${swept.length} balls`);
+  for (const [i, ball] of balls.entries()) for (let degrees = 0; degrees < 360; degrees += 7) {
+    if (i % 23) continue;
+    const turn = Mat4.fromRotation(Mat4(), degrees * Math.PI / 180, unit);
+    const center = Array.from(Vec3.add(Vec3(), Vec3.transformMat4(Vec3(), Vec3.sub(Vec3(), Vec3.create(...ball.center), Vec3.create(...pivot)), turn), Vec3.create(...pivot)));
+    assert.ok(inside({ ...ball, center }, swept), `ball ${i} at ${degrees} degrees is enclosed`);
+  }
+  assert.equal(sweptChapterBalls(balls, { axis: [0, 0, 0], pivot }), balls, 'no axis, no turn');
+  assert.equal(sweptChapterBalls([], { axis, pivot }).length, 0);
+});
+
+test('coarsening meets its count for a flat sheet, a rod and one shared centre', () => {
+  const sheet = Array.from({ length: 60_001 }, (_, i) => ({ center: [i % 245, Math.floor(i / 245), 0], radius: 1.6 }));
+  const rod = Array.from({ length: 20_000 }, (_, i) => ({ center: [i * .1, 0, 0], radius: 1 }));
+  const shared = Array.from({ length: 20_000 }, () => ({ center: [5, 5, 5], radius: 2 }));
+  for (const [name, balls, target] of [['sheet', sheet, 6_000], ['rod', rod, 1_000], ['shared centre', shared, 1_000], ['one ball', rod, 1]]) {
+    const coarse = coarsenBalls(balls, target);
+    assert.ok(coarse.length <= target, `${name}: ${coarse.length} balls for ${target}`);
+    for (let i = 0; i < balls.length; i += 37) assert.ok(inside(balls[i], coarse), `${name}: ball ${i} is enclosed`);
+  }
+  const unbounded = rod.slice(0, 100).map((ball, i) => i === 5 ? { ...ball, radius: Infinity } : ball);
+  assert.equal(coarsenBalls(unbounded, 10), unbounded, 'a list that cannot be enclosed is returned as it is');
+  const farOut = [{ center: [1e308, 0, 0], radius: 1 }, { center: [1e308, 0, 0], radius: 1 }];
+  assert.equal(coarsenBalls(farOut, 1), farOut, 'an enclosure that would overflow is not made');
+  assert.deepEqual(coarsenBalls(rod, 500), coarsenBalls(rod.slice(), 500), 'the same balls give the same enclosure');
+});
+
 for (const collapsed of [false, true]) test(`Next from walk frames the still motor-at-rest by its own subject with ${collapsed ? 'compact' : 'expanded'} menu`, async t => {
   const { h, demo, panel } = stillMotorAtRest(collapsed);
   const before = structuredClone(h.inspectionSnapshot().placement);
@@ -273,10 +374,12 @@ for (const collapsed of [false, true]) test(`Next from walk frames the still mot
 });
 
 
-// Automatic compact admission clears every authored label plate. If no expanded
-// seat clears, an explicit wearer Menu remains available and reports obstruction
-// without claiming clearance or moving the molecule.
-for (const collapsed of [false, true]) test(`the still motor-at-rest ${collapsed ? 'admits compact glass only clear of its plates' : 'reports obstruction while preserving wearer-opened expanded controls'}`, async t => {
+// The menu may stand anywhere but over the still chapter's plates. Glass the
+// page seats on its own is admitted only where no authored label plate lies
+// under it in either eye, and the molecule stays where the chapter framed it.
+// A grid the wearer opened with Menu is theirs: it stays open until Close,
+// even where no seat of it clears the plates, so the press never looks inert.
+for (const collapsed of [false, true]) test(`the still motor-at-rest ${collapsed ? 'admits compact glass only clear of its plates' : 'keeps the grid its wearer opened'}`, async t => {
   if (!process.env.STEREOFOLD_DEMO_CACHE) return t.skip('requires demo cache');
   const { h, demo, scene, records } = stillMotorAtRest(true);
   // The live toolbar fixture's eye is 1.6 m high. Its clearance views and
@@ -326,19 +429,8 @@ for (const collapsed of [false, true]) test(`the still motor-at-rest ${collapsed
     t.diagnostic(JSON.stringify({ collapsed, plates, covered, hidden: toolbar.toolbar.isHidden(),
       folded: toolbar.toolbar.isCollapsed(), distance: Math.hypot(...center) }));
     assert.ok(plates > 0);
-    if (collapsed) {
-      assert.equal(covered, 0, 'no plate lies under automatically admitted compact glass');
-      assert.equal(records.some(record => record.kind === 'chapter-field' && record.reason === 'menu-obstructed'), false);
-    } else {
-      assert.ok(covered > 0, 'this fixture exercises expanded glass with no clear alternate seat');
-      const obstruction = records.find(record => record.kind === 'chapter-field' && record.reason === 'menu-obstructed');
-      assert.ok(obstruction, 'overlap is reported rather than accepted as a clear seat');
-      assert.equal(obstruction.blocker.kind, 'plate');
-      assert.ok(obstruction.overlap > 0);
-      assert.equal(toolbar.toolbar.isCollapsed(), false, 'wearer-requested expansion remains available');
-      assert.equal(toolbar.toolbar.isHidden(), false);
-      assert.ok(glass.length > 0);
-    }
+    if (collapsed) assert.equal(covered, 0, 'no plate lies under the admitted glass');
+    else assert.equal(toolbar.toolbar.isCollapsed(), false, 'a clearance proposal does not fold the grid the wearer opened');
   } finally { await toolbar.toolbar.dispose(); }
 });
 
@@ -403,9 +495,9 @@ test('menu clearance defers during a grab even inside a chapter mutation', async
   const { h, writes } = menuHarness();
   h.busy = true; h.interactionActive = () => true;
   const before = h.inspectionSnapshot().placement;
-  h.chapterFieldBounds = () => assert.fail('a live grab has no saved-pose clearance proof');
-  const result = await h.clearChapterMenu({ points: toolbarPlatePoints(panelFor(false)), isCurrent: () => true });
-  assert.equal(result.unmeasured, true, 'defer the proof without aborting chapter playback');
+  // A grab keeps the menu seat without claiming clearance, so a chapter
+  // preview redrawn during the grab neither rolls back nor moves anything.
+  assert.deepEqual({ ...await h.clearChapterMenu({ points: toolbarPlatePoints(panelFor(false)), isCurrent: () => true }) }, { unmeasured: true });
   assert.deepEqual(h.inspectionSnapshot().placement, before);
   assert.equal(writes.length, 0);
 });

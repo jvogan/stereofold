@@ -1,4 +1,4 @@
-import { createToolbarPanel, toolbarGlassPlates, toolbarPlatePoints, toolbarSeatBasis, toolbarStatusGlass } from './spatial-toolbar-geometry.mjs';
+import { createToolbarPanel, READOUT_PAGE_LINES, toolbarGlassPlates, toolbarPlatePoints, toolbarSeatBasis, toolbarStatusGlass } from './spatial-toolbar-geometry.mjs';
 import { menuSeatWithinView, menuSeatInEyeViews } from './menu-view-band.mjs';
 import { glassPlatesOverlap, seatEyeViews } from './glass-overlap.mjs';
 import { applyMatrix4, invertMatrix4 } from './room-lock.mjs';
@@ -18,7 +18,17 @@ function holdsTitle(panel, readout = []) {
 }
 
 /** Complete, readable alternate glass. This proposes menu seats only. */
-export function menuRelocationCandidates(options, head, { labelViews, renderFromRoom, cardOnly = false, shortCard = false } = {}) {
+export function menuRelocationCandidates(options, head, { labelViews, renderFromRoom, cardOnly = false, shortCard = false, lessonHeights = false } = {}) {
+  // A seat proposed here is drawn as an ordinary seat, turned toward the
+  // wearer: no seat it commits keeps a held menu plane. Glass drawn while a
+  // move held the menu still carries that plane until the menu redraws, so
+  // it is measured without it, or the seat drawn would not be the seat
+  // measured. While a move or a drag still holds the menu, no seat is asked
+  // for, and the held glass keeps its plane.
+  if (options.constants?.heldMenuPlane) {
+    const { heldMenuPlane, ...constants } = options.constants;
+    options = { ...options, constants };
+  }
   const candidates = [];
   const withoutStatus = panel => {
     const plain = { ...panel, statusBacking: undefined, statusPoints: [], statusPoint: panel.buttons[0].point };
@@ -35,15 +45,38 @@ export function menuRelocationCandidates(options, head, { labelViews, renderFrom
     // paged caption line. The clearance search keeps one only where every
     // full card covers the chapter under the status card, a name plate or
     // the controls.
+    //
+    // One line pages most chapter lines inside a sentence: the ATP rotor's
+    // whole-enzyme chapter reads `Bacterial ATP synthase: catalytic head…`,
+    // then `on top, membrane ring below.` So where the one-line card splits
+    // a sentence, each seat also offers the card grown by the fewest caption
+    // lines that keep every page whole, while it stays shorter than the full
+    // card's three. Both are seats; the kept-card rank in `clearChapterMenu`
+    // prefers the whole one unless it crosses a name plate or covers more of
+    // the controls. A line that fits one line, or pages at its sentence ends,
+    // offers only the one-line card.
+    let wholeLines;
+    const lessonSeat = (constants, id) => {
+      const panel = createToolbarPanel({ ...options, head, constants, seatAnchor: undefined });
+      return { id, band: constants.chapterCardBelow ? 'bottom' : 'top', stableLesson: true, glance: true,
+        points: toolbarPlatePoints(panel), glass: toolbarGlassPlates(panel), statusGlass: toolbarStatusGlass(panel),
+        panel, anchor: panel.anchor, head, constants, ...(shortCard ? { shortCard: true } : {}),
+        ...(panel.readoutSplitsSentence ? { splitsSentence: true } : {}) };
+    };
     for (const below of [false, true]) for (const side of [options.constants.lessonSide ?? 1, -(options.constants.lessonSide ?? 1)]) for (const lift of [0, .2, -.2, .4, -.4, .6, -.6, .8, -.8]) {
       const constants = { ...options.constants, rightMeters: side * Math.abs(options.constants.rightMeters), lessonSide: side,
         faceViewer: false, peripheralSeat: false, chapterCardBelow: below,
         lowerMeters: options.constants.lowerMeters - lift, ...(shortCard ? { shortCard } : {}) };
-      const panel = createToolbarPanel({ ...options, head, constants, seatAnchor: undefined });
-      const seat = { id: `lesson-${below ? 'bottom' : 'top'}-${side}-${lift}${shortCard ? '-short' : ''}`, band: below ? 'bottom' : 'top', stableLesson: true, glance: true,
-        points: toolbarPlatePoints(panel), glass: toolbarGlassPlates(panel), statusGlass: toolbarStatusGlass(panel),
-        panel, anchor: panel.anchor, head, constants, ...(shortCard ? { shortCard } : {}) };
+      const id = `lesson-${below ? 'bottom' : 'top'}-${side}-${lift}${shortCard ? '-short' : ''}`;
+      const seat = lessonSeat(constants, id);
       if (admitted(seat)) candidates.push(seat);
+      if (!shortCard || !seat.splitsSentence) continue;
+      // The caption wraps the same at every seat: find the count once.
+      wholeLines ??= Array.from({ length: READOUT_PAGE_LINES - 2 }, (_, index) => index + 2).find(lines =>
+        !createToolbarPanel({ ...options, head, constants: { ...constants, shortCard: lines }, seatAnchor: undefined }).readoutSplitsSentence) ?? 0;
+      if (!wholeLines) continue;
+      const whole = lessonSeat({ ...constants, shortCard: wholeLines }, `${id}${wholeLines}`);
+      if (!whole.splitsSentence && admitted(whole)) candidates.push(whole);
     }
     return candidates;
   }
@@ -112,14 +145,23 @@ export function menuRelocationCandidates(options, head, { labelViews, renderFrom
       }
     });
   }
-  if (!cardOnly) for (const [glance, assistantLines] of statuses.entries()) for (const below of [false, true]) for (const side of [-1, 1]) for (const lift of [0, .15, -.15, .3, -.3]) {
-    const constants = { ...options.constants, chapterCardBelow: below, peripheralSeat: false,
-      rightMeters: side * Math.abs(options.constants.rightMeters),
-      lowerMeters: options.constants.lowerMeters - lift };
-    const panel = createToolbarPanel({ ...options, assistantLines, head, constants, seatAnchor: undefined });
-    const points = toolbarPlatePoints(panel);
-    addSeat({ id: candidates.length, points, glass: toolbarGlassPlates(panel), statusGlass: toolbarStatusGlass(panel), panel, anchor: panel.anchor, head, constants, ...(glance ? { glance: true } : {}), band: below ? 'bottom' : 'top' });
-  }
+  const forwardSeats = lifts => {
+    if (!cardOnly) for (const [glance, assistantLines] of statuses.entries()) for (const below of [false, true]) for (const side of [-1, 1]) for (const lift of lifts) {
+      const constants = { ...options.constants, chapterCardBelow: below, peripheralSeat: false,
+        rightMeters: side * Math.abs(options.constants.rightMeters),
+        lowerMeters: options.constants.lowerMeters - lift };
+      const panel = createToolbarPanel({ ...options, assistantLines, head, constants, seatAnchor: undefined });
+      const points = toolbarPlatePoints(panel);
+      addSeat({ id: candidates.length, points, glass: toolbarGlassPlates(panel), statusGlass: toolbarStatusGlass(panel), panel, anchor: panel.anchor, head, constants, ...(glance ? { glance: true } : {}), band: below ? 'bottom' : 'top' });
+    }
+  };
+  // The heights a lesson's own controls may take, asked for on their own
+  // once every other seat has failed (`clearChapterMenu`). A structure that
+  // fills the middle of the view (a chapter's view the wearer holds through
+  // Done) leaves the resting column room only as far up or down as the
+  // lesson put its controls.
+  if (lessonHeights) { forwardSeats([.4, -.4, .6, -.6, .8, -.8]); return candidates.filter(admitted); }
+  forwardSeats([0, .15, -.15, .3, -.3]);
   // If the current gaze is full of molecule, park to a side. The hypothetical
   // turned head is only a measurement frame; tracked head/camera never change.
   const roomFromRender = invertMatrix4(renderFromRoom);

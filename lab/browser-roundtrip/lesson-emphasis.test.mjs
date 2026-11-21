@@ -301,7 +301,11 @@ test('the viewer decides who owns the painted key in one place', () => {
   // A key an agent or the wearer asked for by name is theirs: a tour stopping
   // is not an answer to that request, so the clear refuses rather than obeys.
   assert.match(source, /async function clearLessonEmphasis\(\)\s*\{\s*return lessonResting\.clear\(\);/);
-  assert.match(source, /async function setLessonRestingState\(value, options\)[\s\S]{0,120}return lessonResting\.install\(value, options\);/);
+  // Installing a resting state does two other things, and neither is the key:
+  // it drops a site close-up's turn back and the previous lesson's opening
+  // seat, which are poses. Anything else ahead of the hand-off would be a
+  // second place deciding the key.
+  assert.match(source, /async function setLessonRestingState\(value, options\) \{\s*assertReady\(\);(?:\s*\/\/[^\n]*)*\s*if \(typeof siteViewReturn !== 'undefined'\) siteViewReturn = undefined;(?:\s*\/\/[^\n]*)*\s*if \(typeof authoredChapterFrame !== 'undefined'\) authoredChapterFrame = null;\s*return lessonResting\.install\(value, options\);\s*\}/);
   // A restored key carries its provenance, or the next hydrate's baseline
   // paint takes the scene the wearer just asked for straight back off. The
   // capture's own origin is the second argument because a reload restores in
@@ -361,8 +365,8 @@ test('every name-plate rebuild in the viewer goes through the one session', () =
   // same corner offset that makes it a billboard, so it stays square to the
   // wearer and stays right in both eyes.
   assert.match(source, /offsetX: place\.offsetX, offsetY: place\.offsetY \+ lineOffset/);
-  // The menu column and the caption card are both glass the plates keep off.
-  assert.match(source, /obstacles: menuGlassObstacles\(\[toolbarRect, captionRect\]\)/);
+  // The menu column and each plate of caption glass are glass the plates keep off.
+  assert.match(source, /obstacles: menuGlassObstacles\(\[toolbarRect, \.\.\.captionRects\]\)/);
   // And the structure's own silhouette reaches the solver,
   // which is the only thing that can keep a plate off the thing it names.
   assert.match(source, /subject: subject \?\? null/);
@@ -593,10 +597,10 @@ test('the viewer paints the colour layers before the fade, and merges them first
   assert.match(paint, /recordCost\('emphasis-cost'/);
 });
 
-// A grown tier lights every subunit. Quest 2 captures showed an earlier build's
-// grown protofilament with its new dimer as a grey ghost while the
-// first dimer stayed lit blue/amber, so the lit subject shrank even though the
-// strand grew — against the landing narration "same two colours".
+// A grown tier lights every subunit. A grown protofilament that shows its new
+// dimer as a grey ghost while the first dimer stays lit blue/amber shrinks the
+// lit subject even though the strand grows, against the landing narration
+// "same two colours".
 
 /** A stand-in grown protofilament: two dimers, lower (A, B) and new (A-14, B-14), plus cargo. */
 const GROWN_ROWS = [
@@ -648,10 +652,10 @@ test('a grown tier landing lights every tubulin subunit: lit parts equal subunit
   }
 });
 
-test('the previous tier key ghosted the new dimer, which is the 76aa6ff symptom', () => {
+test('the previous tier key ghosts the new dimer', () => {
   // The dimer tier's opening key (chains A and B, focus alpha+beta) resolves
   // on the grown structure's lower dimer — and the new chains are nowhere in
-  // its lit set, so every one of their rows fades. This plan drew the new
+  // its lit set, so every one of their rows fades. This plan draws the new
   // chains as a 35 per cent grey ghost: it must never be the plan a grown
   // tier lands with, which the test above pins.
   const stale = planLessonEmphasis(

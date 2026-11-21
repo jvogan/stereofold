@@ -81,7 +81,7 @@
     {
       "id": "cycle",
       "title": "One dimer, 1 to 4",
-      "caption": "Composite: one 8.2 nm dimer step via a one-head-bound ATP-waiting pathway. Head states (H1/H2), panels 1–4: ADP·Pi/apo, ADP/apo, ADP/ATP, apo/ADP·Pi; apo means no nucleotide. AMP-PNP stands in for ATP and ADP·Pi. Free-head and coil positions are illustrative; pale linkers and the stalk stub are modelled, and the stalk runs about 60 nm on to the cargo.",
+      "caption": "Composite: one 8.2 nm dimer step via a one-head-bound ATP-waiting pathway. Head states (H1/H2), panels 1–4: ADP·Pi/apo, ADP/apo, ADP/ATP, apo/ADP·Pi; apo means no nucleotide. Panels 3–4 are shifted one dimer to keep the motor centred, so head 2, which never lets go, looks one dimer further back. AMP-PNP stands in for ATP and ADP·Pi. Free-head and coil positions are illustrative; pale linkers and the stalk stub are modelled, and the stalk runs about 60 nm on to the cargo.",
       "durationSeconds": 30,
       "changes": [
         {
@@ -106,7 +106,7 @@
         },
         "view": "fit",
         "motion": "hold",
-        "narration": "The rear head lets go, swings forward on its linker, and lands in front.",
+        "narration": "The rear head lets go, swings forward on its linker, and lands in front. Panels 3 and 4 are shifted one dimer over.",
         "emphasis": {
           "parts": [
             {
@@ -696,7 +696,8 @@
               "offsetX": 0,
               "offsetY": 7,
               "maxOffsetEm": 3,
-              "sizeFactor": 1.1
+              "sizeFactor": 1.1,
+              "desktopSizePx": 16
             },
             {
               "id": "plus-end",

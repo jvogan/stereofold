@@ -82,7 +82,7 @@ the current molecule, including Claude Science binder-workflow topics, and
 ship inside the inspector bundle for both desktop and browser companion use.
 See [guided tours](INSPECTOR.md#guided-tours).
 
-The forty-one model-visible tools are listed in full under **Install and
+The forty-two model-visible tools are listed in full under **Install and
 check the tools** below, all under `stereo_structure`. `inspect`,
 `inspect_file`, `inspect_scene`, `inspect_lesson`, and `inspect_experience` use `ui://stereo-structure/inspector`; `open` uses
 `ui://stereo-structure/viewer`. `inspect_file` accepts an explicitly chosen
@@ -151,7 +151,8 @@ and enter the one-time pairing code. Then tap the primary **Enter VR** control:
 it requests `immersive-ar` wherever the headset browser reports it, so the room
 stays behind the molecule, and falls back to `immersive-vr` where it does not.
 The first tap also asks for the microphone, because Quest cannot show that
-prompt inside VR. **Enter plain VR**, under **More options**, opens the opaque
+prompt inside VR; it skips that request once this Mac has reported that no
+voice route will use the microphone. **Enter plain VR**, under **More options**, opens the opaque
 room. Keep Codex running. No headset developer registration, USB debugging,
 tunnel, or certificate-authority installation is required for the private
 route. If the headset shows Meta's "Finding position in room" screen, a person
@@ -275,7 +276,8 @@ transcription and transcript delivery:
 | `STEREOFOLD_WHISPER_GPU` | `1` runs whisper on the GPU. Unset, it runs on the CPU: a little slower, and it keeps transcription out of the GPU driver, which crashed under heavy Metal load. |
 | `STEREOFOLD_FFMPEG_BIN` | An absolute path to `ffmpeg`, which decodes audio before either recognizer runs. |
 | `STEREOFOLD_PTT_SILENCE_RMS` | The loudest-100 ms threshold below which a press counts as silence and no recognizer runs. Default `0.012`; `0` disables it. |
-| `STEREOFOLD_PTT_TRANSCRIPTS` | An absolute file path to append transcript records as JSON lines. |
+| `STEREOFOLD_PTT_TRANSCRIPTS` | An absolute file path to append transcript records as JSON lines. The file must be a regular file that you own, not a symlink; Stereofold keeps it readable by your account only. |
+| `STEREOFOLD_PTT_DEBUG_TRANSCRIPTS` | `1` writes each transcript's words to the server's log, which an agent host can save to disk. Unset, the log records only each transcript's length. |
 | `STEREOFOLD_PTT_TEXT_COMMAND` | A shell command run once per transcript, with the text on standard input. |
 | `STEREOFOLD_BRIDGE_DIR` | An absolute directory path for transcript delivery to a running headset bridge. |
 
@@ -311,8 +313,8 @@ assistant to open one by name with its matching coordinates, following
 tiers through `stereo_structure.grow_structure`: `stage` takes `next`, `back`,
 `first`, `last`, or a tier id, and `device` takes the paired headset class.
 The `filament` density asset is not shipped and cannot be prepared in a live
-session. Skip it by naming `tip` from `wall`. The `tube` tier exceeds the
-Quest 2 size budget and is refused without changing the current structure.
+session. Skip it by naming `tip` from `wall`. The `tube` tier is past the
+Quest 2 atom-site ceiling but has opened on a Quest 2, so it is allowed there.
 
 ## Network use
 
@@ -439,8 +441,8 @@ confirms `stereo_structure.open`, and opens the built-in fixture. Then open a
 fresh host conversation and confirm the tools below are available under the
 Stereofold server. These are the names the server registers, and every host
 renames them, so read the paragraph below the list before matching what a host
-shows you against it. The model can call forty-one of the sixty-eight
-registered tools; the other twenty-seven are app-only:
+shows you against it. The model can call forty-two of the seventy
+registered tools; the other twenty-eight are app-only:
 
 ```text
 stereo_structure.capture_headset_view
@@ -480,6 +482,7 @@ stereo_structure.replace_inspection_source
 stereo_structure.say_to_headset
 stereo_structure.set_mode
 stereo_structure.set_motion
+stereo_structure.show_live_view
 stereo_structure.speak_to_headset
 stereo_structure.switch_assistant
 stereo_structure.undo_last_change
@@ -487,7 +490,7 @@ stereo_structure.update_inspection
 ```
 
 Codex and Claude Code 2.1.280 both read the `_meta.ui.visibility` hint and keep
-the 27 app-only tools off the model's list. Both rename the tools. Codex
+the 28 app-only tools off the model's list. Both rename the tools. Codex
 session logs record `mcp__stereo_structure__stereo_structure_<verb>`, so
 `stereo_structure.open` is `mcp__stereo_structure__stereo_structure_open`
 there. A Claude Code plugin install adds the plugin name:

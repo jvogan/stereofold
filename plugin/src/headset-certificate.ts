@@ -50,11 +50,18 @@ export const CERTIFICATE_PAGE_EXPRESSION = `(() => {
   const errorPage = pick(() => location.protocol) === ${JSON.stringify(ERROR_PAGE_SCHEME)};
   const text = errorPage ? (pick(() => document.body ? document.body.innerText : '') || '') : '';
   const code = ${CERTIFICATE_ERROR_CODE}.exec(text);
-  return { href: pick(() => location.href), title: pick(() => document.title), code: code ? code[0] : null };
+  const named = errorPage ? pick(() => String(document.getElementById('final-paragraph').textContent).slice(0, 300)) : null;
+  return { href: pick(() => location.href), title: pick(() => document.title), code: code ? code[0] : null,
+    ...(named === null ? {} : { named }) };
 })()`;
 
-/** What the page answered to `CERTIFICATE_PAGE_EXPRESSION`. */
-export type CertificatePage = { href?: string | null; title?: string | null; code?: string | null };
+/**
+ * What the page answered to `CERTIFICATE_PAGE_EXPRESSION`. `named` is the
+ * text of the warning's final paragraph, which holds its "Proceed to <host>
+ * (unsafe)" link: the one place an error page that lists only
+ * `chrome-error://` names the host it refused. It is read, never clicked.
+ */
+export type CertificatePage = { href?: string | null; title?: string | null; code?: string | null; named?: string | null };
 
 /** Which signal identified the warning. */
 export type CertificateEvidence = 'title' | 'error-page' | 'error-code';
@@ -137,8 +144,30 @@ export function certificateWarningFor({ target, page, expectedOrigin, worn, fing
   const origin = target.url.startsWith(ERROR_PAGE_SCHEME) ? expectedOrigin : targetOrigin(target.url);
   if (origin === undefined) return undefined;
   const host = new URL(origin).hostname;
+  // A listing at `chrome-error://` does not say which address failed. When the
+  // page answered with its final paragraph, that paragraph names the refused
+  // host, and a warning for any other host or port is another site's, never
+  // the share's.
+  if (target.url.startsWith(ERROR_PAGE_SCHEME) && typeof page?.named === 'string' && page.named !== ''
+    && !namesShare(page.named, origin)) return undefined;
   return { address: origin, host, ...(code ? { code } : {}), tab: target.id, evidence,
     ...(fingerprint ? { fingerprint } : {}), instruction: certificateInstruction(host, worn) };
+}
+
+/**
+ * Whether `text` names the share: its whole host name, not part of a longer
+ * one, and its own port when the text writes a port. A host written without
+ * a port still names the share, because the browser's warning usually shows
+ * the host alone and the share's own warning must never be passed over.
+ */
+function namesShare(text: string, origin: string): boolean {
+  const url = new URL(origin);
+  const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+  const bare = url.hostname.replace(/^\[(.*)\]$/u, '$1').toLowerCase();
+  const escaped = bare.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const named = new RegExp(`(?<![a-z0-9._:\\-])\\[?${escaped}\\]?(?::(\\d{1,5})(?!\\d))?(?!:\\d)(?![a-z0-9_\\-])(?!\\.[a-z0-9_\\-])`, 'gu');
+  for (const match of text.toLowerCase().matchAll(named)) if (match[1] === undefined || match[1] === port) return true;
+  return false;
 }
 
 /** What one look at the headset found. `read: false` means the debugger did not answer. */

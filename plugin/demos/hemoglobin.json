@@ -97,7 +97,7 @@
       ],
       "immersive": {
         "narration": "Four hemes, one in every chain. Oxygen binds at each iron.",
-        "appearance": { "representation": "ball-and-stick", "color": "element-symbol", "opacity": 1, "labels": false, "clipping": 25, "fog": 10 },
+        "appearance": { "representation": "cartoon", "color": "chain-id", "opacity": 1, "labels": false, "clipping": 25, "fog": 10 },
         "placement": { "translation": [0, 0, 0], "rotation": [0, 0, 0], "scale": 1.8 },
         "emphasis": {
           "parts": [
@@ -114,13 +114,21 @@
           "contextOpacity": 0.12,
           "framing": "fill"
         },
+        "figure": {
+          "layers": [
+            { "id": "heme-a", "target": { "chain": "A", "residues": { "from": 142, "to": 142 }, "componentId": "HEM" }, "representation": "ball-and-stick", "color": "#e0362c" },
+            { "id": "heme-b", "target": { "chain": "B", "residues": { "from": 148, "to": 148 }, "componentId": "HEM" }, "representation": "ball-and-stick", "color": "#e0362c" },
+            { "id": "heme-c", "target": { "chain": "C", "residues": { "from": 142, "to": 142 }, "componentId": "HEM" }, "representation": "ball-and-stick", "color": "#e0362c" },
+            { "id": "heme-d", "target": { "chain": "D", "residues": { "from": 148, "to": 148 }, "componentId": "HEM" }, "representation": "ball-and-stick", "color": "#e0362c" }
+          ]
+        },
         "motion": { "kind": "orbit", "axis": "y", "degrees": 35, "seconds": 7 }
       }
     },
     {
       "id": "pocket",
       "title": "One heme pocket",
-      "caption": "One heme pocket up close. The proximal histidine, F8 (His 87 in the alpha chain), coordinates the iron from below; oxygen would bind on the other face.",
+      "caption": "One heme pocket up close. The proximal histidine, F8 (His 87 in the alpha chain), binds the iron on one face of the heme; oxygen would bind on the other face.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -135,8 +143,8 @@
         { "kind": "zoom", "durationSeconds": 3, "easing": "ease_in_out", "magnification": 3.5 }
       ],
       "immersive": {
-        "narration": "One pocket up close: histidine F8 holds the iron from below.",
-        "appearance": { "representation": "ball-and-stick", "color": "element-symbol", "opacity": 1, "labels": false, "clipping": 0, "fog": 0 },
+        "narration": "One pocket up close: histidine F8 binds the iron on one face of the heme.",
+        "appearance": { "representation": "cartoon", "color": "chain-id", "opacity": 1, "labels": false, "clipping": 0, "fog": 0 },
         "placement": { "translation": [0, 0, 0], "rotation": [0, 0, 0], "scale": 2.2 },
         "emphasis": {
           "parts": [
@@ -147,6 +155,12 @@
           "focus": ["heme-a", "his-f8"],
           "contextOpacity": 0.1,
           "framing": "fill"
+        },
+        "figure": {
+          "layers": [
+            { "id": "heme-a", "target": { "chain": "A", "residues": { "from": 142, "to": 142 }, "componentId": "HEM" }, "representation": "ball-and-stick", "color": "#e0362c" },
+            { "id": "his-f8", "target": { "chain": "A", "residues": { "from": 87, "to": 87 }, "componentId": "HIS" }, "representation": "ball-and-stick", "color": "#35c46a" }
+          ]
         },
         "motion": { "kind": "orbit", "axis": "x", "degrees": 25, "seconds": 6 }
       }

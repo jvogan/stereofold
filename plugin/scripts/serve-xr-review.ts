@@ -172,6 +172,10 @@ export function sameLocalRequest(request: Pick<IncomingMessage, 'headers'>, orig
   return requestOrigin === undefined || requestOrigin === origin;
 }
 
+// `script-src-attr 'none'` refuses inline event handler attributes while the
+// page's own inline scripts still run, as on the companion it stands in for:
+// an `on...=` attribute in markup Mol* writes from a structure file would
+// otherwise run with the review key in reach.
 function responseHeaders(contentType: string): Record<string, string> {
   return {
     'Content-Type': contentType,
@@ -179,7 +183,7 @@ function responseHeaders(contentType: string): Record<string, string> {
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
     'Cross-Origin-Resource-Policy': 'same-origin',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   };
 }
 
@@ -474,10 +478,15 @@ function buildSetupScript(toolbarTargets: ToolbarTargetSet[], adapterSource: str
 })();`;
 }
 
-function injectReviewScripts(html: string, localToken: string): string {
+/**
+ * The page is public: any local process can read it. It therefore carries no
+ * key. The key rides only in the fragment of the address `main` prints, and
+ * the companion inspector takes it from there as it does on every other route.
+ */
+function injectReviewScripts(html: string): string {
   const index = html.search(/<script\b/i);
   if (index < 0) throw new Error('Packaged inspector HTML has no script boundary.');
-  const preamble = `<script>location.hash=${JSON.stringify(`#${localToken}`)};window.__STEREOFOLD_COMPANION__=true;</script><script src="/iwer.js"></script><script src="/setup.js"></script>`;
+  const preamble = '<script>window.__STEREOFOLD_COMPANION__=true;</script><script src="/iwer.js"></script><script src="/setup.js"></script>';
   return `${html.slice(0, index)}${preamble}${html.slice(index)}`;
 }
 
@@ -544,7 +553,7 @@ async function serveBridge(request: IncomingMessage, response: ServerResponse, b
   }
 }
 
-export async function createXrReviewServer(options: XrReviewArguments): Promise<{ server: ReviewServer; port: number; close: () => Promise<void> }> {
+export async function createXrReviewServer(options: XrReviewArguments): Promise<{ server: ReviewServer; port: number; url: string; close: () => Promise<void> }> {
   const [runtime, html, launchText] = await Promise.all([
     readFile(options.runtimePath),
     readInlineHtml(resolve(ROOT, 'dist/inspector.html')),
@@ -593,7 +602,7 @@ export async function createXrReviewServer(options: XrReviewArguments): Promise<
     return { ...metadata, name, labels: rows.map((row: { label: string }) => row.label), points: panel.buttons.map((button: { point: readonly number[] }) => [button.point[0], button.point[1], button.point[2]] as [number, number, number]) };
   });
   const setup = buildSetupScript(targetSets, String(adapters.installReferenceSpaceAdapter));
-  const page = injectReviewScripts(html, localToken);
+  const page = injectReviewScripts(html);
   const server: ReviewServer = createServer({ maxHeaderSize: 8192, requestTimeout: UPSTREAM_TIMEOUT_MS, headersTimeout: 5_000 }, (request, response) => {
     void (async () => {
       const port = server.reviewPort;
@@ -635,13 +644,14 @@ export async function createXrReviewServer(options: XrReviewArguments): Promise<
     await new Promise<void>((resolveClose, rejectClose) => server.close(error => error ? rejectClose(error) : resolveClose()));
   };
   server.reviewClose = close;
-  return { server, port: address.port, close };
+  return { server, port: address.port, url: `${localOrigin(address.port)}/#${localToken}`, close };
 }
 
 async function main() {
   const options = parseXrReviewArguments(process.argv.slice(2));
   const review = await createXrReviewServer(options);
-  console.log(`Open the EMULATED QUEST local review: ${localOrigin(review.port)}/`);
+  console.log(`Open the EMULATED QUEST local review: ${review.url}`);
+  console.log('The part after # is this page’s key. Open the whole address, and do not paste it into anything else.');
   console.log('This server is fixture-only and loopback-bound. Ctrl-C closes it.');
   let closing = false;
   const close = async () => { if (closing) return; closing = true; await review.close(); process.exit(0); };

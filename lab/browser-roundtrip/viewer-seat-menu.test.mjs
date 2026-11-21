@@ -463,9 +463,9 @@ test('settled collapse restores plate work and timers through XR, toolbar and di
   }
   h.connectionFrame = connectionFrame;
   const onHeadFrame = vm.runInContext(viewerCallback(viewer, 'onHeadFrame'), h);
-  // Unlike 605cf76, the viewer callback is invoked by the production XR
-  // observer together with a real toolbar and the diagnostics RAF wrappers.
-  // Mol* rendering/state and the XR scheduler remain counted adapters.
+  // The production XR observer invokes the viewer callback here, together
+  // with a real toolbar and the diagnostics RAF wrappers. Mol* rendering and
+  // state and the XR scheduler are counted adapters.
   const runtime = await toolbarFrameRuntime(undefined, { instrumentTimers: true });
   runtime.setTimers(h);
   const resolver = createMenuResolve({ now: () => clock, schedule: h.setTimeout, cancel: h.clearTimeout,
@@ -756,7 +756,7 @@ function menuHarness(view) {
     paintCompanion:async()=>{},
     ...h, collapsed: true, actionChain: Promise.resolve(), actionEpoch: 0, inputLocked: false,
     acceptsInput: () => true, nextXrTick: async () => true, session: {}, gestures: { dispose() {} },
-    menuLatched: true, seatReason: '', entryOutboard: 1, entryHead: seat, observedPlacementMoves: 0,
+    menuLatched: true, seatReason: '', entryOutboard: 1, entryHead: seat, observedPlacementMoves: 0, observedPlacementHeld: undefined,
     wokenAt: 0, standingBack: false, engaged: false, setDimmed() {},
     restoredMenuLayout: undefined, tourSeatRestorePending: false,
     menuReseatRequested: false, renderedSeat: undefined, renderedGrid: undefined,

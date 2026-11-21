@@ -37,6 +37,10 @@ export const lessonFigureSchema = z.object({
     // Opt-in exterior placement in XR; ordinary attached labels keep their layout.
     placement: z.enum(['attached', 'outside-figure']).optional(),
     offsetX: offset.default(0), offsetY: offset.default(0),
+    // Headset only, per axis: where the plate rests in XR instead of offsetX/
+    // offsetY, under the same cap. A close-up seen from a chosen side can put
+    // nearer atoms over a plate that rests well on the desktop.
+    headsetOffsetX: offset.optional(), headsetOffsetY: offset.optional(),
     // Attached XR offset cap and preferred exterior offset; exterior repairs
     // may travel at most 12 em. Explicit desktop sizing uses this authored cap.
     maxOffsetEm: z.number().finite().min(2).max(5).default(2),
@@ -53,7 +57,21 @@ export const lessonFigureSchema = z.object({
   }).strict()).superRefine(arrayAtMost(8)).default([]),
   // Empty/absent frames the whole source. Named targets frame a close-up in XR.
   focus: z.array(target).superRefine(arrayAtMost(8)).superRefine((v,ctx) => { if(!v.length) ctx.addIssue({code:'custom',message:'Figure focus needs at least one target.'}); }).optional(),
+  // A headset site close-up: of the chains the chapter shows, draw only the
+  // residues with an atom within this many angstroms of a focus atom and none
+  // nearer the wearer than the focus. The desktop view ignores it.
+  contextRadius: z.number().finite().min(3).max(20).optional()
+    .describe('Headset close-up only: angstroms around the focus atoms within which the shown chains stay drawn.'),
+  // A close-up seen across a plane: the atoms whose least-squares plane it is
+  // turned to show from 30 degrees out of that plane, on the side of the
+  // figure's distances, with their dashes as long as that view allows.
+  viewPlane: z.array(target).superRefine(arrayAtMost(8)).superRefine((v,ctx) => { if(!v.length) ctx.addIssue({code:'custom',message:'A view plane needs at least one target.'}); }).optional()
+    .describe('Close-up view: atoms whose plane the close-up is turned to show at 30 degrees, so a shift out of the plane and the figure distances read.'),
 }).strict().superRefine((v, ctx) => {
+  if (v.contextRadius !== undefined && !v.focus?.length)
+    ctx.addIssue({ code: 'custom', path: ['contextRadius'], message: 'A context radius needs a figure focus.' });
+  if (v.viewPlane !== undefined && !v.focus?.length)
+    ctx.addIssue({ code: 'custom', path: ['viewPlane'], message: 'A view plane needs a figure focus.' });
   const ids = [...v.layers, ...v.labels, ...v.distances].map(item => item.id);
   if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'Figure ids must be unique.' });
   if (v.layers.every(layer => layer.context)) ctx.addIssue({ code: 'custom', message: 'A figure needs a substantive layer.' });

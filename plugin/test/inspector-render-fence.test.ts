@@ -56,7 +56,7 @@ function fixture(options: { uiFailure?: boolean; rollbackFailure?: boolean; loca
     },
   } };
   const publication = createNamedPublication((scene: InspectionScene) => publications.push(structuredClone(scene)));
-  const queue: any = vm.createContext({ queue: Promise.resolve(), closing: false, busy: false, options: { onSettled: () => { throw Error('remote must hold saves'); } },
+  const queue: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined, queue: Promise.resolve(), closing: false, busy: false, options: { onSettled: () => { throw Error('remote must hold saves'); } },
     // This renderer transaction fixture has no sequence DOM. Match the real
     // query contract (absent group => null) as well as the empty control list.
     moleculeCanvas: { style: {} }, $: () => null, $$: () => [], setStatus: () => {},
@@ -65,7 +65,7 @@ function fixture(options: { uiFailure?: boolean; rollbackFailure?: boolean; loca
       if (options.uiFailure && rebuilt) { rebuilt = false; throw Error('Synthetic UI refresh failed after rollback.'); }
     }, viewer, namedPublication: publication, interruptibleCommand });
   vm.runInContext(`${runSource}\nglobalThis.applyRemote = (${remoteSource});`, queue);
-  const page: any = vm.createContext({ localInteractionSerial: 0, performance, Date, recordHeadsetEvent: () => {}, closed: false, generation: 1, panelId, dirty: false, blocked: false, loading: false, remote: false,
+  const page: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined, localInteractionSerial: 0, performance, Date, recordHeadsetEvent: () => {}, closed: false, generation: 1, panelId, dirty: false, blocked: false, loading: false, remote: false,
     isCompanion: false, beatCompletion: undefined, desktopReceiptInFlight: false, desktopReceiptBeat: undefined, PRIVATE_KEY: 'private', reloading: false, edits: 0, timer: undefined, saving: Promise.resolve(), saveAttempts: 0,
     saveRetryAdmission: createSaveRetryAdmission(),
     binding: { ...binding, sessionId: 'session' }, savedScene: structuredClone(saved), pendingReceipt: undefined, pendingReceiptFields: undefined,
@@ -253,7 +253,7 @@ it.each(['presenting', '2d', 'slow-19s'])('entry command waits for %s before adm
 function wearerActions(page: any) {
   const source = readFileSync(new URL('../../lab/browser-roundtrip/viewer.mjs', import.meta.url), 'utf8');
   const ast = ts.createSourceFile('viewer.mjs', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
-  const h: any = vm.createContext({
+  const h: any = vm.createContext({ followRecovery: false, recoveryPanel: undefined,
     onLocalEdit: () => page.localInteractionSerial++,
     onInteraction: () => page.localInteractionSerial++, inspectionState: undefined,
     placementViewWaiters: new Set(),
@@ -378,14 +378,17 @@ function lessonStart(options: { clock: 'ticks' | 'stuck'; fail?: boolean; restor
 // The next beat's autosave rule: a clean panel that shows its saved scene saves nothing.
 const beatWouldSave = (t: ReturnType<typeof fixture>) => t.page.dirty || JSON.stringify(t.page.workspace.capture()) !== JSON.stringify(t.page.savedScene);
 
-it('a start that fails after its chapter drew puts the saved scene back, stops the player, then refuses', async () => {
+// The refusal goes to the host before the put-back, so the caller is not left
+// reading the command as rendering while the viewer settles; saves stay held
+// until the scene is back.
+it('a start that fails after its chapter drew refuses, then puts the saved scene back and stops the player', async () => {
   const s = lessonStart({ clock: 'ticks', fail: true });
   try {
     await s.t.receive();
     expect(s.t.drawn).toEqual(s.before);
     expect(s.player.pause).toHaveBeenCalled(); expect(s.player.restorePlayback).toHaveBeenCalledWith(s.before);
     const restored = s.t.calls.findIndex(call => call.restored);
-    expect(restored).toBeGreaterThan(s.t.calls.findIndex(call => call.drawn)); expect(restored).toBeLessThan(s.failure());
+    expect(restored).toBeGreaterThan(s.t.calls.findIndex(call => call.drawn)); expect(restored).toBeGreaterThan(s.failure());
     expect(s.t.host.summary(s.t.binding, 'start').command).toMatchObject({ status: 'rejected', reason: 'render_failed' });
     expect(s.t.page.remote).toBe(false); expect(beatWouldSave(s.t)).toBe(false);
     expect(s.t.calls.some(call => call.name === 'sync_inspection')).toBe(false);
@@ -464,11 +467,41 @@ it('a start that fails right after entry puts back the entry-seated scene and le
     await vi.advanceTimersByTimeAsync(400);
     s.t.drawn.inspection.placement.scale = 1.7;
     s.enter(); await vi.advanceTimersByTimeAsync(4000); await pending;
-    expect(s.failure()).toBeGreaterThan(s.t.calls.findIndex(call => call.restored));
+    expect(s.failure()).toBeGreaterThan(-1);
+    expect(s.t.calls.findIndex(call => call.restored)).toBeGreaterThan(s.failure());
     expect(s.t.drawn.inspection.placement.scale).toBe(1.7);
     expect(s.t.drawn.inspection.appearance.representation).toBe(s.before.inspection.appearance.representation);
     expect(s.end).not.toHaveBeenCalled(); expect(s.startup.phase).toBe('active');
     // Only the entry seat is left to save, which is placement, not the lesson.
     expect(sameEntryScene(s.t.page.savedScene, s.t.drawn)).toBe(true);
   } finally { s.stop(); }
+});
+
+it('a lesson that arrives just after a grab hands its claim back for the placement save without touching input or the clock', async () => {
+  const f = fixture();
+  let interrupted = 0;
+  // The interruption a source load uses: it drops the grab, re-applies the
+  // saved placement, halts the molecular clock and pauses it on release.
+  (f.page.workspace.viewer as any).prepareHostLoad = async () => { interrupted++; return () => {}; };
+  f.host.enqueue({ ...f.expected(), panelId: f.panelId, commandId: 'lesson', deferLocalSave: true,
+    change: { kind: 'lesson', patch: { lesson: { chapters: [{ id: 'one' }] }, frame: false } } } as any, f.binding, f.saved);
+  const sent = { ...f.expected(), panelId: f.panelId, availability: 'ready' };
+  const delivery = (f.host.poll(sent as any, f.binding) as any).delivery;
+  expect(delivery?.change.kind).toBe('lesson');
+  // The wearer's grab moved the structure after that beat and is not saved yet.
+  f.drawn.inspection.placement.scale = 2;
+  f.page.dirty = true;
+  const steps: string[] = [];
+  f.page.call = async (name: string, input: any) => {
+    steps.push(input.phase ?? name);
+    if (input.phase === 'defer-local-save') return { structuredContent: f.host.deferForLocalSave(input, f.binding) };
+    throw Error(`unexpected ${name}`);
+  };
+  f.page.scheduleSave = () => {};
+  f.page.save = async () => { steps.push('save'); };
+  await f.page.receive(delivery, sent, 1);
+  expect(interrupted).toBe(0);
+  expect(steps).toEqual(['defer-local-save', 'save']);
+  expect(f.drawn.inspection.placement.scale).toBe(2);
+  expect(f.host.summary(f.binding, 'lesson').command).toMatchObject({ status: 'queued' });
 });

@@ -21,7 +21,7 @@
     {
       "id": "reveal",
       "title": "Two dimers",
-      "caption": "Two copies of the Taxol-stabilised 5SYF dimer, operators 1 and 14, 81.50 Angstrom apart along the axis.",
+      "caption": "Two 5SYF dimers, operators 1 and 14, 81.50 Angstrom apart. Each beta faces the plus end.",
       "durationSeconds": 10,
       "changes": [
         {
@@ -85,7 +85,7 @@
           "scale": 2.2
         },
         "view": "fit",
-        "narration": "A second dimer stacks on top, same two colours.",
+        "narration": "A second dimer stacks on. Each beta faces the plus end.",
         "motion": {
           "kind": "turntable",
           "degrees": 25,
@@ -117,7 +117,7 @@
             },
             {
               "id": "new-alpha",
-              "label": "The new alpha tubulin",
+              "label": "Alpha tubulin, second dimer",
               "color": "#4a90e2",
               "chain": "A-14",
               "residues": {
@@ -128,7 +128,7 @@
             },
             {
               "id": "new-beta",
-              "label": "The new beta tubulin",
+              "label": "Beta tubulin, second dimer",
               "color": "#f5a623",
               "chain": "B-14",
               "residues": {
@@ -245,7 +245,7 @@
             },
             {
               "id": "new-alpha",
-              "label": "The new alpha tubulin",
+              "label": "Alpha tubulin, second dimer",
               "color": "#4a90e2",
               "chain": "A-14",
               "residues": {
@@ -256,7 +256,7 @@
             },
             {
               "id": "new-beta",
-              "label": "The new beta tubulin",
+              "label": "Beta tubulin, second dimer",
               "color": "#f5a623",
               "chain": "B-14",
               "residues": {
@@ -349,7 +349,7 @@
           ],
           "rotation": [
             0,
-            220,
+            140,
             0
           ],
           "scale": 1.6
@@ -387,7 +387,7 @@
             },
             {
               "id": "new-alpha",
-              "label": "The new alpha tubulin",
+              "label": "Alpha tubulin, second dimer",
               "color": "#4a90e2",
               "chain": "A-14",
               "residues": {
@@ -398,7 +398,7 @@
             },
             {
               "id": "new-beta",
-              "label": "The new beta tubulin",
+              "label": "Beta tubulin, second dimer",
               "color": "#f5a623",
               "chain": "B-14",
               "residues": {
@@ -536,7 +536,7 @@
             },
             {
               "id": "new-alpha",
-              "label": "The new alpha tubulin",
+              "label": "Alpha tubulin, second dimer",
               "color": "#4a90e2",
               "chain": "A-14",
               "residues": {
@@ -547,7 +547,7 @@
             },
             {
               "id": "new-beta",
-              "label": "The new beta tubulin",
+              "label": "Beta tubulin, second dimer",
               "color": "#f5a623",
               "chain": "B-14",
               "residues": {
@@ -679,7 +679,7 @@
             },
             {
               "id": "new-alpha",
-              "label": "The new alpha tubulin",
+              "label": "Alpha tubulin, second dimer",
               "color": "#4a90e2",
               "chain": "A-14",
               "residues": {
@@ -690,7 +690,7 @@
             },
             {
               "id": "new-beta",
-              "label": "The new beta tubulin",
+              "label": "Beta tubulin, second dimer",
               "color": "#f5a623",
               "chain": "B-14",
               "residues": {

@@ -27,7 +27,7 @@
       }
     ],
     "sourceSha256": "059852b98b4b442183010af7c007680e90a3785871d862257eecc82048019f49",
-    "note": "Bacillus PS3 ATP synthase, state 1 of three rotational states (PDB 6N2Y; cryo-EM at 3.0 \u00c5; Guo, Suzuki and Rubinstein, eLife 2019). Prepared from a rigid-composite recipe: every chain is its own body with deposited coordinates; delta and the two b subunits keep backbone and C-beta atoms only. The model frame puts the rotor axis on +y through the origin, measured from the three deposited states (6N2Y, 6N2Z, 6N30). In animated chapters the 6N2Y gamma, epsilon and ten c subunits turn as one rigid body in idealised 120-degree steps, counterclockwise seen from the head, the direction of ATP synthesis. The generated poses are not deposited states: the deposited c-ring positions differ by about 108, 144 and 108 degrees, and the beta subunits keep their state-1 conformations."
+    "note": "Bacillus PS3 ATP synthase, state 1 of three rotational states (PDB 6N2Y; cryo-EM at 3.0 \u00c5; Guo, Suzuki and Rubinstein, eLife 2019). Prepared from a rigid-composite recipe: every chain is its own body with deposited coordinates; delta and the two b subunits keep backbone and C-beta atoms only. The model frame puts the rotor axis on +y through the origin, measured from the three deposited states (6N2Y, 6N2Z, 6N30). In animated chapters the 6N2Y gamma, epsilon and ten c subunits turn as one rigid body in idealized 120-degree steps, counterclockwise seen from the head, the direction of ATP synthesis. The generated poses are not deposited states: the deposited c-ring positions differ by about 108, 144 and 108 degrees, and the beta subunits keep their state-1 conformations."
   },
   "presentation": {
     "captionCard": "shown",
@@ -415,7 +415,7 @@
     {
       "id": "rotor",
       "title": "Three parts, one rotor",
-      "caption": "Gamma, epsilon and the c-ring turn together as one rotor; the peripheral stalk holds the head and subunit a in place. During ATP synthesis the rotor turns counterclockwise, seen from the head. This animation applies idealised 120-degree rotations to the 6N2Y rotor; its poses are not deposited states.",
+      "caption": "Gamma, epsilon and the c-ring turn together as one rotor, while the peripheral stalk holds the head and subunit a still. Seen from the head, the rotor turns counterclockwise to make ATP. The 120-degree steps are idealized, not deposited states. The head keeps one shape here, so the rotor passes through parts of it.",
       "durationSeconds": 15,
       "changes": [
         {
@@ -931,7 +931,7 @@
       },
       "immersive": {
         "motion": "hold",
-        "narration": "Seen from the head, the rotor turns counterclockwise.",
+        "narration": "The rotor turns counterclockwise. Steps are idealized, so parts overlap.",
         "emphasis": {
           "parts": [
             {
@@ -1302,12 +1302,12 @@
     {
       "id": "protons",
       "title": "Protons drive the ring",
-      "caption": "A proton enters from outside the cell through a half-channel in subunit a and binds Glu56 of a c subunit. The ring carries it almost a full turn to Arg169 of subunit a, where it leaves into the cell. In this state, Glu56 of the marked c subunit is 3.7 \u00c5 from Arg169.",
-      "durationSeconds": 14,
+      "caption": "A proton enters from outside the cell through subunit a and binds Glu56 of a c subunit. The ring carries it almost a full turn to Arg169, where it leaves into the cell. Here the two are 3.7 \u00c5 apart. Ten c subunits mean ten protons per turn.",
+      "durationSeconds": 10,
       "changes": [
         {
           "kind": "hold",
-          "durationSeconds": 14
+          "durationSeconds": 10
         }
       ],
       "immersive": {
@@ -1534,8 +1534,9 @@
               "text": "Arg169",
               "color": "#2a9d8f",
               "sizeFactor": 0.8,
-              "offsetX": 28,
-              "offsetY": 0
+              "offsetX": 40,
+              "offsetY": 0,
+              "maxOffsetEm": 4
             },
             {
               "id": "glu56",
@@ -1558,32 +1559,32 @@
               "target": {
                 "chain": "a",
                 "residues": {
-                  "from": 179,
-                  "to": 179
+                  "from": 13,
+                  "to": 13
                 },
                 "atomName": "CA"
               },
               "text": "Outer side",
               "color": "#2a9d8f",
               "sizeFactor": 0.8,
-              "offsetX": 0,
-              "offsetY": -21
+              "offsetX": 4,
+              "offsetY": -6
             },
             {
               "id": "cyto",
               "target": {
                 "chain": "a",
                 "residues": {
-                  "from": 62,
-                  "to": 62
+                  "from": 70,
+                  "to": 70
                 },
                 "atomName": "CA"
               },
               "text": "Cytoplasmic side",
               "color": "#2a9d8f",
               "sizeFactor": 0.8,
-              "offsetX": 12,
-              "offsetY": 13
+              "offsetX": 10,
+              "offsetY": 6
             }
           ],
           "distances": [
@@ -1640,7 +1641,7 @@
     {
       "id": "sites",
       "title": "Three catalytic sites",
-      "caption": "In this state one beta subunit is closed on Mg-ADP, one is open with a putative phosphate modelled at its site, and one is held open by epsilon with its site empty. Each alpha subunit holds Mg-ATP at a non-catalytic site. Beta-TP, beta-DP and beta-E name the three positions around the rotor; in this inhibited state epsilon holds the beta-DP site open and empty (Guo et al. 2019).",
+      "caption": "One beta subunit is closed on Mg-ADP, one is open with a putative phosphate, and one is held open and empty by epsilon. Each alpha subunit holds Mg-ATP at a non-catalytic site.",
       "durationSeconds": 14,
       "changes": [
         {
@@ -1996,16 +1997,16 @@
               "target": {
                 "chain": "H",
                 "residues": {
-                  "from": 29,
-                  "to": 29
+                  "from": 39,
+                  "to": 39
                 },
                 "atomName": "CA"
               },
               "text": "Epsilon",
               "color": "#a63818",
               "sizeFactor": 1.0,
-              "offsetX": 14,
-              "offsetY": -8
+              "offsetX": 4,
+              "offsetY": 0
             }
           ]
         },
@@ -2040,12 +2041,12 @@
     {
       "id": "epsilon",
       "title": "Epsilon may block one direction",
-      "caption": "Here epsilon reaches up into the head. It inserts between alpha-DP and beta-DP and holds beta-DP open. Its position suggests that a clash with beta-TP blocks the rotor turning in the direction that splits ATP, while the rotor stays free to turn in the direction that makes ATP. The maps show this position, not the turning (Guo et al., eLife 2019).",
-      "durationSeconds": 12,
+      "caption": "Here epsilon reaches up into the head, between alpha-DP and beta-DP, and holds beta-DP open. Its position suggests a clash with beta-TP blocks turning in the ATP-splitting direction, leaving the rotor free to turn the ATP-making way.",
+      "durationSeconds": 13,
       "changes": [
         {
           "kind": "hold",
-          "durationSeconds": 12
+          "durationSeconds": 13
         }
       ],
       "immersive": {
@@ -2348,40 +2349,41 @@
               "target": {
                 "chain": "H",
                 "residues": {
-                  "from": 24,
-                  "to": 24
+                  "from": 39,
+                  "to": 39
                 },
                 "atomName": "CA"
               },
               "text": "Epsilon",
               "color": "#a63818",
               "sizeFactor": 1.0,
-              "offsetX": -2,
-              "offsetY": -10
+              "offsetX": 0,
+              "offsetY": -3
             },
             {
               "id": "beta-dp",
               "target": {
                 "chain": "D",
                 "residues": {
-                  "from": 388,
-                  "to": 388
+                  "from": 54,
+                  "to": 54
                 },
                 "atomName": "CA"
               },
               "text": "\u03b2DP: held open",
               "color": "#18713a",
               "sizeFactor": 1.0,
-              "offsetX": 38,
-              "offsetY": -10
+              "offsetX": -16,
+              "offsetY": 0,
+              "maxOffsetEm": 4
             },
             {
               "id": "gamma",
               "target": {
                 "chain": "G",
                 "residues": {
-                  "from": 64,
-                  "to": 64
+                  "from": 72,
+                  "to": 72
                 },
                 "atomName": "CA"
               },
@@ -2389,7 +2391,7 @@
               "color": "#d7263d",
               "sizeFactor": 1.0,
               "offsetX": 10,
-              "offsetY": -10
+              "offsetY": 0
             },
             {
               "id": "beta-tp",
@@ -2439,8 +2441,8 @@
     },
     {
       "id": "distance",
-      "title": "Eleven nanometres apart",
-      "caption": "Arg169, where protons leave the ring, is 11 nanometres from the ADP in the closed site. The rotor connects the two.",
+      "title": "Eleven nanometers apart",
+      "caption": "Arg169, where protons leave the ring, is 11 nanometers from the ADP in the closed site. The rotor connects the two.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -2450,7 +2452,7 @@
       ],
       "immersive": {
         "motion": "hold",
-        "narration": "Proton exit and closed catalytic site are 11 nanometres apart.",
+        "narration": "Proton exit to ADP: 11 nanometers.",
         "emphasis": {
           "parts": [
             {
@@ -2864,878 +2866,6 @@
             "c8",
             "c9"
           ]
-        }
-      }
-    },
-    {
-      "id": "turn",
-      "title": "One full turn",
-      "caption": "This animation turns the rotor in three idealised 120-degree steps; in the deposited states the c-ring positions differ by about 108, 144 and 108 degrees. Ten c subunits pass subunit a, so ten protons cross the membrane per turn.",
-      "durationSeconds": 15,
-      "changes": [
-        {
-          "kind": "hold",
-          "durationSeconds": 15
-        }
-      ],
-      "animation": {
-        "version": 1,
-        "durationSeconds": 7.5,
-        "tracks": [
-          {
-            "id": "rotor",
-            "chains": [
-              "G",
-              "H",
-              "c0",
-              "c1",
-              "c2",
-              "c3",
-              "c4",
-              "c5",
-              "c6",
-              "c7",
-              "c8",
-              "c9"
-            ],
-            "keyframes": [
-              {
-                "t": 0.0,
-                "rotation": [
-                  0.0,
-                  0.0,
-                  0.0,
-                  1.0
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.2937,
-                "rotation": [
-                  0.0,
-                  0.104528463,
-                  0.0,
-                  0.994521895
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.4307,
-                "rotation": [
-                  0.0,
-                  0.207911691,
-                  0.0,
-                  0.978147601
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.5449,
-                "rotation": [
-                  0.0,
-                  0.309016994,
-                  0.0,
-                  0.951056516
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.6494,
-                "rotation": [
-                  0.0,
-                  0.406736643,
-                  0.0,
-                  0.913545458
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.75,
-                "rotation": [
-                  0.0,
-                  0.5,
-                  0.0,
-                  0.866025404
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.8506,
-                "rotation": [
-                  0.0,
-                  0.587785252,
-                  0.0,
-                  0.809016994
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 0.9551,
-                "rotation": [
-                  0.0,
-                  0.669130606,
-                  0.0,
-                  0.743144825
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 1.0693,
-                "rotation": [
-                  0.0,
-                  0.743144825,
-                  0.0,
-                  0.669130606
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 1.2063,
-                "rotation": [
-                  0.0,
-                  0.809016994,
-                  0.0,
-                  0.587785252
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 1.5,
-                "rotation": [
-                  0.0,
-                  0.866025404,
-                  0.0,
-                  0.5
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 2.5,
-                "rotation": [
-                  0.0,
-                  0.866025404,
-                  0.0,
-                  0.5
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 2.7937,
-                "rotation": [
-                  0.0,
-                  0.913545458,
-                  0.0,
-                  0.406736643
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 2.9307,
-                "rotation": [
-                  0.0,
-                  0.951056516,
-                  0.0,
-                  0.309016994
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.0449,
-                "rotation": [
-                  0.0,
-                  0.978147601,
-                  0.0,
-                  0.207911691
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.1494,
-                "rotation": [
-                  0.0,
-                  0.994521895,
-                  0.0,
-                  0.104528463
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.25,
-                "rotation": [
-                  0.0,
-                  1.0,
-                  0.0,
-                  0.0
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.3506,
-                "rotation": [
-                  0.0,
-                  0.994521895,
-                  0.0,
-                  -0.104528463
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.4551,
-                "rotation": [
-                  0.0,
-                  0.978147601,
-                  0.0,
-                  -0.207911691
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.5693,
-                "rotation": [
-                  0.0,
-                  0.951056516,
-                  0.0,
-                  -0.309016994
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 3.7063,
-                "rotation": [
-                  0.0,
-                  0.913545458,
-                  0.0,
-                  -0.406736643
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 4.0,
-                "rotation": [
-                  0.0,
-                  0.866025404,
-                  0.0,
-                  -0.5
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.0,
-                "rotation": [
-                  0.0,
-                  0.866025404,
-                  0.0,
-                  -0.5
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.2937,
-                "rotation": [
-                  0.0,
-                  0.809016994,
-                  0.0,
-                  -0.587785252
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.4307,
-                "rotation": [
-                  0.0,
-                  0.743144825,
-                  0.0,
-                  -0.669130606
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.5449,
-                "rotation": [
-                  0.0,
-                  0.669130606,
-                  0.0,
-                  -0.743144825
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.6494,
-                "rotation": [
-                  0.0,
-                  0.587785252,
-                  0.0,
-                  -0.809016994
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.75,
-                "rotation": [
-                  0.0,
-                  0.5,
-                  0.0,
-                  -0.866025404
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.8506,
-                "rotation": [
-                  0.0,
-                  0.406736643,
-                  0.0,
-                  -0.913545458
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 5.9551,
-                "rotation": [
-                  0.0,
-                  0.309016994,
-                  0.0,
-                  -0.951056516
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 6.0693,
-                "rotation": [
-                  0.0,
-                  0.207911691,
-                  0.0,
-                  -0.978147601
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 6.2063,
-                "rotation": [
-                  0.0,
-                  0.104528463,
-                  0.0,
-                  -0.994521895
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 6.5,
-                "rotation": [
-                  0.0,
-                  0.0,
-                  0.0,
-                  -1.0
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              },
-              {
-                "t": 7.5,
-                "rotation": [
-                  0.0,
-                  0.0,
-                  0.0,
-                  -1.0
-                ],
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ]
-              }
-            ]
-          }
-        ],
-        "playback": {
-          "autoplay": true,
-          "loop": true,
-          "speed": 1
-        }
-      },
-      "immersive": {
-        "motion": "hold",
-        "narration": "One full turn carries ten protons across the membrane.",
-        "emphasis": {
-          "parts": [
-            {
-              "id": "beta-d",
-              "label": "Beta-DP, open, empty",
-              "color": "#35c46a",
-              "chain": "D",
-              "residues": {
-                "from": 2,
-                "to": 471
-              }
-            },
-            {
-              "id": "beta-e",
-              "label": "Beta-E, open, putative phosphate",
-              "color": "#4a90e2",
-              "chain": "E",
-              "residues": {
-                "from": 1,
-                "to": 470
-              }
-            },
-            {
-              "id": "beta-f",
-              "label": "Beta-TP, closed, Mg-ADP",
-              "color": "#f5a623",
-              "chain": "F",
-              "residues": {
-                "from": 1,
-                "to": 471
-              }
-            },
-            {
-              "id": "gamma",
-              "label": "Gamma",
-              "color": "#d7263d",
-              "chain": "G",
-              "residues": {
-                "from": 2,
-                "to": 284
-              }
-            },
-            {
-              "id": "epsilon",
-              "label": "Epsilon",
-              "color": "#f46036",
-              "chain": "H",
-              "residues": {
-                "from": 4,
-                "to": 132
-              }
-            },
-            {
-              "id": "subunit-a",
-              "label": "Subunit a",
-              "color": "#2a9d8f",
-              "chain": "a",
-              "residues": {
-                "from": 6,
-                "to": 234
-              }
-            },
-            {
-              "id": "c0",
-              "label": "Marked c subunit",
-              "color": "#ffd000",
-              "chain": "c0",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c1",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c1",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c2",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c2",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c3",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c3",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c4",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c4",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c5",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c5",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c6",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c6",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c7",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c7",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c8",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c8",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            },
-            {
-              "id": "c9",
-              "label": "c subunit",
-              "color": "#e86a92",
-              "chain": "c9",
-              "residues": {
-                "from": 2,
-                "to": 72
-              }
-            }
-          ],
-          "contextOpacity": 0.08,
-          "focus": [
-            "gamma",
-            "epsilon",
-            "subunit-a",
-            "c0",
-            "c1",
-            "c2",
-            "c3",
-            "c4",
-            "c5",
-            "c6",
-            "c7",
-            "c8",
-            "c9"
-          ]
-        },
-        "figure": {
-          "layers": [
-            {
-              "id": "atp_a",
-              "target": {
-                "chain": "A",
-                "residues": {
-                  "from": 600,
-                  "to": 600
-                },
-                "componentId": "ATP"
-              },
-              "representation": "ball-and-stick",
-              "color": "#fff4d6",
-              "opacity": 0.08,
-              "context": true
-            },
-            {
-              "id": "mg_a",
-              "target": {
-                "chain": "A",
-                "residues": {
-                  "from": 601,
-                  "to": 601
-                },
-                "componentId": "MG"
-              },
-              "representation": "ball-and-stick",
-              "color": "#8ff07a",
-              "opacity": 0.08,
-              "context": true
-            },
-            {
-              "id": "atp_b",
-              "target": {
-                "chain": "B",
-                "residues": {
-                  "from": 600,
-                  "to": 600
-                },
-                "componentId": "ATP"
-              },
-              "representation": "ball-and-stick",
-              "color": "#fff4d6",
-              "opacity": 0.08,
-              "context": true
-            },
-            {
-              "id": "mg_b",
-              "target": {
-                "chain": "B",
-                "residues": {
-                  "from": 601,
-                  "to": 601
-                },
-                "componentId": "MG"
-              },
-              "representation": "ball-and-stick",
-              "color": "#8ff07a",
-              "opacity": 0.08,
-              "context": true
-            },
-            {
-              "id": "atp_c",
-              "target": {
-                "chain": "C",
-                "residues": {
-                  "from": 600,
-                  "to": 600
-                },
-                "componentId": "ATP"
-              },
-              "representation": "ball-and-stick",
-              "color": "#fff4d6",
-              "opacity": 0.08,
-              "context": true
-            },
-            {
-              "id": "mg_c",
-              "target": {
-                "chain": "C",
-                "residues": {
-                  "from": 601,
-                  "to": 601
-                },
-                "componentId": "MG"
-              },
-              "representation": "ball-and-stick",
-              "color": "#8ff07a",
-              "opacity": 0.08,
-              "context": true
-            },
-            {
-              "id": "po4_e",
-              "target": {
-                "chain": "E",
-                "residues": {
-                  "from": 600,
-                  "to": 600
-                },
-                "componentId": "PO4"
-              },
-              "representation": "ball-and-stick",
-              "color": "#ff6fae"
-            },
-            {
-              "id": "adp_f",
-              "target": {
-                "chain": "F",
-                "residues": {
-                  "from": 600,
-                  "to": 600
-                },
-                "componentId": "ADP"
-              },
-              "representation": "ball-and-stick",
-              "color": "#fff4d6"
-            },
-            {
-              "id": "mg_f",
-              "target": {
-                "chain": "F",
-                "residues": {
-                  "from": 601,
-                  "to": 601
-                },
-                "componentId": "MG"
-              },
-              "representation": "ball-and-stick",
-              "color": "#8ff07a"
-            }
-          ],
-          "labels": [
-            {
-              "id": "marker",
-              "target": {
-                "chain": "c0",
-                "residues": {
-                  "from": 2,
-                  "to": 2
-                },
-                "atomName": "CA"
-              },
-              "text": "Marked c",
-              "color": "#756000",
-              "sizeFactor": 1.0,
-              "offsetX": 0,
-              "offsetY": -14
-            },
-            {
-              "id": "subunit-a",
-              "target": {
-                "chain": "a",
-                "residues": {
-                  "from": 11,
-                  "to": 11
-                },
-                "atomName": "CA"
-              },
-              "text": "Subunit a",
-              "color": "#2a9d8f",
-              "sizeFactor": 1.0,
-              "offsetX": 16,
-              "offsetY": 0
-            }
-          ]
-        },
-        "visibility": {
-          "op": "reset"
         }
       }
     }

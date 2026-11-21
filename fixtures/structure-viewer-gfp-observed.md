@@ -1,6 +1,6 @@
 # Native GFP coordinate-export regression fixture
 
-Exported on 2026-09-29 from Molecular Structure Viewer 0.1.90's bundled public
+Exported from Molecular Structure Viewer 0.1.90's bundled public
 GFP example (PDB 1EMA), using selection-mmcif with an explicit all-primary-object
 selection. The coordinate bytes are unchanged from that export.
 

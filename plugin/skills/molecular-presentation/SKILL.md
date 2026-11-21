@@ -16,14 +16,20 @@ for a two-body scene, animated lesson and same-session edit.
 For “show me the ATP synthase demo on my headset”, keep the session returned
 by `continue_session` and make one call:
 `replace_inspection_source({sessionId,demo:"atp-synthase-rotor",stage:"motion",waitForRenderMs:40000})`.
-`demo` names an entry in the bundled `demos/index.json`; omit `stage` for its
-default or name a listed stage. This verifies cached coordinates, fetches missing
+`demo` names an entry in the bundled `demos/index.json`. A plain name that fits
+one entry also works (`"telomerase"` opens `telomerase-haca`); a name that fits
+several is refused with only those ids, and the answer names the id it opened.
+Omit `stage` for its default or name a listed stage. This verifies cached coordinates, fetches missing
 coordinates under the existing policy, installs the complete bundled lesson and
 starts its opening chapter with `autoplay:false,narration:false`. Motion within
 a chapter still plays. The joined headset page and wearer placement rules stay
 in effect; no new session or launch is needed. Use the same route for
 `kinesin-walk`, `hemoglobin-switch`, single-source demos, or
 `demo:"microtubule-growth",stage:"monomer"` followed by `grow_structure`.
+For "microtubule growth" open `microtubule-arrival`: tubulin units arrive and
+build a wall. `microtubule-growth` opens on a finished wall that
+`grow_structure` grows into a tube, and `microtubule-lattice` is a still
+lesson on one wall.
 Prepared density maps must already be cached; follow the returned preparation
 command on a cache miss. Confirm `sourceRenderStatus.rendered:true`, or poll
 `sourceRenderReceipt` for the current source and ready panel before reporting
@@ -140,7 +146,10 @@ numbers); it intersects any other target filters. A figure layer may use
 `sizeFactor` (0.1–2; 0.14 is a thin-stick starting point). It draws the selected
 whole residues unless the target further filters atoms. A label's optional
 `desktopSizePx` (14–48) sets desktop text size without changing headset sizing;
-`sizeFactor` and `maxOffsetEm` retain their existing roles.
+`sizeFactor` and `maxOffsetEm` retain their existing roles. Optional
+`headsetOffsetX`/`headsetOffsetY` replace `offsetX`/`offsetY` in the headset
+only, per axis and under the same `maxOffsetEm` cap; use them when a close-up
+puts nearer atoms over a plate that reads well on the desktop.
 Distance endpoints must resolve to one atom; `expectedAngstrom`, if supplied,
 is checked against coordinates. Figure distances must stay within one rigid
 body during animation. For “the distance between the two heads”, read
@@ -183,6 +192,8 @@ to stop spin; omit placement, view and framing to retain the user's placement.
 `context:true` figure layers stay faint (opacity at most 0.2) without defining
 closeup framing. `presentation:{"captionCard":"hidden"}` hides the scene card
 and counter; narration and the desktop sidebar caption remain available.
+`presentation:{"endFigure":"last"}` keeps the last chapter's figure and its
+labels on the starting view after Done, so the parts stay named.
 
 For spoken emphasis targets beyond a full colour key, add up to 16
 `immersive.parts` entries without adding figure labels. For example,

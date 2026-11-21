@@ -112,6 +112,7 @@ export class QuestLink {
   readonly #dnsGraceMs: number;
   #state?: LinkState;
   #serial: Promise<unknown> = Promise.resolve();
+  #closes = 0;
 
   constructor({ cloudflaredPath = CLOUDFLARED, spawn = nodeSpawn as unknown as Spawn, now = Date.now,
     randomToken = () => randomBytes(32).toString('hex'), startupTimeoutMs = STARTUP_TIMEOUT_MS,
@@ -133,12 +134,16 @@ export class QuestLink {
   }
 
   async open({ url }: { url: string }): Promise<QuestLinkResult> {
+    // A close() that arrives after this call, even before the startup below
+    // has bound a proxy, ends this startup instead of letting it publish.
+    const closes = this.#closes;
     return this.#run(async () => {
       const target = typeof url === 'string' ? parseTarget(url) : (() => { throw new Error('Quest link requires a locally issued companion URL.'); })();
       await this.#revoke(this.#state);
       const state = await this.#startProxy(target);
       this.#state = state;
       try {
+        if (closes !== this.#closes) throw new Error('Quest link was closed while starting.');
         const publicOrigin = await this.#startTunnel(state);
         if (state.revoked || this.#state !== state) throw new Error('Quest link was closed while starting.');
         state.publicOrigin = publicOrigin;
@@ -152,9 +157,18 @@ export class QuestLink {
     });
   }
 
+  /** The public origin of the link serving now; nothing while starting, revoked or closed. */
+  get origin(): string | undefined {
+    const state = this.#state;
+    return state && !state.revoked ? state.publicOrigin : undefined;
+  }
+
   async close(): Promise<void> {
     // Do not queue behind a cloudflared startup that may be waiting on the
-    // network. Revocation makes that startup reject and tears down its proxy.
+    // network. Revocation makes that startup reject and tears down its proxy;
+    // the count ends startups that have not bound a proxy yet. Waiting for the
+    // queue then means no relay from an earlier open() survives this call.
+    this.#closes += 1;
     await this.#revoke(this.#state);
     await this.#run(async () => undefined);
   }

@@ -3,3 +3,17 @@
 # and `--ignore-workspace` skips it, so install here without that flag.
 allowBuilds:
   esbuild: true
+# Transitive dependencies held at releases with published security fixes.
+# Each selector matches only the affected versions, so a parent that later
+# requires a newer release still gets it.
+overrides:
+  '@hono/node-server@<2.1.3': 2.1.6
+  body-parser@>=2.0.0 <2.4.0: 2.4.0
+  fast-uri@>=3.0.0 <3.1.9: 3.1.9
+  hono@<4.13.16: 4.13.17
+  ip-address@<10.7.4: 10.7.6
+  proxy-addr@<2.0.8: 2.0.8
+  qs@>=6.7.0 <6.16.1: 6.16.2
+  source-map-js@<1.2.2: 1.2.2
+  vite@>=8.0.0 <8.2.4: 8.2.6
+  zod@>=4.0.0 <4.6.6: 4.6.7

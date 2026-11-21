@@ -3,11 +3,10 @@
  *
  * The plugin's contract is that a side-by-side pair is framed inside the
  * capped eye window at `STAGE_FILL_FRACTION`, so a correct render leaves black
- * margin on all four sides of both eye images. A Codex side panel on an
- * earlier build broke that: the molecule was cut by hard vertical edges at the far
- * left, the far right, and both sides of the centre seam. Nothing in the
- * harness measured it, because the panel screenshot was only checked for
- * document overflow and clipped controls.
+ * margin on all four sides of both eye images. A wrong fit cuts the molecule
+ * with hard vertical edges at the far left, the far right, and both sides of
+ * the centre seam, and a panel screenshot checked only for document overflow
+ * and clipped controls does not show it.
  *
  * This module is the measurement, kept pure so the thresholds can be tested
  * without a browser. It works on the drawing-buffer pixels of the Mol* canvas

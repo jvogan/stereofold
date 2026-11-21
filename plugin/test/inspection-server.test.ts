@@ -178,8 +178,11 @@ describe('packaged molecular inspection sessions',()=>{
       expect(result.status).toBe(200);
       return result.body.token as string;
     };
+    // A headset page on Wi-Fi attaches over its own pairing, which ties the panel to it.
     const panel=async(token:string)=>{
-      const attached=(await active.call('attach_inspection',{...binding,surface:'companion'})).structuredContent;
+      const opened=await lanRequest(address.address,port,'/tool',{name:'attach_inspection',args:{...binding,surface:'companion'}},token);
+      expect(opened.status).toBe(200);
+      const attached=opened.body.structuredContent;
       const send=async(entries?:Array<{seq:number;at:number;kind:string;detail:Record<string,unknown>}>)=>{
         const answer=await lanRequest(address.address,port,'/tool',{name:'poll_inspection',args:{...binding,panelId:attached.panelId,
           availability:'ready',...(entries?{diagnostics:{entries}}:{})}},token);
@@ -762,6 +765,52 @@ describe('packaged molecular inspection sessions',()=>{
       state=(await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent;
       expect(state.panels.find((entry:any)=>entry.panelId===panel).spatialContext).toBeNull();
       expect((await t.hydrate())._meta[KEY].scene).toEqual(sceneBefore);
+    } finally {await t.close();}
+  });
+  it('refuses a headset command rather than drawing it on the Mac while the headset page is behind with unsaved work',async()=>{
+    const t=await setup();try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      const companion=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      const desktop=(await t.call('attach_inspection',{...binding,surface:'desktop'})).structuredContent.panelId;
+      // The headset page holds work of its own that it has not saved.
+      expect((await t.call('poll_inspection',{...binding,panelId:companion,availability:'unsaved'})).isError).not.toBe(true);
+      // The Mac's panel saves a newer view, so the headset page falls behind it.
+      const newer=structuredClone(t.scene);newer.inspection.appearance.uniformColor='#dd55aa';
+      const next=(await t.call('sync_inspection',{...t.args,baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision,scene:newer})).structuredContent;
+      expect(next.saved).toBe(true);
+      const now={...binding,baseStateRevision:next.stateRevision,baseInspectionRevision:next.inspectionRevision};
+      expect((await t.call('poll_inspection',{...now,panelId:desktop,availability:'ready'})).isError).not.toBe(true);
+      const state=(await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent;
+      expect(state.panels.find((entry:any)=>entry.panelId===companion)).toMatchObject({availability:'unsaved',current:false});
+      // The command names no panel, as a headset request does. The Mac's panel
+      // must not take it: a render there is a change the wearer never sees.
+      const sent=await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'appearance',patch:{uniformColor:'#33cc66'}}});
+      expect(sent.isError).toBe(true);
+      expect(sent.content[0].text).toMatch(/headset page/);
+    } finally {await t.close();}
+  });
+  it('refuses a headset command rather than drawing it on the Mac while the headset page draws its structure again',async()=>{
+    const t=await setup();try {
+      const saved=(await t.call('sync_inspection',t.args)).structuredContent;
+      const binding={sessionId:t.sessionId,serverEpoch:saved.serverEpoch,sourceToken:saved.sourceToken,
+        baseStateRevision:saved.stateRevision,baseInspectionRevision:saved.inspectionRevision};
+      const companion=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      const desktop=(await t.call('attach_inspection',{...binding,surface:'desktop'})).structuredContent.panelId;
+      expect((await t.call('poll_inspection',{...binding,panelId:desktop,availability:'ready'})).isError).not.toBe(true);
+      // The headset page leaves to draw the same structure again.
+      expect((await t.call('detach_inspection',{...binding,panelId:companion,reason:'loading'})).structuredContent.detached).toBe(true);
+      expect((await t.call('get_inspection_state',{sessionId:t.sessionId})).structuredContent.companionLoading).toBe(true);
+      const sent=await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'appearance',patch:{uniformColor:'#33cc66'}}});
+      expect(sent.isError).toBe(true);
+      expect(sent.content[0].text).toMatch(/headset page is drawing this structure again/);
+      // Once it registers again it takes the command.
+      const back=(await t.call('attach_inspection',{...binding,surface:'companion'})).structuredContent.panelId;
+      expect((await t.call('poll_inspection',{...binding,panelId:back,availability:'ready'})).isError).not.toBe(true);
+      const later=await t.call('update_inspection',{sessionId:t.sessionId,change:{kind:'appearance',patch:{uniformColor:'#33cc66'}},waitForRenderMs:0});
+      expect(later.isError).not.toBe(true);
+      expect(later.structuredContent.command.panelId).toBe(back);
     } finally {await t.close();}
   });
   it('carries a spoken answer to the companion page on its own heartbeat, and to no other surface',async()=>{
@@ -1637,7 +1686,11 @@ describe('packaged molecular inspection sessions',()=>{
       expect(opened.isError).not.toBe(true);
       const paired=await lanRequest(address.address,options.lanPort,'/pair',{code:opened.structuredContent.companion.pairingCode},undefined,userAgent);
       expect(paired.status).toBe(200);
-      const panelId=(await t.call('attach_inspection',{...bound,surface:'companion'})).structuredContent.panelId;
+      // The headset page attaches over its own pairing, as a page on Wi-Fi does.
+      const attached=await lanRequest(address.address,options.lanPort,'/tool',{name:'attach_inspection',
+        args:{...bound,surface:'companion'}},paired.body.token);
+      expect(attached.status).toBe(200);
+      const panelId=attached.body.structuredContent.panelId;
       const beat=async(extra={})=>{
         const response=await lanRequest(address.address,options.lanPort,'/tool',{name:'poll_inspection',
           args:{...bound,panelId,availability:'ready',pageBuild,...extra}},paired.body.token);
@@ -1925,7 +1978,7 @@ describe('packaged molecular inspection sessions',()=>{
     await writeFile(join(folder,'inspector.html'),'<html><script>void 0;</script></html>');
     const home=process.env.HOME;
     process.env.HOME=folder;
-    // The probe's three sections, verbatim shapes from that night's logcat.
+    // The probe's three sections, verbatim shapes from a headset logcat.
     const anrAnswer=['09-10 22:39:35\n','  Window #16 Window{8a99117 u0 Application Not Responding: com.oculus.browser}:\n',
       '09-10 22:39:21.239  1535  7590 E ActivityManager: ANR in com.oculus.browser (com.oculus.browser/.BrowserActivity)\n'].join('--stereofold--');
     const healthyAnswer=['09-10 22:41:35\n','\n','\n'].join('--stereofold--');

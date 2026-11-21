@@ -9,7 +9,7 @@
  * This script owns no sharing behaviour of its own. It never prints a pairing
  * code, an address, or anything else quest-share does not print itself.
  */
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -19,11 +19,14 @@ import { compositeRecipePath, resolveCompositeText } from '../src/demo-composite
 import { readBundledDemoCoordinates } from '../src/bundled-demo-coordinates.js';
 import { writeVerifiedCacheFile } from '../src/verified-cache-write.js';
 import { addressedDemoPath, readAddressedDemoFile } from '../src/addressed-demo-cache.js';
+import { fetchFollowingHttpsRedirects, readBoundedBody } from '../src/bounded-download.js';
+import { GROWTH_FETCH_MAX_BYTES } from '../src/growth-coordinates.js';
 import { encodeMap, prepareMap, readMap } from './prepare-map.js';
-import { parseQuestArgs } from './quest-share.js';
+import { describeTakenPort, findPortHolder, parseQuestArgs, type PortHolder } from './quest-share.js';
 import { DEMO_TIER_BY_DEVICE, stageFitsTier } from '../src/molecular-growth.js';
 import { molecularLessonToTour } from '../src/molecular-lesson-tour.js';
 import { parseMolecularLesson, type MolecularLessonManifest } from '../src/molecular-lesson.js';
+import { demoNameForMessage, resolveDemoName } from '../src/demo-names.js';
 
 const pluginRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const demosRoot = resolve(pluginRoot, 'demos');
@@ -198,7 +201,7 @@ export function prefetchTier(deviceClass?: string): DemoTier {
  * mid-session ("run the demo once on this Mac"). So a staged demo resolves
  * every tier the selected device class allows up front — the same tier list
  * `stageForDevice` chooses from — plus the selected stage itself when it sits
- * outside that tier (e.g. `--stage tube` on a quest2 device). A plain demo has
+ * outside that tier (e.g. `--stage cycle` of kinesin-walk on a quest2 device). A plain demo has
  * no tiers and warms exactly what it opens.
  *
  * With no `--device` the launcher cannot know what the wearer will grow into:
@@ -335,6 +338,16 @@ export function describeSize(coordinates: DemoCoordinates): string {
     : `${coordinates.atomSites.toLocaleString()} atom sites`;
 }
 
+/**
+ * The demo a launcher argument names: its exact id, or a plain name that fits
+ * one demo (`src/demo-names.ts`). A name that fits none or several is refused
+ * with the reason, and the list is one `--list` away.
+ */
+export function findDemo(index: DemoIndex, name: string): DemoEntry {
+  try { return resolveDemoName(index.demos, name).demo; }
+  catch (error) { throw Error(`${(error as Error).message} Run with --list to see them.`); }
+}
+
 export function formatDemoList(index: DemoIndex): string {
   const width = Math.max(...index.demos.map(demo => demo.name.length));
   return index.demos.map(demo => {
@@ -352,16 +365,36 @@ export function formatDemoList(index: DemoIndex): string {
 export { subsetAssemblyOperators, subsetDepositedEntities } from '../src/demo-cif-subset.js';
 import { subsetAssemblyOperators, subsetDepositedEntities } from '../src/demo-cif-subset.js';
 
+/**
+ * The most a coordinate download may send: the same bound a live grow uses,
+ * three times the largest catalog download (5SYF-assembly1.cif, 21,070,967
+ * bytes).
+ */
+export const DEMO_COORDINATE_DOWNLOAD_MAX_BYTES = GROWTH_FETCH_MAX_BYTES;
+/**
+ * The most a density map download may send: about 1.6 times the only catalog
+ * map (emd_6347.map.gz, 164,124,352 bytes as transferred).
+ */
+export const DEMO_MAP_DOWNLOAD_MAX_BYTES = 256 * 1024 * 1024;
+
+// Every hop stays on https, and the body is read as a stream and cancelled
+// past its bound, so a body that never ends or inflates without limit cannot
+// exhaust memory before the digest check runs.
+async function fetchDemoBytes(url: string, timeoutMs: number, maxBytes: number): Promise<Buffer> {
+  let response: Response;
+  try { response = await fetchFollowingHttpsRedirects(url, { signal: AbortSignal.timeout(timeoutMs) }); }
+  catch (error) { throw Error(`${url}: ${error instanceof Error ? error.message : 'the download failed.'}`); }
+  if (!response.ok) { await response.body?.cancel(); throw Error(`${url} returned HTTP ${response.status}.`); }
+  try { return await readBoundedBody(response, maxBytes); }
+  catch (error) { throw Error(`${url}: ${error instanceof Error ? error.message : 'the download failed.'}`); }
+}
+
 async function fetchText(url: string): Promise<string> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(300_000) });
-  if (!response.ok) throw Error(`${url} returned HTTP ${response.status}.`);
-  return await response.text();
+  return new TextDecoder().decode(await fetchDemoBytes(url, 300_000, DEMO_COORDINATE_DOWNLOAD_MAX_BYTES));
 }
 
 async function fetchBytes(url: string): Promise<Buffer> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(900_000) });
-  if (!response.ok) throw Error(`${url} returned HTTP ${response.status}.`);
-  return Buffer.from(await response.arrayBuffer());
+  return await fetchDemoBytes(url, 900_000, DEMO_MAP_DOWNLOAD_MAX_BYTES);
 }
 
 /**
@@ -470,7 +503,29 @@ export async function resolveVolumeStructure(entry: DemoEntry, cache: string, lo
   return path;
 }
 
-export async function main(argv: readonly string[], log: (message: string) => void = message => process.stdout.write(`${message}\n`)): Promise<number> {
+/** The private Wi-Fi port a launch will ask for: `--lan-port`, else quest-share's default. */
+export function lanPortOf(args: readonly string[]): number {
+  const index = args.lastIndexOf('--lan-port');
+  const port = index >= 0 ? Number(args[index + 1]) : 8443;
+  return Number.isInteger(port) ? port : 8443;
+}
+
+/**
+ * Hand the terminal's signals to the sharing launcher and wait for it.
+ *
+ * The launcher stops its host, which runs in its own session and so never sees
+ * the terminal. SIGHUP is the terminal closing: without a handler this process
+ * ends at once, so it is forwarded like Ctrl-C and SIGTERM.
+ */
+export function forwardStopSignals(child: Pick<ChildProcess, 'exitCode' | 'signalCode' | 'kill'>,
+  on: (signal: NodeJS.Signals, listener: () => void) => unknown = (signal, listener) => process.on(signal, listener)): void {
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+    on(signal, () => { if (child.exitCode == null && child.signalCode == null) child.kill(signal); });
+  }
+}
+
+export async function main(argv: readonly string[], log: (message: string) => void = message => process.stdout.write(`${message}\n`),
+  portHolder: (port: number) => Promise<PortHolder | undefined> = findPortHolder): Promise<number> {
   const args = [...argv];
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') { log(usage); return 0; }
   const index = await readDemoIndex();
@@ -482,8 +537,7 @@ export async function main(argv: readonly string[], log: (message: string) => vo
     return 0;
   }
   const [name, ...rest] = args;
-  const found = index.demos.find(demo => demo.name === name);
-  if (!found) throw Error(`Unknown demo "${name}". Run with --list to see them.`);
+  const found = findDemo(index, name);
   if (rest.some(argument => argument === '--lesson' || argument === '--tour')) throw Error('A demo supplies its own lesson; --lesson and --tour are not available here.');
   // --stage and --device are this script's own; everything else goes through.
   const passthrough: string[] = [];
@@ -499,7 +553,14 @@ export async function main(argv: readonly string[], log: (message: string) => vo
   const wanted = stageId ?? (deviceClass ? stageForDevice(found, deviceClass) : undefined);
   const { entry, stage } = resolveDemoStage(found, wanted);
 
+  // A port another launch still holds is a reason to stop before warming
+  // anything, and in words that name the holder. That launch is left running.
+  const lanPort = lanPortOf(passthrough);
+  const holder = await portHolder(lanPort);
+  if (holder) throw Error(describeTakenPort(lanPort, holder));
+
   log(`Stereofold demo · ${found.title}`);
+  if (found.name !== name) log(`  "${demoNameForMessage(name)}" opens ${found.name}`);
   if (stage) log(`  stage ${stage.order} · ${stage.id} · ${stage.title} · ${describeSize(stage.coordinates)}`);
   if (deviceClass) log(`  ${deviceClass} holds tier ${prefetchTier(deviceClass)}`);
   // Warm every tier the wearer may grow into before the headset goes on: a
@@ -542,9 +603,7 @@ export async function main(argv: readonly string[], log: (message: string) => vo
   // signal-relaying process which can force-kill the sharing launcher before
   // it reaps its detached host and closes the private listener.
   const child = spawn(process.execPath, ['--import', 'tsx', resolve(pluginRoot, 'scripts/quest-share.ts'), ...questArgs], { cwd: pluginRoot, stdio: 'inherit' });
-  const forward = (signal: NodeJS.Signals) => { if (child.exitCode == null) child.kill(signal); };
-  process.on('SIGINT', () => forward('SIGINT'));
-  process.on('SIGTERM', () => forward('SIGTERM'));
+  forwardStopSignals(child);
   return await new Promise<number>(done => child.on('exit', code => done(code ?? 1)));
 }
 

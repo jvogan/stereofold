@@ -32,7 +32,9 @@ export type InspectionComparisonKey = { sourceSha256: string; assemblyId: string
 type ToolCall = (name: string, args: Record<string, unknown>) => Promise<any>;
 
 const invalidDescriptor = () => new Error('The inspector returned an invalid coordinate descriptor.');
-const changedDuringDelivery = () => new Error('The coordinates changed during delivery. Reconnect before continuing.');
+/** `code` lets a desktop panel tell a source that moved on from one it could not draw. */
+const changedDuringDelivery = () => Object.assign(new Error('The coordinates changed during delivery. Reconnect before continuing.'),
+  { code: 'source_changed_during_delivery' });
 
 function isDescriptor(value: unknown): value is InspectionBytesDescriptor {
   const descriptor = value as Partial<InspectionBytesDescriptor> | undefined;

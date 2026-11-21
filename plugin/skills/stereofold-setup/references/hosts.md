@@ -148,7 +148,7 @@ Check these separately, in order; fixing one does not establish the next:
    is not proof that the connector can read it.
 2. **Shared owner.** Call `continue_session({assistant:"Claude"})` once and
    read the complete result. `role:"none"` with
-   `kind:"external-owner-unavailable"` requires host/socket recovery, not a
+   `kind:"external-owner-unavailable"` requires host and socket recovery, not a
    new local `inspect` call. Preserve a live owner when `retry:true` is set.
 3. **Listener denial.** `listen EPERM ... 127.0.0.1` establishes that this
    process cannot open the listener. Changing `open_companion` to LAN still
@@ -171,7 +171,7 @@ Check these separately, in order; fixing one does not establish the next:
    dispatched launch does not confirm that the headset shows the scene.
 
 The terminal host must remain running. A socket failure after startup can
-also mean mismatched record/socket paths or a host that exited; inspect the
+also mean mismatched record and socket paths or a host that exited; inspect the
 reported reason before assuming a missing permission. An on-disk permission
 entry does not prove the currently running daemon has reloaded it.
 

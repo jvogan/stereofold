@@ -476,10 +476,18 @@ export const molecularLessonSchema = z.object({
    * a control, not chrome. Optional and defaulting to `shown`, so a lesson
    * that does not set it compiles to exactly the timeline and caption
    * annotations it compiled to before.
+   *
+   * `endFigure: 'last'` keeps the last chapter's figure, its names
+   * included, on the starting view the tour returns to when it ends, by Done
+   * or by completing. Without it that view carries no figure, so a lesson
+   * that names its parts with figure labels ends with no names at all. The
+   * figure is drawn where the starting view puts the molecule; it frames
+   * nothing.
    */
   presentation: z.object({
     captionCard: z.enum(['hidden', 'shown']).default('shown'),
     end: z.enum(['rest', 'hold']).optional(),
+    endFigure: z.enum(['last']).optional(),
     /** Opt-in continuation of a registered staged demo after its final dwell. */
     continueToStage: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/iu).optional(),
     /** Same id asserts the same absolute Angstrom coordinate frame across sources. */
@@ -511,6 +519,9 @@ export const molecularLessonSchema = z.object({
     downsample: z.number().int().min(1).max(16),
   }).strict().optional(),
 }).strict().superRefine((manifest, context) => {
+  if (manifest.presentation?.endFigure === 'last' && !manifest.chapters.at(-1)?.immersive?.figure)
+    context.addIssue({ code: 'custom', path: ['presentation', 'endFigure'],
+      message: 'endFigure "last" needs a figure on the last chapter.' });
   // An `isosurface` chapter has nothing to draw unless the manifest says which
   // map and at what level. Catching it here rather than in the headset is the
   // point: the alternative is a wearer in immersion looking at an empty room.

@@ -83,7 +83,7 @@ const setupMockDom = () => {
   };
 };
 
-const setup = (emphasize: (value: unknown) => Promise<unknown>) => {
+const setup = (emphasize: (value: unknown) => Promise<unknown>, tourList: readonly Tour[] = tours) => {
   const dom = setupMockDom();
   // Two channels, because the page has two. `narrate` is the lesson's own
   // voice, gated by `speakNarration`; `aside` is the page's ordinary
@@ -110,7 +110,7 @@ const setup = (emphasize: (value: unknown) => Promise<unknown>) => {
       },
     },
   } as unknown as Workspace;
-  const player = mountTourPlayer({ workspace, tours, after: dom.mountAnchor,
+  const player = mountTourPlayer({ workspace, tours: tourList, after: dom.mountAnchor,
     narrate: (line: string) => { narrated.push(line); spoken.push(line); },
     aside: (line: string) => { asides.push(line); spoken.push(line); } });
   return { dom, narrated, asides, spoken, calls, workspace, player };
@@ -204,6 +204,371 @@ describe('a chapter whose highlight fails', () => {
       await expect(executeInspectionVoiceAction('retry', hooks)).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
       expect(f.attempts()).toBe(3);
       expect(save).toHaveBeenCalledOnce();
+    } finally { dom.restore(); }
+  });
+
+  /** One chapter that frames chain A and hides chain B: a close-up when presenting. */
+  const closeUpLesson = (xrPresenting = true, after: TourStep[] = []) => {
+    const site = { id: 'site', title: 'Site', narration: 'The site.', figure: { layers: [], labels: [], focus: [{ chain: 'A' }] },
+      visibility: { op: 'only', chains: ['A'] } } as unknown as TourStep;
+    let failEmphasis = false;
+    const lesson = setup(async () => {
+      lesson.calls.push(failEmphasis ? 'emphasis-failed' : 'emphasis');
+      if (failEmphasis) throw Error("Could not find node 'yEw1bmA1hVpstsCEqyENWg'.");
+    }, [{ id: 'lesson', title: 'Lesson', summary: 'One close-up.', steps: [site, ...after] }]);
+    const ws = lesson.workspace as any;
+    ws.snapshot = () => ({ ready: true, sourceSha256: 'a', xrPresenting, selectionKeys: [] as string[] });
+    ws.rows = () => ['A', 'B'].map(chain => ({ key: chain, entityType: 'polymer',
+      identity: { labelChain: chain, authorChain: chain, copyId: '1', modelNumber: 1 } }));
+    Object.assign(ws.viewer.inspection, {
+      visibility: () => ({ hiddenChains: [], hiddenClasses: [], showOnlySelection: false }),
+      setVisibility: async () => { lesson.calls.push('visibility'); },
+      setLessonFigure: async (value: unknown) => { if (value) lesson.calls.push('figure'); },
+    });
+    return { ...lesson, inspection: ws.viewer.inspection as Record<string, unknown>,
+      failEmphasis: (value: boolean) => { failEmphasis = value; } };
+  };
+  const plainStep = { id: 'plain', title: 'Plain', narration: 'Plain.', emphasis: { parts: [] } } as TourStep;
+  const busy = () => Object.assign(Error('The viewer is busy.'), { code: 'viewer_busy' });
+
+  it('stops a headset close-up retry that Pause interrupts during its early visibility', async () => {
+    let pauseOnVisibility = false;
+    const { dom, player, calls, inspection } = closeUpLesson();
+    inspection.setVisibility = async () => { calls.push('visibility'); if (pauseOnVisibility) { pauseOnVisibility = false; player.pause(); calls.push('pause'); } };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      expect(calls).toContain('figure');
+      calls.length = 0;
+      pauseOnVisibility = true;
+      await expect(player.retryEmphasis()).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      expect(calls).toEqual(['visibility', 'pause']);
+    } finally { dom.restore(); }
+  });
+
+  it('stops a headset close-up retry that Pause interrupts while its figure waits out a busy viewer', async () => {
+    let busyOnce = false;
+    const { dom, player, calls, inspection } = closeUpLesson();
+    inspection.setLessonFigure = async (value: unknown) => {
+      if (busyOnce) {
+        busyOnce = false; calls.push('busy');
+        setTimeout(() => { player.pause(); calls.push('pause'); }, 10);
+        throw busy();
+      }
+      if (value) calls.push('figure');
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      expect(calls).toContain('figure');
+      calls.length = 0;
+      busyOnce = true;
+      await expect(player.retryEmphasis()).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      // No second figure attempt, no emphasis and no closing visibility after Pause.
+      expect(calls).toEqual(['visibility', 'busy', 'pause']);
+    } finally { dom.restore(); }
+  });
+
+  it('lets a newer headset close-up retry stand in for an older one', async () => {
+    let holdNext = false, release: (() => void) | undefined;
+    const { dom, player, calls, inspection } = closeUpLesson();
+    inspection.setVisibility = async () => {
+      calls.push('visibility');
+      if (holdNext) { holdNext = false; await new Promise<void>(resolve => { release = resolve; }); }
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      holdNext = true;
+      const older = player.retryEmphasis();
+      await settle();
+      expect(calls).toEqual(['visibility']);
+      const newer = player.retryEmphasis();
+      release!();
+      // One install and one highlight; the older retry answers with the newer's line.
+      await expect(Promise.all([older, newer])).resolves.toEqual([EMPHASIS_RETRY_SUCCESS_LINE, EMPHASIS_RETRY_SUCCESS_LINE]);
+      expect(calls.filter(call => call === 'figure')).toHaveLength(1);
+      expect(calls.filter(call => call === 'emphasis')).toHaveLength(1);
+      expect(player.getState().step).toBe(0);
+    } finally { dom.restore(); }
+  });
+
+  it('answers a close-up retry whose closing visibility Pause interrupts with the failure line', async () => {
+    let busyOnce = false;
+    const { dom, player, calls, inspection } = closeUpLesson();
+    inspection.setVisibility = async () => {
+      if (busyOnce && calls.includes('emphasis')) {
+        busyOnce = false; calls.push('busy');
+        setTimeout(() => { player.pause(); calls.push('pause'); }, 10);
+        throw busy();
+      }
+      calls.push('visibility');
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      busyOnce = true;
+      await expect(player.retryEmphasis()).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      expect(calls).toEqual(['visibility', 'figure', 'emphasis', 'busy', 'pause']);
+    } finally { dom.restore(); }
+  });
+
+  it('lets a newer close-up retry that fails answer for an older one still finishing', async () => {
+    let holdClosing = false, release: (() => void) | undefined;
+    const { dom, player, calls, inspection, failEmphasis } = closeUpLesson();
+    inspection.setVisibility = async () => {
+      calls.push('visibility');
+      if (holdClosing && calls.includes('emphasis')) { holdClosing = false; await new Promise<void>(resolve => { release = resolve; }); }
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      holdClosing = true;
+      const older = player.retryEmphasis();
+      for (let turn = 0; turn < 5 && !release; turn++) await settle();
+      expect(calls).toEqual(['visibility', 'figure', 'emphasis', 'visibility']);
+      failEmphasis(true);
+      const newer = player.retryEmphasis();
+      await expect(newer).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      release!();
+      await expect(older).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+    } finally { dom.restore(); }
+  });
+
+  it('does not lend a newer retry\'s answer to an older one once the wearer has stepped on', async () => {
+    let busyOnce = false, followUp: Promise<string> | undefined;
+    const { dom, player, calls, inspection, failEmphasis } = closeUpLesson(true, [plainStep]);
+    inspection.setLessonFigure = async (value: unknown) => {
+      if (busyOnce) {
+        busyOnce = false; calls.push('busy');
+        followUp = (async () => {
+          const answer = await player.retryEmphasis();
+          failEmphasis(true);
+          await player.next();
+          return answer;
+        })();
+        throw busy();
+      }
+      if (value) calls.push('figure');
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      busyOnce = true;
+      const older = player.retryEmphasis();
+      await expect(older).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      await expect(followUp).resolves.toBe(EMPHASIS_RETRY_SUCCESS_LINE);
+      expect(player.getState().step).toBe(1);
+      // The older retry installed nothing after its busy refusal.
+      expect(calls.filter(call => call === 'figure')).toHaveLength(1);
+    } finally { dom.restore(); }
+  });
+
+  it('stops a close-up retry\'s early visibility from writing again after the wearer steps on', async () => {
+    let busyOnce = false, stepped: Promise<unknown> | undefined;
+    const { dom, player, calls, inspection } = closeUpLesson(true, [plainStep]);
+    inspection.setVisibility = async () => {
+      if (busyOnce) {
+        busyOnce = false; calls.push('busy');
+        stepped = player.next().then(() => calls.push('stepped'));
+        throw busy();
+      }
+      calls.push('visibility');
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      busyOnce = true;
+      await expect(player.retryEmphasis()).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      await stepped;
+      expect(player.getState().step).toBe(1);
+      expect(calls.slice(calls.indexOf('stepped'))).not.toContain('visibility');
+      expect(calls.filter(call => call === 'figure')).toHaveLength(0);
+    } finally { dom.restore(); }
+  });
+
+  it('writes nothing for a close-up retry whose source changes before its early visibility', async () => {
+    const { dom, player, calls, workspace } = closeUpLesson();
+    const ws = workspace as any;
+    let sourceSha256 = 'a';
+    ws.snapshot = () => ({ ready: true, sourceSha256, xrPresenting: true, selectionKeys: [] as string[] });
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      const answer = player.retryEmphasis();
+      sourceSha256 = 'b';
+      await expect(answer).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      expect(calls).toEqual([]);
+    } finally { dom.restore(); }
+  });
+
+  it('does not keep a newer retry\'s answer for an older one when the wearer steps on while it waits', async () => {
+    let holdVisibility = false, holdEmphasis = false, wearerHolds = false;
+    let releaseVisibility: (() => void) | undefined, releaseEmphasis: (() => void) | undefined;
+    const { dom, player, calls, inspection } = closeUpLesson(true, [plainStep]);
+    inspection.holdsWearerPlacement = () => wearerHolds;
+    inspection.setVisibility = async () => {
+      calls.push('visibility');
+      if (holdVisibility) { holdVisibility = false; await new Promise<void>(resolve => { releaseVisibility = resolve; }); }
+    };
+    inspection.emphasize = async () => {
+      calls.push('emphasis');
+      if (holdEmphasis) { holdEmphasis = false; await new Promise<void>(resolve => { releaseEmphasis = resolve; }); }
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      holdVisibility = true;
+      const older = player.retryEmphasis();
+      for (let turn = 0; turn < 5 && !releaseVisibility; turn++) await settle();
+      // The wearer holds the molecule, so the newer retry frames nothing and is not a close-up.
+      wearerHolds = true; holdEmphasis = true;
+      const newer = player.retryEmphasis();
+      for (let turn = 0; turn < 5 && !releaseEmphasis; turn++) await settle();
+      releaseVisibility!();
+      await settle();
+      wearerHolds = false;
+      await player.next();
+      expect(player.getState().step).toBe(1);
+      releaseEmphasis!();
+      await expect(newer).resolves.toBe(EMPHASIS_RETRY_SUCCESS_LINE);
+      await expect(older).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+    } finally { dom.restore(); }
+  });
+
+  it('answers an older retry with the failure line when the newer one it waits on rejects after a step', async () => {
+    let holdVisibility = false, holdClosing = false, wearerHolds = false;
+    let releaseVisibility: (() => void) | undefined, rejectClosing: ((error: Error) => void) | undefined;
+    const { dom, player, calls, inspection } = closeUpLesson(true, [plainStep]);
+    inspection.holdsWearerPlacement = () => wearerHolds;
+    inspection.setVisibility = async () => {
+      calls.push('visibility');
+      if (holdVisibility) { holdVisibility = false; await new Promise<void>(resolve => { releaseVisibility = resolve; }); }
+      else if (holdClosing && calls.includes('emphasis')) { holdClosing = false; await new Promise<void>((_resolve, reject) => { rejectClosing = reject; }); }
+    };
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      holdVisibility = true;
+      const older = player.retryEmphasis();
+      for (let turn = 0; turn < 5 && !releaseVisibility; turn++) await settle();
+      wearerHolds = true; holdClosing = true;
+      const newer = player.retryEmphasis();
+      for (let turn = 0; turn < 5 && !rejectClosing; turn++) await settle();
+      releaseVisibility!();
+      await settle();
+      wearerHolds = false;
+      await player.next();
+      expect(player.getState().step).toBe(1);
+      rejectClosing!(Error('Closing visibility failed.'));
+      await expect(newer).rejects.toThrow('Closing visibility failed.');
+      await expect(older).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+    } finally { dom.restore(); }
+  });
+
+  /** Three retries of one close-up: the oldest waits on a second that frames nothing while a third settles first. */
+  const threeRetries = async (secondCloses: 'resolve' | 'reject', thirdFails: boolean) => {
+    let holdVisibility = false, holdClosing = false, wearerHolds = false;
+    let releaseVisibility: (() => void) | undefined, settleClosing: ((error?: Error) => void) | undefined;
+    const lesson = closeUpLesson();
+    const { player, calls, inspection } = lesson;
+    inspection.holdsWearerPlacement = () => wearerHolds;
+    inspection.setVisibility = async () => {
+      calls.push('visibility');
+      if (holdVisibility) { holdVisibility = false; await new Promise<void>(resolve => { releaseVisibility = resolve; }); }
+      else if (holdClosing && calls.includes('emphasis')) {
+        holdClosing = false;
+        await new Promise<void>((resolve, reject) => { settleClosing = error => error ? reject(error) : resolve(); });
+      }
+    };
+    await player.select('lesson');
+    await player.start(false);
+    await settle();
+    calls.length = 0;
+    holdVisibility = true;
+    const oldest = player.retryEmphasis();
+    for (let turn = 0; turn < 5 && !releaseVisibility; turn++) await settle();
+    // The wearer holds the molecule, so the second retry frames nothing and is not a close-up.
+    wearerHolds = true; holdClosing = true;
+    const second = player.retryEmphasis();
+    for (let turn = 0; turn < 5 && !settleClosing; turn++) await settle();
+    releaseVisibility!();
+    await settle();
+    wearerHolds = false;
+    lesson.failEmphasis(thirdFails);
+    const third = await player.retryEmphasis();
+    settleClosing!(secondCloses === 'reject' ? Error('Closing visibility failed.') : undefined);
+    return { lesson, oldest, second, third };
+  };
+
+  it('answers an older retry with the newest retry\'s line when a later one settles first', async () => {
+    const { lesson, oldest, second, third } = await threeRetries('resolve', true);
+    try {
+      expect(third).toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      await expect(second).resolves.toBe(EMPHASIS_RETRY_SUCCESS_LINE);
+      await expect(oldest).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+    } finally { lesson.dom.restore(); }
+  });
+
+  it('does not pass a stale rejection to an older retry once a later one has succeeded', async () => {
+    const { lesson, oldest, second, third } = await threeRetries('reject', false);
+    try {
+      expect(third).toBe(EMPHASIS_RETRY_SUCCESS_LINE);
+      await expect(second).rejects.toThrow('Closing visibility failed.');
+      await expect(oldest).resolves.toBe(EMPHASIS_RETRY_SUCCESS_LINE);
+    } finally { lesson.dom.restore(); }
+  });
+
+  it('answers a close-up retry with the failure line when the structure changes before its chapter validates', async () => {
+    const { dom, player, calls, workspace } = closeUpLesson();
+    const ws = workspace as any;
+    let sourceSha256 = 'a', chains = ['A', 'B'];
+    ws.snapshot = () => ({ ready: true, sourceSha256, xrPresenting: true, selectionKeys: [] as string[] });
+    ws.rows = () => chains.map(chain => ({ key: chain, entityType: 'polymer',
+      identity: { labelChain: chain, authorChain: chain, copyId: '1', modelNumber: 1 } }));
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      const answer = player.retryEmphasis();
+      sourceSha256 = 'c'; chains = ['C', 'D'];
+      await expect(answer).resolves.toBe(EMPHASIS_RETRY_FAILURE_LINE);
+      expect(calls).toEqual([]);
+    } finally { dom.restore(); }
+  });
+
+  it('keeps two overlapping retries of a chapter that is not a close-up as they were', async () => {
+    const { dom, player, calls } = closeUpLesson(false);
+    try {
+      await player.select('lesson');
+      await player.start(false);
+      await settle();
+      calls.length = 0;
+      await expect(player.retryEmphasis()).resolves.toBe(EMPHASIS_RETRY_SUCCESS_LINE);
+      expect(calls).toEqual(['figure', 'emphasis', 'visibility']);
+      calls.length = 0;
+      await expect(Promise.all([player.retryEmphasis(), player.retryEmphasis()]))
+        .resolves.toEqual([EMPHASIS_RETRY_SUCCESS_LINE, EMPHASIS_RETRY_SUCCESS_LINE]);
+      expect([...calls].sort()).toEqual(['emphasis', 'emphasis', 'figure', 'figure', 'visibility', 'visibility']);
     } finally { dom.restore(); }
   });
 

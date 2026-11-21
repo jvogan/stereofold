@@ -45,8 +45,8 @@ const CRISPR_SITES = 13_121;
 
 describe('budget table', () => {
   it('carries the driver B-side scale through the real page route into evidence identity', async () => {
-    // d1bf952 fails here: the driver rejects --query before it can compose or
-    // navigate the B-side URL; a parser-only assertion cannot catch that bug.
+    // A driver that rejects --query fails here, before it composes or
+    // navigates the B-side URL; a parser-only assertion cannot catch that.
     let options!: ReturnType<typeof headsetDrive.parseDriveArguments>;
     expect(() => {
       options = headsetDrive.parseDriveArguments(['share.json', '--out', 'captures', '--query', 'xrRenderBudget=scale:0.5']);

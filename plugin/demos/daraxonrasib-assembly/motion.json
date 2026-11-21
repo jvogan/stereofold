@@ -1,0 +1,2789 @@
+{
+  "version": 1,
+  "id": "daraxonrasib-assembly-motion",
+  "title": "Daraxonrasib glues cyclophilin A to KRAS",
+  "mode": "explore",
+  "provenance": {
+    "sourceRefs": [
+      {
+        "kind": "public",
+        "ref": "https://www.rcsb.org/structure/9AX6"
+      },
+      {
+        "kind": "publication",
+        "ref": "https://doi.org/10.1158/2159-8290.CD-24-0027"
+      }
+    ],
+    "sourceSha256": "7de958d3893e82e50a2b5502234469f320e6d4952a519e6e1696f04354a4536e",
+    "note": "KRAS G12D bound to GMPPNP, cyclophilin A and daraxonrasib (RMC-6236) from entry 9AX6, X-ray diffraction at 1.65 Angstrom, biological assembly 1. The coordinates are the prepared composite daraxonrasib-assembly-motion, built from its recipe: three chains named KRAS (with GMPPNP and magnesium), CYPA and DRUG. All three carry one shared rigid-body transform that turns the complex to face the opening view, so the composite at rest is the deposited arrangement. Waters are left out. In the first chapter the animation starts the drug and cyclophilin A away from their deposited positions and brings them back: the drug to cyclophilin A, then both to KRAS. That order follows the two binding steps measured in the primary citation (Jiang et al., Cancer Discovery 2024): daraxonrasib to cyclophilin A with a dissociation constant of 55 nM, then that binary complex to KRAS G12D with 364 nM. The starting positions and approach paths are illustrative; no intermediate is a measured structure. Switch I is drawn as residues 30 to 38 and switch II as residues 60 to 76. Contact counts and distances are measured from the deposited heavy atoms."
+  },
+  "presentation": {
+    "captionCard": "shown",
+    "end": "hold"
+  },
+  "chapters": [
+    {
+      "id": "assemble",
+      "title": "The glue assembles the complex",
+      "caption": "Yellow daraxonrasib first binds purple cyclophilin A. That pair then binds teal KRAS on its two switch regions (coral). The order follows the two binding steps the authors measured. Where the pieces stop is the crystal structure 9AX6. Where they start and the paths they take are an illustration.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 10
+        }
+      ],
+      "immersive": {
+        "appearance": {
+          "representation": "cartoon",
+          "color": "uniform",
+          "uniformColor": "#9aa5b0",
+          "opacity": 1,
+          "labels": false,
+          "componentLabels": false,
+          "clipping": 0,
+          "fog": 30
+        },
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "KRAS",
+            "KRAS_1",
+            "CYPA",
+            "DRUG"
+          ]
+        },
+        "motion": "hold",
+        "narration": "The drug binds cyclophilin A, then the pair binds active KRAS. The paths are illustrative.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "kras-a",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 0,
+                "to": 29
+              }
+            },
+            {
+              "id": "switch-1",
+              "label": "Switch I",
+              "aliases": [
+                "switch one",
+                "switch 1"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 30,
+                "to": 38
+              }
+            },
+            {
+              "id": "kras-b",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 39,
+                "to": 59
+              }
+            },
+            {
+              "id": "switch-2",
+              "label": "Switch II",
+              "aliases": [
+                "switch two",
+                "switch 2"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 60,
+                "to": 76
+              }
+            },
+            {
+              "id": "kras-c",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 77,
+                "to": 167
+              }
+            },
+            {
+              "id": "cypa",
+              "label": "Cyclophilin A",
+              "aliases": [
+                "CypA",
+                "cyclophilin"
+              ],
+              "color": "#8756ad",
+              "chain": "CYPA"
+            },
+            {
+              "id": "drug",
+              "label": "Daraxonrasib",
+              "aliases": [
+                "the drug",
+                "the glue",
+                "RMC-6236"
+              ],
+              "color": "#f2c037",
+              "chain": "DRUG"
+            },
+            {
+              "id": "nucleotide",
+              "label": "GTP analog (GMPPNP)",
+              "aliases": [
+                "GTP analog",
+                "GMPPNP",
+                "nucleotide"
+              ],
+              "color": "#aab4bc",
+              "chain": "KRAS",
+              "residues": {
+                "from": 201,
+                "to": 201
+              }
+            }
+          ],
+          "contextOpacity": 1
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "drug",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "representation": "spacefill",
+              "color": "#f2c037",
+              "opacity": 1
+            },
+            {
+              "id": "kras-surface",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 0,
+                  "to": 167
+                }
+              },
+              "representation": "spacefill",
+              "color": "#25859b",
+              "opacity": 1,
+              "colorOverrides": [
+                {
+                  "target": {
+                    "chain": "KRAS",
+                    "residues": {
+                      "from": 30,
+                      "to": 38
+                    }
+                  },
+                  "color": "#e8735a"
+                },
+                {
+                  "target": {
+                    "chain": "KRAS",
+                    "residues": {
+                      "from": 60,
+                      "to": 76
+                    }
+                  },
+                  "color": "#e8735a"
+                }
+              ]
+            },
+            {
+              "id": "cypa-surface",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 2,
+                  "to": 165
+                }
+              },
+              "representation": "spacefill",
+              "color": "#8756ad",
+              "opacity": 1
+            }
+          ],
+          "labels": [
+            {
+              "id": "kras-name",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 48,
+                  "to": 48
+                },
+                "atomName": "CA"
+              },
+              "text": "KRAS G12D",
+              "color": "#25859b",
+              "offsetX": -4,
+              "offsetY": 8,
+              "sizeFactor": 1.1,
+              "maxOffsetEm": 3
+            },
+            {
+              "id": "cypa-name",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 15,
+                  "to": 15
+                },
+                "atomName": "CA"
+              },
+              "text": "Cyclophilin A",
+              "color": "#8756ad",
+              "offsetX": 6,
+              "offsetY": 8,
+              "sizeFactor": 1.1,
+              "maxOffsetEm": 3
+            },
+            {
+              "id": "drug-name",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "text": "Daraxonrasib",
+              "color": "#8a6a00",
+              "offsetX": 0,
+              "offsetY": -12,
+              "sizeFactor": 1,
+              "maxOffsetEm": 4,
+              "desktopSizePx": 16
+            }
+          ],
+          "distances": []
+        }
+      },
+      "animation": {
+        "version": 1,
+        "durationSeconds": 9,
+        "playback": {
+          "autoplay": true,
+          "loop": false,
+          "speed": 1
+        },
+        "tracks": [
+          {
+            "id": "kras",
+            "chains": [
+              "KRAS"
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "cypa",
+            "chains": [
+              "CYPA"
+            ],
+            "pivot": [
+              17.036848,
+              0.089385,
+              -3.1104
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  40,
+                  5,
+                  6
+                ]
+              },
+              {
+                "t": 3.5,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  40,
+                  5,
+                  6
+                ]
+              },
+              {
+                "t": 3.5778,
+                "rotation": [
+                  0,
+                  0.421719609,
+                  0,
+                  0.906726293
+                ],
+                "translation": [
+                  39.909122,
+                  4.98864,
+                  5.986368
+                ]
+              },
+              {
+                "t": 3.6556,
+                "rotation": [
+                  0,
+                  0.4190891,
+                  0,
+                  0.907945112
+                ],
+                "translation": [
+                  39.643347,
+                  4.955418,
+                  5.946502
+                ]
+              },
+              {
+                "t": 3.7333,
+                "rotation": [
+                  0,
+                  0.414821911,
+                  0,
+                  0.909902623
+                ],
+                "translation": [
+                  39.212963,
+                  4.90162,
+                  5.881944
+                ]
+              },
+              {
+                "t": 3.8111,
+                "rotation": [
+                  0,
+                  0.409010023,
+                  0,
+                  0.91252989
+                ],
+                "translation": [
+                  38.628258,
+                  4.828532,
+                  5.794239
+                ]
+              },
+              {
+                "t": 3.8889,
+                "rotation": [
+                  0,
+                  0.401743205,
+                  0,
+                  0.915752367
+                ],
+                "translation": [
+                  37.89952,
+                  4.73744,
+                  5.684928
+                ]
+              },
+              {
+                "t": 3.9667,
+                "rotation": [
+                  0,
+                  0.393109944,
+                  0,
+                  0.919491475
+                ],
+                "translation": [
+                  37.037037,
+                  4.62963,
+                  5.555556
+                ]
+              },
+              {
+                "t": 4.0444,
+                "rotation": [
+                  0,
+                  0.383198331,
+                  0,
+                  0.923666087
+                ],
+                "translation": [
+                  36.051097,
+                  4.506387,
+                  5.407665
+                ]
+              },
+              {
+                "t": 4.1222,
+                "rotation": [
+                  0,
+                  0.372096841,
+                  0,
+                  0.928193913
+                ],
+                "translation": [
+                  34.951989,
+                  4.368999,
+                  5.242798
+                ]
+              },
+              {
+                "t": 4.2,
+                "rotation": [
+                  0,
+                  0.359895037,
+                  0,
+                  0.932992799
+                ],
+                "translation": [
+                  33.75,
+                  4.21875,
+                  5.0625
+                ]
+              },
+              {
+                "t": 4.2778,
+                "rotation": [
+                  0,
+                  0.34668415,
+                  0,
+                  0.93798193
+                ],
+                "translation": [
+                  32.455418,
+                  4.056927,
+                  4.868313
+                ]
+              },
+              {
+                "t": 4.3556,
+                "rotation": [
+                  0,
+                  0.332557559,
+                  0,
+                  0.94308296
+                ],
+                "translation": [
+                  31.078532,
+                  3.884817,
+                  4.66178
+                ]
+              },
+              {
+                "t": 4.4333,
+                "rotation": [
+                  0,
+                  0.317611147,
+                  0,
+                  0.94822105
+                ],
+                "translation": [
+                  29.62963,
+                  3.703704,
+                  4.444444
+                ]
+              },
+              {
+                "t": 4.5111,
+                "rotation": [
+                  0,
+                  0.301943541,
+                  0,
+                  0.953325809
+                ],
+                "translation": [
+                  28.118999,
+                  3.514875,
+                  4.21785
+                ]
+              },
+              {
+                "t": 4.5889,
+                "rotation": [
+                  0,
+                  0.285656246,
+                  0,
+                  0.95833215
+                ],
+                "translation": [
+                  26.556927,
+                  3.319616,
+                  3.983539
+                ]
+              },
+              {
+                "t": 4.6667,
+                "rotation": [
+                  0,
+                  0.268853668,
+                  0,
+                  0.963181034
+                ],
+                "translation": [
+                  24.953704,
+                  3.119213,
+                  3.743056
+                ]
+              },
+              {
+                "t": 4.7444,
+                "rotation": [
+                  0,
+                  0.251643037,
+                  0,
+                  0.967820119
+                ],
+                "translation": [
+                  23.319616,
+                  2.914952,
+                  3.497942
+                ]
+              },
+              {
+                "t": 4.8222,
+                "rotation": [
+                  0,
+                  0.234134245,
+                  0,
+                  0.972204277
+                ],
+                "translation": [
+                  21.664952,
+                  2.708119,
+                  3.249743
+                ]
+              },
+              {
+                "t": 4.9,
+                "rotation": [
+                  0,
+                  0.216439614,
+                  0,
+                  0.976296007
+                ],
+                "translation": [
+                  20,
+                  2.5,
+                  3
+                ]
+              },
+              {
+                "t": 4.9778,
+                "rotation": [
+                  0,
+                  0.198673592,
+                  0,
+                  0.980065714
+                ],
+                "translation": [
+                  18.335048,
+                  2.291881,
+                  2.750257
+                ]
+              },
+              {
+                "t": 5.0556,
+                "rotation": [
+                  0,
+                  0.180952413,
+                  0,
+                  0.983491853
+                ],
+                "translation": [
+                  16.680384,
+                  2.085048,
+                  2.502058
+                ]
+              },
+              {
+                "t": 5.1333,
+                "rotation": [
+                  0,
+                  0.163393722,
+                  0,
+                  0.986560942
+                ],
+                "translation": [
+                  15.046296,
+                  1.880787,
+                  2.256944
+                ]
+              },
+              {
+                "t": 5.2111,
+                "rotation": [
+                  0,
+                  0.146116187,
+                  0,
+                  0.989267436
+                ],
+                "translation": [
+                  13.443073,
+                  1.680384,
+                  2.016461
+                ]
+              },
+              {
+                "t": 5.2889,
+                "rotation": [
+                  0,
+                  0.129239114,
+                  0,
+                  0.991613459
+                ],
+                "translation": [
+                  11.881001,
+                  1.485125,
+                  1.78215
+                ]
+              },
+              {
+                "t": 5.3667,
+                "rotation": [
+                  0,
+                  0.112882076,
+                  0,
+                  0.993608392
+                ],
+                "translation": [
+                  10.37037,
+                  1.296296,
+                  1.555556
+                ]
+              },
+              {
+                "t": 5.4444,
+                "rotation": [
+                  0,
+                  0.097164576,
+                  0,
+                  0.995268328
+                ],
+                "translation": [
+                  8.921468,
+                  1.115183,
+                  1.33822
+                ]
+              },
+              {
+                "t": 5.5222,
+                "rotation": [
+                  0,
+                  0.082205748,
+                  0,
+                  0.99661538
+                ],
+                "translation": [
+                  7.544582,
+                  0.943073,
+                  1.131687
+                ]
+              },
+              {
+                "t": 5.6,
+                "rotation": [
+                  0,
+                  0.068124121,
+                  0,
+                  0.997676854
+                ],
+                "translation": [
+                  6.25,
+                  0.78125,
+                  0.9375
+                ]
+              },
+              {
+                "t": 5.6778,
+                "rotation": [
+                  0,
+                  0.055037434,
+                  0,
+                  0.998484292
+                ],
+                "translation": [
+                  5.048011,
+                  0.631001,
+                  0.757202
+                ]
+              },
+              {
+                "t": 5.7556,
+                "rotation": [
+                  0,
+                  0.043062525,
+                  0,
+                  0.999072379
+                ],
+                "translation": [
+                  3.948903,
+                  0.493613,
+                  0.592335
+                ]
+              },
+              {
+                "t": 5.8333,
+                "rotation": [
+                  0,
+                  0.032315285,
+                  0,
+                  0.999477725
+                ],
+                "translation": [
+                  2.962963,
+                  0.37037,
+                  0.444444
+                ]
+              },
+              {
+                "t": 5.9111,
+                "rotation": [
+                  0,
+                  0.022910679,
+                  0,
+                  0.999737516
+                ],
+                "translation": [
+                  2.10048,
+                  0.26256,
+                  0.315072
+                ]
+              },
+              {
+                "t": 5.9889,
+                "rotation": [
+                  0,
+                  0.014962827,
+                  0,
+                  0.999888051
+                ],
+                "translation": [
+                  1.371742,
+                  0.171468,
+                  0.205761
+                ]
+              },
+              {
+                "t": 6.0667,
+                "rotation": [
+                  0,
+                  0.008585137,
+                  0,
+                  0.999963147
+                ],
+                "translation": [
+                  0.787037,
+                  0.09838,
+                  0.118056
+                ]
+              },
+              {
+                "t": 6.1444,
+                "rotation": [
+                  0,
+                  0.00389047,
+                  0,
+                  0.999992432
+                ],
+                "translation": [
+                  0.356653,
+                  0.044582,
+                  0.053498
+                ]
+              },
+              {
+                "t": 6.2222,
+                "rotation": [
+                  0,
+                  0.000991324,
+                  0,
+                  0.999999509
+                ],
+                "translation": [
+                  0.090878,
+                  0.01136,
+                  0.013632
+                ]
+              },
+              {
+                "t": 6.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "drug",
+            "chains": [
+              "DRUG"
+            ],
+            "pivot": [
+              17.036848,
+              0.089385,
+              -3.1104
+            ],
+            "keyframes": [
+              {
+                "t": 0,
+                "rotation": [
+                  0.579019672,
+                  0.574692539,
+                  0.567888783,
+                  0.109393942
+                ],
+                "translation": [
+                  -3.779696,
+                  33.692839,
+                  40.485101
+                ]
+              },
+              {
+                "t": 0.5,
+                "rotation": [
+                  0.579019672,
+                  0.574692539,
+                  0.567888783,
+                  0.109393942
+                ],
+                "translation": [
+                  -3.779696,
+                  33.692839,
+                  40.485101
+                ]
+              },
+              {
+                "t": 0.5781,
+                "rotation": [
+                  0.579006734,
+                  0.574707306,
+                  0.567876094,
+                  0.109450702
+                ],
+                "translation": [
+                  -3.605212,
+                  33.397565,
+                  40.591723
+                ]
+              },
+              {
+                "t": 0.6562,
+                "rotation": [
+                  0.578822729,
+                  0.574916816,
+                  0.567695625,
+                  0.110256886
+                ],
+                "translation": [
+                  -3.106058,
+                  32.561385,
+                  40.887291
+                ]
+              },
+              {
+                "t": 0.7344,
+                "rotation": [
+                  0.578073356,
+                  0.57576047,
+                  0.566960658,
+                  0.113519555
+                ],
+                "translation": [
+                  -2.3298,
+                  31.288048,
+                  41.31672
+                ]
+              },
+              {
+                "t": 0.8125,
+                "rotation": [
+                  0.576177585,
+                  0.577828442,
+                  0.565101331,
+                  0.12163128
+                ],
+                "translation": [
+                  -1.333462,
+                  29.708813,
+                  41.804834
+                ]
+              },
+              {
+                "t": 0.8906,
+                "rotation": [
+                  0.572394509,
+                  0.581692229,
+                  0.56139098,
+                  0.137254667
+                ],
+                "translation": [
+                  -0.174905,
+                  27.96657,
+                  42.259415
+                ]
+              },
+              {
+                "t": 0.9687,
+                "rotation": [
+                  0.565804079,
+                  0.587693067,
+                  0.554927242,
+                  0.162905981
+                ],
+                "translation": [
+                  1.098163,
+                  26.19817,
+                  42.57077
+                ]
+              },
+              {
+                "t": 1.0469,
+                "rotation": [
+                  0.555266065,
+                  0.595716688,
+                  0.544591808,
+                  0.200551707
+                ],
+                "translation": [
+                  2.460496,
+                  24.51485,
+                  42.610891
+                ]
+              },
+              {
+                "t": 1.125,
+                "rotation": [
+                  0.539411645,
+                  0.605007804,
+                  0.529042168,
+                  0.251227026
+                ],
+                "translation": [
+                  3.920413,
+                  22.981334,
+                  42.238437
+                ]
+              },
+              {
+                "t": 1.2031,
+                "rotation": [
+                  0.516732103,
+                  0.614092144,
+                  0.50679861,
+                  0.314696584
+                ],
+                "translation": [
+                  5.525428,
+                  21.596509,
+                  41.31644
+                ]
+              },
+              {
+                "t": 1.2812,
+                "rotation": [
+                  0.485809194,
+                  0.620871017,
+                  0.476470154,
+                  0.389210483
+                ],
+                "translation": [
+                  7.356823,
+                  20.282909,
+                  39.745919
+                ]
+              },
+              {
+                "t": 1.3594,
+                "rotation": [
+                  0.445680896,
+                  0.622926073,
+                  0.437113269,
+                  0.471448445
+                ],
+                "translation": [
+                  9.508454,
+                  18.895938,
+                  37.509445
+                ]
+              },
+              {
+                "t": 1.4375,
+                "rotation": [
+                  0.396267077,
+                  0.618015804,
+                  0.388649365,
+                  0.556758962
+                ],
+                "translation": [
+                  12.05054,
+                  17.261774,
+                  34.706909
+                ]
+              },
+              {
+                "t": 1.5156,
+                "rotation": [
+                  0.338720092,
+                  0.604668733,
+                  0.332208645,
+                  0.639751388
+                ],
+                "translation": [
+                  14.988739,
+                  15.241145,
+                  31.559129
+                ]
+              },
+              {
+                "t": 1.5938,
+                "rotation": [
+                  0.275552077,
+                  0.582710553,
+                  0.270254952,
+                  0.715179505
+                ],
+                "translation": [
+                  18.237234,
+                  12.798068,
+                  28.363121
+                ]
+              },
+              {
+                "t": 1.6719,
+                "rotation": [
+                  0.210448048,
+                  0.553545552,
+                  0.206402462,
+                  0.778907545
+                ],
+                "translation": [
+                  21.6231,
+                  10.040942,
+                  25.407385
+                ]
+              },
+              {
+                "t": 1.75,
+                "rotation": [
+                  0.147789317,
+                  0.520073632,
+                  0.144948262,
+                  0.828656585
+                ],
+                "translation": [
+                  24.924604,
+                  7.211571,
+                  22.882616
+                ]
+              },
+              {
+                "t": 1.8281,
+                "rotation": [
+                  0.092030434,
+                  0.486246524,
+                  0.09026127,
+                  0.864261315
+                ],
+                "translation": [
+                  27.926394,
+                  4.624894,
+                  20.831286
+                ]
+              },
+              {
+                "t": 1.9062,
+                "rotation": [
+                  0.047126707,
+                  0.456390408,
+                  0.046220758,
+                  0.887327736
+                ],
+                "translation": [
+                  30.46464,
+                  2.589498,
+                  19.159492
+                ]
+              },
+              {
+                "t": 1.9844,
+                "rotation": [
+                  0.016163729,
+                  0.43448072,
+                  0.015853003,
+                  0.900396535
+                ],
+                "translation": [
+                  32.443181,
+                  1.345178,
+                  17.701002
+                ]
+              },
+              {
+                "t": 2.0625,
+                "rotation": [
+                  0.001221201,
+                  0.423524651,
+                  0.001197725,
+                  0.905882964
+                ],
+                "translation": [
+                  33.820792,
+                  1.035737,
+                  16.301177
+                ]
+              },
+              {
+                "t": 2.1406,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  34.699111,
+                  1.514948,
+                  14.900771
+                ]
+              },
+              {
+                "t": 2.2188,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  35.500697,
+                  2.041948,
+                  13.55482
+                ]
+              },
+              {
+                "t": 2.2969,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  36.259659,
+                  2.540925,
+                  12.280442
+                ]
+              },
+              {
+                "t": 2.375,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  36.968891,
+                  3.007207,
+                  11.089563
+                ]
+              },
+              {
+                "t": 2.4531,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  37.62129,
+                  3.436125,
+                  9.994114
+                ]
+              },
+              {
+                "t": 2.5312,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  38.209751,
+                  3.823007,
+                  9.006023
+                ]
+              },
+              {
+                "t": 2.6094,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  38.727171,
+                  4.163183,
+                  8.137219
+                ]
+              },
+              {
+                "t": 2.6875,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  39.166445,
+                  4.451982,
+                  7.39963
+                ]
+              },
+              {
+                "t": 2.7656,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  39.520469,
+                  4.684734,
+                  6.805185
+                ]
+              },
+              {
+                "t": 2.8438,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  39.782139,
+                  4.856768,
+                  6.365812
+                ]
+              },
+              {
+                "t": 2.9219,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  39.944351,
+                  4.963414,
+                  6.093441
+                ]
+              },
+              {
+                "t": 3,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  40,
+                  5,
+                  6
+                ]
+              },
+              {
+                "t": 3.5,
+                "rotation": [
+                  0,
+                  0.422618262,
+                  0,
+                  0.906307787
+                ],
+                "translation": [
+                  40,
+                  5,
+                  6
+                ]
+              },
+              {
+                "t": 3.5778,
+                "rotation": [
+                  0,
+                  0.421719609,
+                  0,
+                  0.906726293
+                ],
+                "translation": [
+                  39.909122,
+                  4.98864,
+                  5.986368
+                ]
+              },
+              {
+                "t": 3.6556,
+                "rotation": [
+                  0,
+                  0.4190891,
+                  0,
+                  0.907945112
+                ],
+                "translation": [
+                  39.643347,
+                  4.955418,
+                  5.946502
+                ]
+              },
+              {
+                "t": 3.7333,
+                "rotation": [
+                  0,
+                  0.414821911,
+                  0,
+                  0.909902623
+                ],
+                "translation": [
+                  39.212963,
+                  4.90162,
+                  5.881944
+                ]
+              },
+              {
+                "t": 3.8111,
+                "rotation": [
+                  0,
+                  0.409010023,
+                  0,
+                  0.91252989
+                ],
+                "translation": [
+                  38.628258,
+                  4.828532,
+                  5.794239
+                ]
+              },
+              {
+                "t": 3.8889,
+                "rotation": [
+                  0,
+                  0.401743205,
+                  0,
+                  0.915752367
+                ],
+                "translation": [
+                  37.89952,
+                  4.73744,
+                  5.684928
+                ]
+              },
+              {
+                "t": 3.9667,
+                "rotation": [
+                  0,
+                  0.393109944,
+                  0,
+                  0.919491475
+                ],
+                "translation": [
+                  37.037037,
+                  4.62963,
+                  5.555556
+                ]
+              },
+              {
+                "t": 4.0444,
+                "rotation": [
+                  0,
+                  0.383198331,
+                  0,
+                  0.923666087
+                ],
+                "translation": [
+                  36.051097,
+                  4.506387,
+                  5.407665
+                ]
+              },
+              {
+                "t": 4.1222,
+                "rotation": [
+                  0,
+                  0.372096841,
+                  0,
+                  0.928193913
+                ],
+                "translation": [
+                  34.951989,
+                  4.368999,
+                  5.242798
+                ]
+              },
+              {
+                "t": 4.2,
+                "rotation": [
+                  0,
+                  0.359895037,
+                  0,
+                  0.932992799
+                ],
+                "translation": [
+                  33.75,
+                  4.21875,
+                  5.0625
+                ]
+              },
+              {
+                "t": 4.2778,
+                "rotation": [
+                  0,
+                  0.34668415,
+                  0,
+                  0.93798193
+                ],
+                "translation": [
+                  32.455418,
+                  4.056927,
+                  4.868313
+                ]
+              },
+              {
+                "t": 4.3556,
+                "rotation": [
+                  0,
+                  0.332557559,
+                  0,
+                  0.94308296
+                ],
+                "translation": [
+                  31.078532,
+                  3.884817,
+                  4.66178
+                ]
+              },
+              {
+                "t": 4.4333,
+                "rotation": [
+                  0,
+                  0.317611147,
+                  0,
+                  0.94822105
+                ],
+                "translation": [
+                  29.62963,
+                  3.703704,
+                  4.444444
+                ]
+              },
+              {
+                "t": 4.5111,
+                "rotation": [
+                  0,
+                  0.301943541,
+                  0,
+                  0.953325809
+                ],
+                "translation": [
+                  28.118999,
+                  3.514875,
+                  4.21785
+                ]
+              },
+              {
+                "t": 4.5889,
+                "rotation": [
+                  0,
+                  0.285656246,
+                  0,
+                  0.95833215
+                ],
+                "translation": [
+                  26.556927,
+                  3.319616,
+                  3.983539
+                ]
+              },
+              {
+                "t": 4.6667,
+                "rotation": [
+                  0,
+                  0.268853668,
+                  0,
+                  0.963181034
+                ],
+                "translation": [
+                  24.953704,
+                  3.119213,
+                  3.743056
+                ]
+              },
+              {
+                "t": 4.7444,
+                "rotation": [
+                  0,
+                  0.251643037,
+                  0,
+                  0.967820119
+                ],
+                "translation": [
+                  23.319616,
+                  2.914952,
+                  3.497942
+                ]
+              },
+              {
+                "t": 4.8222,
+                "rotation": [
+                  0,
+                  0.234134245,
+                  0,
+                  0.972204277
+                ],
+                "translation": [
+                  21.664952,
+                  2.708119,
+                  3.249743
+                ]
+              },
+              {
+                "t": 4.9,
+                "rotation": [
+                  0,
+                  0.216439614,
+                  0,
+                  0.976296007
+                ],
+                "translation": [
+                  20,
+                  2.5,
+                  3
+                ]
+              },
+              {
+                "t": 4.9778,
+                "rotation": [
+                  0,
+                  0.198673592,
+                  0,
+                  0.980065714
+                ],
+                "translation": [
+                  18.335048,
+                  2.291881,
+                  2.750257
+                ]
+              },
+              {
+                "t": 5.0556,
+                "rotation": [
+                  0,
+                  0.180952413,
+                  0,
+                  0.983491853
+                ],
+                "translation": [
+                  16.680384,
+                  2.085048,
+                  2.502058
+                ]
+              },
+              {
+                "t": 5.1333,
+                "rotation": [
+                  0,
+                  0.163393722,
+                  0,
+                  0.986560942
+                ],
+                "translation": [
+                  15.046296,
+                  1.880787,
+                  2.256944
+                ]
+              },
+              {
+                "t": 5.2111,
+                "rotation": [
+                  0,
+                  0.146116187,
+                  0,
+                  0.989267436
+                ],
+                "translation": [
+                  13.443073,
+                  1.680384,
+                  2.016461
+                ]
+              },
+              {
+                "t": 5.2889,
+                "rotation": [
+                  0,
+                  0.129239114,
+                  0,
+                  0.991613459
+                ],
+                "translation": [
+                  11.881001,
+                  1.485125,
+                  1.78215
+                ]
+              },
+              {
+                "t": 5.3667,
+                "rotation": [
+                  0,
+                  0.112882076,
+                  0,
+                  0.993608392
+                ],
+                "translation": [
+                  10.37037,
+                  1.296296,
+                  1.555556
+                ]
+              },
+              {
+                "t": 5.4444,
+                "rotation": [
+                  0,
+                  0.097164576,
+                  0,
+                  0.995268328
+                ],
+                "translation": [
+                  8.921468,
+                  1.115183,
+                  1.33822
+                ]
+              },
+              {
+                "t": 5.5222,
+                "rotation": [
+                  0,
+                  0.082205748,
+                  0,
+                  0.99661538
+                ],
+                "translation": [
+                  7.544582,
+                  0.943073,
+                  1.131687
+                ]
+              },
+              {
+                "t": 5.6,
+                "rotation": [
+                  0,
+                  0.068124121,
+                  0,
+                  0.997676854
+                ],
+                "translation": [
+                  6.25,
+                  0.78125,
+                  0.9375
+                ]
+              },
+              {
+                "t": 5.6778,
+                "rotation": [
+                  0,
+                  0.055037434,
+                  0,
+                  0.998484292
+                ],
+                "translation": [
+                  5.048011,
+                  0.631001,
+                  0.757202
+                ]
+              },
+              {
+                "t": 5.7556,
+                "rotation": [
+                  0,
+                  0.043062525,
+                  0,
+                  0.999072379
+                ],
+                "translation": [
+                  3.948903,
+                  0.493613,
+                  0.592335
+                ]
+              },
+              {
+                "t": 5.8333,
+                "rotation": [
+                  0,
+                  0.032315285,
+                  0,
+                  0.999477725
+                ],
+                "translation": [
+                  2.962963,
+                  0.37037,
+                  0.444444
+                ]
+              },
+              {
+                "t": 5.9111,
+                "rotation": [
+                  0,
+                  0.022910679,
+                  0,
+                  0.999737516
+                ],
+                "translation": [
+                  2.10048,
+                  0.26256,
+                  0.315072
+                ]
+              },
+              {
+                "t": 5.9889,
+                "rotation": [
+                  0,
+                  0.014962827,
+                  0,
+                  0.999888051
+                ],
+                "translation": [
+                  1.371742,
+                  0.171468,
+                  0.205761
+                ]
+              },
+              {
+                "t": 6.0667,
+                "rotation": [
+                  0,
+                  0.008585137,
+                  0,
+                  0.999963147
+                ],
+                "translation": [
+                  0.787037,
+                  0.09838,
+                  0.118056
+                ]
+              },
+              {
+                "t": 6.1444,
+                "rotation": [
+                  0,
+                  0.00389047,
+                  0,
+                  0.999992432
+                ],
+                "translation": [
+                  0.356653,
+                  0.044582,
+                  0.053498
+                ]
+              },
+              {
+                "t": 6.2222,
+                "rotation": [
+                  0,
+                  0.000991324,
+                  0,
+                  0.999999509
+                ],
+                "translation": [
+                  0.090878,
+                  0.01136,
+                  0.013632
+                ]
+              },
+              {
+                "t": 6.3,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 9,
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "interface",
+      "title": "What the glue touches",
+      "caption": "In 9AX6, 25 of the drug’s 58 non-hydrogen atoms lie within 4 Å of KRAS and 24 within 4 Å of cyclophilin A. Dashed lines mark two close contacts: 3.38 Å from a drug ring carbon to the ring of Tyr64 of KRAS switch II, a ring-to-ring contact, and 2.90 Å from the backbone nitrogen of cyclophilin A Asn102 to a drug carbonyl oxygen, with the distance and geometry of a hydrogen bond.",
+      "durationSeconds": 12,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 12
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "KRAS",
+            "KRAS_1",
+            "CYPA",
+            "DRUG"
+          ]
+        },
+        "motion": "hold",
+        "narration": "The drug touches both proteins: Tyr64 of KRAS and Asn102 of cyclophilin A.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "kras-a",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 0,
+                "to": 29
+              }
+            },
+            {
+              "id": "switch-1",
+              "label": "Switch I",
+              "aliases": [
+                "switch one",
+                "switch 1"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 30,
+                "to": 38
+              }
+            },
+            {
+              "id": "kras-b",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 39,
+                "to": 59
+              }
+            },
+            {
+              "id": "switch-2",
+              "label": "Switch II",
+              "aliases": [
+                "switch two",
+                "switch 2"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 60,
+                "to": 76
+              }
+            },
+            {
+              "id": "kras-c",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 77,
+                "to": 167
+              }
+            },
+            {
+              "id": "cypa",
+              "label": "Cyclophilin A",
+              "aliases": [
+                "CypA",
+                "cyclophilin"
+              ],
+              "color": "#8756ad",
+              "chain": "CYPA"
+            },
+            {
+              "id": "drug",
+              "label": "Daraxonrasib",
+              "aliases": [
+                "the drug",
+                "the glue",
+                "RMC-6236"
+              ],
+              "color": "#f2c037",
+              "chain": "DRUG"
+            },
+            {
+              "id": "nucleotide",
+              "label": "GTP analog (GMPPNP)",
+              "aliases": [
+                "GTP analog",
+                "GMPPNP",
+                "nucleotide"
+              ],
+              "color": "#aab4bc",
+              "chain": "KRAS",
+              "residues": {
+                "from": 201,
+                "to": 201
+              }
+            }
+          ],
+          "focus": [
+            "switch-1",
+            "switch-2",
+            "drug"
+          ],
+          "contextOpacity": 0.16
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "drug",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "representation": "ball-and-stick",
+              "color": "#f2c037",
+              "opacity": 1,
+              "sizeFactor": 0.23
+            },
+            {
+              "id": "tyr64",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#e8735a",
+              "opacity": 1,
+              "sizeFactor": 0.22
+            },
+            {
+              "id": "asn102",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                }
+              },
+              "representation": "ball-and-stick",
+              "color": "#8756ad",
+              "opacity": 1,
+              "sizeFactor": 0.22
+            },
+            {
+              "id": "contact-dot-0",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "representation": "spacefill",
+              "color": "#35c46a",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            },
+            {
+              "id": "contact-dot-1",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                },
+                "componentId": "TYR",
+                "atomName": "CE2"
+              },
+              "representation": "spacefill",
+              "color": "#35c46a",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            },
+            {
+              "id": "contact-dot-2",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "O2"
+              },
+              "representation": "spacefill",
+              "color": "#35c46a",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            },
+            {
+              "id": "contact-dot-3",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "N"
+              },
+              "representation": "spacefill",
+              "color": "#35c46a",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            }
+          ],
+          "labels": [
+            {
+              "id": "tyr64-name",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                }
+              },
+              "text": "Tyr64",
+              "color": "#a8452f",
+              "offsetX": -6,
+              "offsetY": 7,
+              "sizeFactor": 0.85
+            },
+            {
+              "id": "asn102-name",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                }
+              },
+              "text": "Asn102",
+              "color": "#8756ad",
+              "offsetX": 7,
+              "offsetY": 8,
+              "sizeFactor": 0.85
+            },
+            {
+              "id": "drug-name",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C40"
+              },
+              "text": "Daraxonrasib",
+              "color": "#8a6a00",
+              "offsetX": 0,
+              "offsetY": -8,
+              "maxOffsetEm": 4,
+              "sizeFactor": 0.9,
+              "desktopSizePx": 14.4
+            }
+          ],
+          "distances": [
+            {
+              "id": "kras-contact",
+              "a": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "b": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 64,
+                  "to": 64
+                },
+                "componentId": "TYR",
+                "atomName": "CE2"
+              },
+              "color": "#35c46a",
+              "expectedAngstrom": 3.37654,
+              "offsetX": -9,
+              "offsetY": -7,
+              "sizeFactor": 0.55
+            },
+            {
+              "id": "cypa-contact",
+              "a": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "O2"
+              },
+              "b": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 102,
+                  "to": 102
+                },
+                "componentId": "ASN",
+                "atomName": "N"
+              },
+              "color": "#35c46a",
+              "expectedAngstrom": 2.89972,
+              "offsetX": 10,
+              "offsetY": -8,
+              "sizeFactor": 0.55
+            }
+          ],
+          "focus": [
+            {
+              "chain": "DRUG",
+              "residues": {
+                "from": 201,
+                "to": 201
+              },
+              "componentId": "A1AHB"
+            },
+            {
+              "chain": "KRAS",
+              "residues": {
+                "from": 64,
+                "to": 64
+              }
+            },
+            {
+              "chain": "CYPA",
+              "residues": {
+                "from": 102,
+                "to": 102
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "complex",
+      "title": "The complex, as measured",
+      "caption": "The same complex drawn as ribbons: the deposited coordinates of entry 9AX6, from X-ray diffraction at 1.65 Å. KRAS G12D holds GMPPNP (grey), an analog of the GTP it carries when active. Cyclophilin A and the drug sit on switch I and switch II. The authors report that this complex blocks KRAS from binding its effectors.",
+      "durationSeconds": 10,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 10
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "KRAS",
+            "KRAS_1",
+            "CYPA",
+            "DRUG"
+          ]
+        },
+        "view": "fit",
+        "motion": "hold",
+        "narration": "The measured complex: cyclophilin A and the drug cover the KRAS switches.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "kras-a",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 0,
+                "to": 29
+              }
+            },
+            {
+              "id": "switch-1",
+              "label": "Switch I",
+              "aliases": [
+                "switch one",
+                "switch 1"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 30,
+                "to": 38
+              }
+            },
+            {
+              "id": "kras-b",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 39,
+                "to": 59
+              }
+            },
+            {
+              "id": "switch-2",
+              "label": "Switch II",
+              "aliases": [
+                "switch two",
+                "switch 2"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 60,
+                "to": 76
+              }
+            },
+            {
+              "id": "kras-c",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 77,
+                "to": 167
+              }
+            },
+            {
+              "id": "cypa",
+              "label": "Cyclophilin A",
+              "aliases": [
+                "CypA",
+                "cyclophilin"
+              ],
+              "color": "#8756ad",
+              "chain": "CYPA"
+            },
+            {
+              "id": "drug",
+              "label": "Daraxonrasib",
+              "aliases": [
+                "the drug",
+                "the glue",
+                "RMC-6236"
+              ],
+              "color": "#f2c037",
+              "chain": "DRUG"
+            },
+            {
+              "id": "nucleotide",
+              "label": "GTP analog (GMPPNP)",
+              "aliases": [
+                "GTP analog",
+                "GMPPNP",
+                "nucleotide"
+              ],
+              "color": "#aab4bc",
+              "chain": "KRAS",
+              "residues": {
+                "from": 201,
+                "to": 201
+              }
+            }
+          ],
+          "contextOpacity": 1,
+          "framing": "fill"
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "drug",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "representation": "spacefill",
+              "color": "#f2c037",
+              "opacity": 1
+            },
+            {
+              "id": "nucleotide",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "GNP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#aab4bc",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            }
+          ],
+          "labels": [
+            {
+              "id": "kras-name",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 48,
+                  "to": 48
+                },
+                "atomName": "CA"
+              },
+              "text": "KRAS G12D",
+              "color": "#25859b",
+              "offsetX": -4,
+              "offsetY": 8,
+              "sizeFactor": 1.1,
+              "maxOffsetEm": 3
+            },
+            {
+              "id": "cypa-name",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 15,
+                  "to": 15
+                },
+                "atomName": "CA"
+              },
+              "text": "Cyclophilin A",
+              "color": "#8756ad",
+              "offsetX": 6,
+              "offsetY": 8,
+              "sizeFactor": 1.1,
+              "maxOffsetEm": 3
+            },
+            {
+              "id": "drug-name",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "text": "Daraxonrasib",
+              "color": "#8a6a00",
+              "offsetX": 0,
+              "offsetY": -12,
+              "sizeFactor": 1,
+              "maxOffsetEm": 4,
+              "desktopSizePx": 16
+            },
+            {
+              "id": "gtp-name",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "GNP",
+                "atomName": "PA"
+              },
+              "text": "GTP analog",
+              "color": "#5d6b75",
+              "offsetX": -12,
+              "offsetY": -6,
+              "sizeFactor": 0.9,
+              "maxOffsetEm": 3
+            }
+          ],
+          "distances": [],
+          "focus": [
+            {
+              "chain": "KRAS"
+            },
+            {
+              "chain": "CYPA"
+            },
+            {
+              "chain": "DRUG",
+              "residues": {
+                "from": 201,
+                "to": 201
+              },
+              "componentId": "A1AHB"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "scale",
+      "title": "A small glue between two proteins",
+      "caption": "The drug weighs 811 daltons. The two protein chains it joins in this crystal weigh about 19,400 and 18,100 daltons. In the headset, hold a grip and push the stick forward to enlarge the complex, then walk around it to find the drug between the two chains.",
+      "durationSeconds": 15,
+      "changes": [
+        {
+          "kind": "hold",
+          "durationSeconds": 15
+        }
+      ],
+      "immersive": {
+        "visibility": {
+          "op": "only",
+          "chains": [
+            "KRAS",
+            "KRAS_1",
+            "CYPA",
+            "DRUG"
+          ]
+        },
+        "motion": "hold",
+        "narration": "A drug of 811 daltons joins two proteins. Hold a grip and push the stick forward to enlarge them.",
+        "emphasis": {
+          "parts": [
+            {
+              "id": "kras-a",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 0,
+                "to": 29
+              }
+            },
+            {
+              "id": "switch-1",
+              "label": "Switch I",
+              "aliases": [
+                "switch one",
+                "switch 1"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 30,
+                "to": 38
+              }
+            },
+            {
+              "id": "kras-b",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 39,
+                "to": 59
+              }
+            },
+            {
+              "id": "switch-2",
+              "label": "Switch II",
+              "aliases": [
+                "switch two",
+                "switch 2"
+              ],
+              "color": "#e8735a",
+              "chain": "KRAS",
+              "residues": {
+                "from": 60,
+                "to": 76
+              }
+            },
+            {
+              "id": "kras-c",
+              "label": "KRAS G12D",
+              "aliases": [
+                "KRAS",
+                "RAS"
+              ],
+              "color": "#25859b",
+              "chain": "KRAS",
+              "residues": {
+                "from": 77,
+                "to": 167
+              }
+            },
+            {
+              "id": "cypa",
+              "label": "Cyclophilin A",
+              "aliases": [
+                "CypA",
+                "cyclophilin"
+              ],
+              "color": "#8756ad",
+              "chain": "CYPA"
+            },
+            {
+              "id": "drug",
+              "label": "Daraxonrasib",
+              "aliases": [
+                "the drug",
+                "the glue",
+                "RMC-6236"
+              ],
+              "color": "#f2c037",
+              "chain": "DRUG"
+            },
+            {
+              "id": "nucleotide",
+              "label": "GTP analog (GMPPNP)",
+              "aliases": [
+                "GTP analog",
+                "GMPPNP",
+                "nucleotide"
+              ],
+              "color": "#aab4bc",
+              "chain": "KRAS",
+              "residues": {
+                "from": 201,
+                "to": 201
+              }
+            }
+          ],
+          "contextOpacity": 1,
+          "framing": "fill"
+        },
+        "figure": {
+          "layers": [
+            {
+              "id": "drug",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB"
+              },
+              "representation": "spacefill",
+              "color": "#f2c037",
+              "opacity": 1
+            },
+            {
+              "id": "nucleotide",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "GNP"
+              },
+              "representation": "ball-and-stick",
+              "color": "#aab4bc",
+              "opacity": 1,
+              "sizeFactor": 0.3
+            }
+          ],
+          "labels": [
+            {
+              "id": "kras-name",
+              "target": {
+                "chain": "KRAS",
+                "residues": {
+                  "from": 48,
+                  "to": 48
+                },
+                "atomName": "CA"
+              },
+              "text": "KRAS G12D",
+              "color": "#25859b",
+              "offsetX": -4,
+              "offsetY": 8,
+              "sizeFactor": 1.1,
+              "maxOffsetEm": 3
+            },
+            {
+              "id": "cypa-name",
+              "target": {
+                "chain": "CYPA",
+                "residues": {
+                  "from": 15,
+                  "to": 15
+                },
+                "atomName": "CA"
+              },
+              "text": "Cyclophilin A",
+              "color": "#8756ad",
+              "offsetX": 6,
+              "offsetY": 8,
+              "sizeFactor": 1.1,
+              "maxOffsetEm": 3
+            },
+            {
+              "id": "drug-name",
+              "target": {
+                "chain": "DRUG",
+                "residues": {
+                  "from": 201,
+                  "to": 201
+                },
+                "componentId": "A1AHB",
+                "atomName": "C5"
+              },
+              "text": "Daraxonrasib",
+              "color": "#8a6a00",
+              "offsetX": 0,
+              "offsetY": -12,
+              "sizeFactor": 1,
+              "maxOffsetEm": 4,
+              "desktopSizePx": 16
+            }
+          ],
+          "distances": []
+        }
+      }
+    }
+  ]
+}

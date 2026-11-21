@@ -64,7 +64,9 @@ it.each(['playing', 'paused'])('hydration preserves the saved molecular clock: %
   };
   const player = mountTourPlayer({ ...h, tours: [tour] });
   const context: any = { tourPlayer: player, data: { customTour: tour, scene: saved }, TOURS: [], closed: false,
-    densityReferencePreview: false, panelCustomTour: tour, options: {},
+    densityReferencePreview: false, panelCustomTour: tour,
+    // A reconnect calls hydrate without options: no autoplay continuation.
+    options: {},
     generation: 1, ownGeneration: 1, restoredLessonPlayback: false, installedLesson: undefined, grownLesson: undefined, isCompanion: false };
   try {
     // Execute the hydration bookkeeping actually shipped by the inspector, after scene restore.

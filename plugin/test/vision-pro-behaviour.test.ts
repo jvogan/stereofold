@@ -34,15 +34,20 @@ it('an Apple-selected paired page reports its actual connection before Safari ha
 });
 
 it('Enter VR and resume skip microphone consent on Safari and still prime Quest',()=>{
-  const statements=inspector.split('\n').filter(line=>line.includes('void primePushToTalkMicrophone()'));
+  const statements=inspector.split('\n').filter(line=>line.includes(' primePushToTalkMicrophone()'));
   expect(statements).toHaveLength(2);
-  for(const [userAgent,expectedPrimes] of [
-    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15',0],
-    ['Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 Chrome/132.0.0.0 OculusBrowser/38.0 Safari/537.36',2],
+  // `hostVoiceCapture` is the host's report of a voice route: true, not yet
+  // reported, or false. Quest is primed unless the host said there is none.
+  for(const [userAgent,hostVoiceCapture,expectedPrimes] of [
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15',true,0],
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15',undefined,0],
+    ['Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 Chrome/132.0.0.0 OculusBrowser/38.0 Safari/537.36',true,2],
+    ['Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 Chrome/132.0.0.0 OculusBrowser/38.0 Safari/537.36',undefined,2],
+    ['Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 Chrome/132.0.0.0 OculusBrowser/38.0 Safari/537.36',false,0],
   ] as const) {
     let primes=0;
     const navigator={userAgent,xr:{}};
-    const context=vm.createContext({navigator,isAppleSafariXr,isCompanion:true,primePushToTalkMicrophone:()=>{primes++;}});
+    const context=vm.createContext({navigator,isAppleSafariXr,isCompanion:true,hostVoiceCapture,primePushToTalkMicrophone:()=>{primes++;}});
     for(const statement of statements)execute(statement,context);
     expect(primes).toBe(expectedPrimes);
   }
@@ -156,7 +161,8 @@ it('reports preparation-exhausted waits with real elapsed time and a pollable op
     HOST_TOOL_WAIT_CEILING_MS:40000,OPEN_COMPANION_CALL_CEILING_MS:55000,
     sourceOperation:{commandId:'source-command'},sourceRenderWait:{wait:async(ms:number)=>{expect(ms).toBe(0);}},
     current:async()=>data,binding:()=>binding,result:(_id:unknown,_data:unknown,receipt:unknown,text:string)=>({receipt,text}),
-    demoTour:undefined,opened:{structuredContent:{renderToken:2}},source:{kind:'pdb',id:'4HHB'}});
+    // No demo was asked for, so the handler resolved none.
+    demoTour:undefined,demo:undefined,opened:{structuredContent:{renderToken:2}},source:{kind:'pdb',id:'4HHB'}});
   const answer=await execute(`(async()=>{${server.slice(start,end)}})()`,context);
   expect(answer.text).toContain('Host preparation used the call wait budget (171000 ms; 171000 ms elapsed)');
   expect(answer.text).toContain('Rendering continues');expect(answer.text).toContain('source-command');

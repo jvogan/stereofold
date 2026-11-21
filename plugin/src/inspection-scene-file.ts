@@ -165,7 +165,7 @@ export async function readStructureViewerSceneFiles(input: {
   // The SCENE half of the pair is what stays inline in a
   // hydration, so only it is held to the inline budget. The coordinates ride
   // the chunk route to a desktop panel and the LAN `/source` route to the
-  // headset, and are already bounded by the 16 MiB read policy above.
+  // headset, and are already bounded by the 64 MiB read policy above.
   try { assertInspectionBudget({ sceneJson }, MAX_INSPECTION_HYDRATION_BYTES, 'Structure Viewer local scene import'); }
   catch (error) { reject(error instanceof Error ? error.message : 'scene artifact exceeds the inline hydration budget.'); }
   const scene = sceneJson as Record<string, unknown>;

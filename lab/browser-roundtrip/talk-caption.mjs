@@ -140,6 +140,23 @@ export function captionTextOrigin(seat, liftMeters = CAPTION_TEXT_LIFT_METERS) {
   return seat.origin.map((value, axis) => value + seat.normal[axis] * liftMeters);
 }
 
+/**
+ * The clearance a card is seated against when the structure surrounds the
+ * wearer.
+ *
+ * The viewer sets `surrounds` when the structure's bounds reach the plane of
+ * both eyes. Its silhouette is then the whole glass in each eye, so no seat
+ * can clear it and the message would be dropped at its deadline. The
+ * presentation layer clears the molecular depth before it draws a plate,
+ * which is how the menu and the chapter card stay readable there. So the card
+ * is seated as usual, against the menu and the name plates, but not the
+ * silhouette. Any other clearance is returned unchanged.
+ */
+export function surroundedClearance(view) {
+  if (view?.surrounds !== true || !Array.isArray(view.measured)) return view;
+  return { ...view, measured: view.measured.map(eye => eye && { ...eye, silhouette: null }) };
+}
+
 /** One string's width in cap-height multiples, from the font atlas Mol* lays out with. */
 function glyphAdvances(text) {
   const atlas = getFontAtlas(TEXT_PROPS);
@@ -482,6 +499,7 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     if (!nextSeat) return;
     let queuedClearance;
     try { queuedClearance = clearance?.(); } catch { /* Wait for measurable geometry. */ }
+    queuedClearance = surroundedClearance(queuedClearance);
     if (clearance && queuedClearance?.views?.length !== 2) {
       remove(); blockedLine = line; seatAim = headAim(pose);
       const receipt = { outcome: 'unmeasured', measured: false, reason: 'no-eye-views' };
@@ -595,6 +613,10 @@ export function createTalkCaption({ plugin, presentation, head = () => undefined
     let verdict = seatVerdict;
     let commitClearance;
     try { commitClearance = clearance?.(); } catch { /* Keep the reply pending. */ }
+    // The receipt says `surrounded` only if the structure surrounds the wearer
+    // at commit: the search may have started before the wearer stepped back.
+    if (commitClearance?.surrounds === true) fallback = 'surrounded';
+    commitClearance = surroundedClearance(commitClearance);
     if (clearance) {
       // The initial search can span frames. Always re-read current geometry,
       // menu and eyes; an unchanged head does not imply an unchanged molecule.

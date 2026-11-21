@@ -205,6 +205,21 @@ describe('an owned debugger forward', () => {
     expect(calls[0]).toContain('--no-rebind');
     expect(calls[1]).toEqual(['-s', 'QUEST', 'forward', '--remove', 'tcp:49153']);
   });
+
+  it('reports a forward it could not remove together with the error of an action that failed', async () => {
+    const run = async (_adb: string, args: string[]) => ({ code: args.includes('--remove') ? 1 : 0 });
+    const failed = withOwnedDevtoolsForward({ adb: 'adb', serial: 'QUEST', run, allocate: async () => 49154,
+      action: async () => { throw Error('The page answered with nothing usable.'); } });
+    await expect(failed).rejects.toThrow(/The page answered with nothing usable\..*tcp:49154.*adb forward --remove tcp:49154/su);
+    await expect(failed).rejects.toMatchObject({ cleanupWarning: expect.stringContaining('adb forward --remove tcp:49154') });
+  });
+
+  it('passes an action error through unchanged when the forward was removed', async () => {
+    const error = Error('The page answered with nothing usable.');
+    const run = async () => ({ code: 0 });
+    await expect(withOwnedDevtoolsForward({ adb: 'adb', serial: 'QUEST', run, allocate: async () => 49155,
+      action: async () => { throw error; } })).rejects.toBe(error);
+  });
 });
 
 describe('manage_companion action="enter-vr"', () => {

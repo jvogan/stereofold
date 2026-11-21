@@ -2,8 +2,9 @@
  * A chapter card never runs past the top or bottom of the view, and what it
  * cannot hold at once it shows in pages that carry every word.
  *
- * Telomerase and daraxonrasib hide their chapter card during playback. Their
- * resting structure readout still has a long title page and four facts. At the entry
+ * Daraxonrasib hides its chapter card during playback; its resting structure
+ * readout still has a long title page and four facts. Telomerase shows its
+ * chapter card, a title and the chapter's narration. At the entry
  * seat that card is fitted for a glance and reaches 57 degrees up in the
  * forward view, so the chapter menu has to move to a seat the wearer can see
  * without turning. Every such seat used to fail the view band
@@ -28,7 +29,7 @@ const subjects = {
     color: 'chain-id', selectionCount: 0, emphasisCount: 10, contextOpacity: 0.35,
     title: 'The H/ACA RNP lobe of human telomerase with the dyskerin thumb loop in a semi-closed conformation' },
   daraxonrasib: { pdbId: '9AX6', chains: 3, assembly: '1', representation: 'cartoon', color: 'chain-id',
-    selectionCount: 0, emphasisCount: 3, contextOpacity: 0.35, title: 'Tricomplex of RMC-6236, KRAS G12D, and CypA' },
+    selectionCount: 0, emphasisCount: 3, contextOpacity: 0.35, title: 'Tricomplex of Daraxonrasib (RMC-6236), KRAS G12D, and CypA' },
 };
 // The wearer reads words, so compare words: a break may take a ` · `
 // separator or a continuation mark with it, and may fall after a hyphen.
@@ -41,20 +42,30 @@ for (const [id, subject] of Object.entries(subjects)) {
     progress: `Scene 1 / ${lesson.chapters.length}`, step: 0, total: lesson.chapters.length,
     bodyPage: chapter.immersive?.narration ?? chapter.caption, bodyPageIndex: 0, bodyPageCount: 1, chapterStartedAt: 0,
     ...(lesson.presentation?.captionCard ? { captionCard: lesson.presentation.captionCard } : {}) };
-  test(`${id}: the authored hidden card adds no caption glass during playback`, () => {
+  const hidden = tour.captionCard === 'hidden';
+  if (hidden) test(`${id}: the authored hidden card adds no caption glass during playback`, () => {
     const readout = runtime.tourReadout(tour, subject, 60_000);
     assert.deepEqual(readout, []);
     const panel = createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed: true, tour }), readout });
     assert.equal(panel.captionBacking, undefined);
     assert.deepEqual(panel.readoutPoints, []);
   });
+  else test(`${id}: the shown card draws its chapter title and narration during playback`, () => {
+    const readout = runtime.tourReadout(tour, subject, 60_000);
+    assert.ok(readout.some(line => line.text.includes(chapter.title)), 'the chapter title is on the card');
+    const panel = createToolbarPanel({ head, rows: spatialToolbarRows({ collapsed: true, tour }), readout });
+    assert.ok(panel.captionBacking, 'the card has its glass');
+  });
   // Keep exercising the same long source titles where they belong: after
-  // the lesson, rather than replacing a card the author explicitly hid.
-  const readout = runtime.tourReadout({ ...tour, active: false }, subject, 60_000);
+  // the lesson, rather than replacing a card the author explicitly hid. A
+  // shown card is measured as the chapter card it draws as well.
+  const readouts = [['', runtime.tourReadout({ ...tour, active: false }, subject, 60_000), 3],
+    ...(hidden ? [] : [[' chapter card', runtime.tourReadout(tour, subject, 60_000), 4]])];
   const rows = spatialToolbarRows({ collapsed: true, quiet: true, voice: { state: 'idle' }, tour: { ...tour, canNext: true } });
 
+  for (const [cardLabel, readout, lineBudget] of readouts)
   for (const assistantLines of [[], ['No assistant connected', 'Hold A or X to talk', 'No action applied yet']]) {
-    const label = `${id}${assistantLines.length ? ' with the assistant card' : ''}`;
+    const label = `${id}${cardLabel}${assistantLines.length ? ' with the assistant card' : ''}`;
     const options = { measureText: runtime.toolbarTextWidth, rows, head, constants: SPATIAL_TOOLBAR_LAYOUT,
       readout, status: '', assistantLines, readoutPage: 0 };
 
@@ -69,9 +80,9 @@ for (const [id, subject] of Object.entries(subjects)) {
       assert.equal(entry.captionBacking.point[0], 0, 'centered above the molecule');
       assert.ok(entry.captionBacking.point[1] > head.position.y);
       assert.ok(entry.readoutWrapWidth >= 30 && entry.readoutWrapWidth <= 45);
-      // A title line and three caption lines; a hidden card's structure
-      // readout keeps three.
-      assert.equal(entry.readoutLineBudget, tour.captionCard === 'hidden' ? 3 : 4);
+      // A chapter card holds a title line and three caption lines; the
+      // structure readout after the lesson keeps three.
+      assert.equal(entry.readoutLineBudget, lineBudget);
       assert.equal(entry.readoutFontMeters, entry.fontMeters);
       for (const [, y, z] of card) {
         assert.ok(Math.abs(y - head.position.y) <= VIEW_BAND.vertical * -z + 1e-9,

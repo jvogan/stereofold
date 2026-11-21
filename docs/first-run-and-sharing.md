@@ -74,9 +74,9 @@ stereo_structure.set_mode
 stereo_structure.set_motion
 ```
 
-These are some of the plugin's 41 model-visible tools. There are 68 registered tools in total, including 27 app-only tools; see [plugin/README.md](../plugin/README.md) for the complete list. `pnpm --filter stereo-structure smoke` asserts both lists by name and is what to check when a count here looks wrong.
+These are some of the plugin's 42 model-visible tools. There are 70 registered tools in total, including 28 app-only tools; see [plugin/README.md](../plugin/README.md) for the complete list. `pnpm --filter stereo-structure smoke` asserts both lists by name and is what to check when a count here looks wrong.
 
-Codex hides the 27 app-only tools from the model, and so does Claude Code
+Codex hides the 28 app-only tools from the model, and so does Claude Code
 2.1.280, which reads the same visibility hint. Each host renames the tools:
 Codex session logs record `mcp__stereo_structure__stereo_structure_<name>`,
 and a Claude Code plugin install names each one
@@ -187,8 +187,10 @@ address, the pairing code, the certificate fingerprint and the expiry.
 5. Bookmark the base address while the pairing page is open, without `/viewer`
    or a `#` fragment; the paired viewer address expires. Then enter the code
    the dialog shows.
-6. Tap **Enter VR**. The first time, Quest Browser asks for the microphone at
-   this tap; allow it. **Enter VR** opens `immersive-ar`, so the structure
+6. Tap **Enter VR**. When headset voice is on and the Quest's microphone
+   permission is still undecided, that tap opens the microphone prompt and
+   Quest Browser refuses to start VR: answer the prompt, then tap
+   **Enter VR** again. **Enter VR** opens `immersive-ar`, so the structure
    stands in your own room wherever the browser reports passthrough, and falls
    back to `immersive-vr` where it does not. **Enter plain VR**, under
    **More options**, forces the opaque session.

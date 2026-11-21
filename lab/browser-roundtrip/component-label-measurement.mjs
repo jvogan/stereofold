@@ -156,6 +156,27 @@ export function renderedSubjectSpheres(object, cameraScale) {
       * Math.max(...[0, 4, 8].map(i => Math.hypot(matrix[i], matrix[i + 1], matrix[i + 2]))) }));
 }
 
+// Spacefill draws nothing but atom spheres. As a mesh (the sphere path a heavy
+// scene can take, `sphereTypeParams`) each sphere is 12 to 642 vertices, so
+// 1AON at detail 1 is 2.47 M vertices where its impostors are 58,870 centres.
+// A reader that walks every vertex of that mesh does about 42 times the work
+// of the same scene drawn with impostors: on entry each menu clearance proof
+// carried every vertex into both eyes and the page held over 2 GB. These
+// meshes are read as their impostors are instead: Mol* gives a unit's sphere
+// mesh the same instance bounding sphere it gives that unit's impostors, and
+// the chapter field reads one ball per drawn atom from either. Keyed by the
+// values object, which a reader's `{ ...object, state }` copy shares.
+const atomSphereValues = new WeakSet();
+/** Note the mesh render objects of these Mol* representations that are spacefill spheres. */
+export function noteAtomSphereMeshes(representations) {
+  for (const repr of representations ?? []) {
+    if (repr?.label !== 'Spacefill') continue;
+    for (const object of repr.renderObjects ?? []) if (object?.type === 'mesh' && object.values) atomSphereValues.add(object.values);
+  }
+  return representations;
+}
+export const atomSphereMesh = object => object?.type === 'mesh' && Boolean(object.values) && atomSphereValues.has(object.values);
+
 // Mol* mesh buffers can retain spare capacity after a build. Those positions
 // are not rendered; counting their zero/stale values invents molecular bounds.
 // Older or synthetic objects without a valid live count keep conservative bounds.

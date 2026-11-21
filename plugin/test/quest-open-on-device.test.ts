@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { adbCandidates, findAdb, hasPackage, openOnQuest, parseAdbDevices, QUEST_BROWSER_PACKAGE, selectDevice,
-  viewIntentArgs, type RunResult } from '../scripts/quest-open-on-device.js';
-import type { LaunchTabHygiene } from '../src/quest-launch.js';
-import { CLEAR_DUMP, fakeQuestAdb, GUARDIAN_DUMP, powerDump, STALE_GUARDIAN_DUMP } from './helpers/fake-quest-adb.js';
+  viewIntentArgs, type RunResult, type Runner } from '../scripts/quest-open-on-device.js';
+import { GUARDIAN_AFTER_LAUNCH_MESSAGE, GUARDIAN_BLOCKED_MESSAGE, GUARDIAN_DURING_LAUNCH_MESSAGE, type LaunchTabHygiene } from '../src/quest-launch.js';
+import { BROWSER_START, CLEAR_DUMP, fakeQuestAdb, GUARDIAN_DUMP, powerDump, SOCKET_COUNT, STALE_GUARDIAN_DUMP,
+  type FakeHeadset } from './helpers/fake-quest-adb.js';
 
 const ADDRESS = 'https://192.168.77.24:8443/';
 
@@ -85,6 +86,14 @@ describe('opening the companion address on a connected Quest', () => {
     expect(result).toMatchObject({ opened: false, blocked: 'asleep' });
     expect(result.message).toContain('asleep and did not wake');
     expect(result.message).toContain('power button');
+    expect(fake.asked().some(line => line.startsWith('shell am start'))).toBe(false);
+  });
+
+  it('gives the boundary answer, not the asleep one, when the boundary screen comes up during the wake', async () => {
+    const fake = fakeQuestAdb({ power: powerDump({ display: 'Asleep' }), activities: [CLEAR_DUMP, GUARDIAN_DUMP] });
+    const result = await openOnQuest({ url: ADDRESS, adb: '/opt/homebrew/bin/adb', run: fake.run, recheckMs: 0, settleMs: 0, wakeMs: 30 });
+    expect(fake.asked()).toContain('shell input keyevent KEYCODE_WAKEUP');
+    expect(result).toEqual({ opened: false, blocked: 'guardian-dialog', headset: { guardianDialog: true }, message: `  ${GUARDIAN_BLOCKED_MESSAGE}` });
     expect(fake.asked().some(line => line.startsWith('shell am start'))).toBe(false);
   });
 
@@ -250,6 +259,7 @@ describe('Meta\'s boundary screen in front of Quest Browser', () => {
     const fake = fakeQuestAdb({ devices: ONE_HEADSET, activities: [CLEAR_DUMP, GUARDIAN_DUMP] });
     const result = await openOnQuest({ url: ADDRESS, adb: ADB, run: fake.run, recheckMs: 0 });
     expect(result).toMatchObject({ opened: false, blocked: 'guardian-dialog' });
+    expect(result.message).toBe(`  ${GUARDIAN_AFTER_LAUNCH_MESSAGE}`);
     expect(result.message).toContain('after the launch was sent');
     expect(fake.asked().filter(said => said.startsWith('shell am start'))).toHaveLength(1);
     expect(fake.asked().at(-1)).toBe('shell dumpsys activity activities');
@@ -358,7 +368,7 @@ describe('the tab steps around the intent', () => {
   });
 
   it('sweeps after the intent instead when Quest Browser was not running', async () => {
-    const fake = fakeQuestAdb({ devices: ONE_HEADSET, browserPid: null });
+    const fake = fakeQuestAdb({ devices: ONE_HEADSET, browserPid: null, socket: '1\n' });
     let askedRestored: string[] = [];
     const before = vi.fn(async () => hygiene());
     const restored = vi.fn(async () => { askedRestored = fake.asked();
@@ -366,16 +376,253 @@ describe('the tab steps around the intent', () => {
     const result = await openOnQuest({ url: ADDRESS, adb: ADB, run: fake.run, tabs: { before, restored }, recheckMs: 0 });
     expect(before).not.toHaveBeenCalled();
     expect(restored).toHaveBeenCalledTimes(1);
-    expect(askedRestored.filter(said => said.startsWith('shell am start'))).toHaveLength(1);
+    expect(askedRestored.filter(said => said === VIEW)).toHaveLength(1);
     expect(result).toMatchObject({ opened: true, headset: { browserRunning: false }, tabHygiene: { keep: '12', closed: ['9', '10'] } });
     expect(result.message).toContain('Quest Browser was not running');
   });
 
   it('leaves the reopened tabs alone when the screen came up after the intent', async () => {
     const restored = vi.fn(async () => hygiene());
-    const fake = fakeQuestAdb({ devices: ONE_HEADSET, browserPid: null, activities: [CLEAR_DUMP, GUARDIAN_DUMP] });
+    const fake = fakeQuestAdb({ devices: ONE_HEADSET, browserPid: null, socket: '1\n', activities: [CLEAR_DUMP, GUARDIAN_DUMP] });
     const result = await openOnQuest({ url: ADDRESS, adb: ADB, run: fake.run, tabs: { before: async () => hygiene(), restored }, recheckMs: 0 });
     expect(result.blocked).toBe('guardian-dialog');
+    expect(result.message).toBe(`  ${GUARDIAN_DURING_LAUNCH_MESSAGE}`);
+    expect(fake.asked().filter(said => said === VIEW)).toHaveLength(1);
     expect(restored).not.toHaveBeenCalled();
+  });
+});
+
+const VIEW = `shell am start -a android.intent.action.VIEW -p ${QUEST_BROWSER_PACKAGE} -d ${ADDRESS}`;
+const ACTIVITIES = 'shell dumpsys activity activities';
+/** One read of the headset: boundary screen, power, browser process. */
+const STATE = [ACTIVITIES, 'shell dumpsys power', `shell pidof ${QUEST_BROWSER_PACKAGE}`];
+const READS = ['devices', ...STATE];
+const PACKAGES = PACKAGE_QUERY.join(' ');
+const COLD_NOTE = 'Quest Browser was not running, so this launch started it. It reopened no other tab on this share.';
+/** What a cold start with tab steps runs when nothing is started before the link. */
+const OLD_COLD_TRAIL = [...READS, PACKAGES, VIEW, ACTIVITIES, 'tabs.restored'];
+const COLD_HEADSET = { guardianDialog: false, display: 'Awake', worn: false, browserRunning: false };
+const launched = (note: string) => `  launch attempted on A · put the headset on, then tap Enter VR. ${note}`;
+/** What a cold start whose link landed answers when nothing is started before the link. */
+const COLD_RESULT = { opened: true, headset: COLD_HEADSET, tabHygiene: hygiene({ note: COLD_NOTE }), message: launched(COLD_NOTE) };
+
+/** One launch on a fake headset, with every adb command and tab step recorded in the order they ran. */
+function launchTrail(headset: FakeHeadset, wrap?: (run: Runner) => Runner) {
+  const fake = fakeQuestAdb({ devices: ONE_HEADSET, ...headset });
+  const marks: Array<[number, string]> = [];
+  const step = (name: string, result: LaunchTabHygiene) => vi.fn(async () => { marks.push([fake.calls.length, name]); return result; });
+  const tabs = { before: step('tabs.before', hygiene()), restored: step('tabs.restored', hygiene({ note: COLD_NOTE })) };
+  const trail = () => {
+    const said = fake.asked();
+    return said.flatMap((line, index) => [...marks.filter(([at]) => at === index).map(([, name]) => name), line])
+      .concat(marks.filter(([at]) => at === said.length).map(([, name]) => name));
+  };
+  const launch = (withTabs = true) => openOnQuest({ url: ADDRESS, adb: ADB, run: wrap ? wrap(fake.run) : fake.run,
+    ...(withTabs ? { tabs } : {}), recheckMs: 0 });
+  return { fake, tabs, trail, launch };
+}
+const links = (trail: string[]) => trail.filter(said => said.startsWith('shell am start -a android.intent.action.VIEW'));
+
+/**
+ * The trail with the start and its socket reads taken out, after checking
+ * that the link went out right after the wait, with no headset read between.
+ */
+function withoutStart(trail: string[]) {
+  const at = trail.indexOf(BROWSER_START);
+  let end = at + 1;
+  while (trail[end] === SOCKET_COUNT) end += 1;
+  expect(trail[end]).toBe(VIEW);
+  return [...trail.slice(0, at), ...trail.slice(end)];
+}
+
+/**
+ * On a Quest 2, Quest Browser started by the link drops it and opens no tab.
+ * A link sent once the browser's debugger is up opens at once.
+ * A cold start therefore starts the browser with no link and waits for its
+ * debugger first, and then goes on exactly as a cold start always has: the
+ * link once, then the sweep of the tabs the browser reopened.
+ */
+describe('a launch on a headset whose Quest Browser is not running', () => {
+  it('starts the browser with no link, waits for its debugger, then sends the link once and sweeps after it', async () => {
+    vi.useFakeTimers();
+    try {
+      const { tabs, trail, launch } = launchTrail({ browserPid: null, socket: ['0\n', '0\n', '1\n'] });
+      const pending = launch();
+      await vi.advanceTimersByTimeAsync(499);
+      expect(links(trail())).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(trail()).toEqual([...READS, PACKAGES, BROWSER_START, SOCKET_COUNT, SOCKET_COUNT, SOCKET_COUNT,
+        VIEW, ACTIVITIES, 'tabs.restored']);
+      expect(withoutStart(trail())).toEqual(OLD_COLD_TRAIL);
+      expect(tabs.before).not.toHaveBeenCalled();
+      expect(tabs.restored).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(COLD_RESULT);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('still sends the link once to a headset whose display reads asleep after the wait, with the ordinary cold-start answer', async () => {
+    // Awake on the read before the start, asleep on any read after it.
+    const { tabs, trail, launch } = launchTrail({ browserPid: null, socket: '1\n', power: [powerDump(), powerDump({ display: 'Asleep' })] });
+    const result = await launch();
+    expect(trail()).toEqual([...READS, PACKAGES, BROWSER_START, SOCKET_COUNT, VIEW, ACTIVITIES, 'tabs.restored']);
+    expect(withoutStart(trail())).toEqual(OLD_COLD_TRAIL);
+    expect(tabs.before).not.toHaveBeenCalled();
+    expect(tabs.restored).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(COLD_RESULT);
+  });
+
+  it('catches a boundary screen that came up during the wait with the check after the link, and sweeps nothing', async () => {
+    // Clear on the read before the start, up on any read after it.
+    const { tabs, trail, launch } = launchTrail({ browserPid: null, socket: '1\n', activities: [CLEAR_DUMP, GUARDIAN_DUMP] });
+    const result = await launch();
+    expect(trail()).toEqual([...READS, PACKAGES, BROWSER_START, SOCKET_COUNT, VIEW, ACTIVITIES]);
+    expect(tabs.before).not.toHaveBeenCalled();
+    expect(tabs.restored).not.toHaveBeenCalled();
+    expect(result).toEqual({ opened: false, blocked: 'guardian-dialog', headset: COLD_HEADSET, message: `  ${GUARDIAN_DURING_LAUNCH_MESSAGE}` });
+    expect(result.message).toContain('during the launch');
+    expect(result.message).not.toContain('after the launch was sent');
+  });
+
+  it('sends the link as before when the start fails or throws', async () => {
+    const throwing = (run: Runner): Runner => async (command, args) => {
+      const answered = await run(command, args);
+      if (args.includes('-n')) throw Error('spawn EAGAIN');
+      return answered;
+    };
+    const cases: Array<[string, FakeHeadset, ((run: Runner) => Runner)?]> = [
+      ['reported an error', { launcher: { code: 0, stdout: 'Error: Activity class {com.oculus.browser/com.oculus.browser.OculusLauncherActivity} does not exist.', stderr: '' } }],
+      ['exited non-zero', { launcher: { code: 1, stdout: '', stderr: 'error: closed' } }],
+      ['threw', {}, throwing],
+    ];
+    for (const [label, headset, wrap] of cases) {
+      const { tabs, trail, launch } = launchTrail({ browserPid: null, socket: '1\n', ...headset }, wrap);
+      const result = await launch();
+      expect(trail(), label).toEqual([...READS, PACKAGES, BROWSER_START, VIEW, ACTIVITIES, 'tabs.restored']);
+      expect(withoutStart(trail()), label).toEqual(OLD_COLD_TRAIL);
+      expect(tabs.before, label).not.toHaveBeenCalled();
+      expect(result, label).toEqual(COLD_RESULT);
+    }
+  });
+
+  it('keeps waiting when grep exits with an error, even with a number on stdout', async () => {
+    vi.useFakeTimers();
+    try {
+      const { tabs, trail, launch } = launchTrail({ browserPid: null,
+        socket: [{ code: 2, stdout: '1\n', stderr: 'grep: /proc/net/unix: I/O error' }, '1\n'] });
+      const pending = launch();
+      await vi.advanceTimersByTimeAsync(249);
+      expect(links(trail())).toEqual([]);
+      expect(trail().filter(said => said === SOCKET_COUNT)).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(trail()).toEqual([...READS, PACKAGES, BROWSER_START, SOCKET_COUNT, SOCKET_COUNT, VIEW, ACTIVITIES, 'tabs.restored']);
+      expect(tabs.before).not.toHaveBeenCalled();
+      expect(result).toEqual(COLD_RESULT);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('keeps waiting through answers that do not show the debugger up, and sends the link only once one does', async () => {
+    vi.useFakeTimers();
+    try {
+      const { tabs, trail, launch } = launchTrail({ browserPid: null, socket: [{ code: 1, stdout: '', stderr: '' },
+        { code: 1, stdout: '0\n', stderr: '' }, Error('adb: device offline'), '1\n'] });
+      const pending = launch();
+      await vi.advanceTimersByTimeAsync(749);
+      expect(links(trail())).toEqual([]);
+      expect(trail().filter(said => said === SOCKET_COUNT)).toHaveLength(3);
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(trail()).toEqual([...READS, PACKAGES, BROWSER_START, SOCKET_COUNT, SOCKET_COUNT, SOCKET_COUNT, SOCKET_COUNT,
+        VIEW, ACTIVITIES, 'tabs.restored']);
+      expect(tabs.before).not.toHaveBeenCalled();
+      expect(tabs.restored).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(COLD_RESULT);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('keeps reading when every read is rejected, then sends the link once at ten seconds and sweeps after it', async () => {
+    vi.useFakeTimers();
+    try {
+      const { tabs, trail, launch } = launchTrail({ browserPid: null, socket: Error('adb: device offline') });
+      const pending = launch();
+      let settled = false;
+      void pending.then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(links(trail())).toEqual([]);
+      expect(trail().filter(said => said === SOCKET_COUNT).length).toBeGreaterThan(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(settled).toBe(true);
+      const result = await pending;
+      expect(withoutStart(trail())).toEqual(OLD_COLD_TRAIL);
+      expect(links(trail())).toEqual([VIEW]);
+      expect(tabs.before).not.toHaveBeenCalled();
+      expect(tabs.restored).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(COLD_RESULT);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('sends the link as before, once, when the debugger does not come up within ten seconds', async () => {
+    const hanging = (run: Runner): Runner => async (command, args) => {
+      const answered = await run(command, args);
+      return args.includes('grep') ? new Promise<RunResult>(() => {}) : answered;
+    };
+    const cases: Array<[string, FakeHeadset, ((run: Runner) => Runner)?]> = [
+      ['never listed', { socket: '0\n' }],
+      ['read never answers', { socket: '0\n' }, hanging],
+      ['read cannot run', { socket: { code: 2, stdout: '', stderr: 'grep: /proc/net/unix: Permission denied' } }],
+    ];
+    vi.useFakeTimers();
+    try {
+      for (const [label, headset, wrap] of cases) {
+        const { tabs, trail, launch } = launchTrail({ browserPid: null, ...headset }, wrap);
+        const pending = launch();
+        let settled = false;
+        void pending.then(() => { settled = true; });
+        await vi.advanceTimersByTimeAsync(9_999);
+        expect(links(trail()), label).toEqual([]);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(settled, label).toBe(true);
+        const result = await pending;
+        expect(withoutStart(trail()), label).toEqual(OLD_COLD_TRAIL);
+        expect(links(trail()), label).toEqual([VIEW]);
+        expect(tabs.before, label).not.toHaveBeenCalled();
+        expect(result, label).toEqual(COLD_RESULT);
+      }
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('ends the wait by its limit when the wall clock is set back during it', async () => {
+    vi.useFakeTimers();
+    try {
+      const { trail, launch } = launchTrail({ browserPid: null, socket: '0\n' });
+      const pending = launch();
+      let settled = false;
+      void pending.then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(1_000);
+      vi.setSystemTime(Date.now() - 60_000);
+      await vi.advanceTimersByTimeAsync(8_999);
+      expect(links(trail())).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(settled).toBe(true);
+      expect(await pending).toEqual(COLD_RESULT);
+      expect(links(trail())).toEqual([VIEW]);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('starts nothing first without Quest Browser or without tab steps, and nothing for a running browser', async () => {
+    const missing = launchTrail({ browserPid: null, packages: false, socket: '1\n' });
+    await missing.launch();
+    expect(missing.trail()).toEqual([...READS, PACKAGES, `shell am start -a android.intent.action.VIEW -d ${ADDRESS}`, ACTIVITIES, 'tabs.restored']);
+
+    const bare = launchTrail({ browserPid: null, socket: '1\n' });
+    expect((await bare.launch(false)).message).toBe('  launch attempted on A · put the headset on, then tap Enter VR.');
+    expect(bare.trail()).toEqual([...READS, PACKAGES, VIEW, ACTIVITIES]);
+
+    const running = launchTrail({ socket: '1\n' });
+    const result = await running.launch();
+    expect(running.trail()).toEqual([...READS, 'tabs.before', PACKAGES, VIEW, ACTIVITIES]);
+    expect(running.tabs.restored).not.toHaveBeenCalled();
+    expect(result).toEqual({ opened: true, headset: { ...COLD_HEADSET, browserRunning: true }, tabHygiene: hygiene(), message: launched(hygiene().note) });
   });
 });

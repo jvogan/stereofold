@@ -1008,8 +1008,10 @@ export function renderBudget({ device = 'unknown', atomSites = 0, triangles = 0,
  * second, so `?xrRenderBudget=hover:10` is a third of the Mol* default rather
  * than none.
  *
- * `budget`, `hydrogens` and `sphere` are measurement-only and land in
- * `unknown` here: `geometryDebugOptions` in `representation-budget.mjs` reads them.
+ * `budget` and `hydrogens` are measurement-only and land in `unknown` here,
+ * as does `sphere`, the spacefill sphere path (`impostor`, a mesh detail
+ * `0`-`3`, `mesh` or `auto`): `geometryDebugOptions` in `representation-budget.mjs`
+ * reads all three, and `sphereTypeParams` there applies the sphere path.
  *
  * @returns {{enabled:boolean, framebufferScale?:number, foveation?:number,
  *   targetFrameRate?:number|null, representationQuality?:string,

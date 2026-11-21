@@ -159,6 +159,19 @@ const BUSY_COMPANION_GRACE_MS = 180_000;
 const graceFor = (panel:Pick<Panel,'surface'|'availability'>) => panel.surface==='desktop'?PANEL_HEARTBEAT_GRACE_MS
   :panel.availability==='busy'?BUSY_COMPANION_GRACE_MS:COMPANION_HEARTBEAT_GRACE_MS;
 /**
+ * How long a lesson install waits for a paused headset page.
+ *
+ * Lesson geometry has to be built by the page that shows it, so a lesson for a
+ * wearer who glanced away or lifted the headset waits for that page to wake
+ * instead of being refused. It waits two minutes from acceptance, or the page's
+ * own heartbeat allowance if that is longer, and then expires with the reason.
+ * While it waits it holds up nothing: a newer command replaces it, and another
+ * panel's save commits and carries it along when it leaves the lesson's inputs
+ * alone (see `heldForPause`).
+ */
+const PAUSED_LESSON_HOLD_MS = 120_000;
+const NEWER_REQUEST_REPLACED_LESSON = 'A newer request replaced this lesson while the headset page was paused. The lesson was not sent.';
+/**
  * How long "the wearer walked over to the Mol* detail view" stays true.
  *
  * Pressing Open in Mol* in the headset sends that same browser tab to
@@ -175,9 +188,9 @@ const DETAILED_VIEW_AWAY_MS = 10 * 60_000;
  * Why a headset page cannot draw right now, read from its own
  * check-ins.
  *
- * On 2026-09-28 a Quest 2 asleep on a desk took an agent's colour edit while
- * its page was hidden, could not draw a frame, and rejected it thirty seconds
- * later as `render_failed`; the saved scene kept the old colours. New users do
+ * A Quest 2 asleep on a desk can take an agent's colour edit while its page is
+ * hidden, fail to draw a frame, and reject the edit thirty seconds later as
+ * `render_failed`, so the saved scene keeps the old colours. New users do
  * exactly this: put the headset down, type on the Mac, put it back on.
  *
  * - `page-hidden`: the flat page says its document is hidden and it is not
@@ -989,7 +1002,17 @@ export class InspectionCommands {
           this.receiptChanged(c.input.commandId);
           continue;
         }
-        if(this.pauseOf(panel,now)) c.deadline=c.deliveryDeadline=now+15000;
+        if(this.pauseOf(panel,now)) {
+          const hold=Math.max(PAUSED_LESSON_HOLD_MS,graceFor(panel));
+          if(now-c.receipt.acceptedAt>=hold) {
+            c.receipt.status='expired';c.receipt.reason='panel_hold_expired';
+            c.receipt.detail=`The headset page was still paused ${Math.round(hold/1000)} seconds after the lesson was sent, so it was not delivered. Install it again when the wearer is back.`;
+            delete c.expected;delete c.localBase;
+            this.receiptChanged(c.input.commandId);
+            continue;
+          }
+          c.deadline=c.deliveryDeadline=now+15000;
+        }
       }
       const held=c.tourTransition?.binding;
       // A queued edit whose page had already paused when its
@@ -1169,6 +1192,30 @@ export class InspectionCommands {
     }
     return true;
   }
+  /**
+   * Retire headset pages that can no longer reach the host.
+   *
+   * A page whose private Wi-Fi pairing was revoked, or whose share was
+   * closed, has lost its bearer and cannot check in again. Left registered
+   * until its heartbeat grace ran out, three minutes for a page last seen
+   * busy, it was still listed as the wearer's page and held a grow from the
+   * Mac to the class it had reported. Each goes now, as a detach does: a
+   * command it held is answered at once, and the page is listed among the
+   * reclaimed panels with `reason`. A beat it sends after pairing again is
+   * answered `attached:false` and recovers as a page past its grace does.
+   */
+  retireUnreachablePanels(panelIds:Iterable<string>,binding:InspectionBinding,reason:string) {
+    for(const panelId of panelIds) {
+      // A page already dropped for silence is no longer anyone's to wait for either.
+      if(this.quietCompanion?.panelId===panelId) this.quietCompanion=undefined;
+      const panel=this.panels.get(panelId);
+      if(!panel || panel.surface==='desktop') continue;
+      if(!this.detach({serverEpoch:panel.serverEpoch,sourceToken:panel.sourceToken,baseStateRevision:panel.baseStateRevision,
+        baseInspectionRevision:panel.baseInspectionRevision,panelId},binding)) continue;
+      this.reclaimedPanels.push({panelId,surface:panel.surface,inspectionRevision:panel.baseInspectionRevision,reclaimedAt:this.now(),reason});
+      if(this.reclaimedPanels.length>8)this.reclaimedPanels.shift();
+    }
+  }
   summary(binding:InspectionBinding, commandId?:string) {
     this.refresh(binding);
     const now=this.now();
@@ -1247,6 +1294,30 @@ export class InspectionCommands {
     // A busy page can freeze when the headset sleeps, so silence still pauses it.
     if(now-panel.seen>=WEARER_SILENT_MS) return 'silent';
     return undefined;
+  }
+  /**
+   * A lesson install waiting for its paused headset page.
+   *
+   * It stays queued so the page can still take it on waking, but it is not
+   * work in progress for anybody else: a page that cannot draw must not hold
+   * up the Mac. Nothing that asks whether a command is in progress counts it,
+   * a newer command replaces it (`retireHeldLessons`), and another panel's
+   * save commits past it (`settleLocalSave`).
+   */
+  private heldForPause(c:Command, now:number) {
+    if(c.receipt.status!=='queued' || c.input.change.kind!=='lesson') return false;
+    const panel=this.panels.get(c.input.panelId);
+    return Boolean(panel && this.pauseOf(panel,now));
+  }
+  /** Whether a command holds the queue: pending and not a lesson waiting for a paused page. */
+  private blocking(c:Command, now:number) { return pending(c) && !this.heldForPause(c,now); }
+  /** A newer request replaces every lesson still waiting for a paused page. */
+  private retireHeldLessons(now:number, detail:string) {
+    for(const c of this.commands.values()) if(this.heldForPause(c,now)) {
+      c.receipt.status='cancelled';c.receipt.reason='replaced_while_paused';c.receipt.detail=detail;
+      delete c.expected;delete c.localBase;
+      this.receiptChanged(c.input.commandId);
+    }
   }
   private quietWearer(now:number) {
     const quiet=this.quietCompanion;
@@ -1350,7 +1421,7 @@ export class InspectionCommands {
     if(!scene || !same(input,binding)) throw Error('Read get_inspection_state and use its current saved revisions before changing the inspection.');
     if(binding.inspectionRevision===Number.MAX_SAFE_INTEGER) throw Error('Inspection revision exhausted; open a new session.');
     if(!keptWhilePaused(input.change)) throw Error(wearerPausedRefusal(pause,input.change.kind));
-    if([...this.commands.values()].some(c=>pending(c)||c.renderFence)) throw Error('An inspection command is already in progress. Check its status first.');
+    if([...this.commands.values()].some(c=>this.blocking(c,now)||c.renderFence)) throw Error('An inspection command is already in progress. Check its status first.');
     const kept=expectedInspection(scene,input.change as InspectionChange);
     check(kept);
     for(const [id,c] of this.commands) {
@@ -1358,6 +1429,7 @@ export class InspectionCommands {
       if(this.canPruneReceipt(c,binding)) this.pruneCommand(id,c);
     }
     if(this.commands.size>=32) throw Error('This saved revision has too many failed commands. Make a deliberate manual edit or open a new session before trying again.');
+    this.retireHeldLessons(now,NEWER_REQUEST_REPLACED_LESSON);
     const receipt:Receipt={commandId:input.commandId,panelId:input.panelId,status:'saved',operation:visualOperation(input.change as InspectionChange,tool),
       acceptedAt:now,renderBudgetMs:this.renderBudgetMs,savedRevision:binding.inspectionRevision+1,wearerPaused:pause.reason,
       ...(input.appliedTo?{appliedTo:structuredClone(input.appliedTo)}:{}),
@@ -1468,6 +1540,8 @@ export class InspectionCommands {
    * companion page, so it needs this one field and nothing else.
    */
   surfaceOf(panelId:string) { return this.panels.get(panelId)?.surface; }
+  /** Whether this registry lists the panel, or remembers it as the headset page dropped for silence. */
+  remembersPanel(panelId:string) { return this.panels.has(panelId) || this.quietCompanion?.panelId===panelId; }
   /** A map and its reference atoms are different drawings. The host derives
    * this status from the verified density/catalog identities, never a page flag. */
   setDensityReferenceSource(sourceSha256:string|undefined) {
@@ -1542,7 +1616,8 @@ export class InspectionCommands {
    */
   canSettleLocalSave(panelId:string|undefined,binding:InspectionBinding,placementOnly=false) {
     this.refresh(binding);
-    const pendingCommands=[...this.commands.values()].filter(c=>pending(c)||c.renderFence);
+    const now=this.now();
+    const pendingCommands=[...this.commands.values()].filter(c=>this.blocking(c,now)||c.renderFence);
     return pendingCommands.length>0 && pendingCommands.every(c=>c.receipt.status==='queued' && !c.renderFence
       && c.input.panelId===panelId && (c.input.deferLocalSave || (placementOnly && c.localBase!==undefined)));
   }
@@ -1555,10 +1630,26 @@ export class InspectionCommands {
    * rest conflict here with the cause rather than later as merely stale.
    */
   settleLocalSave(panelId:string|undefined,before:InspectionBinding,after:InspectionBinding,scene:InspectionScene,previous?:InspectionScene|null) {
-    const placementOnly=Boolean(previous) && sameEntryScene(previous,scene);
+    const placementOnly=Boolean(previous) && sameEntryScene(previous,scene), now=this.now();
     for(const c of this.commands.values()) {
-      if(c.receipt.status!=='queued' || c.renderFence || c.input.panelId!==panelId || !same(c.input,before))continue;
+      if(c.receipt.status!=='queued' || c.renderFence || !same(c.input,before))continue;
       const change=c.input.change;
+      // A lesson waiting for a paused headset page did not hold up this save.
+      // It follows the save when its inputs are unchanged, as an unbound
+      // command follows its own page's save; the page follows the saved
+      // revision when it wakes and then takes the lesson.
+      if(c.input.panelId!==panelId) {
+        if(change.kind!=='lesson' || !this.heldForPause(c,now))continue;
+        if(c.localBase && compatibleLocalSave(c.localBase,scene,change)) {
+          c.input.baseInspectionRevision=after.inspectionRevision;
+          c.localBase=structuredClone(scene);c.expected=expectedInspection(scene,change);
+        } else {
+          c.receipt.status='conflict';c.receipt.reason='Another panel changed this lesson’s inputs while the headset page was paused. Read get_inspection_state, then send it again.';
+          delete c.expected;delete c.localBase;
+        }
+        this.receiptChanged(c.input.commandId);
+        continue;
+      }
       if(!(c.input.deferLocalSave || placementOnly) || !c.localBase || change.kind==='save-view' || change.kind==='restore-view'
         || !compatibleLocalSave(c.localBase,scene,change)) {
         c.receipt.status='conflict';c.receipt.reason=localSaveConflictReason(placementOnly);delete c.expected;delete c.localBase;
@@ -1596,7 +1687,11 @@ export class InspectionCommands {
       if(moved) u.wearerMoved=true;
     }
   }
-  hasPending(binding:InspectionBinding) { this.refresh(binding);return [...this.commands.values()].some(c=>pending(c)||c.renderFence); }
+  hasPending(binding:InspectionBinding) {
+    this.refresh(binding);
+    const now=this.now();
+    return [...this.commands.values()].some(c=>this.blocking(c,now)||c.renderFence);
+  }
   /** A source-changing experience transition cannot target a dirty or stale panel. */
   readyPanel(panelId:string,binding:InspectionBinding) {
     this.refresh(binding);
@@ -1607,6 +1702,39 @@ export class InspectionCommands {
     if(!this.panels.has(panelId) && this.quietCompanion?.panelId===panelId)
       this.panels.set(panelId,this.quietCompanion);
     this.sourceLoadPanels.add(panelId);
+    this.retireHeldLessons(this.now(),'A new structure was loaded while the headset page was paused. The lesson was not sent.');
+  }
+  /** A source load whose sleeping owner never started it passes to a page that can draw it. */
+  transferSourceLoad(from:string,to:string) {
+    this.sourceLoadPanels.delete(from);
+    this.sourceLoadPanels.add(to);
+  }
+  /**
+   * Whether this panel cannot draw now: dropped from the registry, or a
+   * headset page that is paused.
+   */
+  cannotDraw(panelId:string) {
+    const panel=this.panels.get(panelId);
+    return !panel || Boolean(this.pauseOf(panel,this.now()));
+  }
+  /** Whether this panel is attached on this source and can draw now. */
+  canDraw(panelId:string,binding:InspectionBinding) {
+    const panel=this.panels.get(panelId);
+    return Boolean(panel && panel.surface!=='detailed' && panel.serverEpoch===binding.serverEpoch
+      && panel.sourceToken===binding.sourceToken && !this.pauseOf(panel,this.now()));
+  }
+  /**
+   * The panel that can draw a source load now when the wearer's page cannot:
+   * a visible headset page first, then this Mac's. A page that is paused or
+   * was dropped for silence is never it.
+   */
+  drawingPanel(binding:InspectionBinding):string|undefined {
+    this.refresh(binding);
+    const now=this.now();
+    const able=[...this.panels.values()].filter(panel=>panel.surface!=='detailed' && panel.serverEpoch===binding.serverEpoch
+      && panel.sourceToken===binding.sourceToken && !this.pauseOf(panel,now));
+    return (this.preferredPanels(able.filter(panel=>panel.surface==='companion'))[0]
+      ?? this.preferredPanels(able.filter(panel=>panel.surface==='desktop'))[0])?.panelId;
   }
   /** A host replacement owns the next source, even during input or sleep. */
   sourceLoadRefusal(panelId:string,binding:InspectionBinding,requireReady=false):string|undefined {
@@ -1725,7 +1853,8 @@ export class InspectionCommands {
         ? !panel?'The lesson panel is no longer attached. Reconnect its page before installing the lesson.'
           :'The lesson panel is showing an older source or revision. Wait for its current load to finish.'
         :'The target panel is unavailable, busy, or has unsaved work. Read get_inspection_state.');
-    if([...this.commands.values()].some(pending)) throw Error('An inspection command is already in progress. Check its status first.');
+    const now=this.now();
+    if([...this.commands.values()].some(c=>this.blocking(c,now))) throw Error('An inspection command is already in progress. Check its status first.');
     if(input.change.kind==='save-view'||input.change.kind==='restore-view') throw Error('Use the named-view command path.');
     const expected=expectedInspection(scene,input.change);
     // Eviction is safe only when the old expected revision can no longer be
@@ -1746,6 +1875,7 @@ export class InspectionCommands {
     const holdReason=receipt.heldForPanel ? [...this.commands.values()].some(c=>c.renderFence)
       ? 'The change was not sent because the previous cancelled change was still being restored. Try again when the view is ready.'
       : 'The change was not sent because the panel stayed busy. Try again when the view is ready.' : undefined;
+    this.retireHeldLessons(now,NEWER_REQUEST_REPLACED_LESSON);
     // Every queued command keeps the scene it was admitted against, so a
     // placement save can carry a bound command too (`settleLocalSave`).
     this.commands.set(input.commandId,{input:structuredClone(input),signature,expected,localBase:structuredClone(scene),receipt,holdReason,deliveryDeadline:this.now()+15000,deadline:this.now()+15000,issuedAt:++this.serial});
@@ -1769,7 +1899,8 @@ export class InspectionCommands {
     if(pause) throw Error(wearerPausedRefusal(pause,input.change.kind));
     if(!panel || !same(panel,binding) || panel.availability!=='ready')
       throw Error('The target panel is unavailable, busy, or has unsaved work. Read get_inspection_state.');
-    if([...this.commands.values()].some(pending)) throw Error('An inspection command is already in progress. Check its status first.');
+    const now=this.now();
+    if([...this.commands.values()].some(c=>this.blocking(c,now))) throw Error('An inspection command is already in progress. Check its status first.');
     // A named capture deliberately leaves inspectionRevision unchanged. Keep
     // its command tombstone so the same ID cannot later capture different
     // panel state; only commands from an older committed revision are safe to
@@ -1784,6 +1915,7 @@ export class InspectionCommands {
       operation:visualEdit([input.change.kind],'manage_inspection_view'),acceptedAt:this.now(),
       renderBudgetMs:this.renderBudgetMs,
       ...(input.utteranceId?{utteranceId:input.utteranceId,utteranceSequence:this.utterance(input.utteranceId)?.sequence}:{})};
+    this.retireHeldLessons(now,NEWER_REQUEST_REPLACED_LESSON);
     this.commands.set(input.commandId,{input:structuredClone(input),signature,expected,receipt,deadline:this.now()+15000,issuedAt:++this.serial});
     return {...receipt};
   }
@@ -1874,7 +2006,9 @@ export class InspectionCommands {
       return {attached:true};
     }
     const fenced=[...this.commands.values()].some(c=>c.renderFence);
-    if((input.availability!=='ready' && !(c.input.change.kind==='lesson' && classifyPanelAvailability(panel.xrStartup?.value)==='busy')) || fenced) {
+    // A lesson waits for `ready` like any edit: a busy panel may be a hand on
+    // the molecule, and that grab is the wearer's to finish.
+    if(input.availability!=='ready' || fenced) {
       c.receipt.heldForPanel=true;
       c.holdReason=fenced
         ? 'The change was not sent because the previous cancelled change was still being restored. Try again when the view is ready.'
@@ -1979,6 +2113,13 @@ export class InspectionCommands {
     if(recenter && input.recenterCompletion?.menuReseated===false)
       c.receipt.detail='The structure reset, but the menu did not move.';
     if(input.placementAdjusted) c.receipt.detail='Moved or resized the structure to clear the headset menu and reply plate.';
+    // A playback control's receipt accepts the page's own slide of the
+    // structure (`matchesInspectionChange`); say so, so a step sent next is
+    // not read against the placement from before.
+    if(animationChange && c.expected
+      && inspectionJson(input.scene.inspection.placement)!==inspectionJson(c.expected.inspection.placement))
+      c.receipt.detail=`${this.panels.get(c.input.panelId)?.surface==='companion'?'The headset page':'The panel'} moved the structure `
+        +'while it drew this change; the saved placement is where it drew it.';
     this.releaseQueuedSupersessions(c);
     this.releasePredecessors(c,'replacement-rendered');
     if(input.scene.inspection.companionStructure) { const companion=input.scene.inspection.companionStructure;

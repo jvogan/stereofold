@@ -153,7 +153,7 @@ test('the paint read-back buckets the live colour data, not the asked-for params
 });
 
 test('the paint read-back names the cream map the headset actually drew', () => {
-  // What run 7 had: Mol* fell back to `ColorTheme.Empty`, uniform 0xCCCCCC.
+  // The fallback drawn as a cream map: Mol* uses `ColorTheme.Empty`, uniform 0xCCCCCC.
   const repr = { theme: { color: { factory: () => ({}) } },
     renderObjects: [{ values: { dColorType: { ref: { value: 'uniform' } },
       uColor: { ref: { value: [0.8, 0.8, 0.8] } } } }] };

@@ -1517,7 +1517,7 @@ function collectPluginDefects(results: RunResult[]): PluginDefect[] {
           category: 'plugin',
           fails: false,
           pluginSite: 'plugin/src/viewer.css',
-          note: 'A visible control outside the drawer extends beyond the host panel or overlaps another control. Seen first on the codex-narrow profile (440 CSS px), measured from a live Codex card on 2026-09-01.',
+          note: 'A visible control outside the drawer extends beyond the host panel or overlaps another control. Applies to narrow host cards such as the codex-narrow profile (440 CSS px).',
         },
         `${result.profile} @${result.deviceScaleFactor}x ${entry}`,
       );

@@ -10,7 +10,7 @@ const { IDENTITY_4, applyOperator } = require('./geometry.cjs');
  * dependencies. Keeping Mol* and hashing outside this module lets the lab use
  * its pinned package resolver while the bundled plugin uses static imports.
  */
-function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVersion, sha256, yieldToHost }) {
+function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVersion, sha256, yieldToHost, rowBudget }) {
   if (CIF == null || typeof CIF.parse !== 'function'
     || typeof trajectoryFromMmCIF !== 'function'
     || Symmetry == null || typeof Symmetry.findAssembly !== 'function'
@@ -22,6 +22,28 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
   // same thread can answer them during a long extraction. It may return a
   // promise to wait on or nothing. The catalog does not depend on it.
   if (yieldToHost != null && typeof yieldToHost !== 'function') throw new TypeError('yieldToHost must be a function.');
+  // Optional: the most residue rows one catalog may hold, and the error to
+  // raise past it. Declared sequences are counted before they are expanded and
+  // every row is counted before it is kept, so a small file that declares a
+  // vast table is refused without building it. Without a budget the extractor
+  // builds whatever the source declares.
+  //
+  // An assembly can copy a few chains of an entry whose other chains hold more
+  // rows than one catalog can. For an assembly, `maximumDeclaredRows` (at least
+  // `maximumRows`, and `maximumRows` when absent) bounds the rows declared and
+  // stored before the assembly selects its chains, and `maximumRows` judges the
+  // rows the assembly produces. The asymmetric unit keeps every chain, so it
+  // holds both counts to `maximumRows`.
+  if (rowBudget != null && (!Number.isSafeInteger(rowBudget.maximumRows) || rowBudget.maximumRows < 1
+    || typeof rowBudget.refuse !== 'function'
+    || (rowBudget.maximumDeclaredRows != null && (!Number.isSafeInteger(rowBudget.maximumDeclaredRows)
+      || rowBudget.maximumDeclaredRows < rowBudget.maximumRows)))) {
+    throw new TypeError('rowBudget requires a positive integer maximumRows, a refuse function and no smaller maximumDeclaredRows.');
+  }
+  function admitRows(rows, maximum = rowBudget?.maximumRows) {
+    // Written so that a count that is not a number is refused, never admitted.
+    if (rowBudget && !(rows <= maximum)) throw rowBudget.refuse(rows, maximum);
+  }
 
   function cell(category, name, index) {
     const field = category?.getField(name);
@@ -56,6 +78,109 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
   function baseKey(i) {
     return JSON.stringify([i.entityId, i.labelChain, i.authorChain, i.labelSequenceId,
       i.authorResidue, i.insertionCode, i.componentId]);
+  }
+
+  /**
+   * The declared rows the models expand to, counted from the parsed tables
+   * before Mol* 5.11 builds a model: every declared sequence row times every
+   * chain of its entity (at least one, since Mol* builds each declared
+   * sequence whether or not a chain names its entity), times the atom_site
+   * models. When a file lists no unobserved residues, Mol* walks this product
+   * to find them, it builds the sequences again for every model whose atoms
+   * differ from the model before, and `sequenceRows` walks the product again
+   * for the catalog, so it is counted before any of these runs. When
+   * `ihm_model_list` has rows, Mol* instead builds one model per row of that
+   * list, each with every declared sequence row, so those are added. For a
+   * well-formed file without that list it equals the declared rows of the
+   * asymmetric-unit catalog. The count reads each table row once.
+   */
+  function declaredRowCount(frame) {
+    const chainsByEntity = new Map(), asym = frame.categories.struct_asym;
+    for (let i = 0; i < (asym?.rowCount ?? 0); i++) {
+      const entityId = cell(asym, 'entity_id', i);
+      chainsByEntity.set(entityId, (chainsByEntity.get(entityId) ?? 0) + 1);
+    }
+    let rowsPerModel = 0;
+    const seq = frame.categories.entity_poly_seq, sequenceRows = seq?.rowCount ?? 0;
+    for (let i = 0; i < sequenceRows; i++) rowsPerModel += Math.max(1, chainsByEntity.get(cell(seq, 'entity_id', i)) ?? 0);
+    return rowsPerModel * Math.max(1, atomSiteModels(frame)) + sequenceRows * (frame.categories.ihm_model_list?.rowCount ?? 0);
+  }
+
+  /**
+   * The models Mol* builds from atom_site: one at every run of equal
+   * consecutive model numbers, or one when the column is absent. A run is
+   * never fewer than the distinct numbers it holds, which bound the models
+   * the missing-residue walk visits on either of Mol*'s routes.
+   */
+  function atomSiteModels(frame) {
+    const atom = frame.categories.atom_site, rows = atom?.rowCount ?? 0;
+    const number = atom?.getField('pdbx_PDB_model_num');
+    let runs = rows ? 1 : 0;
+    // Mol* compares the raw values the way this does, so '1' and '01' differ.
+    if (number) for (let i = 1; i < rows; i++) if (!number.areValuesEqual(i - 1, i)) runs++;
+    return runs;
+  }
+
+  /**
+   * Rows Mol* 5.11 walks again for every model it builds besides the declared
+   * sequences, never fewer than it walks. Every model reads every
+   * molstar_atom_site_operator_mapping row. Every integrative model keeps one
+   * entry per struct_asym row. With a pdbx_molecule prd_id column, every model
+   * reads every pdbx_molecule row and keeps one value per entity. An
+   * integrative model listed under an id already listed builds that id's
+   * atom_site, sphere and gaussian rows again, counted here as the longest run
+   * of each. Every integrative model scans every ihm_model_group_link and
+   * ihm_model_group row for its group name. Models are `modelsBuilt`.
+   */
+  function perModelRows(frame) {
+    const categories = frame.categories, rowsOf = name => categories[name]?.rowCount ?? 0;
+    const listed = rowsOf('ihm_model_list'), models = modelsBuilt(frame);
+    let rows = rowsOf('molstar_atom_site_operator_mapping') * models
+      + (rowsOf('struct_asym') + rowsOf('ihm_model_group_link') + rowsOf('ihm_model_group')) * listed;
+    if (categories.pdbx_molecule?.getField('prd_id')) {
+      // Without an entity id column Mol* takes its entities from the atom and coarse rows.
+      const entities = categories.entity?.getField('id') ? rowsOf('entity')
+        : rowsOf('atom_site') + rowsOf('ihm_sphere_obj_site') + rowsOf('ihm_gaussian_obj_site');
+      rows += (rowsOf('pdbx_molecule') + entities) * models;
+    }
+    if (listed) {
+      // Mol* keys a listed model by the integer value of its id.
+      const ids = new Set(), id = categories.ihm_model_list.getField('model_id');
+      for (let i = 0; i < listed; i++) ids.add(id ? id.int(i) : 0);
+      const atomModel = categories.atom_site?.getField('ihm_model_id') ? 'ihm_model_id' : 'pdbx_PDB_model_num';
+      rows += (listed - ids.size) * (longestRun(categories.atom_site, atomModel)
+        + longestRun(categories.ihm_sphere_obj_site, 'model_id') + longestRun(categories.ihm_gaussian_obj_site, 'model_id'));
+    }
+    return rows;
+  }
+
+  /** The atom_site runs plus the listed integrative models: at least the models either of Mol*'s routes builds. */
+  function modelsBuilt(frame) {
+    return atomSiteModels(frame) + (frame.categories.ihm_model_list?.rowCount ?? 0);
+  }
+
+  /**
+   * Rows Mol* walks to build one model's symmetry, which an assembly catalog
+   * reads once per model whose atoms differ: every pdbx_struct_assembly row
+   * scans every pdbx_struct_assembly_gen row, then every
+   * pdbx_struct_oper_list row becomes a matrix (none of these without an
+   * assembly row), and every struct_ncs_oper row is read.
+   */
+  function assemblyRows(frame) {
+    const rowsOf = name => frame.categories[name]?.rowCount ?? 0, assemblies = rowsOf('pdbx_struct_assembly');
+    return (assemblies ? assemblies * (1 + rowsOf('pdbx_struct_assembly_gen')) + rowsOf('pdbx_struct_oper_list') : 0) + rowsOf('struct_ncs_oper');
+  }
+
+  /** The most consecutive rows sharing one value of `name`; all rows when the column is absent. */
+  function longestRun(category, name) {
+    const rows = category?.rowCount ?? 0, field = category?.getField(name);
+    if (!field) return rows;
+    let longest = rows ? 1 : 0;
+    for (let i = 1, run = 1; i < rows; i++) {
+      run = field.areValuesEqual(i - 1, i) ? run + 1 : 1;
+      if (run > longest) longest = run;
+    }
+    return longest;
   }
 
   function sourceTopology(frame, model) {
@@ -169,9 +294,22 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
    */
   const tuple = (...values) => values.map(value => `${typeof value}:${value}`).join('\u0000');
 
-  function sequenceRows(frame, topology, observed) {
+  /** The rows the assembly copies take from `baseRows`, counted without building them. */
+  function copyRowCount(baseRows, copies) {
+    const rowsByChain = new Map();
+    for (const row of baseRows) rowsByChain.set(row.identity.labelChain, (rowsByChain.get(row.identity.labelChain) ?? 0) + 1);
+    let rows = 0;
+    for (const copy of copies) for (const labelChain of new Set(copy.labelChains)) rows += rowsByChain.get(labelChain) ?? 0;
+    return rows;
+  }
+
+  function sequenceRows(frame, topology, observed, maximumStored) {
     if (topology.observedOnly) return [...observed.values()];
     const results = new Map();
+    // Counts every row stored, replacements included, so neither the kept rows
+    // nor the work spent on them can pass the budget.
+    let stored = 0;
+    const keep = (key, row) => { admitRows(++stored, maximumStored); results.set(key, row); };
     const consumedObserved = new Set();
     const scheme = frame.categories.pdbx_poly_seq_scheme;
     const schemeRowsByChain = new Map();
@@ -239,27 +377,101 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
               for (const field of ['authorChain', 'authorResidue', 'insertionCode']) {
                 if (identity[field] === null) identity[field] = declared[field];
               }
-              results.set(baseKey(identity), { ...site, identity, sequenceDeclared: true,
+              keep(baseKey(identity), { ...site, identity, sequenceDeclared: true,
                 mappingOrigin: schemeIndex === null ? 'entity_poly_seq_and_atom_site' : 'pdbx_poly_seq_scheme_and_atom_site' });
             }
           } else {
-            results.set(baseKey(declared), { identity: declared, entityType: chain.entityType,
+            keep(baseKey(declared), { identity: declared, entityType: chain.entityType,
               sequenceDeclared: true, mappingOrigin: schemeIndex === null ? 'entity_poly_seq' : 'pdbx_poly_seq_scheme', atomSites: [] });
           }
         }
       }
     }
-    for (const [key, row] of observed) if (!consumedObserved.has(key) && !results.has(key)) results.set(key, row);
+    for (const [key, row] of observed) if (!consumedObserved.has(key) && !results.has(key)) keep(key, row);
     return [...results.values()];
   }
 
-  function assemblyCopies(model, assemblyId, topology) {
+  /**
+   * The operator names one `oper_expression` lists and the combinations they
+   * form, counted the way Mol* parses it (`parseOperatorList` in its assembly
+   * reader) without expanding a range or a product. Mol* lists every name of
+   * every group before it forms the product, so the names are bounded too. A
+   * range whose end is not a safe integer counts as unbounded: Mol* would never
+   * finish listing it. Mol* then forms the product recursively from the last
+   * group back to the first, one call per partial combination, so an empty
+   * group stops only the groups before it; `branches` counts those calls.
+   */
+  function operatorCombinations(expression) {
+    const groups = /\(?([^\(\)]+)\)?]*/g;
+    const sizes = [];
+    let combinations = 1, names = 0, group;
+    while ((group = groups.exec(expression))) {
+      let size = 0;
+      for (const element of group[1].split(',')) {
+        const dash = element.indexOf('-');
+        if (dash <= 0) { size += 1; continue; }
+        const from = parseInt(element.substring(0, dash)), to = parseInt(element.substr(dash + 1));
+        if (!(to >= from)) continue;
+        size += Number.isSafeInteger(from) && Number.isSafeInteger(to) ? to - from + 1 : Infinity;
+      }
+      names += size;
+      // An empty group forms no combination however large the others are; kept
+      // out of the product so an overflowed product times zero is not NaN.
+      combinations = size === 0 || combinations === 0 ? 0 : combinations * size;
+      sizes.push(size);
+    }
+    let partial = 1, branches = 0;
+    for (let i = sizes.length - 1; i >= 0 && partial > 0; i--) {
+      branches += partial;
+      partial = sizes[i] && partial * sizes[i];
+    }
+    return { combinations: names === Infinity ? Infinity : combinations, names, branches };
+  }
+
+  /**
+   * The copies and rows an assembly would add, counted from its generator
+   * rows in `pdbx_struct_assembly_gen` and the chains of `baseRows`. Reading
+   * the assembly's `operatorGroups` makes Mol* build every combination, so
+   * this runs first.
+   */
+  function assemblyExpansion(frame, assembly, baseRows) {
+    const gen = frame.categories.pdbx_struct_assembly_gen;
+    const field = name => gen?.getField(name);
+    const ids = field('assembly_id'), expressions = field('oper_expression'), chainLists = field('asym_id_list');
+    const rowsByChain = new Map();
+    for (const row of baseRows) rowsByChain.set(row.identity.labelChain, (rowsByChain.get(row.identity.labelChain) ?? 0) + 1);
+    let copies = 0, names = 0, rows = 0, branches = 0;
+    for (let i = 0; i < (gen?.rowCount ?? 0); i++) {
+      if ((ids ? ids.str(i) : '') !== assembly.id) continue;
+      const operators = operatorCombinations(expressions ? expressions.str(i) : ''), combinations = operators.combinations;
+      names += operators.names;
+      branches += operators.branches;
+      // Split as Mol* splits a list column.
+      const chains = new Set((chainLists ? chainLists.str(i) : '').split(',').map(id => id.trim()).filter(id => !!id));
+      let chainRows = 0;
+      for (const labelChain of chains) chainRows += rowsByChain.get(labelChain) ?? 0;
+      copies += combinations;
+      rows += chainRows && combinations * chainRows;
+    }
+    return { copies, names, rows, branches };
+  }
+
+  function assemblyCopies(frame, model, assemblyId, topology, baseRows, priorRows) {
     if (assemblyId === 'asymmetric_unit') {
       const copy = { assemblyId, generatorIndex: null, operatorIds: [], labelChains: [...new Set(topology.chains.map(c => c.labelChain))], matrix: [...IDENTITY_4] };
       return [{ ...copy, copyId: copyKey(copy) }];
     }
     const assembly = Symmetry.findAssembly(model, assemblyId);
     if (!assembly) throw new Error(`Assembly ${assemblyId} is not defined for model ${model.modelNum}.`);
+    if (rowBudget) {
+      // Each copy is a catalog record too, so a product of operators over
+      // chains without rows is held to the same budget, as are the operator
+      // names Mol* lists and the partial combinations it walks, which an
+      // empty group leaves in place when it forms no copy.
+      const expansion = assemblyExpansion(frame, assembly, baseRows);
+      admitRows(priorRows + expansion.rows);
+      admitRows(Math.max(expansion.copies, expansion.names, expansion.branches));
+    }
     return assembly.operatorGroups.flatMap((group, generatorIndex) => group.operators.map(operator => {
       if (group.asymIds.some(id => !topology.chains.some(chain => chain.labelChain === id))) {
         throw new Error(`Assembly ${assemblyId} refers to an unknown label chain.`);
@@ -281,6 +493,17 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
     applyCifFieldCaseCompatibility(parsed.result);
     if (parsed.result.blocks.length !== 1) throw new Error('This draft requires one mmCIF data block.');
     const frame = parsed.result.blocks[0];
+    const maximumDeclared = assemblyId === 'asymmetric_unit' ? rowBudget?.maximumRows
+      : rowBudget?.maximumDeclaredRows ?? rowBudget?.maximumRows;
+    if (rowBudget) {
+      const declared = declaredRowCount(frame);
+      admitRows(declared, maximumDeclared);
+      // The tables Mol* walks per model are held to the wider declared bound,
+      // leaving the asymmetric unit's comparison with the catalog limit as it was.
+      // An assembly also builds each model's symmetry.
+      const symmetry = assemblyId === 'asymmetric_unit' ? 0 : modelsBuilt(frame) * assemblyRows(frame);
+      admitRows(declared + perModelRows(frame) + symmetry, rowBudget.maximumDeclaredRows ?? rowBudget.maximumRows);
+    }
     const sourceRows = sourceAtomRows(frame);
     const trajectory = await trajectoryFromMmCIF(frame).run();
     if (!trajectory.frameCount) throw new Error('The source has no parsed coordinate model.');
@@ -291,8 +514,9 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
       if (modelNumbers.includes(model.modelNum)) throw new Error('Duplicate source model numbers require a separate identity rule.');
       modelNumbers.push(model.modelNum);
       const topology = sourceTopology(frame, model);
-      const baseRows = sequenceRows(frame, topology, observedResidues(frame, model, topology, sourceRows));
-      const modelCopies = assemblyCopies(model, assemblyId, topology);
+      const baseRows = sequenceRows(frame, topology, observedResidues(frame, model, topology, sourceRows), maximumDeclared);
+      const modelCopies = assemblyCopies(frame, model, assemblyId, topology, baseRows, rows.length);
+      if (rowBudget) admitRows(rows.length + copyRowCount(baseRows, modelCopies));
       for (const copy of modelCopies) {
         copies.push({ ...copy, modelNumber: model.modelNum });
         const copyChains = new Set(copy.labelChains);
@@ -322,7 +546,24 @@ function createCatalogExtractor({ CIF, trajectoryFromMmCIF, Symmetry, molstarVer
       molstarVersion, assemblyId, modelNumbers, copies, rows });
   }
 
-  return { extractBytes };
+  /**
+   * Refuse mmCIF text whose declarations expand past `maximum` rows, counted
+   * as `extractBytes` counts them for its declared bound (the declared rows
+   * plus the tables Mol* walks per model), from the parsed tables alone: no model is
+   * built. For a host that hands the text to Mol* itself, which walks the same
+   * rows while it parses. Every data block is counted. Text that does not
+   * parse is left for that host's own parser to report. Without a budget this
+   * admits everything.
+   */
+  async function admitDeclaredRows(input, maximum = rowBudget?.maximumDeclaredRows ?? rowBudget?.maximumRows) {
+    if (!rowBudget) return;
+    const parsed = await CIF.parse(typeof input === 'string' ? input : Buffer.from(input).toString('utf8')).run();
+    if (parsed.isError) return;
+    applyCifFieldCaseCompatibility(parsed.result);
+    for (const frame of parsed.result.blocks) admitRows(declaredRowCount(frame) + perModelRows(frame), maximum);
+  }
+
+  return { extractBytes, admitDeclaredRows };
 }
 
 module.exports = { createCatalogExtractor };

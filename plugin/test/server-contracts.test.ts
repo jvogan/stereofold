@@ -110,6 +110,51 @@ function uiResourceUri(tool: { _meta?: Record<string, unknown> }): unknown {
   return ui?.resourceUri ?? tool._meta?.['ui/resourceUri'];
 }
 
+/**
+ * One declared residue on chain A, and a table Mol* walks again for every
+ * model it builds: operator-mapping (`models` contiguous models, `rows`
+ * molstar_atom_site_operator_mapping rows), integrative-chains (`models`
+ * listed integrative models, `rows` more struct_asym rows), molecule
+ * (`models` contiguous models, `rows` entities and `rows` pdbx_molecule rows)
+ * or repeated-model (`models` listed integrative models all named 1, `rows`
+ * atoms in model 1).
+ */
+function perModelTables(term: 'operator-mapping' | 'integrative-chains' | 'molecule' | 'repeated-model' | 'group-names' | 'assembly', models: number, rows: number) {
+  const atom = (id: number, name: string, model: number) => `ATOM ${id} C ${name} . ALA A 1 1 ? 0 0 0 1 10 1 ALA A ${name} ${model}`;
+  const entities = term === 'molecule' ? rows : term === 'integrative-chains' ? 2 : 1;
+  const lines = ['data_per_model_tables', 'loop_', '_entity.id', '_entity.type',
+    ...Array.from({ length: entities }, (_, e) => `${e + 1} ${e ? 'non-polymer' : 'polymer'}`), '#',
+    'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id', '1 1 ALA', '#',
+    'loop_', '_struct_asym.id', '_struct_asym.entity_id', 'A 1'];
+  if (term === 'integrative-chains') lines.push(...Array.from({ length: rows }, (_, a) => `X${a} 2`));
+  lines.push('#');
+  if (term === 'operator-mapping') lines.push('loop_', ...['label_asym_id', 'auth_asym_id', 'operator_name', 'suffix', 'assembly_id',
+    'assembly_operator_id', 'symmetry_operator_index', 'symmetry_hkl', 'ncs_id'].map(field => `_molstar_atom_site_operator_mapping.${field}`),
+  ...Array.from({ length: rows }, (_, r) => `Q${r} Q${r} op${r} s${r} 1 ${r + 1} ? '0 0 0' ?`), '#');
+  if (term === 'molecule') lines.push('loop_', '_pdbx_molecule.instance_id', '_pdbx_molecule.prd_id', '_pdbx_molecule.asym_id',
+    ...Array.from({ length: rows }, (_, p) => `${p + 1} PRD_${String(p).padStart(6, '0')} A`), '#');
+  if (term === 'group-names') lines.push('loop_', '_ihm_model_group.id', '_ihm_model_group.name',
+    ...Array.from({ length: rows }, (_, g) => `${g + 1} g${g + 1}`), '#', 'loop_', '_ihm_model_group_link.group_id', '_ihm_model_group_link.model_id',
+    ...Array.from({ length: rows }, (_, k) => `${k + 1} ${k + 1}`), '#');
+  if (term === 'assembly') lines.push('loop_', '_pdbx_struct_assembly.id', '_pdbx_struct_assembly.details', "1 'copies'", '#',
+    'loop_', '_pdbx_struct_assembly_gen.assembly_id', '_pdbx_struct_assembly_gen.oper_expression', '_pdbx_struct_assembly_gen.asym_id_list',
+    ...Array.from({ length: rows }, () => "1 '1' A"), '#', 'loop_', ...['id', 'type', 'matrix[1][1]', 'matrix[1][2]', 'matrix[1][3]', 'vector[1]',
+      'matrix[2][1]', 'matrix[2][2]', 'matrix[2][3]', 'vector[2]', 'matrix[3][1]', 'matrix[3][2]', 'matrix[3][3]', 'vector[3]'].map(field => `_pdbx_struct_oper_list.${field}`),
+    ...Array.from({ length: rows }, (_, o) => `${o + 1} 'translation' 1 0 0 ${o} 0 1 0 0 0 0 1 0`), '#');
+  if (term === 'integrative-chains' || term === 'repeated-model' || term === 'group-names') lines.push('loop_', '_ihm_model_list.model_id', '_ihm_model_list.model_name',
+    ...Array.from({ length: models }, (_, m) => `${term === 'repeated-model' ? 1 : m + 1} m${m + 1}`), '#');
+  const atoms = term === 'repeated-model' ? Array.from({ length: rows }, (_, i) => atom(i + 1, 'CA', 1))
+    : term === 'integrative-chains' || term === 'group-names' ? [atom(1, 'CA', 1)] : Array.from({ length: models }, (_, i) => atom(i + 1, i % 2 ? 'CB' : 'CA', i + 1));
+  lines.push('loop_', ...['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id',
+    'label_entity_id', 'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv',
+    'auth_seq_id', 'auth_comp_id', 'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num'].map(field => `_atom_site.${field}`), ...atoms, '#', '');
+  return lines.join('\n');
+}
+// Each just past 1,000,000 rows while its declared sequences stay near 1,000:
+// [term, models, rows, the rows counted].
+const PER_MODEL_CASES = [['operator-mapping', 1_000, 1_000, '1,001,000'], ['integrative-chains', 1_000, 999, '1,001,001'],
+  ['molecule', 1_000, 500, '1,001,000'], ['repeated-model', 1_001, 1_000, '1,002,003'], ['group-names', 1_000, 500, '1,002,001']] as const;
+
 describe('Stereofold server contracts', () => {
   it('recognizes a direct server launch through a symlinked parent directory', async () => {
     const sourcePath = fileURLToPath(new URL('../src/server.ts', import.meta.url));
@@ -579,6 +624,132 @@ describe('Stereofold server contracts', () => {
       expect(privateStructure(after)).toEqual(privateStructure(before));
       expect(state.structuredContent).toMatchObject({ mode: 'cross', color: 'element-symbol', motion: { mode: 'spin', axis: 'x' } });
       expect(state.structuredContent).not.toHaveProperty('pdbId');
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it('refuses, before caching it for the stereo viewer, mmCIF whose declarations expand past the rows Mol* may walk', async () => {
+    // One atom, and chains that each declare the same entity's whole sequence:
+    // Mol* walks chains x positions rows while it parses, whatever the file's size.
+    const declaredRows = (chains: number, positions: number) => ['data_declared_rows', 'loop_', '_entity.id', '_entity.type', '1 polymer', '#',
+      'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id',
+      ...Array.from({ length: positions }, (_, p) => `1 ${p + 1} ALA`), '#',
+      'loop_', '_struct_asym.id', '_struct_asym.entity_id', ...Array.from({ length: chains }, (_, c) => `C${c} 1`), '#',
+      'loop_', ...['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id', 'label_entity_id',
+        'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv', 'auth_seq_id', 'auth_comp_id',
+        'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num'].map(field => `_atom_site.${field}`),
+      'ATOM 1 C CA . ALA C0 1 1 ? 0 0 0 1 10 1 ALA C0 CA 1', '#', ''].join('\n');
+    const over = declaredRows(1_001, 1_000), atBound = declaredRows(1_000, 1_000);
+    expect(Buffer.byteLength(over)).toBeLessThan(40_000);
+    const refusal = /^Structure and sequence catalog exceeds the 64 MiB this plugin decodes in one browser\. Its declarations expand to at least 1,001,000 residue rows; at most 1,000,000 fit\./;
+    const message = (result: ToolResult) => (result.content as Array<{ text?: string }> | undefined)?.[0]?.text ?? '';
+    const { client, server } = await connectedServer({ fetchPdbText: async () => over });
+    try {
+      const fresh = await client.callTool({ name: 'stereo_structure.open', arguments: { structureText: over, format: 'mmcif' } }) as ToolResult;
+      expect(fresh.isError).toBe(true);
+      expect(message(fresh)).toMatch(refusal);
+
+      const { sessionId: id } = await openPasted(client, SESSION_A_TEXT);
+      const before = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      const pasted = await client.callTool({ name: 'stereo_structure.open', arguments: { sessionId: id, structureText: over, format: 'mmcif' } }) as ToolResult;
+      const open = await client.callTool({ name: 'stereo_structure.open', arguments: { sessionId: id, pdbId: '2xyz' } }) as ToolResult;
+      const control = await client.callTool({ name: 'stereo_structure.control', arguments: { sessionId: id, action: 'load_pdb', pdbId: '1crn' } }) as ToolResult;
+      for (const refused of [pasted, open, control]) {
+        expect(refused.isError).toBe(true);
+        expect(message(refused)).toMatch(refusal);
+      }
+      const after = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      expect(privateStructure(after)).toEqual(privateStructure(before));
+
+      // At the bound itself the file opens and reaches the viewer unchanged.
+      const accepted = await client.callTool({ name: 'stereo_structure.open', arguments: { structureText: atBound, format: 'mmcif' } }) as ToolResult;
+      expect(accepted.isError).not.toBe(true);
+      const cached = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: sessionId(accepted) } }) as ToolResult;
+      expect(privateStructure(cached)).toMatchObject({ structureText: atBound, format: 'mmcif' });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it('counts every model Mol* will build in the stereo viewer, however the file numbers them', async () => {
+    // One entity of `positions` declared residues in `models` models: model
+    // numbers that alternate row by row, rows of the integrative model list,
+    // contiguous models with no struct_asym table, or an ordinary ensemble.
+    // Mol* builds the sequences again for each model, so the rows are
+    // positions x models however few distinct model numbers the atoms carry.
+    const modelRows = (shape: 'contiguous' | 'alternating' | 'integrative' | 'no-chains', positions: number, models: number) => {
+      const atom = (id: number, name: string, model: number) => `ATOM ${id} C ${name} . ALA A 1 1 ? 0 0 0 1 10 1 ALA A ${name} ${model}`;
+      const lines = ['data_model_rows', 'loop_', '_entity.id', '_entity.type', '1 polymer', '#',
+        'loop_', '_entity_poly_seq.entity_id', '_entity_poly_seq.num', '_entity_poly_seq.mon_id',
+        ...Array.from({ length: positions }, (_, p) => `1 ${p + 1} ALA`), '#'];
+      if (shape !== 'no-chains') lines.push('loop_', '_struct_asym.id', '_struct_asym.entity_id', 'A 1', '#');
+      if (shape === 'integrative') lines.push('loop_', '_ihm_model_list.model_id', '_ihm_model_list.model_name',
+        ...Array.from({ length: models }, (_, m) => `${m + 1} m${m + 1}`), '#');
+      lines.push('loop_', ...['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id',
+        'label_entity_id', 'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv',
+        'auth_seq_id', 'auth_comp_id', 'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num'].map(field => `_atom_site.${field}`),
+      ...Array.from({ length: shape === 'integrative' ? 1 : models },
+        (_, i) => atom(i + 1, i % 2 ? 'CB' : 'CA', shape === 'alternating' ? i % 2 + 1 : i + 1)), '#', '');
+      return lines.join('\n');
+    };
+    const refusal = (rows: string) => new RegExp(`^Structure and sequence catalog exceeds the 64 MiB this plugin decodes in one browser\\. `
+      + `Its declarations expand to at least ${rows} residue rows; at most 1,000,000 fit\\.`);
+    const message = (result: ToolResult) => (result.content as Array<{ text?: string }> | undefined)?.[0]?.text ?? '';
+    const { client, server } = await connectedServer();
+    try {
+      const ensemble = modelRows('contiguous', 300, 20);
+      const opened = await client.callTool({ name: 'stereo_structure.open', arguments: { structureText: ensemble, format: 'mmcif' } }) as ToolResult;
+      expect(opened.isError, message(opened)).not.toBe(true);
+      const id = sessionId(opened);
+      const before = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      expect(privateStructure(before)).toMatchObject({ structureText: ensemble, format: 'mmcif' });
+      // The integrative shape adds its one atom_site model, which Mol*'s missing-residue
+      // walk still visits, and its one struct_asym row kept by each of its 1,000 models.
+      for (const [shape, rows] of [['alternating', '1,001,000'], ['integrative', '1,003,001'], ['no-chains', '1,001,000']] as const) {
+        const refused = await client.callTool({ name: 'stereo_structure.open',
+          arguments: { sessionId: id, structureText: modelRows(shape, 1_001, 1_000), format: 'mmcif' } }) as ToolResult;
+        expect(refused.isError, shape).toBe(true);
+        expect(message(refused), shape).toMatch(refusal(rows));
+      }
+      const after = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      expect(privateStructure(after)).toEqual(privateStructure(before));
+
+      const atBound = modelRows('alternating', 1_000, 1_000);
+      const accepted = await client.callTool({ name: 'stereo_structure.open', arguments: { sessionId: id, structureText: atBound, format: 'mmcif' } }) as ToolResult;
+      expect(accepted.isError, message(accepted)).not.toBe(true);
+      const cached = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      expect(privateStructure(cached)).toMatchObject({ structureText: atBound, format: 'mmcif' });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it('adds the tables Mol* walks again for every model before caching mmCIF for the stereo viewer', async () => {
+    const refusal = (rows: string) => new RegExp(`^Structure and sequence catalog exceeds the 64 MiB this plugin decodes in one browser\\. `
+      + `Its declarations expand to at least ${rows} residue rows; at most 1,000,000 fit\\.`);
+    const message = (result: ToolResult) => (result.content as Array<{ text?: string }> | undefined)?.[0]?.text ?? '';
+    const { client, server } = await connectedServer();
+    try {
+      const { sessionId: id } = await openPasted(client, SESSION_A_TEXT);
+      const before = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      for (const [term, models, rows, counted] of PER_MODEL_CASES) {
+        const refused = await client.callTool({ name: 'stereo_structure.open',
+          arguments: { sessionId: id, structureText: perModelTables(term, models, rows), format: 'mmcif' } }) as ToolResult;
+        expect(refused.isError, term).toBe(true);
+        expect(message(refused), term).toMatch(refusal(counted));
+      }
+      const after = await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult;
+      expect(privateStructure(after)).toEqual(privateStructure(before));
+      // The same tables at ordinary sizes open: 20 models, 20 mapping rows.
+      const ordinary = perModelTables('operator-mapping', 20, 20);
+      const opened = await client.callTool({ name: 'stereo_structure.open', arguments: { sessionId: id, structureText: ordinary, format: 'mmcif' } }) as ToolResult;
+      expect(opened.isError, message(opened)).not.toBe(true);
+      expect(privateStructure(await client.callTool({ name: 'stereo_structure.get_structure', arguments: { sessionId: id } }) as ToolResult))
+        .toMatchObject({ structureText: ordinary, format: 'mmcif' });
     } finally {
       await client.close();
       await server.close();

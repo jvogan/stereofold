@@ -64,7 +64,10 @@ test('a lesson chapter frames and selects its part as the lesson', () => {
   const framed = [...viewer.matchAll(/focusSelection\(\{ selectionKeys: (\w+)/g)].map(match => match.index);
   assert.ok(framed.length >= 2);
   for (const at of framed) {
-    const call = viewer.slice(at, viewer.indexOf('});', at));
+    // Read the whole call: its options may hold nested objects of their own.
+    let depth = 0, end = viewer.indexOf('(', at);
+    do { const ch = viewer[end++]; depth += ch === '(' ? 1 : ch === ')' ? -1 : 0; } while (depth > 0 && end < viewer.length);
+    const call = viewer.slice(at, end);
     assert.match(call, /lessonSelection: /, call);
   }
 });

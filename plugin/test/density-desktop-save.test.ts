@@ -140,13 +140,13 @@ describe('the first save of a density session, from each of its two renderers', 
       surface: 'desktop' })).structuredContent;
     expect(typeof attached.panelId).toBe('string');
     // `isDesktopReady` in quest-share.ts reads exactly these two fields, and
-    // both were false for the whole of the filament run.
+    // both must be true once the desktop panel is attached.
     const after = (await session.call('get_inspection_state', { sessionId: session.sessionId })).structuredContent;
     expect(after.hasScene).toBe(true);
     expect(after.panels.some((panel: any) => panel.surface === 'desktop' && panel.availability === 'ready')).toBe(true);
   });
 
-  it('still takes the headset’s scene of the map, with maptier7’s identity', async () => {
+  it('still takes the headset’s scene of the map, with the map volume’s identity', async () => {
     const session = await setup();
     cleanups.push(session.close);
     // The map's look is the map's own. This scene used to carry

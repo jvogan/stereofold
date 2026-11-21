@@ -82,9 +82,16 @@ export const CLIENT_ACTIVE_MS = 60 * 1000;
 const MAX_CLIENTS_PER_DEVICE = 4;
 const MAX_PAIR_ATTEMPTS = 6;
 const MAX_PAIR_SOURCES = 256;
+// The per-address limit does not bound a device that uses many addresses, so
+// one code also takes at most this many wrong guesses from all of them
+// together. Then it is spent exactly as an expired code is.
+const MAX_WRONG_CODES = 30;
 const PAIR_WINDOW_MS = 60 * 1000;
 const MAX_BODY_BYTES = 1024;
 const MAX_TOOL_BODY_BYTES = 2 * 1024 * 1024 + 16 * 1024;
+// The most of an attach answer read for its panel id. The answer is the
+// inspection state, a few kilobytes; an answer past this binds no pairing.
+const MAX_ATTACH_ANSWER_BYTES = 256 * 1024;
 // How long one authenticated proxy request may run is
 // `companionRequestCeilingMs(tool)`: 55 seconds for the voice helpers' 45 second
 // limit plus a margin, and the page's own longer deadline plus the same margin
@@ -130,8 +137,19 @@ export type LanCompanionResult = LanCompanionStatus & { pairingCode: string };
 
 type Spawn = (command: string, args: readonly string[], options: { shell: false; stdio: 'ignore'; windowsHide: true }) => ChildProcess;
 export type LanCompanionOptions = {
-  /** Associate an authenticated tool heartbeat with its LAN pairing. */
-  onPanelHeartbeat?: (clientId: string, panelId: string) => void;
+  /**
+   * A paired page's heartbeat names a panel. Called before the Mac answers,
+   * while the client is still paired. A returned function hears the status
+   * of the Mac's answer, or 502 when none came.
+   */
+  onPanelHeartbeat?: (clientId: string, panelId: string) => ((status: number) => void) | void;
+  /**
+   * The Mac issued a panel to a paired page's attach. `replacedPanelId` is the
+   * panel that attach asked to replace, which the Mac may keep the same id
+   * for. Called once the whole answer is read, even when the page hung up or
+   * lost its pairing first: the Mac registered the panel either way.
+   */
+  onPanelOpened?: (client: { id: string; deviceId?: string }, panelId: string, replacedPanelId?: string) => void;
   /** Override in bounded tests; production stores only in Application Support. */
   certificateStore?: string;
   interfaces?: () => NodeJS.Dict<Interface[]>;
@@ -154,7 +172,7 @@ export type LanCompanionOptions = {
 type State = {
   server: https.Server; sockets: Set<Duplex>; socketClients: Map<Duplex, string>; host: string; port: number; target: Target;
   toolSockets: Set<Duplex>;
-  fingerprint: string; pairingCode: string; pairingExpiresAt: number; sessionExpiresAt: number; openedAt: number;
+  fingerprint: string; pairingCode: string; pairingExpiresAt: number; wrongCodes: number; sessionExpiresAt: number; openedAt: number;
   launchId: string; pairingFailure?: PairingFailure; recoveryConsumed?: boolean; lastAuthorizedAt?: number;
   clients: Map<string, Client>; attempts: Map<string, PairAttempt>; active: number; expiryTimer: ReturnType<typeof setTimeout>; closed: boolean;
 };
@@ -298,8 +316,22 @@ async function portHeld(host: string, port: number): Promise<Error> {
   return Object.assign(Error(message), { code: 'EADDRINUSE' });
 }
 
+/** What the Mac answered one proxied request, told once: its status (502 when none came) and, when asked for, its whole body within a cap. */
+type AnswerWatch = { maxBytes?: number; heard: (status: number, body?: Buffer) => void };
+
+/** The panel id the Mac issued in an attach answer, if it issued one. */
+function issuedPanelId(status: number, body: Buffer | undefined): string | undefined {
+  if (status !== 200 || !body) return undefined;
+  try {
+    const value = JSON.parse(body.toString('utf8'));
+    const panelId = value && typeof value === 'object' && value.isError !== true ? value.structuredContent?.panelId : undefined;
+    return typeof panelId === 'string' ? panelId : undefined;
+  } catch { return undefined; }
+}
+
 export class LanCompanion {
   readonly #onPanelHeartbeat?: LanCompanionOptions['onPanelHeartbeat'];
+  readonly #onPanelOpened?: LanCompanionOptions['onPanelOpened'];
   readonly #store: string;
   readonly #interfaces: () => NodeJS.Dict<Interface[]>;
   readonly #createCertificate: (host: string, directory: string) => Promise<LanCertificate>;
@@ -325,7 +357,7 @@ export class LanCompanion {
   constructor({ certificateStore = defaultCertificateStore(), interfaces = networkInterfaces,
     createCertificate, spawn = nodeSpawn as unknown as Spawn, now = Date.now, randomToken = () => randomBytes(32).toString('hex'),
     pairingLifetimeMs = PAIRING_LIFETIME_MS, sessionLifetimeMs = SESSION_LIFETIME_MS, sessionMaxLifetimeMs = SESSION_MAX_LIFETIME_MS,
-    remember = rememberingEnabled(), deviceStore, deviceLifetimeMs, onPanelHeartbeat, requestCeilingMs = companionRequestCeilingMs }: LanCompanionOptions = {}) {
+    remember = rememberingEnabled(), deviceStore, deviceLifetimeMs, onPanelHeartbeat, onPanelOpened, requestCeilingMs = companionRequestCeilingMs }: LanCompanionOptions = {}) {
     if (!certificateStore || typeof certificateStore !== 'string' || !isAbsolute(certificateStore) || typeof interfaces !== 'function'
       || typeof now !== 'function' || typeof randomToken !== 'function'
       || !Number.isFinite(pairingLifetimeMs) || pairingLifetimeMs <= 0 || !Number.isFinite(sessionLifetimeMs) || sessionLifetimeMs <= 0
@@ -334,7 +366,7 @@ export class LanCompanion {
       throw TypeError('LanCompanion requires an absolute certificate store and valid network and lifetime options.');
     this.#ceiling = requestCeilingMs;
     this.#store = certificateStore; this.#interfaces = interfaces; this.#now = now; this.#randomToken = randomToken;
-    this.#onPanelHeartbeat = onPanelHeartbeat;
+    this.#onPanelHeartbeat = onPanelHeartbeat; this.#onPanelOpened = onPanelOpened;
     this.#pairingLifetimeMs = pairingLifetimeMs; this.#sessionLifetimeMs = sessionLifetimeMs; this.#sessionMaxLifetimeMs = sessionMaxLifetimeMs;
     this.#createCertificate = createCertificate ?? ((host, directory) => this.#certificate(host, directory, spawn));
     // The device file lives beside the private key in the same 0700 store, so
@@ -410,7 +442,7 @@ export class LanCompanion {
       const address = server.address();
       if (!address || typeof address === 'string' || address.address !== selected || !Number.isInteger(address.port)) { await this.#discard(server, sockets); throw Error('LAN companion did not bind the selected private address.'); }
       const now = this.#now();
-      const state: State = { server, sockets, socketClients, toolSockets: new Set(), host: selected, port: address.port, target, fingerprint: certificate.fingerprint, pairingCode: '', pairingExpiresAt: 0,
+      const state: State = { server, sockets, socketClients, toolSockets: new Set(), host: selected, port: address.port, target, fingerprint: certificate.fingerprint, pairingCode: '', pairingExpiresAt: 0, wrongCodes: 0,
         sessionExpiresAt: now + this.#sessionLifetimeMs, openedAt: now, launchId: randomBytes(16).toString('hex'), clients: new Map(), attempts: new Map(), active: 0, expiryTimer: undefined as any, closed: false };
       this.#armExpiry(state);
       this.#state = state; this.#expiredAt = undefined; this.#refreshPairing(state); server.unref();
@@ -546,9 +578,10 @@ export class LanCompanion {
   }
   /**
    * `fresh` is a new capability behind the same address — a new share, so the
-   * hard stop from 6bc891f starts again with it. Re-opening onto the capability
-   * that is already running is the desktop asking for its address a second
-   * time, and must not hand an unattended listener another whole lifetime.
+   * hard stop (`openedAt` plus the maximum lifetime) starts again with it.
+   * Re-opening onto the capability that is already running is the desktop
+   * asking for its address a second time, and must not hand an unattended
+   * listener another whole lifetime.
    */
   #renewSession(state: State, fresh = true) {
     const now = this.#now();
@@ -566,7 +599,7 @@ export class LanCompanion {
     state.sessionExpiresAt = next;
     this.#armExpiry(state);
   }
-  #refreshPairing(state: State) { state.pairingCode = String(10000000 + (randomBytes(4).readUInt32BE(0) % 90000000)); state.pairingExpiresAt = Math.min(state.sessionExpiresAt, this.#now() + this.#pairingLifetimeMs); }
+  #refreshPairing(state: State) { state.pairingCode = String(10000000 + (randomBytes(4).readUInt32BE(0) % 90000000)); state.pairingExpiresAt = Math.min(state.sessionExpiresAt, this.#now() + this.#pairingLifetimeMs); state.wrongCodes = 0; }
   #status(state: State): LanCompanionStatus { return { url: `https://${state.host}:${state.port}/`, host: state.host, port: state.port, fingerprint: state.fingerprint,
     pairingExpiresAt: new Date(state.pairingExpiresAt).toISOString(), sessionExpiresAt: new Date(state.sessionExpiresAt).toISOString(),
     ...(state.lastAuthorizedAt === undefined ? {} : { lastAuthorizedAt: new Date(state.lastAuthorizedAt).toISOString() }),
@@ -662,7 +695,7 @@ export class LanCompanion {
       if (!this.#sameHost(request, state) || request.headers['sec-fetch-site'] === 'cross-site') { this.#send(response, 403, JSON.stringify({ error: 'forbidden' })); return; }
       const path = request.url ?? '';
       // The two pages a wearer types or is redirected to
-      // admit `?xrRenderBudget=` and nothing else, so the render-budget knobs
+      // admit the page settings and nothing else, so the render-budget knobs
       // are reachable on hardware. `isPageRoute` says why. The capability
       // routes below keep their exact match.
       if (isPageRoute(path, '/') && request.method === 'GET') { this.#send(response, 200, pairingHtml(), 'text/html; charset=utf-8'); return; }
@@ -707,15 +740,33 @@ export class LanCompanion {
         const refusal = pageSourceRefusal(name, args);
         if (refusal) { this.#send(response, 403, JSON.stringify({ error: 'source_not_allowed', message: refusal })); return; }
         state.toolSockets.add(request.socket);
+        const named = args && typeof args === 'object' ? args as Record<string, unknown> : {};
+        let answer: AnswerWatch | undefined;
+        // Tell the panel's pairing before the Mac answers, while this client
+        // is still paired. Told after the answer, a revoke that landed in
+        // between found no panel to retire, and the late change then tied the
+        // panel to a pairing that no longer existed. The hook hears the answer
+        // too, so a beat the Mac refused can be undone.
+        if (name === 'poll_inspection' && typeof named.panelId === 'string' && state.clients.get(client.id) === client) {
+          const answered = this.#onPanelHeartbeat?.(client.id, named.panelId);
+          if (typeof answered === 'function') answer = { heard: answered };
+        }
+        // A panel's pairing is the one the Mac issued it over.
+        const opened = this.#onPanelOpened;
+        if (name === 'attach_inspection' && opened) {
+          const replaced = typeof named.replacesPanelId === 'string' ? named.replacesPanelId : undefined;
+          const opener = { id: client.id, ...(client.deviceId !== undefined ? { deviceId: client.deviceId } : {}) };
+          answer = { maxBytes: MAX_ATTACH_ANSWER_BYTES, heard: (status, body) => {
+            const panelId = issuedPanelId(status, body);
+            if (panelId !== undefined) opened(opener, panelId, replaced);
+          } };
+        }
         // The socket idles while the Mac works, so it is held for this tool's
         // own ceiling and put back for the next request on the connection.
         const ceiling = this.#ceiling(name);
         request.socket.setTimeout?.(ceiling);
-        try { await this.#proxy(request, response, state, path, bytes, ceiling); }
+        try { await this.#upstream(request, response, state, path, bytes, true, ceiling, answer); }
         finally { request.socket.setTimeout?.(this.#ceiling('')); }
-        if (response.statusCode === 200 && name === 'poll_inspection' && args && typeof args === 'object'
-          && typeof (args as Record<string,unknown>).panelId === 'string')
-          this.#onPanelHeartbeat?.(client.id, (args as Record<string,string>).panelId);
         return;
       }
       await this.#proxy(request, response, state, path);
@@ -739,7 +790,15 @@ export class LanCompanion {
       const agent = request.headers['user-agent'];
       if ('deviceKey' in body) { await this.#redeem(response, state, body.deviceId, body.deviceKey, agent); return; }
       const { code, remember } = body;
-      if (this.#now() >= state.pairingExpiresAt || !/^\d{8}$/.test(code) || !safeEqual(code, state.pairingCode)) { this.#send(response, 401, JSON.stringify({ error: 'invalid_code' })); return; }
+      if (this.#now() >= state.pairingExpiresAt || !/^\d{8}$/.test(code) || !safeEqual(code, state.pairingCode)) {
+        // A well-formed wrong guess at a live code counts against it. The last
+        // one allowed spends the code the way a redemption does, so it then
+        // reads everywhere as expired and only a newly issued code pairs.
+        if (this.#now() < state.pairingExpiresAt && /^\d{8}$/.test(code) && ++state.wrongCodes >= MAX_WRONG_CODES) {
+          state.pairingCode = ''; state.pairingExpiresAt = this.#now();
+        }
+        this.#send(response, 401, JSON.stringify({ error: 'invalid_code' })); return;
+      }
       // The code is spent before the device key is written, so a failure in the
       // store cannot leave a code that pairs twice.
       state.pairingCode = ''; state.pairingExpiresAt = this.#now();
@@ -801,23 +860,51 @@ export class LanCompanion {
   /**
    * `paired` is true when the LAN bearer on this request was already accepted,
    * so a refusal from the loopback companion cannot be about the headset.
+   *
+   * `answer` hears what the Mac answered. Such a request runs on to the Mac's
+   * answer even when the page hangs up first, as a revoke of its pairing
+   * makes it: the request is already sent and the Mac acts on it either way,
+   * so its answer is read and dropped. It keeps its slot meanwhile, under the
+   * same ceiling.
    */
-  async #upstream(request: IncomingMessage, response: ServerResponse, state: State, path: string, body?: Buffer, paired = false, ceilingMs = this.#ceiling('')) {
+  async #upstream(request: IncomingMessage, response: ServerResponse, state: State, path: string, body?: Buffer, paired = false, ceilingMs = this.#ceiling(''), answer?: AnswerWatch) {
     const targetHost = `127.0.0.1:${state.target.port}`;
     const headers: http.OutgoingHttpHeaders = { host: targetHost, origin: `http://${targetHost}`, ...(path === '/' ? {} : { authorization: `Bearer ${state.target.token}` }) };
     for (const name of ['accept', 'accept-encoding', 'content-type', 'content-length'] as const) if (request.headers[name] !== undefined) headers[name] = request.headers[name];
     if (body) headers['content-length'] = String(body.length);
     await new Promise<void>(resolve => {
-      let settled = false;
+      let settled = false, told = false, gone = false, reply: http.IncomingMessage | undefined;
       const finish = () => { if (!settled) { settled = true; resolve(); } };
+      const tell = (status: number, bytes?: Buffer) => {
+        if (!answer || told) return; told = true;
+        try { answer.heard(status, bytes); } catch { /* The hook's fault is not this page's. */ }
+      };
       const fail = (status = 502) => {
+        if (!reply) tell(status);
         if (settled) return;
         if (response.headersSent) response.destroy();
         else this.#send(response, status, JSON.stringify({ error: status === 413 ? 'body_too_large' : 'upstream_failed' }));
         finish();
       };
+      // A disconnected LAN peer must not leave a loopback request or active
+      // slot running until its timeout, unless its answer is heard (above).
+      const hangUp = () => {
+        if (!answer) { upstream.destroy(); finish(); return; }
+        gone = true;
+        if (reply) { reply.unpipe(response); reply.resume(); }
+      };
       const upstream = http.request({ host: '127.0.0.1', port: state.target.port, path, method: request.method, headers, timeout: ceilingMs }, upstreamResponse => {
+        reply = upstreamResponse;
         const status = upstreamResponse.statusCode ?? 502;
+        if (answer) {
+          const max = answer.maxBytes, chunks: Buffer[] = [];
+          let size = 0;
+          if (max !== undefined) upstreamResponse.on('data', chunk => { size += chunk.length; if (size <= max) chunks.push(Buffer.from(chunk)); });
+          upstreamResponse.once('end', () => tell(status, max !== undefined && size <= max ? Buffer.concat(chunks) : undefined));
+          upstreamResponse.once('close', () => tell(status));
+          upstreamResponse.on('error', () => tell(status));
+        }
+        if (gone) { upstreamResponse.once('close', finish); upstreamResponse.resume(); return; }
         if (status >= 300 && status < 400) { upstreamResponse.resume(); fail(); return; }
         // This pairing was checked before the proxy ran, so a
         // 401 or 410 from the loopback companion is this Mac's own source
@@ -842,17 +929,16 @@ export class LanCompanion {
       });
       upstream.once('timeout', () => upstream.destroy(Error('upstream_timeout')));
       upstream.once('error', () => fail());
-      // A disconnected LAN peer must not leave a loopback request or active
-      // slot running until its timeout. `writableEnded` distinguishes a normal
-      // response close from a client abort after headers.
-      response.once('close', () => { if (!response.writableEnded) { upstream.destroy(); finish(); } });
-      response.once('error', () => { upstream.destroy(); finish(); });
+      // `writableEnded` distinguishes a normal response close from a client
+      // abort after headers.
+      response.once('close', () => { if (!response.writableEnded) hangUp(); });
+      response.once('error', hangUp);
       // /viewer deliberately synthesizes a bodyless request to the loopback
       // companion, so only real IncomingMessage instances have EventEmitter
       // lifecycle hooks here.
       if (typeof (request as any).once === 'function') {
-        request.once('aborted', () => { upstream.destroy(); finish(); });
-        request.once('error', () => { upstream.destroy(); finish(); });
+        request.once('aborted', hangUp);
+        request.once('error', hangUp);
       }
       if (body) upstream.end(body);
       else if (request.readable) {

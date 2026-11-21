@@ -21,6 +21,7 @@ function fixture({ figureAtoms = 2700, figureBonds = 2800, override = 'molecular
     plugin: { representation: { structure: { registry: { get: () => ({ isApplicable: () => true }) } } } },
     inspectionSnapshot: () => ({ appearance: { representation: 'molecular-surface' } }),
     styleLayerDefinitions: () => [],
+    lessonPlayback: undefined,
     lessonFigure: {
       definition: () => structuredClone(figure), geometryIdentity: () => figure,
       geometryEntries(next = figure) {
@@ -84,6 +85,8 @@ test('measured 9AX6 assembly 1 overview admits Ribbons, Spacefill and Surface an
   // Counts resolved with pinned Mol* from source SHA
   // 631d0ce3ea45229f42f2b063adccdb1a76156a122056eb9dff496c0af17d7c34,
   // assembly 1 and the bundled overview's deduplicated author selectors.
+  // The current revision (cd40d1936530c0f122faa575fc29a244e6cbf7652a769e82e2cf205d21972706)
+  // differs in header metadata only; its 5,991 atom records are identical.
   const counts = [
     { atoms: 3052, bonds: 2792, residues: 657 },
     { atoms: 1366, bonds: 1390, residues: 167 },

@@ -107,6 +107,17 @@ export function chapterTurnSweep(step: TourStep | undefined, xr: boolean): Chapt
   return { axis: [axis[0], axis[1], axis[2]], degrees: -motion.degrees, continuous: false };
 }
 
+/**
+ * `share` of a chapter's whole orbit, timed turntable or dolly, as one camera
+ * move: a tick's share as it plays, or the share a chapter left unplayed.
+ */
+function chapterMoveShare(motion: NormalizedChapterMotion, share: number): LessonCameraMove | undefined {
+  if (motion.kind === 'orbit') return { kind: 'orbit', axis: motion.axis, degrees: motion.degrees * share };
+  if (motion.kind === 'turntable' && !motion.continuous) return { kind: 'orbit', axis: 'y', degrees: motion.degrees * share };
+  if (motion.kind === 'dolly') return { kind: 'dolly', factor: Math.pow(Math.max(0.1, 1 - motion.metres * 0.2), share) };
+  return undefined;
+}
+
 const easings: Record<TourCameraSpin['easing'], (u: number) => number> = {
   linear: u => u, ease_in: u => u * u * u, ease_out: u => 1 - Math.pow(1 - u, 3), ease_in_out: easeInOut,
 };
@@ -165,10 +176,41 @@ export type TourView = 'fit' | 'focus' | 'reset-orientation' | {
  * viewer's dedicated `applyLessonMotion` entry — never travels as an admitted
  * inspection mutation, which is how a chapter's own turn read as the wearer
  * grabbing the structure.
+ *
+ * `frame` hands a headset move back with where it was made: the centre it
+ * turned about or pushed toward and the axis it turned about, in the axes of
+ * the camera it left (`lessonMoveFrame` in the viewer). A move that carries one
+ * is made about that centre and axis as the camera now carries them, instead
+ * of about the molecule's centre now. A turn taken back about another point
+ * than the one it was made about is a turn plus a slide, so carrying it is how
+ * a move comes back exactly after a later chapter seated the molecule
+ * elsewhere, and how a turn made outside the lesson in between is kept as made.
  */
+type Triple = readonly [number, number, number];
+export type LessonMoveFrame = { pivot: Triple; axis?: Triple };
 export type LessonCameraMove =
-  | { kind: 'orbit'; axis: 'x' | 'y' | 'z' | readonly [number, number, number]; degrees: number }
-  | { kind: 'dolly'; factor: number };
+  | { kind: 'orbit'; axis: 'x' | 'y' | 'z' | Triple; degrees: number; frame?: LessonMoveFrame }
+  | { kind: 'dolly'; factor: number; frame?: LessonMoveFrame };
+/**
+ * Where the viewer says a lesson move was made: the render-space centre and
+ * the scene scale it was measured in, which name one centre for every tick
+ * of a still chapter, and the `frame` that hands the move back.
+ */
+type LessonMoveCentre = { pivot: Triple; pivotScale: number; frame?: LessonMoveFrame };
+
+const triple = (value: unknown): Triple | undefined => Array.isArray(value) && value.length === 3
+  && value.every(Number.isFinite) ? [value[0], value[1], value[2]] : undefined;
+/** The centre a viewer's answer to a lesson move reports, if it reports a usable one. */
+function reportedMoveCentre(result: unknown): LessonMoveCentre | undefined {
+  const { pivot, pivotScale, frame } = (result ?? {}) as { pivot?: unknown; pivotScale?: unknown; frame?: { pivot?: unknown; axis?: unknown } };
+  const centre = triple(pivot), framePivot = triple(frame?.pivot), frameAxis = triple(frame?.axis);
+  if (!centre || typeof pivotScale !== 'number' || !Number.isFinite(pivotScale) || pivotScale <= 0) return undefined;
+  return { pivot: centre, pivotScale,
+    ...(framePivot && (frame?.axis === undefined || frameAxis) ? { frame: { pivot: framePivot, ...(frameAxis ? { axis: frameAxis } : {}) } } : {}) };
+}
+const sameMoveCentre = (a: LessonMoveCentre | undefined, b: LessonMoveCentre | undefined) =>
+  a === b || (a !== undefined && b !== undefined && a.pivotScale === b.pivotScale
+    && a.pivot.every((value, axis) => value === b.pivot[axis]));
 
 /**
  * A lesson chapter's desktop `camera_spin`, carried for the headset.
@@ -311,7 +353,20 @@ export type Tour = { id: string; title: string; summary: string; steps: readonly
  * counter and narration lines — is not drawn; narration and the Talk button
  * keep working.
  */
-export type TourPresentation = { captionCard: 'hidden' | 'shown'; end?: 'rest' | 'hold'; continueToStage?: string; coordinateFrame?: string };
+export type TourPresentation = { captionCard: 'hidden' | 'shown'; end?: 'rest' | 'hold'; endFigure?: 'last'; continueToStage?: string; coordinateFrame?: string };
+
+/**
+ * The figure a lesson keeps on its starting view once the tour ends, if it
+ * asks for one (`presentation.endFigure`). It is drawn where that view puts
+ * the molecule, so the close-up fields, its focus and what only a focus may
+ * carry (context radius, view plane), are left out.
+ */
+export function tourEndFigure(tour: Tour | undefined): LessonFigure | undefined {
+  const figure = tour?.presentation?.endFigure === 'last' ? tour.steps.at(-1)?.figure : undefined;
+  if (!figure) return undefined;
+  const { focus: _focus, contextRadius: _contextRadius, viewPlane: _viewPlane, ...drawn } = figure;
+  return drawn as LessonFigure;
+}
 export type StageContinuationIntent = { isCurrent(): boolean; beginTransition(): void; shouldAutoplay(): boolean };
 type Scene = unknown;
 export type SavedLessonPlayback = {
@@ -377,6 +432,13 @@ type WorkspaceRow = { key: string; entityType?: string; identity: { authorChain?
 type TourSceneVisibility = { hiddenChains: { labelChain: string; copyId: string }[]; hiddenClasses: string[]; showOnlySelection: boolean };
 export type Workspace = {
   snapshot(): { ready?: boolean; status?: string; sourceSha256?: string; xrPresenting?: boolean; interactionActive?: boolean; selectionKeys?: string[]; modelNumber?: number; assemblyId?: string;
+    /**
+     * Whether this headset session still owes the structure its room seat:
+     * true from entering VR until the automatic seat commits or is refused,
+     * and while a placement the wearer kept is being checked. A viewer that
+     * does not report it leaves the field out.
+     */
+    xrEntryPending?: boolean;
     animation?: { timeSeconds: number; durationSeconds: number; loop: boolean } | null;
     /** The tier's size, which is what a scene's bounds scale with. */
     atomCount?: number;
@@ -390,7 +452,7 @@ export type Workspace = {
      * What the density tier is actually painted with, read back
      * out of Mol*'s colour data rather than out of the params it was asked
      * for. Null off a density tier. `themed` false with `colorType:'uniform'`
-     * is the cream map the filament run 7 capture shows.
+     * means the map is painted uniform cream instead of its colour key.
      */
     volumeTheme?: { themed?: boolean; colorType?: string | null; vertices?: number;
       wall?: number; crown?: number; other?: number; uniform?: string | null } | null;
@@ -417,10 +479,18 @@ export type Workspace = {
       /** Page viewers settle placement, appearance and emphasis with one label solve. */
       batchComponentLabels?(operation: () => Promise<void>): Promise<void>;
       configure(patch: Record<string, unknown>): Promise<unknown>;
-      place(patch: Record<string, unknown>, action?: string): Promise<unknown>;
+      /**
+       * `lesson` names the lesson a chapter's authored placement belongs to. In the
+       * headset it is read against the seat that lesson's opening chapter took;
+       * a placement naming no lesson is placed as it stands.
+       */
+      place(patch: Record<string, unknown>, action?: string, options?: { lesson?: string }): Promise<unknown>;
       fit(): Promise<unknown>;
-      /** Seat a new source as XR entry does, after its opening chapter paints. */
-      seatForEntry?(): Promise<unknown>;
+      /**
+       * Seat a new source as XR entry does, after its opening chapter paints.
+       * `authored` is that chapter's placement: later chapters of `lesson` are read against the seat.
+       */
+      seatForEntry?(authored?: Record<string, unknown>, lesson?: string): Promise<unknown>;
       resetOrientation(): Promise<unknown>;
       orbit(axis: 'x' | 'y' | 'z', degrees: number): Promise<unknown>;
       dolly(factor: number): Promise<unknown>;
@@ -451,7 +521,7 @@ export type Workspace = {
       setAnimatedChapter?(animation: MolecularAnimation, chapterId: string | undefined, figure: LessonFigure | undefined,
         framing?: { frame?: boolean; context?: unknown; framing?: 'fill' | 'context'; toolbarReady?: Promise<unknown> }): Promise<unknown>;
       controlMolecularAnimation?(patch: AnimationPatch): unknown;
-      setLessonFigure?(value: LessonFigure | undefined, options?: { frame?: boolean }): Promise<unknown>;
+      setLessonFigure?(value: LessonFigure | undefined, options?: { frame?: boolean; visibility?: TourSceneVisibility }): Promise<unknown>;
       /** Metadata only: it must not emit a viewer mutation or replay a chapter. */
       setLessonPlayback?(value: SavedLessonPlayback | undefined): void;
       /**
@@ -466,12 +536,19 @@ export type Workspace = {
        */
       holdsWearerPlacement?(): boolean;
       /** Release local ownership once on entry to a changed authored frame. */
-      beginChapterFraming?(): void;
+      beginChapterFraming?(change?: unknown): unknown;
+      /**
+       * A chapter was left: a hold taken for that chapter alone (an agent's
+       * move) ends. Returns what a failed chapter change hands back.
+       */
+      endChapterPlacement?(): unknown;
+      /** A failed chapter change put its found pose back: that pose's owner comes back with it. */
+      resumeChapterPlacement?(change: unknown): boolean;
       /**
        * The tour starts painting this chapter, or ends (undefined). Until the
        * chapter's own animation installs, the motion drawn is another's.
        */
-      chapterPainting?(chapterId: string | undefined, options?: { turn?: ChapterTurnSweep }): void;
+      chapterPainting?(chapterId: string | undefined, options?: { turn?: ChapterTurnSweep, glassOnly?: boolean }): void;
       /** Whether the chapter was framed as a close-up the wearer stands inside, so its spin holds still. */
       holdsTurnStill?(chapterId: string): boolean;
       /**
@@ -683,9 +760,9 @@ export function lessonRestingState(tour: Tour | undefined): LessonRestingState |
  * A lesson's resting key is not a scene. It paints colours and builds name
  * plates; it moves no camera, sets no placement and asks nothing of the
  * structure's pose, so it has no claim on the structure's motion. Sending it
- * through `runTour` froze every custom-lesson page on open — including a
- * reload of a saved scene whose motion was running — which is the regression
- * 73bd9eb introduced over 8112535 and what keeping it out of the queue undoes.
+ * through `runTour` freezes every custom-lesson page on open, including a
+ * reload of a saved scene whose motion was running, so it stays out of the
+ * queue.
  *
  * The resting state is sent on EVERY hydrate, `undefined` included; see
  * `setLessonRestingState` on the workspace type for why the absent case is
@@ -769,6 +846,12 @@ export type TourPlayer = Readonly<{
    * `getState()` for that.
    */
   narratingLine(): string | undefined;
+  /**
+   * Take back the camera moves the lessons made in this headset frame, a
+   * turn left partway included, before another structure is drawn in it.
+   * Does nothing when none is left.
+   */
+  settleTurn?(): Promise<void>;
   subscribe(listener: () => void): () => void;
 }>;
 
@@ -841,7 +924,7 @@ export const tourStepIsSilentInXr = (
 /** Monotonic intent tokens make a click, source change, or pause cancel stale queued work. */
 export function createTourIntentGate() {
   let value = 0;
-  return Object.freeze({ issue: () => ++value, invalidate: () => ++value, isCurrent: (token: number) => token === value });
+  return Object.freeze({ issue: () => ++value, invalidate: () => ++value, isCurrent: (token: number) => token === value, current: () => value });
 }
 
 /**
@@ -914,10 +997,10 @@ export function tourStepDwellMs(step?: TourStep, defaultDelayMs = 0, narration =
 // across the pages.
 //
 // The width and the line count are the glass's own, from
-// `spatial-toolbar-geometry.mjs`, so the two cannot drift apart. They were 22
-// by 2 and guessed. A hardware frame is what the guess cost: a
-// 44-character page re-wrapped to four lines in a block that held three, and
-// the wearer saw a sentence stop mid-word.
+// `spatial-toolbar-geometry.mjs`, so the two cannot drift apart. A width or
+// line count that differs from the glass re-wraps the page: a 44-character
+// page takes four lines in a block that holds three, and the wearer sees a
+// sentence stop mid-word.
 //
 // The algorithm itself is `pageCaptionText` in that same geometry
 // module, so the resting structure description can be paged by the same rule
@@ -1018,6 +1101,8 @@ const readoutClock = (): number => {
 export const TOUR_OPERATION_TIMEOUT_MS = 20_000;
 /** The whole of one scene, as the outer net under the per-operation bounds. */
 export const TOUR_SCENE_TIMEOUT_MS = 60_000;
+/** How long leaving a chapter waits for a hand on the molecule to let its turn finish. */
+export const TOUR_SETTLE_GRIP_WAIT_MS = 5_000;
 
 /**
  * The bound is on a HANG, so it has to scale with the work.
@@ -1185,6 +1270,24 @@ function stepEmphasis(entry: TourStep, resting?: LessonRestingState): TourEmphas
   return emphasis;
 }
 
+/**
+ * In the headset a declared close-up (a figure focus) whose visibility hides
+ * chains of the source is framed against the chains it shows: its visibility
+ * lands before that framing and travels with it. Any other figure is unchanged.
+ */
+function closeUpVisibility(workspace: Workspace, entry: TourStep | undefined,
+  visibility: TourSceneVisibility | undefined, frame: boolean): TourSceneVisibility | undefined {
+  return frame && entry?.figure?.focus?.length && entry.visibility?.op === 'only' && visibility?.hiddenChains.length
+    && workspace.snapshot().xrPresenting === true && workspace.viewer.inspection.setVisibility ? visibility : undefined;
+}
+
+/** A chapter that would be a headset close-up if its visibility hides chains. */
+function mayBeCloseUp(workspace: Workspace, entry: TourStep | undefined): boolean {
+  return Boolean(entry?.figure?.focus?.length && entry.visibility?.op === 'only'
+    && workspace.snapshot().xrPresenting === true && workspace.viewer.inspection.setVisibility
+    && !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true);
+}
+
 /** An explicitly framed focus keeps its close-up when a figure adds annotations. */
 function framesEmphasisFocus(entry: TourStep): boolean {
   return Boolean(entry.emphasis?.framing && entry.emphasis.focus?.length);
@@ -1292,10 +1395,11 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
   admitted: () => boolean, includeDesktopView: boolean,
   timeoutMs = tourOperationTimeoutMs(workspace.snapshot().atomCount),
   onEmphasisFailure: (error: unknown) => void = () => {},
-  resting?: LessonRestingState, labelsBatched = false, restoredContent = false, authoredTakeover = false, deferFigure = false): Promise<void> {
+  resting?: LessonRestingState, labelsBatched = false, restoredContent = false, authoredTakeover = false, deferFigure = false,
+  lesson?: string): Promise<void> {
   if (!labelsBatched && workspace.viewer.inspection.batchComponentLabels) {
     return workspace.viewer.inspection.batchComponentLabels(() => applyTourStep(workspace, entry,
-      admitted, includeDesktopView, timeoutMs, onEmphasisFailure, resting, true, restoredContent, authoredTakeover, deferFigure));
+      admitted, includeDesktopView, timeoutMs, onEmphasisFailure, resting, true, restoredContent, authoredTakeover, deferFigure, lesson));
   }
   // Every await below is bounded. One of them not being bounded is what put a
   // wearer in front of a half-played lesson for seven minutes.
@@ -1325,7 +1429,7 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
   // input during this operation owns placement again; never release it here.
   if (entry.placement && workspace.viewer.inspection.holdsWearerPlacement?.() !== true)
     // This is an authored automatic seat, not a new agent/wearer room intent.
-    await bound('placement', () => workspace.viewer.inspection.place(entry.placement!, 'tour-placement'));
+    await bound('placement', () => workspace.viewer.inspection.place(entry.placement!, 'tour-placement', { lesson }));
   await waitForTourInteraction(workspace, admitted);
   if (!admitted()) return;
   const xr = workspace.snapshot().xrPresenting === true;
@@ -1358,8 +1462,13 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
     try {
       if (entry.figure && !workspace.viewer.inspection.setLessonFigure)
         throw Error('This viewer does not support molecular figures.');
-      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(entry.figure,
-        { frame: !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true && (!entry.animation || Boolean(entry.placement || entry.view === 'focus' || entry.emphasis?.framing || entry.figure?.focus)) }));
+      const frame = !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true && (!entry.animation || Boolean(entry.placement || entry.view === 'focus' || entry.emphasis?.framing || entry.figure?.focus));
+      const closeUp = closeUpVisibility(workspace, entry, visibility, frame);
+      if (closeUp) {
+        await bound('visibility', () => workspace.viewer.inspection.setVisibility!(closeUp));
+        if (!admitted()) return;
+      }
+      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(entry.figure, { frame, ...(closeUp ? { visibility: closeUp } : {}) }));
     } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
     await waitForTourInteraction(workspace, admitted);
     if (!admitted()) return;
@@ -1394,9 +1503,9 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
   if (!abandoned || rebuilt) {
     // A density chapter has no colour key to paint — a map has
     // no chains — so its manifest carries no `emphasis` at all, and without
-    // the line below no chapter of the tier would ever be framed: the map sat
-    // wherever the entry seat left it, at eighteen per cent of the lens on
-    // tonight's hardware. A density scene therefore frames its whole map at
+    // the line below no chapter of the tier would ever be framed: the map sits
+    // wherever the entry seat left it, which measured eighteen per cent of the
+    // lens on a Quest 2. A density scene therefore frames its whole map at
     // the `fill` the atomic whole-structure chapters take, which is also what
     // records the frame shares for a volume chapter in the ring. An authored
     // `framing` still wins; an abandoned chapter still paints plain.
@@ -1424,7 +1533,13 @@ export async function applyTourStep(workspace: Workspace, entry: TourStep,
   if (!admitted()) return;
   if ((!restoredContent || focusBeforeFigure) && !deferFigure && workspace.viewer.inspection.setLessonFigure) {
     try {
-      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure!(entry.figure, { frame: !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true && (!entry.animation || Boolean(entry.placement || entry.view === 'focus' || entry.emphasis?.framing || entry.figure?.focus)) }));
+      const frame = !framesEmphasisFocus(entry) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true && (!entry.animation || Boolean(entry.placement || entry.view === 'focus' || entry.emphasis?.framing || entry.figure?.focus));
+      const closeUp = closeUpVisibility(workspace, entry, visibility, frame);
+      if (closeUp) {
+        await bound('visibility', () => workspace.viewer.inspection.setVisibility!(closeUp));
+        if (!admitted()) return;
+      }
+      await bound('molecular figure', () => workspace.viewer.inspection.setLessonFigure!(entry.figure, { frame, ...(closeUp ? { visibility: closeUp } : {}) }));
     } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
   } else if ((!restoredContent || focusBeforeFigure) && !deferFigure && entry.figure) {
     throw Error('This viewer does not support molecular figures. Update Stereofold before opening this lesson.');
@@ -1650,6 +1765,24 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     return cached && (!cached.held || workspace.viewer.inspection.holdsWearerPlacement?.() === true)
       ? cached.scene : undefined;
   };
+  // The previous chapter's saved scene, as the ground the next chapter is
+  // painted over. It was saved as that chapter's clip began, so restored as
+  // saved it put the clip back at its first pose under the next chapter until
+  // that one had painted. Its clip comes back as it stands now: paused where
+  // the wearer last saw it, or not at all once the change has taken it off.
+  // Without its clock the clip still names the copies its figure hides at
+  // t=0, as a clockless chapter's capture does, so the figure stays masked as
+  // the structure was when the change took the clip off.
+  type ClipScene = { inspection?: { animation?: { definition?: unknown; playback?: { id?: unknown; chapterId?: unknown } }; lessonFigureAnimation?: unknown } };
+  const withLiveClip = (scene: Scene): Scene => {
+    const inspection = (scene as ClipScene)?.inspection;
+    const saved = inspection?.animation;
+    if (!inspection || !saved?.playback) return scene;
+    const live = (workspace.capture() as ClipScene)?.inspection?.animation;
+    const { animation: _saved, ...rest } = inspection;
+    return { ...(scene as object), inspection: live?.playback?.id === saved.playback.id && live?.playback?.chapterId === saved.playback.chapterId
+      ? { ...rest, animation: live } : { ...rest, ...(saved.definition ? { lessonFigureAnimation: saved.definition } : {}) } };
+  };
   const clearTimer = () => { if (timer) clearTimeout(timer); timer = undefined; };
   const active = () => selected != null && baseline != null && step >= 0 && !stopped;
   // One diagnostics line per tour decision. A headset log carried
@@ -1679,7 +1812,19 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   let spokenLine: string | undefined;
   const forgetSpokenLine = () => { spokenLine = undefined; };
   let motionTimer: ReturnType<typeof setTimeout> | undefined;
-  let motionActive = false, waitingForXrEntry = false;
+  let motionActive = false;
+  /**
+   * A headset page restores a lesson the desktop started before its wearer has
+   * entered VR. The restored chapter's unfinished turn waits here for the room
+   * seat, so the wearer sees the whole turn from where the structure lands.
+   *
+   * The wait belongs to that one turn. Left standing as a flag on the player,
+   * it also stopped every later chapter's orbit, dolly and turn on a page that
+   * never got a seat: one used flat, or one whose seat was refused. So any
+   * other move starting ends it, discarding the turn ends it, and so does a
+   * headset session that reports it has no seat left to give.
+   */
+  let waitingForXrEntry = false;
   let pendingMapStart: { tour: Tour; source?: string; autoplay: boolean; narration: boolean } | undefined;
   let cameraFrame: SavedLessonPlayback['cameraFrame'];
   // capture() pins the pre-turn camera until a bake. Persist its baked
@@ -1691,6 +1836,57 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   let activeMotionKind: 'orbit' | 'dolly' | 'turntable' | 'hold' | undefined;
   let suspendChapterMotion: (() => void) | undefined;
   let resumeChapterMotion: (() => void) | undefined;
+  /**
+   * The headset chapter turn `motionProgress` measures.
+   *
+   * In a headset a chapter's orbit, timed turntable or dolly moves the camera,
+   * and the camera is the room frame that every later chapter, Done's starting
+   * view and the next structure are seated in. A turn left before it finished
+   * kept the share it had reached: Next pressed 3 s into telomerase's 11 s
+   * orbit left every later chapter, and the next demo, about 100 degrees off
+   * the turn its author set. Leaving the chapter settles the rest
+   * (`settleChapterTurn`), so a finished turn and a cut-short one end in the
+   * same frame.
+   */
+  let chapterTurn: { tourId: string; chapterId: string; motion: NormalizedChapterMotion; source?: string } | undefined;
+  /**
+   * Every camera move the lessons made in this headset frame, oldest first.
+   *
+   * A lesson's later chapters are seated in the turns its earlier chapters
+   * made, so they stay in the camera from chapter to chapter. They are not
+   * whole circles in every lesson: haemoglobin's add up to 195 degrees about up
+   * and 25 about the side, so a play-through left Done, the next lesson and
+   * the next structure turned and tilted. Leaving the lessons takes these
+   * moves back, newest first (`leaveLessonFrame`). Turns made outside a lesson
+   * never pass through here, so they are kept.
+   *
+   * Each move keeps where it was made (`LessonMoveCentre`). A headset turn
+   * pivots on the drawn molecule's centre, and every chapter seats the
+   * molecule somewhere else, as Done's starting view does: haemoglobin's turns
+   * taken back about the starting view's centre left the camera slid off, and
+   * Done showed the molecule large and low instead of where the lesson found
+   * it. Moves about the same centre and axis add up, as before, and keep the
+   * newest move's frame, which is the camera they left.
+   */
+  type LedgerMove = LessonCameraMove & { centre?: LessonMoveCentre };
+  let lessonMoves: { source?: string; moves: LedgerMove[] } | undefined;
+  /** A move that took a ledger move back: its place in the ledger, the move and the viewer's answer. */
+  type TakenMove = { at: number; move: LessonCameraMove; result: unknown };
+  const noteLessonMove = (move: LessonCameraMove, result: unknown) => {
+    if (workspace.snapshot().xrPresenting !== true) return;
+    const at = source(workspace);
+    // A frame replaced without leaving it has no moves left to take back here.
+    const ledger = lessonMoves && lessonMoves.source === at ? lessonMoves : { source: at, moves: [] as LedgerMove[] };
+    lessonMoves = ledger;
+    const centre = reportedMoveCentre(result);
+    const { moves } = ledger, last = moves.at(-1);
+    if (last?.kind === 'orbit' && move.kind === 'orbit' && JSON.stringify(last.axis) === JSON.stringify(move.axis) && sameMoveCentre(last.centre, centre))
+      moves[moves.length - 1] = { ...last, degrees: last.degrees + move.degrees, centre };
+    else if (last?.kind === 'dolly' && move.kind === 'dolly' && sameMoveCentre(last.centre, centre))
+      moves[moves.length - 1] = { ...last, factor: last.factor * move.factor, centre };
+    else moves.push(move.kind === 'orbit' ? { kind: 'orbit', axis: move.axis, degrees: move.degrees, centre }
+      : { kind: 'dolly', factor: move.factor, centre });
+  };
 
   /**
    * Let the chapter's turn become the saved camera, once.
@@ -1712,7 +1908,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   const stopChapterMotion = (reason?: string, resumable = false, preserveMolecularPlayback = false) => {
     if (!preserveMolecularPlayback && reason !== 'restart' && reason !== 'hidden' && reason !== 'restored') workspace.viewer.inspection.controlMolecularAnimation?.({ state: 'pause' });
     if (resumable && motionActive) suspendChapterMotion?.();
-    else if (!resumable) { suspendChapterMotion = undefined; resumeChapterMotion = undefined; resumeMotionOnVisible = false; }
+    else if (!resumable) { suspendChapterMotion = undefined; resumeChapterMotion = undefined; resumeMotionOnVisible = false; waitingForXrEntry = false; }
     if (motionTimer) {
       clearTimeout(motionTimer);
       motionTimer = undefined;
@@ -1944,12 +2140,12 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     speakEmphasisFailure(entry);
   };
   const applyIntent = (entry: TourStep, admitted: () => boolean, includeDesktopView: boolean, authoredTakeover = false, deferFigure = false) =>
-    applyTourStep(workspace, entry, admitted, includeDesktopView, operationBound(), recordEmphasisFailure, lessonRestingState(selected), false, false, authoredTakeover, deferFigure);
+    applyTourStep(workspace, entry, admitted, includeDesktopView, operationBound(), recordEmphasisFailure, lessonRestingState(selected), false, false, authoredTakeover, deferFigure, selected?.id);
   // Restored content carries no local framing: solve authored placement and
   // focus here without replaying appearance or restarting molecular motion.
   const frameRestoredStep = (entry: TourStep, admitted: () => boolean, authoredTakeover = false) =>
     applyTourStep(workspace, entry, admitted, !workspace.snapshot().xrPresenting,
-      operationBound(), recordEmphasisFailure, lessonRestingState(selected), false, true, authoredTakeover);
+      operationBound(), recordEmphasisFailure, lessonRestingState(selected), false, true, authoredTakeover, false, selected?.id);
   /**
    * Put the emphasis layers where a restored snapshot cannot.
    *
@@ -1960,31 +2156,51 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
    */
   /** Every bound in this player scales with the loaded tier. */
   const operationBound = () => tourOperationTimeoutMs(workspace.snapshot().atomCount);
-  const applyStepEmphasis = async (entry: TourStep | undefined, admitted: () => boolean = () => true): Promise<unknown> => {
+  // `closeUpAdmitted` joins `admitted` for every later step once a close-up's early visibility starts.
+  const applyStepEmphasis = async (entry: TourStep | undefined, admitted: () => boolean = () => true,
+    closeUpAdmitted?: () => boolean): Promise<unknown> => {
     await waitForTourInteraction(workspace, admitted);
     if (!admitted()) return;
     // Validate before repainting a restored chapter, just as on its first visit.
     let visibility: TourSceneVisibility | undefined;
     try { visibility = entry?.visibility ? resolveTourVisibility(workspace, entry.visibility) : undefined; }
-    catch (error) { throw Object.assign(error as Error, { visibilityFailure: true }); }
+    catch (error) {
+      // A headset close-up whose chapter was left before it could validate
+      // has nothing to report about that chapter.
+      if (closeUpAdmitted && mayBeCloseUp(workspace, entry) && !closeUpAdmitted()) return;
+      throw Object.assign(error as Error, { visibilityFailure: true });
+    }
+    let owned = admitted;
     try {
       if (entry?.figure && !workspace.viewer.inspection.setLessonFigure) throw Error('This viewer does not support molecular figures.');
-      await withViewerRetry(workspace, 'molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(entry?.figure, { frame: (!entry || !framesEmphasisFocus(entry)) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true }), operationBound(), admitted);
+      const frame = (!entry || !framesEmphasisFocus(entry)) && workspace.viewer.inspection.holdsWearerPlacement?.() !== true;
+      const closeUp = closeUpVisibility(workspace, entry, visibility, frame);
+      if (closeUp) {
+        if (closeUpAdmitted) {
+          owned = () => admitted() && closeUpAdmitted();
+          if (!owned()) return;
+        }
+        await withViewerRetry(workspace, 'visibility', () => workspace.viewer.inspection.setVisibility!(closeUp), operationBound(), owned);
+        if (!owned()) return;
+      }
+      await withViewerRetry(workspace, 'molecular figure', () => workspace.viewer.inspection.setLessonFigure?.(entry?.figure, { frame, ...(closeUp ? { visibility: closeUp } : {}) }), operationBound(), owned);
     } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
-    await waitForTourInteraction(workspace, admitted);
-    if (!admitted()) return;
+    await waitForTourInteraction(workspace, owned);
+    if (!owned()) return;
     try {
       return await withViewerRetry(workspace, 'colour emphasis', () => entry
         ? workspace.viewer.inspection.emphasize?.({ ...stepEmphasis(entry, lessonRestingState(selected)), framing: undefined })
         : (workspace.viewer.inspection.clearLessonEmphasis?.()
-          ?? workspace.viewer.inspection.emphasize?.({ parts: [], origin: 'lesson' })), operationBound(), admitted);
+          ?? workspace.viewer.inspection.emphasize?.({ parts: [], origin: 'lesson' })), operationBound(), owned);
     } finally {
-      if (visibility && admitted()) {
-        try { await withViewerRetry(workspace, 'visibility', () => workspace.viewer.inspection.setVisibility!(visibility), operationBound(), admitted); }
+      if (visibility && owned()) {
+        try { await withViewerRetry(workspace, 'visibility', () => workspace.viewer.inspection.setVisibility!(visibility), operationBound(), owned); }
         catch (error) { throw Object.assign(error as Error, { visibilityFailure: true }); }
       }
     }
   };
+  let retryGeneration = 0;
+  let latestRetry: Promise<string> | undefined;
   /**
    * The wearer's answer to the failure line. Re-applies the
    * current chapter's emphasis exactly once and says what happened in one
@@ -1992,15 +2208,42 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
    * return the message. A key that never comes back still fails: the viewer
    * is wedged and the chapter must not pretend otherwise.
    */
-  const retryEmphasis = async (): Promise<string> => {
+  const retryEmphasis = (): Promise<string> => {
     const lesson = selected;
     const entry = lesson && step >= 0 ? lesson.steps[step] : undefined;
-    if (!lesson || !entry) throw Error('There is no active lesson chapter to retry.');
-    try {
-      await applyStepEmphasis(entry);
-    } catch (error) {
-      if (isTourDeadlineError(error) || (error as { visibilityFailure?: boolean }).visibilityFailure) throw error;
-      record('emphasis', { outcome: 'error', retry: true, error: String((error as Error)?.message ?? error).slice(0, 200) });
+    if (!lesson || !entry) return Promise.reject(Error('There is no active lesson chapter to retry.'));
+    return latestRetry = retryChapterEmphasis(lesson, entry, ++retryGeneration);
+  };
+  const retryChapterEmphasis = async (lesson: Tour, entry: TourStep, generation: number): Promise<string> => {
+    // A close-up's retry stops at its next viewer step once Pause, a step, a
+    // source change or a newer retry has arrived, and asks once more when it
+    // ends; any other chapter retries as before. A newer retry of the same
+    // chapter answers for an older one.
+    const token = intents.current(), retrySource = source(workspace);
+    let consulted = false;
+    const ownsChapter = () => intents.isCurrent(token) && source(workspace) === retrySource && selected === lesson && lesson.steps[step] === entry;
+    const current = () => { consulted = true; return ownsChapter() && generation === retryGeneration; };
+    let failed = false, failure: unknown;
+    try { await applyStepEmphasis(entry, undefined, current); }
+    catch (error) { failed = true; failure = error; }
+    if (consulted && !current()) {
+      let newer = ownsChapter() ? latestRetry : undefined;
+      record('emphasis', { outcome: newer ? 'superseded' : 'interrupted', retry: true });
+      // While it owns its chapter, an older retry answers as the newest one does.
+      while (newer) {
+        const adopted = newer;
+        let answer: string | undefined, rejected = false, rejection: unknown;
+        try { answer = await adopted; } catch (error) { rejected = true; rejection = error; }
+        if (!ownsChapter()) break;
+        if (latestRetry !== adopted) { newer = latestRetry; continue; }
+        if (rejected) throw rejection;
+        return answer!;
+      }
+      return EMPHASIS_RETRY_FAILURE_LINE;
+    }
+    if (failed) {
+      if (isTourDeadlineError(failure) || (failure as { visibilityFailure?: boolean }).visibilityFailure) throw failure;
+      record('emphasis', { outcome: 'error', retry: true, error: String((failure as Error)?.message ?? failure).slice(0, 200) });
       return EMPHASIS_RETRY_FAILURE_LINE;
     }
     emphasisFailuresSpoken.delete(entry);
@@ -2037,9 +2280,10 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     }
   };
   /** Resume only the part of a chapter move not baked into its saved camera. */
-  const startChapterMotion = (tour: Tour, target: number, token: ReturnType<typeof intents.issue>, progress = 0) => {
+  const startChapterMotion = (tour: Tour, target: number, token: ReturnType<typeof intents.issue>, progress = 0, awaitXrEntry = false) => {
     const startSource = source(workspace);
     motionProgress = progress; pendingMotionProgress = undefined;
+    waitingForXrEntry = false; chapterTurn = undefined;
     const normMotion = presentedChapterMotion(tour.steps[target], workspace.snapshot().xrPresenting === true);
     // The chapter's own scene work stops the viewer's presentation turn:
     // a rebuild or an emphasis is a mutation, and an XR framing travel
@@ -2053,6 +2297,9 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     if (progress < 1 && normMotion && normMotion.kind !== 'hold' && !(normMotion.kind === 'turntable' && normMotion.continuous)) {
       stopChapterMotion('restart');
       motionProgress = progress;
+      waitingForXrEntry = awaitXrEntry;
+      if (workspace.snapshot().xrPresenting || awaitXrEntry)
+        chapterTurn = { tourId: tour.id, chapterId: tour.steps[target].id, motion: normMotion, source: startSource };
       motionActive = true;
       activeMotionKind = normMotion.kind;
       sync();
@@ -2063,6 +2310,14 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       const ease = normMotion.kind === 'orbit' && normMotion.easing ? easings[normMotion.easing] : easeInOut;
       let startTime = Date.now(), elapsedBeforePause = 0;
       let lastFraction = 0, lastTickAt = Date.now();
+      // A tick the viewer declines keeps its share of the move for a later
+      // tick, so a turn that meets a seat still landing plays whole. A viewer
+      // that declines for good, as a dolly does while the wearer holds the
+      // placement, would keep the move asking 20 times a second until the
+      // chapter changed. Declined time is kept only up to the move's own
+      // length: the time the chapter gave it.
+      let declinedMs = 0;
+      const declinedLimitMs = delayMs + durationMs;
       pendingMotionProgress = () => progress + (1 - progress) * lastFraction;
       let currentToken = token;
       // Pause retains only this visit's remaining motion. Other stop paths
@@ -2087,6 +2342,9 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         }
         const tickAt = Date.now();
         const live = workspace.snapshot();
+        // A refused seat, or a placement the wearer kept, commits no entry
+        // seat to wait for. The session says when none is still to come.
+        if (waitingForXrEntry && live.xrPresenting && live.xrEntryPending === false) waitingForXrEntry = false;
         if (waitingForXrEntry || live.interactionActive || !live.ready) {
           // Chapter dwell continues, but its automatic move cannot fight a hand
           // or accumulate a jump to apply when the hand lets go.
@@ -2103,25 +2361,23 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
           // The tick goes out through the lesson's own
           // path. A refused or no-op tick cannot spend the saved turn.
           // Only accepted camera movement advances its baked fraction.
-          const move: LessonCameraMove = motionKind === 'orbit'
-            ? { kind: 'orbit', axis: normMotion.axis, degrees: normMotion.degrees * (1 - progress) * deltaFraction }
-            : motionKind === 'turntable'
-              ? { kind: 'orbit', axis: 'y', degrees: normMotion.degrees * (1 - progress) * deltaFraction }
-              : { kind: 'dolly', factor: Math.pow(Math.max(0.1, 1 - normMotion.metres * 0.2), (1 - progress) * deltaFraction) };
+          const move = chapterMoveShare(normMotion, (1 - progress) * deltaFraction)!;
           try {
             const result = await applyMotionTick(move) as { lessonMotionApplied?: boolean } | undefined;
-            if (result?.lessonMotionApplied === false) startTime += tickElapsed;
-            else lastFraction = currentFraction;
+            if (result?.lessonMotionApplied === false) { startTime += tickElapsed; declinedMs += tickElapsed; }
+            else { lastFraction = currentFraction; noteLessonMove(move, result); }
           } catch {
             // Entry can take admission between the ready sample and the tick.
             // Keep that interval for the next tracked, admitted frame.
-            startTime += tickElapsed;
+            startTime += tickElapsed; declinedMs += tickElapsed;
           }
         }
         if (!motionActive || !intents.isCurrent(currentToken)) return;
-        if (u < 1 || lastFraction < 1) {
+        const declined = declinedMs >= declinedLimitMs;
+        if (!declined && (u < 1 || lastFraction < 1)) {
           motionTimer = setTimeout(tickMotion, 50);
         } else {
+          if (declined) record('motion', { outcome: 'stopped', reason: 'declined' });
           motionActive = false;
           activeMotionKind = undefined;
           suspendChapterMotion = undefined; resumeChapterMotion = undefined;
@@ -2158,7 +2414,176 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       ? workspace.viewer.inspection.orbit(move.axis, move.degrees) : Promise.resolve(undefined);
     return workspace.viewer.inspection.dolly(move.factor);
   };
-  type VisitCheckpoint = { scene: Scene; liveStep: number | undefined; baselineIsLive: boolean };
+  /**
+   * Leave the headset chapter turn in the frame the chapter's author set.
+   *
+   * Forward (Next, a later chapter, Done, another lesson or structure) plays
+   * what the turn had left in one step, which is where the turn ends when it
+   * is allowed to finish: a whole slow orbit comes back to where it started.
+   * Back to this chapter or an earlier one takes back what it had played, so
+   * the chapter starts again from its own first pose. Only the lesson's share
+   * moves: a turn the wearer or the agent gave the view on top is kept, and
+   * a turn that finished or never started moves nothing.
+   *
+   * The turn stays recorded, at the end or the start it was moved to, until
+   * the next chapter is shown: a transition that fails and puts the chapter
+   * back leaves a camera and a cursor that still agree, so a Rejoin can take
+   * the whole turn back. A move the viewer refuses changes neither.
+   *
+   * `to` is the share of the turn the camera should hold afterwards: 1 to
+   * finish it, 0 to take it back, or the share a restored cursor says the
+   * chapter reached.
+   */
+  const settleChapterTurn = async (to: number, reason = 'scene-transition'): Promise<void> => {
+    if (motionActive) stopChapterMotion(reason, false, true);
+    const turn = chapterTurn;
+    if (!turn) return;
+    const reached = Math.min(1, Math.max(0, motionProgress));
+    const share = to - reached;
+    const move = Math.abs(share) > 1e-9 ? chapterMoveShare(turn.motion, share) : undefined;
+    if (!move || workspace.snapshot().xrPresenting !== true || source(workspace) !== turn.source) return;
+    let result: unknown;
+    const turnNow = async (): Promise<boolean> => {
+      try { result = await applyMotionTick(move); return (result as { lessonMotionApplied?: boolean } | undefined)?.lessonMotionApplied !== false; }
+      catch { return false; /* A refused move leaves the turn where it was. */ }
+    };
+    // A held grip outranks automatic motion: the viewer refuses every lesson
+    // move while a hand holds the molecule, and a headset lesson plays on
+    // beside the hand. A turn left partway then put every later chapter in
+    // that part-turn. A turn refused under a hand waits for the hand to let
+    // go, up to `TOUR_SETTLE_GRIP_WAIT_MS`, and lands about the molecule where
+    // the hand left it; past that, or refused for any other reason, the
+    // chapter goes on with the turn where it is. Pause, Stop or any other
+    // new lesson intent ends the wait with nothing moved. A push-in yields to
+    // the wearer's placement by design and does not wait.
+    const gripped = () => workspace.snapshot().interactionActive === true;
+    const waits = move.kind === 'orbit' && gripped(), intent = intents.current();
+    let applied = await turnNow();
+    for (const until = Date.now() + TOUR_SETTLE_GRIP_WAIT_MS; !applied && waits && Date.now() < until;) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!intents.isCurrent(intent) || chapterTurn !== turn
+        || workspace.snapshot().xrPresenting !== true || source(workspace) !== turn.source) break;
+      // Letting go saves the grab first; a turn refused meanwhile is tried again.
+      if (!gripped()) applied = await turnNow();
+    }
+    record('motion', { outcome: applied ? 'settled' : 'settle-refused', reason,
+      direction: to === 1 ? 'finished' : to === 0 ? 'rewound' : 'restored', share: Math.round(share * 1000) / 1000 });
+    if (!applied) return;
+    noteLessonMove(move, result);
+    pendingMotionProgress = undefined; motionProgress = to;
+    bakeChapterMotion();
+  };
+  /**
+   * Take back every camera move the lessons made in this headset frame.
+   *
+   * Leaving the lessons (Done, another lesson, another structure, a restore of
+   * another lesson or none) hands the camera back in the frame they found, so
+   * the next lesson and the next structure are seated in that frame rather
+   * than in the turns the last lesson added up. A whole slow orbit nets to
+   * nothing and moves nothing. A refused turn stops there and keeps the rest
+   * for the next leaving; a push-in the wearer's held placement refuses is
+   * left to that placement. A flat page restores its own camera and moves none.
+   *
+   * `taken`, when given, receives each move that took a turn back, newest
+   * first, with the ledger place it came from and what the viewer answered.
+   */
+  const leaveLessonFrame = async (reason: string, taken?: TakenMove[]): Promise<void> => {
+    if (motionActive) stopChapterMotion(reason, false, true);
+    chapterTurn = undefined;
+    const ledger = lessonMoves;
+    if (!ledger) return;
+    if (workspace.snapshot().xrPresenting !== true || source(workspace) !== ledger.source) { lessonMoves = undefined; return; }
+    let undone = 0;
+    const baked = () => { try { (workspace.viewer.inspection as { bakeLessonMotion?: () => unknown }).bakeLessonMotion?.(); } catch { /* Advisory. */ } };
+    while (ledger.moves.length) {
+      const last = ledger.moves[ledger.moves.length - 1];
+      // Whole circles turn nothing. A move comes back about the point it was made about.
+      const degrees = last.kind === 'orbit' ? ((last.degrees % 360) + 540) % 360 - 180 : 0;
+      const frame = last.centre?.frame ? { frame: last.centre.frame } : {};
+      const inverse: LessonCameraMove | undefined = last.kind === 'orbit'
+        ? (Math.abs(degrees) > 1e-9 ? { kind: 'orbit', axis: last.axis, degrees: -degrees, ...frame } : undefined)
+        : Math.abs(last.factor - 1) > 1e-12 ? { kind: 'dolly', factor: 1 / last.factor, ...frame } : undefined;
+      if (inverse) {
+        let applied = false, result: unknown;
+        try { result = await applyMotionTick(inverse); applied = (result as { lessonMotionApplied?: boolean } | undefined)?.lessonMotionApplied !== false; }
+        catch { /* Refused. */ }
+        // A dolly yields for as long as the wearer holds the placement, and
+        // the wearer's own placement sets the distance then; the turns behind
+        // it still come back. A refused turn waits for the next leaving.
+        if (!applied && last.kind === 'orbit') {
+          record('motion', { outcome: 'unwind-refused', reason, left: ledger.moves.length });
+          if (undone) baked();
+          return;
+        }
+        if (applied) { undone++; taken?.push({ at: ledger.moves.length - 1, move: inverse, result }); }
+        else record('motion', { outcome: 'unwind-skipped', reason, kind: 'dolly' });
+      }
+      ledger.moves.pop();
+    }
+    if (lessonMoves === ledger) lessonMoves = undefined;
+    if (!undone) return;
+    record('motion', { outcome: 'unwound', reason, moves: undone });
+    baked();
+  };
+  /**
+   * Bring the headset camera to the lesson turn a restored cursor describes.
+   *
+   * A presenting page keeps its camera through a restore: head tracking owns
+   * it, and it holds whatever turn this page's lesson left in it. Another
+   * lesson, or none, leaves the lessons' frame. Another chapter of the same
+   * lesson settles the chapter turn as a visit does: forward to a later one,
+   * back to an earlier one. The same chapter moves the turn to the share the
+   * cursor reached. Undefined when the camera already agrees.
+   */
+  const turnTowardsCursor = (saved: SavedLessonPlayback | undefined): Promise<void> | undefined => {
+    if (workspace.snapshot().xrPresenting !== true) return undefined;
+    if (!saved || saved.tourId !== selected?.id)
+      return chapterTurn || lessonMoves?.moves.length ? leaveLessonFrame('restored') : undefined;
+    const turn = chapterTurn;
+    if (!turn || turn.tourId !== saved.tourId) return undefined;
+    const turnAt = selected.steps.findIndex(chapter => chapter.id === turn.chapterId);
+    const target = selected.steps.findIndex(chapter => chapter.id === saved.chapterId);
+    const to = turnAt < 0 || target < 0 || target > turnAt ? 1 : target < turnAt ? 0 : saved.motionProgress ?? 1;
+    if (Math.abs(to - Math.min(1, Math.max(0, motionProgress))) <= 1e-9) return undefined;
+    return settleChapterTurn(to, 'restored');
+  };
+  /**
+   * `placement`: what ending the found chapter handed back, so a rollback
+   * restores the pose's owner too. `frame`: the lesson turns Done took back
+   * before its starting view, so a rollback puts the chapter back in them.
+   */
+  type VisitCheckpoint = { scene: Scene; liveStep: number | undefined; baselineIsLive: boolean; placement?: unknown;
+    frame?: { turn: typeof chapterTurn; source?: string; moves: LedgerMove[]; taken: TakenMove[] } };
+  /**
+   * Give the camera back the lesson turns a failed Done took back.
+   *
+   * Done takes the turns back before it draws the starting view. When it then
+   * fails, the chapter comes back, and it is seen and checked in the turns its
+   * chapters made, so they come back first, oldest first: each as the opposite
+   * of the move that took it back, about the centre and axis that move
+   * reported. The ledger then holds again the moves the camera holds, so the
+   * next Done takes each back once. A move the viewer refuses here stops the
+   * rest, as it does when they are taken back. True when every turn is back.
+   */
+  const giveLessonFrameBack = async (frame: NonNullable<VisitCheckpoint['frame']>): Promise<boolean> => {
+    if (!frame.taken.length) return true;
+    if (workspace.snapshot().xrPresenting !== true || source(workspace) !== frame.source) return false;
+    let held = frame.moves.length, given = 0;
+    for (const { at, move, result } of [...frame.taken].reverse()) {
+      const made = reportedMoveCentre(result)?.frame, about = made ? { frame: made } : {};
+      const back: LessonCameraMove = move.kind === 'orbit' ? { kind: 'orbit', axis: move.axis, degrees: -move.degrees, ...about }
+        : { kind: 'dolly', factor: 1 / move.factor, ...about };
+      let applied = false;
+      try { applied = (await applyMotionTick(back) as { lessonMotionApplied?: boolean } | undefined)?.lessonMotionApplied !== false; }
+      catch { /* Refused. */ }
+      if (!applied) { held = at; break; }
+      given++;
+    }
+    lessonMoves = held ? { source: frame.source, moves: frame.moves.slice(0, held) } : undefined;
+    record('motion', { outcome: 'unwind-undone', moves: given, ...(given < frame.taken.length ? { refused: true } : {}) });
+    if (given) try { (workspace.viewer.inspection as { bakeLessonMotion?: () => unknown }).bakeLessonMotion?.(); } catch { /* Advisory. */ }
+    return given === frame.taken.length;
+  };
   type Rollback = 'restored' | 'failed' | 'skipped' | 'pending';
   /**
    * Put back the scene that failed work found.
@@ -2176,7 +2601,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
    * that stalled.
    */
   const putBackFound = async (scene: Scene, error: unknown, foundSource: string | undefined, answer: () => void,
-    options: () => { preserveCamera: boolean; preservePlacement: boolean }): Promise<Rollback> => {
+    options: () => { preserveCamera: boolean; preservePlacement: boolean }, beforeRestore?: () => Promise<unknown>): Promise<Rollback> => {
     // Anything thrown is rolled back; only an object can carry the outcome.
     const failure = (error && typeof error === 'object' ? error : {}) as { rollback?: Rollback };
     const skipped = (): Rollback => { failure.rollback = 'skipped'; record('scene', { outcome: 'rollback-skipped' }); return 'skipped'; };
@@ -2194,6 +2619,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     try {
       const abandoned = (failure as Record<symbol, unknown>)[TOUR_ABANDONED] as Promise<unknown> | undefined;
       if (abandoned) await outlast('abandoned work', abandoned.then(() => undefined, () => undefined));
+      await beforeRestore?.();
       const until = Date.now() + operationBound();
       for (;;) {
         if (source(workspace) !== foundSource) return skipped();
@@ -2218,11 +2644,18 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   };
   /** Put back the scene a failed chapter found, and the cursor it was captured with. */
   const rollBackVisit = async (checkpoint: VisitCheckpoint, error: unknown, visitSource: string | undefined, answer: () => void): Promise<void> => {
+    const { frame } = checkpoint;
+    let whole = false;
     const outcome = await putBackFound(checkpoint.scene, error, visitSource, answer, () => ({
       preserveCamera: Boolean(workspace.snapshot().xrPresenting || workspace.viewer.inspection.holdsWearerPlacement?.()),
-      preservePlacement: false }));
+      preservePlacement: false }), frame && (async () => { whole = await giveLessonFrameBack(frame); }));
     if (outcome === 'skipped') return;
-    if (outcome === 'restored') { liveStep = checkpoint.liveStep; baselineIsLive = checkpoint.baselineIsLive; }
+    if (outcome === 'restored') {
+      liveStep = checkpoint.liveStep; baselineIsLive = checkpoint.baselineIsLive;
+      if (checkpoint.placement !== undefined) workspace.viewer.inspection.resumeChapterPlacement?.(checkpoint.placement);
+      // The chapter's own turn is its again only when the camera holds it again.
+      if (frame && whole) chapterTurn = frame.turn;
+    }
     else { liveStep = undefined; baselineIsLive = false; }
     // The found scene brings back the cursor it was captured with. A visit
     // still drawing republishes its own as it ends; one whose outer bound has
@@ -2321,6 +2754,10 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
           if (!workspace.snapshot().ready || source(workspace) !== startSource
               || !intents.isCurrent(token) || selected !== tour || baseline !== startScene)
             throw Error('The tour scene was interrupted before rendering.');
+          // The chapter being left may have stopped partway through its turn.
+          // Chapters are matched by id: an installed edit of the lesson is the same lesson.
+          const turnAt = chapterTurn?.tourId === tour.id ? tour.steps.findIndex(chapter => chapter.id === chapterTurn!.chapterId) : -1;
+          await settleChapterTurn(turnAt < 0 || target > turnAt ? 1 : 0);
           checkpoint = { scene: workspace.capture(), liveStep, baselineIsLive };
           holdPlaybackCursor();
           const animationFrame = workspace.viewer.inspection.animationFramingContext?.(tour.steps[target].animation);
@@ -2346,11 +2783,18 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
           // however it is reached, stands where a start puts it: on the
           // starting view's seat, or on the wearer's own.
           const opening = restoreBaseline || target === 0;
+          // A move the agent made lasts for the chapter it was made in. Any
+          // other chapter, and a start or restart, opens at its own view.
+          if (restoreBaseline || target !== fromStep) checkpoint.placement = workspace.viewer.inspection.endChapterPlacement?.();
           const reseat = opening && workspace.viewer.inspection.holdsWearerPlacement?.() !== true;
           const takeover = !opening && target !== step
             && chapterAuthorsFraming(tour, target, { xr: workspace.snapshot().xrPresenting === true })
             && workspace.viewer.inspection.holdsWearerPlacement?.() === true;
-          if (takeover) workspace.viewer.inspection.beginChapterFraming?.();
+          if (takeover) {
+            // That release is this chapter change's own: a failed change still gives the hold back.
+            const framed = workspace.viewer.inspection.beginChapterFraming?.(checkpoint.placement);
+            if (framed !== undefined) checkpoint.placement = framed;
+          }
           // The menu and card go back to the seat they had when the lesson
           // started, as Done puts them back. A seat a later chapter moved them
           // to is not the opening chapter's, and the chapter frames against it.
@@ -2430,7 +2874,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
             // stayed, and chapter one came back seen from another side.
             const startingView = reseat && !prior;
             if (!showingAlready) {
-              await withViewerRetry(workspace, 'scene restore', () => workspace.viewer.inspection.restore(prior ?? startScene, { preserveCamera: preserveCamera && !startingView, preservePlacement: preserveCamera && !startingView }), operationBound(), admitted);
+              await withViewerRetry(workspace, 'scene restore', () => workspace.viewer.inspection.restore(prior ? withLiveClip(prior) : startScene, { preserveCamera: preserveCamera && !startingView, preservePlacement: preserveCamera && !startingView }), operationBound(), admitted);
               if (opening && !prior) await restoreStartingSeat();
             }
             baselineIsLive = false; liveStep = undefined;
@@ -2697,6 +3141,9 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         await workspace.runTour(async () => {
           setStatus('Capturing starting view…');
           if (!workspace.snapshot().ready || !intents.isCurrent(token) || selected !== tour) return;
+          // A lesson starts in the frame the lessons before it found, not in
+          // the turns they made or one of them left partway.
+          await leaveLessonFrame('lesson-started');
           // A lesson started again over one of its own chapters starts from
           // the view that lesson found, whichever route started it.
           const retained = retainedStart && retainedStart.source === source(workspace) ? retainedStart.scene
@@ -2853,6 +3300,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       };
       const { answered, answer } = lateAnswer();
       applying = true; navigating = true;
+      let spinPainted = false;
       try {
         await withTourDeadline('lesson installation', Promise.race([answered, workspace.runTour(noteDrawn(async () => {
           if (!admitted()) throw Error('The lesson installation was interrupted.');
@@ -2888,6 +3336,11 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
                 await bound('placement', workspace.viewer.inspection.place(entry.placement, 'tour-placement'));
               // As applyTourStep: only a continuous spin keeps the presentation turn.
               const xr = workspace.snapshot().xrPresenting === true;
+              // An opening spin's glass is solved for its whole turn while it
+              // paints (`chapterPainting`); it is framed as it stands, as an
+              // opening chapter always was, so it keeps its size.
+              const spin = entering ? chapterTurnSweep(entry, xr) : undefined;
+              if (spin?.continuous) { spinPainted = true; workspace.viewer.inspection.chapterPainting?.(entry.id, { turn: spin, glassOnly: true }); }
               if (entering && (entry.motion || (xr && entry.cameraSpin))) {
                 const motion = presentedChapterMotion(entry, xr);
                 await bound('turn', workspace.viewer.inspection.setMotion({ paused: !(motion?.kind === 'turntable' && motion.continuous) }));
@@ -2896,8 +3349,12 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
               for (const appearance of entry.appearances ?? (entry.appearance ? [entry.appearance] : []))
                 await bound('appearance', workspace.viewer.inspection.configure(appearance));
               const focusBeforeFigure = Boolean(frame && entry.figure && framesEmphasisFocus(entry));
+              const frameFigure = frame && !entry.animation && !focusBeforeFigure;
+              const closeUp = closeUpVisibility(workspace, entry, frameFigure && xr && entry.figure?.focus?.length && entry.visibility?.op === 'only'
+                ? resolveTourVisibility(workspace, entry.visibility) : undefined, frameFigure);
+              if (closeUp) await bound('visibility', workspace.viewer.inspection.setVisibility!(closeUp));
               await bound('molecular figure', workspace.viewer.inspection.setLessonFigure?.(focusBeforeFigure ? undefined : entry.figure,
-                { frame: frame && !entry.animation && !focusBeforeFigure }));
+                { frame: frameFigure, ...(closeUp ? { visibility: closeUp } : {}) }));
               await bound('colour emphasis', workspace.viewer.inspection.emphasize?.({ ...stepEmphasis(entry, lessonRestingState(tour)),
                 framing: entering && frame ? entry.emphasis?.framing : focusBeforeFigure ? entry.emphasis!.framing : undefined }));
               if (focusBeforeFigure) await bound('molecular figure', workspace.viewer.inspection.setLessonFigure?.(entry.figure, { frame: false }));
@@ -2959,14 +3416,17 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         baselineIsLive = false; liveStep = undefined; scenes.clear();
         populateMenu(); menu.value = selected?.id ?? '';
         throw error;
-      } finally { applying = false; navigating = false; sync(); }
+      } finally {
+        if (spinPainted) workspace.viewer.inspection.chapterPainting?.(undefined);
+        applying = false; navigating = false; sync();
+      }
       if (entering && step >= 0) {
         // Fresh entry seats a chapter whose compact controls are on screen.
         // Solve against those, not the taller loading menu, or the seat shrinks.
         if (seatOnceDrawn && admitted()) {
           try {
             await bound('chapter controls', workspace.viewer.xr?.refreshToolbar?.());
-            await bound('entry seat', workspace.viewer.inspection.seatForEntry?.());
+            await bound('entry seat', workspace.viewer.inspection.seatForEntry?.(tour.steps[step].placement, tour.id));
           } catch (error) {
             // A refused seat (no fresh tracking, a held hand) keeps the
             // chapter on screen at its authored placement.
@@ -3090,7 +3550,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     if (autoResume) autoplay = true;
     return visit(step);
   };
-  const restoreStart = (): Promise<void> => {
+  const restoreStart = ({ ending = false }: { ending?: boolean } = {}): Promise<void> => {
     if (navigating) {
       const error = Error('The tour is already rendering a scene.');
       setStatus(error.message); sync();
@@ -3105,6 +3565,9 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     const currentBaseline = baseline, currentSource = baselineSource, token = intents.issue(); navigating = true; sync();
     const admitted = () => Boolean(workspace.snapshot().ready) && source(workspace) === currentSource
       && intents.isCurrent(token) && baseline === currentBaseline;
+    // Only an ending keeps the lesson's closing figure; Restore start is the
+    // view before the lesson, as it was.
+    const endFigure = ending && workspace.viewer.inspection.setLessonFigure ? tourEndFigure(selected) : undefined;
     const operation = serial.then(async () => {
       applying = true;
       // Done lands the starting view or puts the chapter back whole, so a
@@ -3116,12 +3579,26 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         // Bounded for the same reason a scene is: this runs on the workspace
         // queue every other lesson operation waits behind.
         await withTourDeadline('starting view', Promise.race([answered, workspace.runTour(noteDrawn(async () => {
+          await settleChapterTurn(1, 'starting-view');
           checkpoint = { scene: workspace.capture(), liveStep, baselineIsLive };
           holdPlaybackCursor();
           try {
+            // The chapter ends here: an agent's move made in it ends too, and
+            // the starting view comes back where the lesson found it.
+            checkpoint.placement = workspace.viewer.inspection.endChapterPlacement?.();
             await workspace.viewer.inspection.setMolecularAnimation?.(undefined);
             if (!admitted())
               throw Error('Restoring the starting view was interrupted.');
+            // The starting view is seated in the frame the lesson found. The
+            // page checks a restored placement against the room as the camera
+            // maps it now, so the lesson's turns come back first: checked
+            // inside them, the starting view was moved to where it would show
+            // in the turned frame, and the turns taken back carried it off.
+            // The checkpoint keeps what was taken back, so a Done that fails
+            // from here gives the chapter back in its turns.
+            checkpoint.frame = { turn: chapterTurn, source: lessonMoves?.source, moves: [...lessonMoves?.moves ?? []], taken: [] };
+            await leaveLessonFrame('starting-view', checkpoint.frame.taken);
+            if (!admitted()) throw Error('Restoring the starting view was interrupted.');
             await withTourDeadline('scene restore', workspace.viewer.inspection.restore(currentBaseline, { preserveCamera: Boolean(workspace.snapshot().xrPresenting) }), operationBound());
             if (!admitted()) throw Error('Restoring the starting view was interrupted.');
             // The starting view is the structure before the lesson coloured it,
@@ -3129,6 +3606,15 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
             // the last chapter's colour key after the tour was put away.
             if ((currentBaseline as any)?.inspection?.lessonFigure) {
               await withTourDeadline('colour emphasis', workspace.viewer.inspection.clearLessonEmphasis?.(), operationBound());
+            } else if (endFigure) {
+              // The names the lesson closed on stay on its parts, drawn where
+              // the starting view put the molecule.
+              try {
+                await withViewerRetry(workspace, 'molecular figure', () => workspace.viewer.inspection.setLessonFigure!(endFigure, { frame: false }), operationBound(), admitted);
+              } catch (error) { throw Object.assign(error as Error, { figureFailure: true }); }
+              if (!admitted()) throw Error('Restoring the starting view was interrupted.');
+              await withTourDeadline('colour emphasis', workspace.viewer.inspection.clearLessonEmphasis?.()
+                ?? workspace.viewer.inspection.emphasize?.({ parts: [], origin: 'lesson' }), operationBound());
             } else await applyStepEmphasis(undefined, admitted);
             restored = true;
           } catch (error) { await rollBackVisit(checkpoint, error, currentSource, () => answer(error)); throw error; }
@@ -3159,7 +3645,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     // Restore through the same guarded workspace queue as Restore start.
     // Its pause cancels motion, narration eligibility and the pending dwell.
     const restoreResting = async () => {
-      await restoreStart();
+      await restoreStart({ ending: true });
       completionToken = intents.issue();
       stopped = false; menuOpen = false; readoutPage = 0;
       baselineIsLive = true; liveStep = undefined;
@@ -3239,6 +3725,90 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
   window.addEventListener('pagehide', () => pause(), { once:true });
   window.addEventListener('pagehide', suspendCaption);
   window.addEventListener('pageshow', observeCaption);
+  /** Adopt a restored cursor once the headset camera holds the turn it describes. */
+  const restoreCursor = (scene: Scene, saved: SavedLessonPlayback | undefined, frame: boolean, waitForXrEntry: boolean): void | Promise<void> => {
+    if (!frame || !baseline || baselineSource !== source(workspace)) cameraFrame = saved?.cameraFrame;
+    const awaitXrEntry = waitForXrEntry && saved?.cameraFrame === 'desktop' && !workspace.snapshot().xrPresenting;
+    const lessonChanged = selected?.id !== saved?.tourId;
+    const chapterChanged = lessonChanged || selected?.steps[step]?.id !== saved?.chapterId;
+    const localMotionPlaying = frame && !chapterChanged ? motionActive : undefined;
+    intents.invalidate(); clearTimer(); stopChapterMotion('restored');
+    // A restored cursor carries its own turn; only this page's own chapter keeps its turn here.
+    // A headset camera was brought to the restored chapter's turn first, so
+    // that turn stays recorded at the share the camera holds.
+    const keepsTurn = localMotionPlaying === undefined && workspace.snapshot().xrPresenting === true
+      && chapterTurn?.tourId === saved?.tourId && chapterTurn?.chapterId === saved?.chapterId;
+    if (localMotionPlaying === undefined && !keepsTurn) chapterTurn = undefined;
+    const localMotionProgress = localMotionPlaying !== undefined || keepsTurn ? motionProgress : undefined;
+    if (!saved) {
+      // A peer's Done ends this panel's chapter as a local Done would: an
+      // agent's move made for that chapter ends with it, and the molecule it
+      // held goes back to this panel's own starting seat. A wearer's hold stays.
+      const inspection = workspace.viewer.inspection, ending = frame && step >= 0;
+      const start = ending && baselineSource === source(workspace) ? (baseline as any)?.inspection?.placement : undefined;
+      const heldBefore = ending && inspection.holdsWearerPlacement?.() === true;
+      if (ending) inspection.endChapterPlacement?.();
+      const released = heldBefore && inspection.holdsWearerPlacement?.() !== true;
+      baseline = undefined; baselineSource = undefined; baselineIsLive = false; liveStep = undefined;
+      step = -1; scenes.clear(); stopped = false; autoplay = false; resumeOnVisible = false; navigating = false;
+      chapterStartedAt = undefined; chapterPreview = undefined; readoutPage = 0; forgetSpokenLine();
+      setStatus('Shared view restored.'); sync();
+      // The starting seat is already a room pose: it names no lesson, so it is
+      // placed as it stood, not read against the lesson's opening seat.
+      if (released && start) return Promise.resolve(inspection.place(structuredClone(start), 'tour-placement')).then(() => {});
+      return;
+    }
+    // The peer's baseline supplies lesson content, but future Back/Done
+    // restores must still use this panel's own starting view.
+    if (frame) {
+      const localStart = (baselineSource === source(workspace) ? baseline : workspace.capture()) as any;
+      if (localStart?.camera) saved.startingScene.camera = structuredClone(localStart.camera);
+      if (localStart?.inspection?.placement)
+        saved.startingScene.inspection.placement = structuredClone(localStart.inspection.placement);
+    }
+    selected = catalog.find(tour => tour.id === saved.tourId)!;
+    step = selected.steps.findIndex(chapter => chapter.id === saved.chapterId);
+    baseline = saved.startingScene; baselineSource = (scene as any).sourceSha256;
+    baselineIsLive = false; liveStep = step; scenes.clear();
+    cacheScene(step, structuredClone(scene));
+    stopped = saved.stopped; autoplay = false; resumeOnVisible = false; navigating = false;
+    narrationEnabled = saved.narration !== false; openedByStart = saved.entry === 'start';
+    // A framed peer receipt keeps the headset camera. Its motion fraction
+    // must therefore stay local too, even if the peer already finished.
+    motionProgress = localMotionProgress ?? saved.motionProgress ?? 1; pendingMotionProgress = undefined;
+    const motionPlaying = localMotionPlaying === undefined ? saved.motionPlaying
+      : saved.motionPlaying || (localMotionPlaying && saved.motionProgress === 1);
+    forgetSpokenLine(); menu.value = selected.id; menuOpen = false; readoutPage = 0;
+    chapterStartedAt = readoutClock(); setStatus('Saved lesson scene restored. Use Back, Next, or Play.'); sync();
+    // A peer's lesson start or restart opens where the wearer put the
+    // molecule here too; only a peer's step into a close-up takes it over.
+    // An agent's move made for the chapter this panel leaves ends with it.
+    if (frame && chapterChanged) workspace.viewer.inspection.endChapterPlacement?.();
+    const takeover = frame && chapterChanged && !lessonChanged && !openedByStart
+      && chapterAuthorsFraming(selected, step, { xr: workspace.snapshot().xrPresenting === true })
+      && workspace.viewer.inspection.holdsWearerPlacement?.() === true;
+    if (takeover) workspace.viewer.inspection.beginChapterFraming?.();
+    // A fresh inspection can hand off while its opening turn is still
+    // transient. Restoring an active caption alone must not lose that turn.
+    // Legacy cursors have no motion clock and retain their saved view.
+    const resumeSavedMotion = () => {
+      if (!stopped && motionPlaying === true && motionProgress < 1 && !workspace.viewer.inspection.holdsWearerPlacement?.())
+        startChapterMotion(selected!, step, intents.issue(), motionProgress, awaitXrEntry);
+    };
+    if (frame && chapterChanged && !workspace.viewer.inspection.holdsWearerPlacement?.()) {
+      const tour = selected, chapter = step, restoredSource = source(workspace), token = intents.issue();
+      const admitted = () => intents.isCurrent(token) && selected === tour && step === chapter
+        && source(workspace) === restoredSource && workspace.snapshot().ready === true;
+      return frameRestoredStep(tour.steps[chapter], admitted, takeover).then(() => {
+        if (admitted()) {
+          cacheScene(chapter, workspace.capture());
+          resumeSavedMotion();
+        }
+      });
+    }
+    if (frame) cacheScene(step, workspace.capture());
+    resumeSavedMotion();
+  };
   sync();
   return Object.freeze({
     pause,
@@ -3262,69 +3832,13 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
       pendingMapStart = undefined;
       const saved = savedLessonPlayback(scene, catalog);
       if ((scene as any).sourceSha256 !== source(workspace)) throw Error('The saved lesson source is not loaded.');
-      if (!frame || !baseline || baselineSource !== source(workspace)) cameraFrame = saved?.cameraFrame;
-      if (waitForXrEntry && saved?.cameraFrame === 'desktop' && !workspace.snapshot().xrPresenting)
-        waitingForXrEntry = true;
-      const lessonChanged = selected?.id !== saved?.tourId;
-      const chapterChanged = lessonChanged || selected?.steps[step]?.id !== saved?.chapterId;
-      const localMotionPlaying = frame && !chapterChanged ? motionActive : undefined;
-      intents.invalidate(); clearTimer(); stopChapterMotion('restored');
-      const localMotionProgress = localMotionPlaying !== undefined ? motionProgress : undefined;
-      if (!saved) {
-        baseline = undefined; baselineSource = undefined; baselineIsLive = false; liveStep = undefined;
-        step = -1; scenes.clear(); stopped = false; autoplay = false; resumeOnVisible = false; navigating = false;
-        chapterStartedAt = undefined; chapterPreview = undefined; readoutPage = 0; forgetSpokenLine();
-        setStatus('Shared view restored.'); sync();
-        return;
-      }
-      // The peer's baseline supplies lesson content, but future Back/Done
-      // restores must still use this panel's own starting view.
-      if (frame) {
-        const localStart = (baselineSource === source(workspace) ? baseline : workspace.capture()) as any;
-        if (localStart?.camera) saved.startingScene.camera = structuredClone(localStart.camera);
-        if (localStart?.inspection?.placement)
-          saved.startingScene.inspection.placement = structuredClone(localStart.inspection.placement);
-      }
-      selected = catalog.find(tour => tour.id === saved.tourId)!;
-      step = selected.steps.findIndex(chapter => chapter.id === saved.chapterId);
-      baseline = saved.startingScene; baselineSource = (scene as any).sourceSha256;
-      baselineIsLive = false; liveStep = step; scenes.clear();
-      cacheScene(step, structuredClone(scene));
-      stopped = saved.stopped; autoplay = false; resumeOnVisible = false; navigating = false;
-      narrationEnabled = saved.narration !== false; openedByStart = saved.entry === 'start';
-      // A framed peer receipt keeps the headset camera. Its motion fraction
-      // must therefore stay local too, even if the peer already finished.
-      motionProgress = localMotionProgress ?? saved.motionProgress ?? 1; pendingMotionProgress = undefined;
-      const motionPlaying = localMotionPlaying === undefined ? saved.motionPlaying
-        : saved.motionPlaying || (localMotionPlaying && saved.motionProgress === 1);
-      forgetSpokenLine(); menu.value = selected.id; menuOpen = false; readoutPage = 0;
-      chapterStartedAt = readoutClock(); setStatus('Saved lesson scene restored. Use Back, Next, or Play.'); sync();
-      // A peer's lesson start or restart opens where the wearer put the
-      // molecule here too; only a peer's step into a close-up takes it over.
-      const takeover = frame && chapterChanged && !lessonChanged && !openedByStart
-        && chapterAuthorsFraming(selected, step, { xr: workspace.snapshot().xrPresenting === true })
-        && workspace.viewer.inspection.holdsWearerPlacement?.() === true;
-      if (takeover) workspace.viewer.inspection.beginChapterFraming?.();
-      // A fresh inspection can hand off while its opening turn is still
-      // transient. Restoring an active caption alone must not lose that turn.
-      // Legacy cursors have no motion clock and retain their saved view.
-      const resumeSavedMotion = () => {
-        if (!stopped && motionPlaying === true && motionProgress < 1 && !workspace.viewer.inspection.holdsWearerPlacement?.())
-          startChapterMotion(selected!, step, intents.issue(), motionProgress);
-      };
-      if (frame && chapterChanged && !workspace.viewer.inspection.holdsWearerPlacement?.()) {
-        const tour = selected, chapter = step, restoredSource = source(workspace), token = intents.issue();
-        const admitted = () => intents.isCurrent(token) && selected === tour && step === chapter
-          && source(workspace) === restoredSource && workspace.snapshot().ready === true;
-        return frameRestoredStep(tour.steps[chapter], admitted, takeover).then(() => {
-          if (admitted()) {
-            cacheScene(chapter, workspace.capture());
-            resumeSavedMotion();
-          }
-        });
-      }
-      if (frame) cacheScene(step, workspace.capture());
-      resumeSavedMotion();
+      // A framed peer receipt of this page's own chapter keeps this headset's
+      // turn as it is. Any other restore first brings the camera to the turn
+      // the cursor describes, as a visit would.
+      const keepsLocalTurn = frame && saved !== undefined && selected?.id === saved.tourId && selected?.steps[step]?.id === saved.chapterId;
+      const settling = keepsLocalTurn ? undefined : turnTowardsCursor(saved);
+      return settling ? settling.then(() => restoreCursor(scene, saved, frame, waitForXrEntry))
+        : restoreCursor(scene, saved, frame, waitForXrEntry);
     },
     back: backAction,
     next: nextAction,
@@ -3344,6 +3858,7 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
     },
     nextReadoutPage,
     narratingLine: () => spokenLine,
+    settleTurn: () => leaveLessonFrame('source-replaced'),
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     drawnScene: () => lastDrawn,
     async frameXrEntry() {
@@ -3358,7 +3873,13 @@ export function mountTourPlayer({ workspace, tours, after, autoDelayMs = 7_000, 
         await workspace.viewer.inspection.restoreTourSeat?.({ restart: true });
     },
     notifyMutation(snapshot, options) {
-      if (options?.origin === 'xr-entry' && snapshot?.xrPresenting) { waitingForXrEntry = false; cameraFrame = 'xr'; }
+      if (options?.origin === 'xr-entry' && snapshot?.xrPresenting) {
+        // A turn stopped before this entry was played in another frame, and
+        // so were the lesson moves before it. A turn still running carries on
+        // in this one, with the moves it has made here.
+        if (!motionActive) { chapterTurn = undefined; lessonMoves = undefined; }
+        waitingForXrEntry = false; cameraFrame = 'xr';
+      }
       // Installation and chapter paint emit the same receipts as external edits.
       if (applying) return;
       if(snapshot?.sourceSha256 && baselineSource && snapshot.sourceSha256!==baselineSource) continuationEpoch++;

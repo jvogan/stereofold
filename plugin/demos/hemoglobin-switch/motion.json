@@ -28,13 +28,13 @@
   "chapters": [
     {
       "id": "switch",
-      "title": "Hemoglobin switches from T to R",
-      "caption": "Green: alpha 1 beta 1, which stays fixed. Blue: alpha 2 beta 2, which turns 14.1 degrees about one axis. In the opening view you look straight down that axis. Once the turn starts, a faded copy marks where the pair began. Beta is the lighter shade in both pairs. When the turn ends, the T subunits give way to the deposited R subunits, with O2 on every heme. Then the R subunits give way to T again, without O2, and the pair turns back to its start, so the clip repeats. The path between the two deposited structures, in either direction, is illustrative.",
-      "durationSeconds": 14,
+      "title": "T to R, seen down the turn axis",
+      "caption": "Green alpha 1 beta 1 stays fixed. Blue alpha 2 beta 2 turns 14 degrees, and you look straight down its axis. A faded copy marks where it began. When the turn ends, the deposited R structure appears, with O2 on every heme. The path between is illustrative.",
+      "durationSeconds": 18,
       "changes": [
         {
           "kind": "hold",
-          "durationSeconds": 14
+          "durationSeconds": 18
         }
       ],
       "immersive": {
@@ -66,7 +66,7 @@
             "polymer"
           ]
         },
-        "narration": "The blue pair turns 14 degrees to R, O2 on every heme, then back.",
+        "narration": "The blue pair turns 14° and back. The path between is illustrative.",
         "motion": "hold",
         "emphasis": {
           "parts": [
@@ -1060,12 +1060,12 @@
     {
       "id": "overlay",
       "title": "T and R overlaid, at rest",
-      "caption": "The same colours as the turn: green alpha 1 beta 1, blue alpha 2 beta 2, beta the lighter shade. Solid: R. Faded: the T position of alpha 2 beta 2. Alpha 1 beta 1 is drawn once, in R, because it matches the T pair to 0.9 \u00c5 RMS over 285 alpha-carbon atoms. With it fitted, alpha 2 beta 2 in R is turned 14.1 degrees about one axis and shifted 1.3 \u00c5 along it. Its alpha carbons lie 5.2 \u00c5 RMS from their T positions.",
-      "durationSeconds": 12,
+      "caption": "The same colors as the turn. Solid: R. Faded: where alpha 2 beta 2 sits in T. With alpha 1 beta 1 fitted, alpha 2 beta 2 in R is turned 14.1 degrees about one axis and shifted 1.3 \u00c5 along it.",
+      "durationSeconds": 14,
       "changes": [
         {
           "kind": "hold",
-          "durationSeconds": 12
+          "durationSeconds": 14
         }
       ],
       "immersive": {

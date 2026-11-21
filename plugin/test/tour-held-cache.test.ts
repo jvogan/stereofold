@@ -5,7 +5,11 @@ import { mountTourPlayer } from '../src/tour-player.js';
 // @ts-ignore Production player with a DOM boundary; molecular rendering is adapted below.
 import { tourEndHarness } from '../../lab/browser-roundtrip/fixtures/tour-end-harness.mjs';
 
-const tour = molecularLessonToTour(JSON.parse(readFileSync(new URL('../demos/atp-synthase-rotor/motion.json', import.meta.url), 'utf8')));
+const atp = JSON.parse(readFileSync(new URL('../demos/atp-synthase-rotor/motion.json', import.meta.url), 'utf8'));
+// The shipped lesson ends on the held distance chapter. These checks need an
+// animated chapter after it, so the rotor chapter plays again as a closing turn.
+atp.chapters.push({ ...structuredClone(atp.chapters.find((chapter: { id: string }) => chapter.id === 'rotor')), id: 'turn' });
+const tour = molecularLessonToTour(atp);
 const copyId = '["copy","asymmetric_unit",null,[]]';
 function setup(xr = true, atomic = true) {
   const h = tourEndHarness({ xr });

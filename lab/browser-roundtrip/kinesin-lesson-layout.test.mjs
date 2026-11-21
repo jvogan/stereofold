@@ -16,10 +16,15 @@ test('kinesin opens with motion within one second and keeps scientific limitatio
   const first = motion.chapters[0];
   assert.equal(first.id,'two-steps');
   assert.equal(first.animation.playback.autoplay,true);
-  // The walk ends both heads bound two steps on and holds there; a replay
-  // would jump the dimer 16.3 nm back along a still lattice.
-  assert.equal(first.animation.playback.loop,false);
-  assert.equal(first.animation.durationSeconds,7,'two steps in about seven seconds');
+  // Two steps in about seven seconds, then both heads hold, bound two steps
+  // on, before the walk replays. The replay jumps the dimer 16.3 nm back
+  // along a still lattice, so it comes after a held pose, not mid-stride.
+  assert.equal(first.animation.playback.loop,true);
+  assert.equal(first.animation.durationSeconds,9);
+  const lastKey = Math.max(...first.animation.tracks.flatMap(t => t.keyframes.map(k => k.t)));
+  assert.ok(lastKey <= 7,'two steps in about seven seconds');
+  // The chapter shows whole replays: three walks in its time.
+  assert.equal(first.durationSeconds,3*first.animation.durationSeconds);
   // The rear head lets go at 0.35 s and is visibly swinging before 0.75 s.
   const free = first.animation.tracks.find(t => t.id === 'k1d'), edge = Vec3.add(Vec3(),free.pivot,[20,0,0]);
   const at = t => Vec3.transformMat4(Vec3(),edge,poseMatrix(evaluateTrack(free,t)));
@@ -30,7 +35,7 @@ test('kinesin opens with motion within one second and keeps scientific limitatio
     for (const plate of [...c.immersive.figure.labels,...c.immersive.figure.distances]) assert.ok(plate.sizeFactor >= 1.1);
 });
 
-test('the forward walk has no seamless loop seam on its fixed lattice', () => {
+test('the forward walk replays only after every part has held still', () => {
   const animation=motion.chapters[0].animation;
   for(const id of ['k1t','k2a','neck']) {
     const track=animation.tracks.find(t=>t.id===id);
@@ -38,7 +43,14 @@ test('the forward walk has no seamless loop seam on its fixed lattice', () => {
     assert.ok(Vec3.distance(start.translation,end.translation)>160,`${id} advances more than 16 nm`);
   }
   assert.ok(!animation.tracks.some(t=>t.chains.some(c=>/^T[AB]/.test(c))),'the lattice stays fixed');
-  assert.equal(animation.playback.loop,false,'a modulo-clock repeat would teleport the dimer back');
+  // A modulo-clock repeat teleports the dimer back. At least two seconds of
+  // stillness before it make it read as a replay, not a seam in the stride.
+  const changed = (a,b) => Vec3.distance(a.translation,b.translation) > 1e-6 || a.rotation.some((v,j) => Math.abs(v-b.rotation[j]) > 1e-6);
+  const lastMove = Math.max(...animation.tracks.flatMap(t => t.keyframes.filter((k,i) => i && changed(k,t.keyframes[i-1])).map(k => k.t)));
+  const lastSwap = Math.max(...animation.tracks.flatMap(t => (t.visibility ?? []).map(v => v.t)));
+  const still = animation.durationSeconds-Math.max(lastMove,lastSwap);
+  assert.ok(still >= 2,`the walk holds ${still.toFixed(2)} s before it replays`);
+  assert.equal(animation.playback.loop,true);
 });
 
 test('the walking dimer stays one molecule within its linker reach', {skip:!cache}, () => {
@@ -78,18 +90,20 @@ test('no two parts of the walk pass through each other, swept every 10 ms', {ski
 test('walking plates clear the motor and each other every 0.1 s, at swaps and across replay', {skip:!cache}, () => {
   const atoms = coordinates(`${cache}/kinesin-walk-motion.cif`,motion.provenance.sourceSha256);
   const chapter = motion.chapters[0], scene = prepareLabelScene(chapter,atoms), seat = demoSeats['kinesin-walk'];
-  const allow = walkPlateAllowance(chapter), crossing = new Map(chapter.immersive.figure.labels.map(l => [l.id,new Set()]));
+  const allow = walkPlateAllowance(), crossing = new Map(chapter.immersive.figure.labels.map(l => [l.id,new Set()]));
   for(const placement of [1,seat.placement]) for(const eye of [-.032,.032]) for(const t of sampleTimes(chapter)) {
     const f = labelFrame(scene,seat,t,placement,eye);
-    assert.equal(f.labels.length,5,`one plate per head, the coil, the plus end and the track at ${t}`);
-    for (const h of [1,2]) assert.equal(f.labels.filter(l => l.id.startsWith(`k${h}`)).length,1,`one head ${h} plate at ${t}`);
+    // The coil, plus end and track are always named. A head has at most one
+    // plate; a bound head's ATP plate hides while the other head swings past.
+    for (const id of ['coil-name','plus-end','track-name']) assert.ok(f.labels.some(l => l.id === id),`${id} at ${t}`);
+    for (const h of [1,2]) assert.ok(f.labels.filter(l => l.id.startsWith(`k${h}`)).length <= 1,`at most one head ${h} plate at ${t}`);
     assert.equal(countPlateOverlaps(f.labels),0,`plate collision at ${t}, scale ${placement}`);
     for(const {rect} of f.labels) {
       assert.ok(Math.abs(rect.x)+rect.halfWidth<=PLATE_FIELD.halfWidth,'plate stays inside horizontal field');
       assert.ok(Math.abs(rect.y)+rect.halfHeight<=PLATE_FIELD.halfHeight,'plate stays inside vertical field');
     }
-    // No plate covers tubulin or a head, apart from the waiting free head
-    // just after ATP binds; head plates may cross a linker, the coil or the stalk.
+    // No plate sits on a part it does not name: a head plate may cover its
+    // own head and cross a linker, the coil or the stalk, never the other head.
     for(const label of f.labels) for(const body of f.bodies) if (platesOverlap(label,body)) {
       const allowed = allow(label.id,body.id,t);
       assert.ok(allowed,`${label.id} covers ${body.id} at ${t}, scale ${placement}`);
@@ -184,7 +198,7 @@ test('the still overview names its six parts without covering any of them', {ski
   // plate within reach of it stands over a head and reads as that head's tag.
   // The caption discloses it instead.
   assert.ok(!still.immersive.figure.labels.some(l=>/^N2/.test(l.target.chain)),'no plate on the modelled linker');
-  assert.match(still.caption,/the pale linker is modelled/);
+  assert.match(still.caption,/the pale linker.* are modeled/);
   for(const placement of [1,seat.placement]) for(const eye of [-.032,.032]) {
     const f=labelFrame(scene,seat,0,placement,eye);
     assert.equal(f.labels.length,6);

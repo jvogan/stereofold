@@ -271,7 +271,7 @@
     {
       "id": "orbit",
       "title": "Outside",
-      "caption": "The two EB3 chains, M and N, are human and 203 residues; the twelve tubulin chains are pig.",
+      "caption": "Human EB3 chains M and N: only their first 131 residues are modelled. The tubulin is pig.",
       "durationSeconds": 12,
       "changes": [
         {
@@ -496,7 +496,7 @@
     {
       "id": "highlight",
       "title": "Four corners",
-      "caption": "The surface makes the extra chains obvious: EB3 binds where four tubulin subunits meet, reading the lattice.",
+      "caption": "EB3 binds where four tubulin subunits meet, reading the lattice.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -990,7 +990,7 @@
     {
       "id": "wide",
       "title": "EB3, not EB1",
-      "caption": "EB3’s GTPgammaS lattice may mimic a hydrolysis intermediate, possibly GDP·Pi; no growing end is shown.",
+      "caption": "This GTPgammaS lattice may mimic a hydrolysis intermediate, possibly GDP·Pi; no growing end is shown.",
       "durationSeconds": 9,
       "changes": [
         {
@@ -1227,7 +1227,7 @@
           "contextOpacity": 0.18,
           "framing": "fill"
         },
-        "narration": "EB3’s lattice may mimic a hydrolysis intermediate.",
+        "narration": "This lattice may mimic a hydrolysis intermediate.",
         "motion": {
           "kind": "turntable",
           "degrees": 30,

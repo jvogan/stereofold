@@ -1,7 +1,100 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 
+import * as entryFallback from '../src/xr-entry-fallback.js';
 import { enterImmersiveWithFallback, XR_AR_FALLBACK_MODE } from '../src/xr-entry-fallback.js';
+
+// Read off the namespace so this file still loads where the wait is absent.
+const readyWaitMs = (entryFallback as Record<string, unknown>).XR_READY_WAIT_MS as number | undefined;
+// The refusal the viewer makes before any session request while its scene is
+// changing (`immersive-session.mjs`).
+const notReady = () => Object.assign(Error('Load a ready structure before entering immersion.'), { code: 'xr_unavailable', notReady: true });
+// A scripted clock whose frames come every 16 ms.
+function scene(readyAtMs: number, activationUntilMs?: number) {
+  let now = 0;
+  return {
+    ready: () => now >= readyAtMs,
+    now: () => now,
+    nextFrame: (callback: () => void) => { now += 16; void Promise.resolve().then(callback); },
+    activationActive: () => (activationUntilMs === undefined ? undefined : now < activationUntilMs),
+    get time() { return now; },
+  };
+}
+// The viewer's entry: refused while the scene is changing, else one session request.
+function viewer(clock: { ready: () => boolean }, answer: (mode: string) => Promise<unknown> = () => Promise.resolve('session')) {
+  const attempts: string[] = [], requests: string[] = [];
+  const enter = (mode: string) => {
+    attempts.push(mode);
+    if (!clock.ready()) return Promise.reject(notReady());
+    requests.push(mode);
+    return answer(mode);
+  };
+  return { enter, attempts, requests };
+}
+
+describe('an Enter VR press that lands while the scene is changing', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  it('never spends the plain VR retry on a scene that was still changing', async () => {
+    const notes: string[] = [];
+    const entry = viewer({ ready: () => false });
+    await expect(enterImmersiveWithFallback(entry.enter, 'immersive-ar', error => notes.push(error.message))).rejects.toMatchObject({ notReady: true });
+    expect(entry.attempts).toEqual(['immersive-ar']);
+    expect(notes).toEqual([]);
+  });
+
+  it('waits for the scene, then makes one session request from the same press', async () => {
+    const clock = scene(1000), notes: string[] = [];
+    const entry = viewer(clock);
+    const session = await (enterImmersiveWithFallback as (...args: unknown[]) => Promise<unknown>)(entry.enter, 'immersive-ar', (error: Error) => notes.push(error.message), clock);
+    expect(session).toBe('session');
+    expect(entry.requests).toEqual(['immersive-ar']);
+    expect(notes).toEqual([]);
+    expect(clock.time).toBeGreaterThanOrEqual(1000);
+    expect(clock.time).toBeLessThan(1000 + 16 * 2);
+  });
+
+  it('gives up at the bound, inside the activation window, without asking', async () => {
+    expect(readyWaitMs).toBeGreaterThan(0);
+    expect(readyWaitMs).toBeLessThan(5000);
+    const clock = scene(60_000), entry = viewer(clock);
+    await expect((enterImmersiveWithFallback as (...args: unknown[]) => Promise<unknown>)(entry.enter, 'immersive-ar', () => {}, clock)).rejects.toMatchObject({ notReady: true });
+    expect(entry.requests).toEqual([]);
+    expect(entry.attempts).toEqual(['immersive-ar']);
+    expect(clock.time).toBeGreaterThanOrEqual(readyWaitMs!);
+    expect(clock.time).toBeLessThan(readyWaitMs! + 16 * 2);
+  });
+
+  it('stops waiting once the browser says the press no longer counts', async () => {
+    const clock = scene(3000, 2000), entry = viewer(clock);
+    await expect((enterImmersiveWithFallback as (...args: unknown[]) => Promise<unknown>)(entry.enter, 'immersive-ar', () => {}, clock)).rejects.toMatchObject({ notReady: true });
+    expect(entry.requests).toEqual([]);
+    expect(clock.time).toBeLessThan(2000 + 16 * 2);
+  });
+
+  it('gives up at the bound even when no frame comes, as in a hidden page', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let now = 0, settled: unknown;
+    const frames: Array<() => void> = [];
+    const stalled = { ready: () => false, now: () => now, nextFrame: (callback: () => void) => { frames.push(callback); }, activationActive: () => undefined };
+    const entry = viewer(stalled);
+    void (enterImmersiveWithFallback as (...args: unknown[]) => Promise<unknown>)(entry.enter, 'immersive-ar', () => {}, stalled)
+      .then(() => { settled = 'entered'; }, error => { settled = error; });
+    await vi.advanceTimersByTimeAsync(0);
+    now = 5000; await vi.advanceTimersByTimeAsync(5000);
+    expect(settled).toMatchObject({ notReady: true });
+    expect(entry.requests).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps the plain VR retry for a real refusal after the wait', async () => {
+    const clock = scene(500), notes: string[] = [];
+    const entry = viewer(clock, mode => (mode === 'immersive-ar' ? Promise.reject(Error('AR refused')) : Promise.resolve('session')));
+    const session = await (enterImmersiveWithFallback as (...args: unknown[]) => Promise<unknown>)(entry.enter, 'immersive-ar', (error: Error) => notes.push(error.message), clock);
+    expect(session).toBe('session');
+    expect(entry.requests).toEqual(['immersive-ar', 'immersive-vr']);
+    expect(notes).toEqual(['AR refused']);
+  });
+});
 
 describe('the Enter VR button on a Quest that reports passthrough it will not give', () => {
   it('asks for plain VR once when the passthrough request is refused', async () => {

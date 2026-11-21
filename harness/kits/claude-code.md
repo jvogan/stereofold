@@ -204,11 +204,11 @@ fails.
 ### When the headset dims every ten seconds
 
 Send the Web Launch link once and press **Open** on it once. Two sends ten
-seconds apart hung Quest Browser in a 2026-09-11 test: Android put its
+seconds apart can hang Quest Browser: Android puts its
 "com.oculus.browser isn't responding" dialog over the wearer every ten seconds
-for the rest of that session, which looks like the whole world dimming for a few
+for the rest of the session, which looks like the whole world dimming for a few
 seconds at a time, pauses any running tour, and makes agent commands come back
-as "companion busy". Only pressing **Close app** inside the headset ended it.
+as "companion busy". Only pressing **Close app** inside the headset ends it.
 The host refuses a second Web Launch within one minute and says why.
 
 With adb configured, the agent can read the cause instead of guessing. Both
@@ -358,9 +358,9 @@ the network; the Mac's microphone is not involved and no keystroke is sent. A
 tap shorter than 150 ms is not a press: it buzzes and opens nothing
 (`TALK_MIN_HOLD_MS`, `lab/browser-roundtrip/xr-buttons.mjs`).
 
-Both grips grab and scale the structure instead. The left grip stopped starting
-push-to-talk on 2026-09-10, after a wearer who squeezed it to steady a two-hand
-scale opened a microphone.
+Both grips grab and scale the structure instead. The left grip does not start
+push-to-talk, because a wearer who squeezes it to steady a two-hand scale would
+open a microphone.
 
 With hand tracking and no controllers there is no button to hold. Point at the
 **Talk** row in the in-headset menu and pull the trigger, or pinch index finger
@@ -476,7 +476,7 @@ Five deliveries run independently. A failure in one never stops the others.
    Each finished utterance prints as one line on stdout:
 
    ```
-   VOICE 2026-09-09T21:14:08.912Z open the microtubule lattice
+   VOICE 2026-01-01T12:00:00.000Z open the microtubule lattice
    ```
 
    A Claude Code session watches that stream and acts on what it reads. The

@@ -130,3 +130,24 @@ it('tells the headset viewer the turn each chapter will sweep while it paints', 
     expect(painted).toEqual([['reveal', undefined], undefined, ['orbit', spin], undefined, ['highlight', undefined], undefined]);
   } finally { player.pause(); h.cleanup(); }
 });
+
+// A demo opened on a source paints its opening chapter through the lesson
+// install, not a chapter visit. CRISPR-Cas9 opens on a spin, and its glass was
+// proven for the authored angle alone, so the DNA end turned behind the menu.
+// Only the glass takes the turn: the opening chapter keeps the size it frames at.
+it('tells the headset viewer an opening spin chapter its turn while the install paints it', async () => {
+  const spin = { axis: [0, 1, 0], degrees: 360, continuous: true };
+  for (const [file, opening] of [['crispr-cas9.json', ['complex', spin, true]], ['telomerase-haca.json', undefined]] as const) {
+    const tour = molecularLessonToTour(demo(file));
+    const { h, player } = mount(tour, true);
+    const painted: unknown[] = [];
+    h.workspace.viewer.inspection.chapterPainting = (chapterId: string | undefined, options?: { turn?: unknown, glassOnly?: boolean }) => {
+      painted.push(chapterId === undefined ? undefined : [chapterId, options?.turn, options?.glassOnly]);
+    };
+    try {
+      await player.installLesson(tour, { autoplay: false, narration: false }, undefined, 'entry');
+      expect(player.getState()).toMatchObject({ step: 0 });
+      expect(painted).toEqual(opening ? [opening, undefined] : []);
+    } finally { player.pause(); h.cleanup(); }
+  }
+});

@@ -13,7 +13,8 @@ import { evaluateTrack } from '../../../packages/motion/src/keyframes.mjs';
 import { readCachedDemoCoordinates } from '../demo-cache.mjs';
 
 const demos = [ ['kinesin-walk', 'kinesin-walk-motion.cif'],
-  ['atp-synthase-rotor', 'atp-synthase-rotor-motion.cif'], ['hemoglobin-switch', 'hemoglobin-tr-motion.cif'] ];
+  ['atp-synthase-rotor', 'atp-synthase-rotor-motion.cif'], ['hemoglobin-switch', 'hemoglobin-tr-motion.cif'],
+  ['daraxonrasib-assembly', 'daraxonrasib-assembly-motion.cif'] ];
 const result = [];
 for (const [demo, file] of demos) {
   const text = readCachedDemoCoordinates(demo, 'motion', { cache: resolve(process.argv[2]) });

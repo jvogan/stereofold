@@ -1,10 +1,10 @@
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
-import { accessSync, constants } from 'node:fs';
+import { accessSync, constants, statSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { voiceAudioSchema, type VoiceTranscriber } from './inspection-voice.js';
 import {
-  PYTHON3_CONFIG_KEY, executable, findOnPath, helperSearchAdvice, readLocalConfig, type LocalConfig,
+  OAUTH_AUTH_HELPER_CONFIG_KEY, PYTHON3_CONFIG_KEY, executable, findOnPath, helperSearchAdvice, readLocalConfig, type LocalConfig,
 } from './local-helper-config.js';
 
 export const OAUTH_VOICE_TIMEOUT_MS = 45_000;
@@ -86,6 +86,41 @@ export function oauthTranscriptionState(options: PythonLookup & { script?: strin
   const script = options.script ?? TRANSCRIBE_SCRIPT;
   if (!readable(script)) return { ready: false, reason: `Voice recognition is off: the transcription helper is missing at ${script}. Reinstall the plugin to restore it.`, python };
   return { ready: true, python };
+}
+
+/** The variable and file name `assets/oauth-transcribe.py` finds its OAuth module by. */
+export const OAUTH_AUTH_HELPER_ENV = 'STEREOFOLD_OAUTH_AUTH_HELPER';
+export const OAUTH_AUTH_HELPER_NAME = 'stereofold-oauth-auth.py';
+
+function readableFile(path: string): boolean {
+  try { if (!statSync(path).isFile()) return false; accessSync(path, constants.R_OK); return true; } catch { return false; }
+}
+
+/**
+ * Whether the headset Talk route can start on this Mac, without running it.
+ *
+ * The Talk row records the headset microphone for `voice_command`, which runs
+ * `assets/oauth-transcribe.py`. That needs a Python 3, the script, and the
+ * OAuth module the script imports, which the script finds by environment
+ * variable, then config key, then PATH; an explicit name that is relative or
+ * unreadable fails there even when PATH holds a candidate. This looks in the
+ * same order. Credentials are not checked, so `true` means a request will be
+ * tried, not that it will be transcribed, and anything this lookup cannot
+ * settle answers `true`: only a route that certainly cannot start is `false`.
+ */
+export function oauthTalkRouteAvailable(options: PythonLookup & { script?: string; scriptExists?: (path: string) => boolean;
+  moduleReadable?: (path: string) => boolean } = {}): boolean {
+  try {
+    if (!oauthTranscriptionState(options).ready) return false;
+    const env = options.env ?? process.env, readable = options.moduleReadable ?? readableFile;
+    let named = (env[OAUTH_AUTH_HELPER_ENV] ?? '').trim();
+    if (!named) {
+      const settings = options.config ?? readLocalConfig({ env, ...(options.home === undefined ? {} : { home: options.home }) });
+      named = (settings[OAUTH_AUTH_HELPER_CONFIG_KEY] ?? '').trim();
+    }
+    if (named) return isAbsolute(named) && readable(named);
+    return findOnPath(OAUTH_AUTH_HELPER_NAME, env, readable) !== undefined;
+  } catch { return true; }
 }
 
 function decodePcm(base64: string, durationMs: number) {

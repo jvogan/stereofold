@@ -23,7 +23,7 @@ const cif = await readFile(new URL('../../../fixtures/1CRN.cif', import.meta.url
 
 export type Binding = { serverEpoch: string; sourceToken: string; baseStateRevision: number; baseInspectionRevision: number };
 
-export async function sharedPanelSession() {
+export async function sharedPanelSession({ now }: { now?: () => number } = {}) {
   const folder = await mkdtemp(join(tmpdir(), 'stereofold-placement-save-'));
   await writeFile(join(folder, 'inspector.html'), '<html><script>void 0;</script></html>');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -31,6 +31,7 @@ export async function sharedPanelSession() {
     replyAudio: createReplyAudioSynthesizer({ enabled: false }),
     headsetDevice: { exists: async () => false, run: async () => { throw Error('No headset in this test.'); } },
     sceneServiceFile: join(folder, 'scene-service.json'),
+    ...(now ? { now } : {}),
   } as Parameters<typeof createStereoStructureServer>[1]);
   const client = new Client({ name: 'Stereofold placement save test', version: '1' });
   await server.connect(serverTransport);

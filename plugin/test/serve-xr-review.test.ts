@@ -84,6 +84,11 @@ describe('serve-xr-review', () => {
       const origin = `http://127.0.0.1:${review.port}`;
       const page = await fetch(`${origin}/`);
       expect(page.status).toBe(200);
+      // The inspector runs here under this host's own policy, which must
+      // refuse inline event handler attributes as the companion's does.
+      const policy = page.headers.get('content-security-policy') ?? '';
+      expect(policy.split(';').map(part => part.trim())).toContain("script-src-attr 'none'");
+      expect(policy).toContain("script-src 'self' 'unsafe-inline' blob:");
       const html = await page.text();
       expect(html).toContain('window.__STEREOFOLD_COMPANION__=true');
       expect(html).toContain('/iwer.js');
@@ -99,7 +104,8 @@ describe('serve-xr-review', () => {
       expect(setup).toContain("selectedLabel?.startsWith('More text ')");
       expect(setup).toContain('The selected toolbar control is not present in the current active-tour row layout');
       expect(() => new Function(setup)).not.toThrow();
-      const localToken = html.match(/location\.hash="#([a-f0-9]{64})"/)?.[1];
+      const localToken = new URL(review.url).hash.slice(1);
+      expect(html).not.toContain(localToken);
       expect(localToken).toMatch(/^[a-f0-9]{64}$/);
       const unauthorized = await fetch(`${origin}/tool`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: '{}' });
       expect(unauthorized.status).toBe(401);
@@ -119,6 +125,52 @@ describe('serve-xr-review', () => {
       expect(await source.text()).toBe('coordinates');
       const arbitrary = await fetch(`${origin}/agent`, { headers: { Authorization: `Bearer ${localToken}` } });
       expect(arbitrary.status).toBe(403);
+    } finally {
+      await review?.close();
+      await new Promise<void>(resolve => upstream.close(() => resolve()));
+    }
+  });
+
+  it('hands its bearer only to the printed launch address, never to the public page', async () => {
+    const upstreamToken = 'b'.repeat(64);
+    const upstream = createServer((request, response) => {
+      response.writeHead(200, { 'Content-Type': request.url === '/source' ? 'application/octet-stream' : 'application/json' });
+      response.end(request.url === '/source' ? 'coordinates' : '{"ok":true}');
+    });
+    const upstreamPort = await listen(upstream);
+    const directory = await mkdtemp(join(tmpdir(), 'stereofold-xr-review-'));
+    const runtimePath = join(directory, 'iwer.min.js'), companionFile = join(directory, 'launch.json');
+    const bridgeDirectory = join(directory, 'bridge');
+    await writeFile(runtimePath, 'globalThis.IWER = {};');
+    await writeFile(companionFile, JSON.stringify({ companion: { url: `http://127.0.0.1:${upstreamPort}/#${upstreamToken}` } }));
+    let review: Awaited<ReturnType<typeof createXrReviewServer>> | undefined;
+    try {
+      review = await createXrReviewServer({ runtimePath, companionFile, port: 0, bridgeDirectory });
+      const origin = `http://127.0.0.1:${review.port}`;
+      // Everything a local process can read without a key: the page and its two scripts.
+      const published = (await Promise.all(['/', '/iwer.js', '/setup.js']
+        .map(async path => (await fetch(`${origin}${path}`)).text()))).join('\n');
+      const candidates = [...new Set(published.match(/[a-f0-9]{64}/g) ?? [])];
+      for (const candidate of candidates) {
+        const headers = { Authorization: `Bearer ${candidate}` };
+        const post = { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json', Origin: origin }, body: '{}' };
+        expect((await fetch(`${origin}/source`, { headers })).status, 'GET /source').toBe(401);
+        expect((await fetch(`${origin}/tool`, post)).status, 'POST /tool').toBe(401);
+        expect((await fetch(`${origin}/bridge`, post)).status, 'POST /bridge').toBe(401);
+      }
+      const launch = new URL(review.url);
+      expect(launch.origin).toBe(origin);
+      expect(launch.pathname).toBe('/');
+      const key = launch.hash.slice(1);
+      expect(key).toMatch(/^[a-f0-9]{64}$/);
+      expect(published).not.toContain(key);
+      const source = await fetch(`${origin}/source`, { headers: { Authorization: `Bearer ${key}` } });
+      expect(source.status).toBe(200);
+      expect(await source.text()).toBe('coordinates');
+      const tool = await fetch(`${origin}/tool`, {
+        method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Origin: origin }, body: '{}',
+      });
+      expect(tool.status).toBe(200);
     } finally {
       await review?.close();
       await new Promise<void>(resolve => upstream.close(() => resolve()));

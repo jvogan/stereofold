@@ -399,8 +399,14 @@ describe('host rotation during a live conversation', () => {
       host.send(edit('buffered'));
       await host.until(() => host.calls.some(call => call.name === 'update_inspection' && call.arguments.commandId === 'first')
         && host.readIds.includes('buffered'));
-      await host.rotate({ sessionId: 'session-2', serverEpoch: 'epoch-2' });
+      // The synthetic host answers as the rotated one from the moment its
+      // identity changes. The loop can read the new control file and poll
+      // before this test resumes, and a first poll answered from the old
+      // replies would hand the new session the old cursor.
       rotated = true;
+      await host.rotate({ sessionId: 'session-2', serverEpoch: 'epoch-2' });
+      await host.until(() => host.calls.some(call => call.name === 'listen_voice'
+        && call.host.sessionId === 'session-2' && call.arguments.cursor === undefined));
       await host.until(() => host.lines.some(line => line.text === 'NEW_REQUEST'));
       host.send(edit('new'));
       await host.until(() => host.lines.filter(line => line.type === 'result').length === 3);

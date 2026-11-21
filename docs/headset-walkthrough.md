@@ -80,11 +80,14 @@ For Claude Code and Codex:
 7. Wait for the page to pair. The link carries the one-time code, so you type
    nothing. A headset that paired before uses its saved key instead. The key
    lasts 30 days, and lapses sooner after 14 days without use.
-8. Tap **Enter VR**. The page may ask for microphone permission at this tap
-   so a later headset talk press can work. Allow it if you want headset voice;
-   microphone access is optional for viewing and manual controls. If Quest asks a
-   mixed-reality permission question, answer it: the passthrough request waits
-   until you do.
+8. Tap **Enter VR**. When headset voice is on, Quest Browser asks for the
+   microphone at the first tap, so a later talk press can work, and the page
+   says "Answer the microphone prompt, then press Enter VR again." Answer the
+   prompt and tap **Enter VR** again. Allow the microphone if you want headset
+   voice; it is optional for viewing and manual controls. With headset voice
+   off, the page does not ask once this Mac has reported that no voice route
+   will use the microphone. If Quest asks a mixed-reality permission
+   question, answer it: the passthrough request waits until you do.
 
 **Enter VR** prefers passthrough, which is grayscale on a Quest 2, and falls
 back to opaque VR if passthrough is unavailable or refused. **Enter plain VR**,
@@ -358,9 +361,10 @@ pnpm --dir plugin run demo microtubule-lattice
 one tubulin monomer to the complete tube. Say "grow it" or "add tubulin" for
 the next tier, "shrink it" for the previous one, "build the wall" for the wall
 tier and "cap it" for the tip. The coordinates and the lesson change while the
-session, placement and scale stay. A Quest 2 refuses any tier above 43,066
-atom sites and says "Too big for this headset. Staying here."; on a Quest 2
-that is the full tube. No other headset has a measured limit.
+session, placement and scale stay. A Quest 2 refuses a tier above 43,066
+atom sites and says "Too big for this headset. Staying here."; the full tube is
+the one exception, admitted as that exact structure. No other headset has a
+measured limit.
 `microtubule-arrival` separately reveals deposited tubulin copies in stages;
 those visibility changes illustrate assembly without simulating its kinetics.
 
@@ -387,7 +391,7 @@ the headset pairs; Ctrl-C closes the session and the listener.
 | --- | --- |
 | `--browser "Google Chrome"` | Opens the links in that browser, for a Meta sign-in that lives outside your default browser. `STEREOFOLD_BROWSER` does the same. |
 | `--no-web-launch` | Skips the Web Launch page. |
-| `--no-ptt` | Leaves the headset microphone off. |
+| `--no-ptt` | Turns the headset microphone off for this share. Neither the **Talk** row nor the A or X button records or transcribes speech. This Mac reports that no voice route will use the microphone, and once the page has that report **Enter VR** does not ask for it. `--ptt` later on the same command line turns it back on. |
 | `--open-on-quest` | Opens the address over an authorized adb cable instead. |
 | `--share-hours <hours>` | Sets the share's hard stop, from 0.5 through 24. The default is 8. |
 | `--lan-port <port>` | Serves on another port. The default is 8443. |
@@ -453,6 +457,11 @@ for, such as "Quest hasn’t accepted the passthrough request. Reload to try
 again." Press **Reload to retry VR**, or open **More options** and tap
 **Enter plain VR**. When Quest refuses passthrough outright, the page opens
 plain VR by itself and says "Passthrough refused; opening plain VR…".
+
+**A or X says "Voice unavailable. Use the menu controls instead."** Headset
+voice is off for this share: either it was started with `--no-ptt`, or
+controller push-to-talk is off and the **Talk** row's OAuth helper is not set
+up. Start the share with voice on to talk.
 
 **A or X records nothing.** If you refused the microphone, Quest Browser does
 not ask again: allow the microphone for this address in Quest Browser's site
